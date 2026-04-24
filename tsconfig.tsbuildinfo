@@ -1,0 +1,1 @@
+{"root":["./src/main.tsx","./src/routetree.gen.ts","./src/theme.ts","./src/vite-env.d.ts","./src/auth/authprovider.test.tsx","./src/auth/authprovider.tsx","./src/routes/__root.tsx","./src/routes/index.tsx","./src/routes/login.test.tsx","./src/routes/login.tsx","./src/routes/profile.tsx","./src/test/setup.ts","./amplify/backend.ts","./amplify/auth/resource.ts"],"version":"5.7.3"}
