@@ -1,4 +1,8 @@
-import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
+import {
+  createRootRouteWithContext,
+  Link,
+  Outlet,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import {
   Box,
@@ -44,12 +48,17 @@ function RootComponent() {
             My App
           </Typography>
           {auth.isAuthenticated ? (
-            <Button color="inherit" onClick={() => auth.signOut()}>
-              登出
-            </Button>
+            <>
+              <Button color="inherit" component={Link} to="/profile">
+                個人資料
+              </Button>
+              <Button color="inherit" onClick={() => auth.signOut()}>
+                登出
+              </Button>
+            </>
           ) : (
-            <Button color="inherit" onClick={() => auth.signInWithGoogle()}>
-              Google 登入
+            <Button color="inherit" component={Link} to="/login">
+              登入
             </Button>
           )}
         </Toolbar>

@@ -1,6 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Box, Typography, Button, Paper, Avatar } from "@mui/material";
-import GoogleIcon from "@mui/icons-material/Google";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -22,15 +21,10 @@ function HomePage() {
             歡迎
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            請使用 Google 帳號登入以繼續
+            請登入以繼續使用
           </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<GoogleIcon />}
-            onClick={() => auth.signInWithGoogle()}
-          >
-            使用 Google 登入
+          <Button variant="contained" size="large" component={Link} to="/login">
+            前往登入
           </Button>
         </Paper>
       </Box>

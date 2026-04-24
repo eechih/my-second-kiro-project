@@ -9,6 +9,9 @@ import {
 import {
   getCurrentUser,
   signOut as amplifySignOut,
+  signIn as amplifySignIn,
+  signUp as amplifySignUp,
+  confirmSignUp as amplifyConfirmSignUp,
   signInWithRedirect,
   fetchUserAttributes,
   type AuthUser,
@@ -21,6 +24,12 @@ export interface AuthContext {
   user: AuthUser | null;
   userAttributes: Record<string, string | undefined> | null;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ isSignUpComplete: boolean; nextStep: string }>;
+  confirmSignUp: (email: string, code: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -81,6 +90,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithRedirect({ provider: "Google" });
   }, []);
 
+  const signInWithEmail = useCallback(
+    async (email: string, password: string) => {
+      await amplifySignIn({ username: email, password });
+      await checkUser();
+    },
+    [checkUser],
+  );
+
+  const signUpWithEmail = useCallback(
+    async (email: string, password: string) => {
+      const result = await amplifySignUp({
+        username: email,
+        password,
+        options: { userAttributes: { email } },
+      });
+      return {
+        isSignUpComplete: result.isSignUpComplete,
+        nextStep: result.nextStep.signUpStep,
+      };
+    },
+    [],
+  );
+
+  const confirmSignUp = useCallback(async (email: string, code: string) => {
+    await amplifyConfirmSignUp({ username: email, confirmationCode: code });
+  }, []);
+
   const signOut = useCallback(async () => {
     await amplifySignOut();
     setUser(null);
@@ -95,6 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         userAttributes,
         signInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
+        confirmSignUp,
         signOut,
       }}
     >
