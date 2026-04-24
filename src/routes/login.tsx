@@ -6,12 +6,10 @@ import {
   Typography,
   TextField,
   Button,
-  Divider,
   Alert,
   Link,
   CircularProgress,
 } from "@mui/material";
-import GoogleIcon from "@mui/icons-material/Google";
 import EmailIcon from "@mui/icons-material/Email";
 
 type AuthMode = "signIn" | "signUp" | "confirmSignUp";
@@ -196,18 +194,6 @@ function LoginPage() {
                 </Typography>
               )}
             </Box>
-
-            <Divider sx={{ mb: 2 }}>或</Divider>
-
-            <Button
-              variant="outlined"
-              fullWidth
-              size="large"
-              startIcon={<GoogleIcon />}
-              onClick={() => auth.signInWithGoogle()}
-            >
-              使用 Google 登入
-            </Button>
           </>
         )}
       </Paper>

@@ -12,18 +12,15 @@ import {
   signIn as amplifySignIn,
   signUp as amplifySignUp,
   confirmSignUp as amplifyConfirmSignUp,
-  signInWithRedirect,
   fetchUserAttributes,
   type AuthUser,
 } from "aws-amplify/auth";
-import { Hub } from "aws-amplify/utils";
 
 export interface AuthContext {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: AuthUser | null;
   userAttributes: Record<string, string | undefined> | null;
-  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (
     email: string,
@@ -66,29 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    checkUser();
-
-    const hubListener = Hub.listen("auth", ({ payload }) => {
-      switch (payload.event) {
-        case "signInWithRedirect":
-          checkUser();
-          break;
-        case "signInWithRedirect_failure":
-          setIsLoading(false);
-          break;
-        case "signedOut":
-          setUser(null);
-          setUserAttributes(null);
-          break;
-      }
-    });
-
-    return () => hubListener();
+    // Guard against getCurrentUser hanging (e.g. network issues)
+    const timeout = setTimeout(() => setIsLoading(false), 5000);
+    checkUser().finally(() => clearTimeout(timeout));
   }, [checkUser]);
-
-  const signInWithGoogle = useCallback(async () => {
-    await signInWithRedirect({ provider: "Google" });
-  }, []);
 
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
@@ -130,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         user,
         userAttributes,
-        signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
         confirmSignUp,
