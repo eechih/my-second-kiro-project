@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Generate Component Tests",
+  "description": "當儲存 React component 檔案（.tsx）時，自動為該 component 建立基本測試檔案（如果尚未存在）。測試檔案會放在同層目錄下，命名為 *.test.tsx。",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/**/*.tsx"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The file {file} was just saved. Check if it exports a React component (look for JSX returns or React.FC types). If it does, check whether a corresponding test file already exists in the same directory (e.g., ComponentName.test.tsx). If no test file exists yet, create a basic test file that:\n1. Imports the component\n2. Includes a smoke test that renders the component without crashing\n3. Includes a snapshot test or basic assertion checking the component renders expected content\n4. Uses Vitest and React Testing Library syntax (import { render, screen } from '@testing-library/react', import { describe, it, expect } from 'vitest')\n5. Wraps the component in any necessary providers if the component uses context (e.g., ThemeProvider, AuthProvider)\n\nIf a test file already exists, do nothing. If the file is not a component (e.g., it's a type file, utility, or config), do nothing."
+  }
+}
