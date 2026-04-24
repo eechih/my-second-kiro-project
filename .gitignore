@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# Amplify
+amplify_outputs.json
+amplify_outputs.d.ts
+.amplify/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# TanStack Router generated
+src/routeTree.gen.ts
