@@ -26,7 +26,7 @@
   - **入庫確認**：增加 ProductVariant（或 Product）庫存 + 更新 PurchaseRecord 狀態 + 更新 LineItem 狀態
   - **訂單合併**：建立新 Order + 搬移 LineItems + 取消來源 Orders
   - **訂單分拆**：建立多筆新 Orders + 分配 LineItems + 取消原 Order
-- **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
+- **伺服器端狀態轉移驗證**：`src/logic/` 下的狀態轉換函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`）以純函式實作，前端與 Lambda 共用同一份邏輯。Lambda Custom Mutation 在執行狀態變更前，先呼叫對應的驗證函式校驗當前狀態是否允許目標轉移，防止前端 API 被直接呼叫或繞過 UI 驗證導致的非法狀態轉換。狀態轉移矩陣定義於純函式模組中，作為單一事實來源（Single Source of Truth）。- **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
 - **TanStack Query 快取策略**：
   - **樂觀更新（Optimistic Updates）**：對於狀態變更操作（出貨、入庫確認、訂單狀態切換），在 `useMutation` 的 `onMutate` 中先更新快取，讓使用者立即看到 UI 變化，無需等待 Lambda 執行完畢（通常 1-2 秒）。若 mutation 失敗，在 `onError` 中自動回滾至先前狀態。
   - **自動預取（Prefetching）**：在訂單列表頁面，當使用者將游標懸停在某筆訂單時，使用 `queryClient.prefetchQuery` 預取該訂單的 LineItems 與 PurchaseRecords 資料，提升進入詳情頁的流暢感。

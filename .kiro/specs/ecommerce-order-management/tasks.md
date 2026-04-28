@@ -161,6 +161,8 @@
     - 更新 `amplify/backend.ts` 加入 storage 資源與縮圖 Lambda 函式
     - _需求：3.9, 3.10, 3.11_
   - [ ] 6.4 實作 Lambda Custom Mutation 函式（事務性操作）
+    - 所有 Lambda 函式共用 `src/logic/` 下的狀態轉換驗證函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`），在執行狀態變更前先校驗當前狀態是否允許目標轉移，防止非法狀態轉換
+    - Lambda 函式透過相對路徑或 Lambda Layer 引入 `src/logic/` 模組，確保前端與後端使用同一份狀態轉移矩陣（Single Source of Truth）
     - 建立 `amplify/functions/ship-line-item/` Lambda 函式（出貨操作）
       - 使用 DynamoDB `TransactWriteItems` 在單一交易中執行：扣減 ProductVariant（或 Product）的 `stockQuantity`、更新 LineItem 的 `shippedQuantity` 與狀態為「已出貨」、條件性更新 Order 狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
       - 包含驗證邏輯：出貨數量不超過未出貨餘額、庫存數量充足（使用 ConditionExpression 檢查庫存充足且 `version` 值一致，確保併發安全）
