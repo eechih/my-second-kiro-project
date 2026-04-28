@@ -34,6 +34,8 @@
 - **表格管理**：使用 TanStack Table 管理 DataTable 元件，提供排序、分頁、欄位定義等功能，搭配 MUI 元件渲染。
 - **表單驗證**：使用 TanStack Form 搭配自訂驗證函式，驗證邏輯抽離為純函式以利單元測試。
 - **表單與 MUI 整合**：封裝 `FormField` 元件橋接 TanStack Form 的 `field.state` 與 MUI 受控元件（TextField 等），自動綁定 `value`/`onChange`、`error`/`helperText`，減少每個表單欄位的樣板程式碼。所有表單頁面統一使用 `FormField` 而非直接操作 `field` API。
+  - **非同步驗證（onBlurAsync）**：需要呼叫 API 的驗證（如 SKU 唯一性檢查）使用 TanStack Form 的 `onBlurAsync` 觸發，避免每次按鍵輸入都發送後端請求。驗證中顯示 CircularProgress 指示。
+  - **欄位依賴管理**：利用 TanStack Form 的 `form.subscribe` 監聽欄位變更。例如訂單明細中，當 `productId` 變更時，自動清空 `variantId` 並重新載入該商品的規格組合選項。
 - **路由結構**：遵循現有檔案式路由慣例，管理頁面放置於 `src/routes/` 下，受保護路由使用 `beforeLoad` 搭配 redirect。
 - **檔案儲存**：使用 Amplify Gen2 Storage（基於 Amazon S3）管理商品照片的上傳、刪除與存取。選擇此方案是因為 Amplify Gen2 提供 `defineStorage` 原生整合 Cognito 授權，可直接設定路徑前綴的存取規則，並透過 `uploadData`、`remove`、`getUrl` 等 API 簡化前端與 S3 的互動，無需自行管理 AWS SDK 或預簽名 URL 邏輯。
 - **圖片上傳效能優化**：

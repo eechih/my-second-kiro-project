@@ -264,6 +264,7 @@
     - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）
     - 建立 `src/routes/products/new.tsx`（新增商品表單，供應商選取使用 EntitySelect）
     - 建立 `src/routes/products/$productId.tsx`（編輯商品表單）
+    - SKU 欄位使用 TanStack Form 的 `onBlurAsync` 進行非同步唯一性檢查，離開欄位時呼叫 API 驗證 SKU 是否已存在，驗證中顯示 CircularProgress 指示
     - 商品表單中新增規格維度定義區塊：
       - 可動態新增/移除規格維度（如「顏色」、「尺寸」）
       - 每組維度可動態新增/移除選項值（如「紅」、「黑」、「白」）
@@ -311,6 +312,7 @@
     - 客戶選取使用 EntitySelect（從 Customer_Registry 選取）
     - 明細項目動態新增/移除，商品選取使用 EntitySelect
     - 當選取的商品具有規格組合（`variants.length > 0`）時，顯示 `VariantSelect` 元件要求使用者選取特定規格組合
+    - 使用 TanStack Form 的 `form.subscribe` 監聽 `productId` 欄位變更，當商品變更時自動清空 `variantId` 並重新載入該商品的規格組合選項
     - 使用 `validateVariantRequired` 驗證：商品有規格組合但未選取規格時顯示錯誤訊息「請選取規格組合」
     - 明細項目的單價使用 `resolveEffectivePrice` 解析（規格組合覆寫優先，否則沿用商品預設單價）
     - 明細項目記錄 `variantId` 及 `variantLabel`
