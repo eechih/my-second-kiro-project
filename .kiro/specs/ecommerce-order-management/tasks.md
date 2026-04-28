@@ -13,7 +13,7 @@
     - Product 介面需包含 `imageUrls: string[]` 欄位，儲存 S3 中商品照片的 key 列表
     - Product 介面需包含 `specDimensions: SpecDimension[]` 及 `variants: ProductVariant[]` 欄位
     - 在 `src/models/product.ts` 中定義 `SpecDimension` 介面（`name: string`、`values: string[]`）
-    - 在 `src/models/product.ts` 中定義 `ProductVariant` 介面（`id`、`combination: Record<string, string>`、`label`、`sku`、`stockQuantity`、`unitPriceOverride: number | null`、`defaultCostOverride: number | null`）
+    - 在 `src/models/product.ts` 中定義 `ProductVariant` 介面（`id`、`combination: Record<string, string>`、`label`、`sku`、`stockQuantity`、`unitPriceOverride: number | null`、`defaultCostOverride: number | null`、`version: number`）
     - 定義 `CreateVariantInput`、`UpdateVariantInput` 型別
     - _需求：1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.9, 3.10, 3.12, 3.13, 3.14, 3.15_
   - [ ] 1.2 定義 Order、LineItem、PurchaseRecord 及共用型別
@@ -140,6 +140,9 @@
   - [ ] 6.1 定義 Amplify Data schema（GraphQL 模型）
     - 建立 `amplify/data/resource.ts`，使用 `defineData` 定義 Customer、Supplier、Product、ProductVariant、Order、LineItem、PurchaseRecord 模型
     - Product 與 ProductVariant 之間使用 `hasMany` / `belongsTo` 一對多關聯：Product 模型宣告 `variants: a.hasMany('ProductVariant', 'productId')`，ProductVariant 模型宣告 `product: a.belongsTo('Product', 'productId')` 並包含 `productId` 外鍵欄位
+    - Order 模型設定複合主鍵（PK: `CUSTOMER#{customerId}`, SK: `ORDER#{createdAt}`），支援高效查詢特定客戶的訂單並按時間排序
+    - PurchaseRecord 模型設定複合主鍵（PK: `LINEITEM#{lineItemId}`, SK: `PURCHASE#{purchasedAt}`），支援高效查詢特定明細的採購記錄
+    - Product 與 ProductVariant 模型需包含 `version: number` 欄位，用於樂觀併發控制
     - Product 模型需包含 `imageUrls` 欄位（字串陣列）、`specDimensions` 欄位（JSON 陣列，儲存 SpecDimension[]）
     - ProductVariant 模型需包含 `productId`（外鍵）、`combination`（JSON）、`label`、`sku`、`stockQuantity`、`unitPriceOverride`、`defaultCostOverride` 欄位
     - LineItem 模型需包含 `variantId`（選填）及 `variantLabel`（選填）欄位
@@ -160,11 +163,13 @@
   - [ ] 6.4 實作 Lambda Custom Mutation 函式（事務性操作）
     - 建立 `amplify/functions/ship-line-item/` Lambda 函式（出貨操作）
       - 使用 DynamoDB `TransactWriteItems` 在單一交易中執行：扣減 ProductVariant（或 Product）的 `stockQuantity`、更新 LineItem 的 `shippedQuantity` 與狀態為「已出貨」、條件性更新 Order 狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
-      - 包含驗證邏輯：出貨數量不超過未出貨餘額、庫存數量充足（使用 ConditionExpression 確保原子性）
+      - 包含驗證邏輯：出貨數量不超過未出貨餘額、庫存數量充足（使用 ConditionExpression 檢查庫存充足且 `version` 值一致，確保併發安全）
+      - 庫存更新成功後自動遞增 `version` 欄位；若版本不符回傳衝突錯誤
       - 記錄出貨日期（`shippedAt`）與訂單狀態歷史（`statusHistory`）
     - 建立 `amplify/functions/confirm-received/` Lambda 函式（入庫確認操作）
       - 使用 DynamoDB `TransactWriteItems` 在單一交易中執行：增加 ProductVariant（或 Product）的 `stockQuantity`、更新 PurchaseRecord 狀態為 `received` 並記錄 `receivedAt`、更新 LineItem 狀態為「已收到」並記錄 `receivedAt`
-      - 包含驗證邏輯：PurchaseRecord 狀態必須為 `pending`（已入庫記錄不可重複確認）
+      - 包含驗證邏輯：PurchaseRecord 狀態必須為 `pending`（已入庫記錄不可重複確認），庫存更新使用 ConditionExpression 檢查 `version` 值一致
+      - 庫存更新成功後自動遞增 `version` 欄位
       - 記錄採購記錄狀態歷史（`statusHistory`）
     - 建立 `amplify/functions/merge-orders/` Lambda 函式（訂單合併操作）
       - 使用 DynamoDB `TransactWriteItems` 在單一交易中執行：建立新 Order（包含所有來源訂單的 LineItems）、搬移所有 LineItems 的 `orderId` 至新 Order、將所有來源 Orders 狀態變更為 `cancelled`

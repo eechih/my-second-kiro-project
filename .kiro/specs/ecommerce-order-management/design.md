@@ -19,6 +19,8 @@
 
 - **後端資料層**：使用 Amplify Gen2 Data（基於 AWS AppSync + DynamoDB）定義 GraphQL schema，自動產生 CRUD API。選擇此方案是因為專案已使用 Amplify Gen2，可直接整合認證與授權。
 - **商品規格組合資料模型**：採用 Product → ProductVariant 的一對多關聯（`hasMany` / `belongsTo`），而非將規格組合嵌入 Product 的 JSON 欄位。原因：(1) 每個 ProductVariant 有獨立的庫存數量，需要獨立更新；(2) 訂單明細的 `variantId` 可直接建立外鍵關聯；(3) 避免 DynamoDB 400KB 項目大小限制問題。
+- **DynamoDB 複合鍵（Composite Keys）**：為 Order 設定複合主鍵（PK: `CUSTOMER#{customerId}`, SK: `ORDER#{createdAt}`），大幅提升「查詢特定客戶所有訂單」的效能並支援時間範圍排序，避免依賴代價較高的 GSI。PurchaseRecord 同理設定（PK: `LINEITEM#{lineItemId}`, SK: `PURCHASE#{purchasedAt}`）。在 Amplify Gen2 Data schema 中透過 `identifier` 與 `secondaryIndexes` 設定。
+- **樂觀併發控制（Optimistic Concurrency）**：在 ProductVariant 與 Product 模型中加入 `version: number` 欄位。Lambda Custom Mutation 執行庫存扣減時，使用 DynamoDB `ConditionExpression` 檢查 `version` 值，確保併發下單時庫存扣減準確。更新成功後 `version` 自動遞增。若版本不符則回傳衝突錯誤，前端重新取得最新資料後重試。
 - **事務性操作（Custom Mutations）**：出貨、入庫等涉及多表更新的操作（如「扣減庫存 + 更新明細狀態 + 更新訂單狀態」），使用 Amplify Gen2 的 custom mutations（Lambda 函式）實作，透過 DynamoDB `TransactWriteItems` 確保原子性。避免前端分步呼叫多個 mutation 導致資料不一致。需要 custom mutation 的操作包括：
   - **出貨操作**：扣減 ProductVariant（或 Product）庫存 + 更新 LineItem 已出貨數量與狀態 + 條件性更新 Order 狀態
   - **入庫確認**：增加 ProductVariant（或 Product）庫存 + 更新 PurchaseRecord 狀態 + 更新 LineItem 狀態
@@ -619,6 +621,7 @@ interface Product {
   specDimensions: SpecDimension[]; // 規格維度定義（如顏色、尺寸）
   variants: ProductVariant[]; // 規格組合列表（由 specDimensions 笛卡爾積產生）
   imageUrls: string[]; // 商品照片 S3 key 列表（存放於 product-images/{productId}/ 路徑下）
+  version: number; // 樂觀併發控制版本號（無規格組合時，庫存更新時遞增）
   createdAt: string;
   updatedAt: string;
 }
@@ -644,6 +647,7 @@ interface ProductVariant {
   stockQuantity: number; // 規格組合庫存數量（>= 0）
   unitPriceOverride: number | null; // 單價覆寫（null 表示沿用商品預設單價）
   defaultCostOverride: number | null; // 進貨成本覆寫（null 表示沿用商品預設成本）
+  version: number; // 樂觀併發控制版本號（每次庫存更新時遞增）
 }
 ```
 
