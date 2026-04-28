@@ -2,7 +2,7 @@
 
 ## 概述
 
-本實作計畫將電子商務訂單管理系統的設計拆解為可逐步執行的編碼任務。實作順序為：資料模型與業務邏輯純函式 → Amplify Gen2 後端資料層 → 共用 UI 元件 → 各模組頁面（客戶、供應商、商品、訂單）→ 導覽與儀表板 → 訂單進階功能（進貨、出貨、合併、分拆）。每個任務皆建立在前一步的基礎上，確保無孤立或未整合的程式碼。
+本實作計畫將電子商務訂單管理系統的設計拆解為可逐步執行的編碼任務。實作順序為：資料模型與業務邏輯純函式（含規格組合邏輯）→ Amplify Gen2 後端資料層 → 共用 UI 元件（含規格組合元件）→ 各模組頁面（客戶、供應商、商品含規格組合管理、訂單含規格組合選取）→ 導覽與儀表板 → 訂單進階功能（進貨、出貨皆在規格組合層級操作、合併、分拆）。每個任務皆建立在前一步的基礎上，確保無孤立或未整合的程式碼。
 
 ## 任務
 
@@ -11,12 +11,17 @@
     - 建立 `src/models/customer.ts`、`src/models/supplier.ts`、`src/models/product.ts`
     - 定義所有必填與選填欄位，包含 `CreateXxxInput`、`UpdateXxxInput` 型別
     - Product 介面需包含 `imageUrls: string[]` 欄位，儲存 S3 中商品照片的 key 列表
-    - _需求：1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.9, 3.10_
+    - Product 介面需包含 `specDimensions: SpecDimension[]` 及 `variants: ProductVariant[]` 欄位
+    - 在 `src/models/product.ts` 中定義 `SpecDimension` 介面（`name: string`、`values: string[]`）
+    - 在 `src/models/product.ts` 中定義 `ProductVariant` 介面（`id`、`combination: Record<string, string>`、`label`、`sku`、`stockQuantity`、`unitPriceOverride: number | null`、`defaultCostOverride: number | null`）
+    - 定義 `CreateVariantInput`、`UpdateVariantInput` 型別
+    - _需求：1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.9, 3.10, 3.12, 3.13, 3.14, 3.15_
   - [ ] 1.2 定義 Order、LineItem、PurchaseRecord 及共用型別
     - 建立 `src/models/order.ts`，定義 Order、LineItem、PurchaseRecord、StatusChange、ValidationResult、PaginatedResult、SplitAllocation 等介面
+    - LineItem 介面需包含 `variantId: string | null` 及 `variantLabel: string | null` 欄位（商品有規格組合時必填）
     - 定義 OrderStatus、LineItemStatus、PurchaseRecordStatus 型別
-    - 建立 `src/models/index.ts` 統一匯出所有型別
-    - _需求：4.1, 4.3, 4.4, 5.1, 6.1, 6.9_
+    - 建立 `src/models/index.ts` 統一匯出所有型別（含 SpecDimension、ProductVariant）
+    - _需求：4.1, 4.3, 4.4, 4.12, 4.13, 5.1, 6.1, 6.9_
   - [ ] 1.3 實作序列化與反序列化工具函式
     - 建立 `src/logic/serialization.ts`
     - 實作 serializeOrder / deserializeOrder、serializeProduct / deserializeProduct、serializeCustomer / deserializeCustomer、serializeSupplier / deserializeSupplier
@@ -64,7 +69,9 @@
     - **驗證需求：4.11**
     - 建立 `src/logic/__tests__/order-calculations.property.test.ts`
   - [ ] 3.3 實作出貨數量與庫存驗證函式
-    - 建立 `src/logic/shipment.ts`，實作 `calculateRemainingShipQuantity`、`validateShipment`
+    - 建立 `src/logic/shipment.ts`，實作 `calculateRemainingShipQuantity`、`validateShipment`、`resolveStockQuantity`
+    - `resolveStockQuantity(product, variantId)`：若 variantId 不為 null，回傳對應規格組合的庫存；否則回傳商品的 stockQuantity
+    - `validateShipment` 的 stockQuantity 參數應傳入規格組合層級的庫存（若商品有規格組合），或商品層級的庫存（若商品無規格組合）
     - 同時驗證未出貨餘額與庫存數量
     - _需求：7.2, 7.3, 7.4, 7.5_
   - [ ]\* 3.4 撰寫出貨驗證與庫存變動屬性測試
@@ -110,17 +117,35 @@
     - **屬性 15：訂單分拆前置驗證**
     - **驗證需求：9.5, 9.6, 9.7**
     - 建立 `src/logic/__tests__/order-split.property.test.ts`
+  - [ ] 4.7 實作規格組合純函式
+    - 建立 `src/logic/product-variant.ts`
+    - 實作 `generateVariants(specDimensions)`：根據規格維度產生所有規格組合（笛卡爾積），例如 [{name:"顏色", values:["紅","黑"]}, {name:"尺寸", values:["L","M"]}] 產生 4 個組合
+    - 實作 `generateVariantSku(productSku, combination)`：根據商品 SKU 與規格組合自動產生規格組合 SKU，例如 "SHIRT-001-黑-L"
+    - 實作 `resolveEffectivePrice(variant, product)`：若 variant.unitPriceOverride 不為 null 回傳覆寫值，否則回傳 product.unitPrice
+    - 實作 `resolveEffectiveCost(variant, product)`：若 variant.defaultCostOverride 不為 null 回傳覆寫值，否則回傳 product.defaultCost
+    - 實作 `validateVariantRequired(product, variantId)`：商品有規格組合但 variantId 為 null 時回傳驗證失敗
+    - _需求：3.12, 3.13, 3.14, 3.15, 4.12, 4.13_
+  - [ ]\* 4.8 撰寫規格組合純函式屬性測試
+    - **屬性 17：規格組合產生——笛卡爾積正確性與 SKU 唯一性**
+    - **屬性 18：規格組合價格/成本解析——覆寫優先**
+    - **屬性 19：規格組合必選驗證**
+    - **驗證需求：3.13, 3.14, 3.15, 4.12, 4.13**
+    - 建立 `src/logic/__tests__/product-variant.property.test.ts`
+    - 使用 fast-check 驗證：笛卡爾積數量等於各維度選項值數量的乘積、無重複組合、SKU 互不相同、覆寫優先邏輯、必選驗證邏輯
 
 - [ ] 5. 檢查點 — 確認所有業務邏輯測試通過
   - 確認所有測試通過，若有問題請詢問使用者。
 
 - [ ] 6. 建立 Amplify Gen2 後端資料層
   - [ ] 6.1 定義 Amplify Data schema（GraphQL 模型）
-    - 建立 `amplify/data/resource.ts`，使用 `defineData` 定義 Customer、Supplier、Product、Order、LineItem、PurchaseRecord 模型
+    - 建立 `amplify/data/resource.ts`，使用 `defineData` 定義 Customer、Supplier、Product、ProductVariant、Order、LineItem、PurchaseRecord 模型
+    - Product 模型需包含 `imageUrls` 欄位（字串陣列）、`specDimensions` 欄位（JSON 陣列，儲存 SpecDimension[]）
+    - ProductVariant 模型需包含 `combination`（JSON）、`label`、`sku`、`stockQuantity`、`unitPriceOverride`、`defaultCostOverride` 欄位，並建立與 Product 的 hasMany/belongsTo 關聯
+    - LineItem 模型需包含 `variantId`（選填）及 `variantLabel`（選填）欄位
     - Product 模型需包含 `imageUrls` 欄位（字串陣列），儲存 S3 照片 key
     - 設定授權規則（僅已驗證使用者可存取）
     - 更新 `amplify/backend.ts` 加入 data 資源
-    - _需求：1.2, 2.2, 3.2, 3.9, 4.1, 6.1_
+    - _需求：1.2, 2.2, 3.2, 3.9, 3.12, 3.13, 3.14, 4.1, 4.12, 6.1_
   - [ ] 6.2 建立 Amplify API 客戶端工具
     - 建立 `src/lib/amplify-client.ts`，匯出型別安全的 Amplify Data client
     - 提供 `generateClient` 封裝，供 hooks 使用
@@ -143,10 +168,21 @@
     - 建立 `src/components/ConfirmDialog.tsx`（確認對話框，用於刪除/取消等操作）
     - 建立 `src/components/EntitySelect.tsx`（實體選取 Autocomplete，用於客戶/供應商/商品選取）
     - _需求：1.5, 1.6, 2.5, 2.6, 3.5, 3.6, 4.13, 5.1_
-  - [ ]\* 7.3 撰寫共用元件單元測試
-    - 建立 `src/components/__tests__/DataTable.test.tsx`、`SearchBar.test.tsx`、`StatusChip.test.tsx`
+  - [ ] 7.3 實作規格組合選取與規格組合表格元件
+    - 建立 `src/components/VariantSelect.tsx`（規格組合選取元件）
+      - 使用 MUI Autocomplete，選項標籤顯示規格組合名稱（如「黑 L」）及庫存數量
+      - 用於訂單明細新增時，當選取的商品具有規格組合，顯示下拉選單供使用者選取特定規格組合
+      - Props：`productId`、`variants`、`value`、`onChange`、`error`、`disabled`
+    - 建立 `src/components/VariantTable.tsx`（規格組合表格元件）
+      - 使用 DataTable 元件，欄位包含：規格組合名稱、SKU、單價、進貨成本、庫存數量
+      - 支援行內編輯 SKU、單價覆寫、成本覆寫
+      - Props：`productId`、`variants`、`defaultUnitPrice`、`defaultCost`、`onUpdateVariant`、`onDeleteVariant`、`isLoading`
+    - _需求：3.15, 3.16, 4.12, 4.13_
+  - [ ]\* 7.4 撰寫共用元件單元測試
+    - 建立 `src/components/__tests__/DataTable.test.tsx`、`SearchBar.test.tsx`、`StatusChip.test.tsx`、`VariantSelect.test.tsx`、`VariantTable.test.tsx`
     - 測試元件渲染、分頁互動、搜尋輸入、狀態顏色對應
-    - _需求：1.1, 2.1, 3.1, 4.2_
+    - 測試 VariantSelect 正確顯示可選規格組合、VariantTable 正確顯示所有規格組合的 SKU、單價、成本、庫存
+    - _需求：1.1, 2.1, 3.1, 3.15, 3.16, 4.2, 4.12_
 
 - [ ] 8. 實作客戶管理模組（Customer_Registry）
   - [ ] 8.1 建立客戶 CRUD hooks
@@ -179,9 +215,12 @@
     - _需求：2.1, 2.4_
 
 - [ ] 10. 實作商品管理模組（Product_Registry）
-  - [ ] 10.1 建立商品 CRUD hooks
+  - [ ] 10.1 建立商品 CRUD hooks（含規格組合 CRUD）
     - 建立 `src/hooks/useProducts.ts`，實作 `useProductList`、`useProduct`、`useCreateProduct`、`useUpdateProduct`
-    - _需求：3.1, 3.2, 3.3, 3.5_
+    - 實作規格組合 CRUD hooks：`useCreateVariant`、`useUpdateVariant`、`useDeleteVariant`、`useGenerateVariants`
+    - `useGenerateVariants`：根據規格維度自動產生所有規格組合（笛卡爾積），已存在的組合保留不變，僅新增缺少的組合
+    - 商品列表中有規格組合的商品顯示各規格組合庫存加總
+    - _需求：3.1, 3.2, 3.3, 3.5, 3.12, 3.13, 3.14, 3.15_
   - [ ] 10.2 建立商品照片上傳/刪除 hooks
     - 建立 `src/hooks/useProductImages.ts`，實作 `useUploadProductImage`、`useDeleteProductImage`、`useProductImageUrls`
     - `useUploadProductImage`：使用 Amplify Storage `uploadData` 將檔案上傳至 S3 的 `product-images/{productId}/` 路徑，上傳成功後將 S3 key 新增至商品的 `imageUrls` 陣列並更新商品記錄
@@ -189,10 +228,18 @@
     - `useProductImageUrls`：使用 Amplify Storage `getUrl` 將 S3 key 列表轉換為可存取的預簽名 URL 列表，供前端顯示使用
     - _需求：3.9, 3.10, 3.11_
   - [ ] 10.3 建立商品列表頁面與表單頁面
-    - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量）
+    - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）
     - 建立 `src/routes/products/new.tsx`（新增商品表單，供應商選取使用 EntitySelect）
     - 建立 `src/routes/products/$productId.tsx`（編輯商品表單）
-    - _需求：3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+    - 商品表單中新增規格維度定義區塊：
+      - 可動態新增/移除規格維度（如「顏色」、「尺寸」）
+      - 每組維度可動態新增/移除選項值（如「紅」、「黑」、「白」）
+      - 規格維度變更後，提供「產生規格組合」按鈕，呼叫 `useGenerateVariants` 自動產生笛卡爾積
+    - 商品表單中新增規格組合表格區塊：
+      - 使用 `VariantTable` 元件顯示所有規格組合
+      - 支援行內編輯 SKU、單價覆寫、成本覆寫
+      - 支援刪除個別規格組合
+    - _需求：3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.12, 3.13, 3.14, 3.15, 3.16_
   - [ ] 10.4 實作商品照片上傳與顯示功能
     - 在商品新增/編輯表單頁面（`new.tsx`、`$productId.tsx`）中新增照片上傳區域
     - 使用 MUI Button + 隱藏的 `<input type="file" accept="image/*" multiple>` 實作多檔選取
@@ -204,7 +251,9 @@
   - [ ]\* 10.5 撰寫商品模組單元測試
     - 建立 `src/routes/__tests__/products.test.tsx`
     - 測試商品列表頁面欄位顯示、表單元件存在性、照片上傳區域存在性、照片刪除按鈕存在性
-    - _需求：3.1, 3.4, 3.9, 3.10, 3.11_
+    - 測試規格維度管理 UI（新增/移除規格維度與選項值的互動）
+    - 測試 VariantTable 正確顯示所有規格組合的 SKU、單價、成本、庫存
+    - _需求：3.1, 3.4, 3.9, 3.10, 3.11, 3.12, 3.15, 3.16_
 
 - [ ] 11. 檢查點 — 確認基礎模組功能正常
   - 確認所有測試通過，若有問題請詢問使用者。
@@ -224,9 +273,13 @@
     - 使用 TanStack Form 管理表單狀態
     - 客戶選取使用 EntitySelect（從 Customer_Registry 選取）
     - 明細項目動態新增/移除，商品選取使用 EntitySelect
+    - 當選取的商品具有規格組合（`variants.length > 0`）時，顯示 `VariantSelect` 元件要求使用者選取特定規格組合
+    - 使用 `validateVariantRequired` 驗證：商品有規格組合但未選取規格時顯示錯誤訊息「請選取規格組合」
+    - 明細項目的單價使用 `resolveEffectivePrice` 解析（規格組合覆寫優先，否則沿用商品預設單價）
+    - 明細項目記錄 `variantId` 及 `variantLabel`
     - 自動計算小計與總金額
     - 新明細項目初始狀態為「待處理」
-    - _需求：1.6, 4.1, 4.5, 4.11, 4.12_
+    - _需求：1.6, 4.1, 4.5, 4.11, 4.12, 4.13_
   - [ ]\* 12.4 撰寫訂單列表與建立頁面單元測試
     - 建立 `src/routes/__tests__/orders.test.tsx`
     - 測試列表欄位顯示、表單元件存在性、明細初始狀態
@@ -236,20 +289,22 @@
   - [ ] 13.1 建立訂單詳情頁面基礎結構
     - 建立 `src/routes/orders/$orderId.tsx`
     - 顯示客戶資訊、訂單狀態（含狀態變更按鈕）、明細項目列表
-    - 明細列表顯示：商品名稱、數量、單價、小計、明細狀態、實際供應商、實際採購成本、相關日期
+    - 明細列表顯示：商品名稱、規格組合標籤（variantLabel）、數量、單價、小計、明細狀態、實際供應商、實際採購成本、相關日期
     - 訂單狀態變更時驗證轉換合法性，記錄狀態歷史
     - _需求：4.3, 4.4, 5.1, 5.2, 5.3, 5.4_
   - [ ] 13.2 實作明細項目進貨採購操作
     - 在訂單詳情頁面新增進貨操作對話框
     - 在 `src/hooks/useOrders.ts` 中新增 `useCreatePurchaseRecord`、`useConfirmReceived` hooks
     - 供應商預設為商品的預設供應商（可覆寫），單位成本預設為商品的預設進貨成本（可覆寫）
+    - 若明細項目有規格組合，單位成本預設使用 `resolveEffectiveCost` 解析（規格組合覆寫優先）
     - 驗證採購數量不超過未採購餘額
     - 建立採購記錄後更新明細狀態為「已訂購」
     - 顯示每筆明細的所有採購記錄（供應商、數量、成本、日期、狀態）
-    - _需求：3.7, 3.8, 4.6, 6.1, 6.2, 6.3, 6.4, 6.6, 6.7_
+    - _需求：3.7, 3.8, 3.15, 4.6, 6.1, 6.2, 6.3, 6.4, 6.6, 6.7_
   - [ ] 13.3 實作入庫確認操作
     - 在採購記錄上新增「確認入庫」按鈕
-    - 入庫時增加商品庫存數量
+    - 入庫時增加庫存數量：若明細項目有 variantId，增加對應規格組合的 stockQuantity；否則增加商品的 stockQuantity
+    - 使用 `applyReceived` 計算新庫存
     - 更新明細狀態為「已收到」
     - 記錄入庫日期與採購記錄狀態歷史
     - 已入庫記錄不可取消（顯示錯誤訊息）
@@ -258,8 +313,9 @@
     - 在訂單詳情頁面新增出貨操作對話框
     - 在 `src/hooks/useOrders.ts` 中新增 `useShipLineItem` hook
     - 僅「已收到」狀態的明細可執行出貨
-    - 驗證出貨數量不超過未出貨餘額且不超過庫存
-    - 出貨成功後扣減庫存、更新明細狀態為「已出貨」、記錄出貨日期
+    - 使用 `resolveStockQuantity(product, variantId)` 取得正確層級的庫存數量（規格組合層級或商品層級）
+    - 驗證出貨數量不超過未出貨餘額且不超過庫存（使用 `validateShipment`）
+    - 出貨成功後扣減對應層級庫存（若明細有 variantId 則扣減規格組合庫存，否則扣減商品庫存）、更新明細狀態為「已出貨」、記錄出貨日期
     - 自動推導訂單狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
     - _需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5_
   - [ ] 13.5 實作明細缺貨標記
@@ -315,3 +371,4 @@
 - 單元測試驗證特定範例與邊界情況（使用 Vitest + React Testing Library）
 - 所有程式碼使用 TypeScript，遵循專案既有慣例（MUI sx prop、檔案式路由、TanStack Query 快取管理）
 - 商品照片上傳使用 Amplify Gen2 Storage（S3），照片 key 儲存於商品的 `imageUrls` 欄位，前端透過預簽名 URL 顯示
+- 商品支援多維度規格組合（Product Variant），進貨入庫與出貨扣減皆在規格組合層級操作；無規格組合的商品則在商品層級操作
