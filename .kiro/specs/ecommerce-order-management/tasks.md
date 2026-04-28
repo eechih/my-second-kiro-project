@@ -10,6 +10,7 @@
   - [ ] 1.1 建立 `src/models/` 目錄，定義 Customer、Supplier、Product 介面與型別
     - 建立 `src/models/customer.ts`、`src/models/supplier.ts`、`src/models/product.ts`
     - 定義所有必填與選填欄位，包含 `CreateXxxInput`、`UpdateXxxInput` 型別
+    - Customer 與 Supplier 介面需包含 `isActive: boolean` 欄位（預設 `true`），用於軟刪除（停用/啟用）機制
     - Product 介面需包含 `imageUrls: string[]` 欄位，儲存 S3 中商品照片的 key 列表
     - Product 介面需包含 `specDimensions: SpecDimension[]` 及 `variants: ProductVariant[]` 欄位
     - 在 `src/models/product.ts` 中定義 `SpecDimension` 介面（`name: string`、`values: string[]`）
@@ -139,6 +140,7 @@
 - [ ] 6. 建立 Amplify Gen2 後端資料層
   - [ ] 6.1 定義 Amplify Data schema（GraphQL 模型）
     - 建立 `amplify/data/resource.ts`，使用 `defineData` 定義 Customer、Supplier、Product、ProductVariant、Order、LineItem、PurchaseRecord 模型
+    - Customer 與 Supplier 模型需包含 `isActive: a.boolean().required().default(true)` 欄位，用於軟刪除（停用/啟用）機制，確保參照完整性
     - Product 與 ProductVariant 之間使用 `hasMany` / `belongsTo` 一對多關聯：Product 模型宣告 `variants: a.hasMany('ProductVariant', 'productId')`，ProductVariant 模型宣告 `product: a.belongsTo('Product', 'productId')` 並包含 `productId` 外鍵欄位
     - Order 模型設定複合主鍵（PK: `CUSTOMER#{customerId}`, SK: `ORDER#{createdAt}`），支援高效查詢特定客戶的訂單並按時間排序
     - PurchaseRecord 模型設定複合主鍵（PK: `LINEITEM#{lineItemId}`, SK: `PURCHASE#{purchasedAt}`），支援高效查詢特定明細的採購記錄
@@ -194,7 +196,7 @@
     - 建立 `src/components/SearchBar.tsx`（搜尋輸入框，含防抖）
     - 建立 `src/components/StatusChip.tsx`（狀態標籤，依狀態顯示不同顏色）
     - 建立 `src/components/ConfirmDialog.tsx`（確認對話框，用於刪除/取消等操作）
-    - 建立 `src/components/EntitySelect.tsx`（實體選取 Autocomplete，用於客戶/供應商/商品選取）
+    - 建立 `src/components/EntitySelect.tsx`（實體選取 Autocomplete，用於客戶/供應商/商品選取，預設僅顯示啟用中的實體，支援 `filterActive` prop 控制是否過濾停用實體）
     - 建立 `src/components/FormField.tsx`（TanStack Form + MUI 整合元件）
       - 封裝 TanStack Form 的 `field.state` 與 MUI TextField 的綁定
       - 自動處理 `value`/`onChange` 雙向綁定、`error` 狀態、`helperText` 顯示第一個驗證錯誤
@@ -219,31 +221,43 @@
     - _需求：1.1, 2.1, 3.1, 3.15, 3.16, 4.2, 4.12_
 
 - [ ] 8. 實作客戶管理模組（Customer_Registry）
-  - [ ] 8.1 建立客戶 CRUD hooks
-    - 建立 `src/hooks/useCustomers.ts`，實作 `useCustomerList`、`useCustomer`、`useCreateCustomer`、`useUpdateCustomer`
+  - [ ] 8.1 建立客戶 CRUD 與停用/啟用 hooks
+    - 建立 `src/hooks/useCustomers.ts`，實作 `useCustomerList`、`useCustomer`、`useCreateCustomer`、`useUpdateCustomer`、`useDeactivateCustomer`、`useActivateCustomer`
+    - `useCustomerList` 支援 `isActive` 篩選參數，預設僅查詢啟用中的客戶
+    - `useDeactivateCustomer`：將客戶的 `isActive` 設為 `false`，mutation 成功後 invalidate 客戶列表快取
+    - `useActivateCustomer`：將客戶的 `isActive` 設為 `true`，mutation 成功後 invalidate 客戶列表快取
     - 使用 TanStack Query 管理快取與 mutation，搭配 Amplify Data client 呼叫 API
-    - _需求：1.1, 1.2, 1.3, 1.5_
+    - _需求：1.1, 1.2, 1.3, 1.5, 1.7, 1.8, 1.9_
   - [ ] 8.2 建立客戶列表頁面與表單頁面
     - 建立 `src/routes/customers/index.tsx`（客戶列表，使用 DataTable + SearchBar）
+    - 客戶列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的客戶，可切換顯示停用客戶
+    - 客戶列表每行新增停用/啟用操作按鈕：啟用中的客戶顯示「停用」按鈕，停用中的客戶顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
+    - 停用/啟用操作呼叫 `useDeactivateCustomer` / `useActivateCustomer` hooks
     - 建立 `src/routes/customers/new.tsx`（新增客戶表單，使用 TanStack Form + MUI）
     - 建立 `src/routes/customers/$customerId.tsx`（編輯客戶表單）
     - 表單驗證使用 `src/logic/validation.ts` 中的驗證函式
     - 受保護路由使用 `beforeLoad` + `redirect`
-    - _需求：1.1, 1.2, 1.3, 1.4, 1.5_
+    - _需求：1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.8, 1.9_
   - [ ]\* 8.3 撰寫客戶模組單元測試
     - 建立 `src/routes/__tests__/customers.test.tsx`
     - 測試列表頁面欄位顯示、表單元件存在性、驗證錯誤顯示
     - _需求：1.1, 1.4_
 
 - [ ] 9. 實作供應商管理模組（Supplier_Registry）
-  - [ ] 9.1 建立供應商 CRUD hooks
-    - 建立 `src/hooks/useSuppliers.ts`，實作 `useSupplierList`、`useSupplier`、`useCreateSupplier`、`useUpdateSupplier`
-    - _需求：2.1, 2.2, 2.3, 2.5_
+  - [ ] 9.1 建立供應商 CRUD 與停用/啟用 hooks
+    - 建立 `src/hooks/useSuppliers.ts`，實作 `useSupplierList`、`useSupplier`、`useCreateSupplier`、`useUpdateSupplier`、`useDeactivateSupplier`、`useActivateSupplier`
+    - `useSupplierList` 支援 `isActive` 篩選參數，預設僅查詢啟用中的供應商
+    - `useDeactivateSupplier`：將供應商的 `isActive` 設為 `false`，mutation 成功後 invalidate 供應商列表快取
+    - `useActivateSupplier`：將供應商的 `isActive` 設為 `true`，mutation 成功後 invalidate 供應商列表快取
+    - _需求：2.1, 2.2, 2.3, 2.5, 2.7, 2.8, 2.9_
   - [ ] 9.2 建立供應商列表頁面與表單頁面
     - 建立 `src/routes/suppliers/index.tsx`（供應商列表）
+    - 供應商列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的供應商，可切換顯示停用供應商
+    - 供應商列表每行新增停用/啟用操作按鈕：啟用中的供應商顯示「停用」按鈕，停用中的供應商顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
+    - 停用/啟用操作呼叫 `useDeactivateSupplier` / `useActivateSupplier` hooks
     - 建立 `src/routes/suppliers/new.tsx`（新增供應商表單）
     - 建立 `src/routes/suppliers/$supplierId.tsx`（編輯供應商表單）
-    - _需求：2.1, 2.2, 2.3, 2.4, 2.5_
+    - _需求：2.1, 2.2, 2.3, 2.4, 2.5, 2.7, 2.8, 2.9_
   - [ ]\* 9.3 撰寫供應商模組單元測試
     - 建立 `src/routes/__tests__/suppliers.test.tsx`
     - _需求：2.1, 2.4_

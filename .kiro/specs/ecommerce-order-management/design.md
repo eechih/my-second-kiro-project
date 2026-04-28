@@ -6,8 +6,8 @@
 
 系統涵蓋四大核心模組：
 
-1. **Customer_Registry**：客戶基本資料 CRUD 與搜尋
-2. **Supplier_Registry**：供應商基本資料 CRUD 與搜尋
+1. **Customer_Registry**：客戶基本資料 CRUD、搜尋與停用/啟用管理
+2. **Supplier_Registry**：供應商基本資料 CRUD、搜尋與停用/啟用管理
 3. **Product_Registry**：商品基本資料 CRUD、搜尋、規格組合（Product_Variant）管理及庫存追蹤
 4. **Order_Manager**：訂單生命週期管理，包含明細項目狀態機、進貨採購/入庫、出貨/庫存扣減、訂單分拆與合併
 
@@ -26,7 +26,8 @@
   - **入庫確認**：增加 ProductVariant（或 Product）庫存 + 更新 PurchaseRecord 狀態 + 更新 LineItem 狀態
   - **訂單合併**：建立新 Order + 搬移 LineItems + 取消來源 Orders
   - **訂單分拆**：建立多筆新 Orders + 分配 LineItems + 取消原 Order
-- **伺服器端狀態轉移驗證**：`src/logic/` 下的狀態轉換函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`）以純函式實作，前端與 Lambda 共用同一份邏輯。Lambda Custom Mutation 在執行狀態變更前，先呼叫對應的驗證函式校驗當前狀態是否允許目標轉移，防止前端 API 被直接呼叫或繞過 UI 驗證導致的非法狀態轉換。狀態轉移矩陣定義於純函式模組中，作為單一事實來源（Single Source of Truth）。- **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
+- **伺服器端狀態轉移驗證**：`src/logic/` 下的狀態轉換函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`）以純函式實作，前端與 Lambda 共用同一份邏輯。Lambda Custom Mutation 在執行狀態變更前，先呼叫對應的驗證函式校驗當前狀態是否允許目標轉移，防止前端 API 被直接呼叫或繞過 UI 驗證導致的非法狀態轉換。狀態轉移矩陣定義於純函式模組中，作為單一事實來源（Single Source of Truth）。- **軟刪除模式（Soft Delete）**：Customer 與 Supplier 採用軟刪除（停用/啟用）而非硬刪除。在資料模型中加入 `isActive: boolean`（預設 `true`）欄位。原因：(1) 訂單、採購記錄等歷史資料透過 `customerId` / `supplierId` 外鍵關聯至客戶/供應商，硬刪除會破壞參照完整性（Referential Integrity），導致歷史訂單無法顯示客戶資訊、歷史採購記錄無法顯示供應商資訊；(2) 停用後的實體在建立新訂單/新採購時不可選取（EntitySelect 僅顯示 `isActive=true` 的實體），但既有關聯資料仍可正常顯示；(3) 支援重新啟用，操作可逆。此模式確保資料完整性的同時提供靈活的生命週期管理。
+- **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
 - **TanStack Query 快取策略**：
   - **樂觀更新（Optimistic Updates）**：對於狀態變更操作（出貨、入庫確認、訂單狀態切換），在 `useMutation` 的 `onMutate` 中先更新快取，讓使用者立即看到 UI 變化，無需等待 Lambda 執行完畢（通常 1-2 秒）。若 mutation 失敗，在 `onError` 中自動回滾至先前狀態。
   - **自動預取（Prefetching）**：在訂單列表頁面，當使用者將游標懸停在某筆訂單時，使用 `queryClient.prefetchQuery` 預取該訂單的 LineItems 與 PurchaseRecords 資料，提升進入詳情頁的流暢感。
@@ -163,7 +164,7 @@ src/
 
 **頁面元件：**
 
-- `CustomerListPage`：分頁列表 + 搜尋，使用 `DataTable` 與 `SearchBar`
+- `CustomerListPage`：分頁列表 + 搜尋 + 啟用/停用狀態篩選切換，使用 `DataTable` 與 `SearchBar`。預設僅顯示啟用中的客戶，可切換顯示停用客戶。提供停用/啟用操作按鈕。
 - `CustomerFormPage`：新增/編輯表單，使用 TanStack Form
 
 **Hooks：**
@@ -173,6 +174,7 @@ src/
 function useCustomerList(params: {
   page: number;
   search?: string;
+  isActive?: boolean; // 篩選啟用/停用狀態，預設 true（僅顯示啟用中）
 }): UseQueryResult<PaginatedResult<Customer>>;
 function useCustomer(id: string): UseQueryResult<Customer>;
 function useCreateCustomer(): UseMutationResult<
@@ -185,13 +187,27 @@ function useUpdateCustomer(): UseMutationResult<
   Error,
   UpdateCustomerInput
 >;
+function useDeactivateCustomer(): UseMutationResult<
+  Customer,
+  Error,
+  { customerId: string }
+>;
+// 將客戶的 isActive 設為 false（停用）。停用後的客戶不出現在訂單建立的客戶選取清單中，
+// 但歷史訂單仍可顯示該客戶資訊。
+
+function useActivateCustomer(): UseMutationResult<
+  Customer,
+  Error,
+  { customerId: string }
+>;
+// 將已停用的客戶重新啟用（isActive 設為 true），恢復在選取清單中的可見性。
 ```
 
 ### 2. Supplier_Registry 模組
 
 **頁面元件：**
 
-- `SupplierListPage`：分頁列表 + 搜尋
+- `SupplierListPage`：分頁列表 + 搜尋 + 啟用/停用狀態篩選切換。預設僅顯示啟用中的供應商，可切換顯示停用供應商。提供停用/啟用操作按鈕。
 - `SupplierFormPage`：新增/編輯表單
 
 **Hooks：**
@@ -201,6 +217,7 @@ function useUpdateCustomer(): UseMutationResult<
 function useSupplierList(params: {
   page: number;
   search?: string;
+  isActive?: boolean; // 篩選啟用/停用狀態，預設 true（僅顯示啟用中）
 }): UseQueryResult<PaginatedResult<Supplier>>;
 function useSupplier(id: string): UseQueryResult<Supplier>;
 function useCreateSupplier(): UseMutationResult<
@@ -213,6 +230,20 @@ function useUpdateSupplier(): UseMutationResult<
   Error,
   UpdateSupplierInput
 >;
+function useDeactivateSupplier(): UseMutationResult<
+  Supplier,
+  Error,
+  { supplierId: string }
+>;
+// 將供應商的 isActive 設為 false（停用）。停用後的供應商不出現在進貨操作的供應商選取清單中，
+// 但歷史採購記錄仍可顯示該供應商資訊。
+
+function useActivateSupplier(): UseMutationResult<
+  Supplier,
+  Error,
+  { supplierId: string }
+>;
+// 將已停用的供應商重新啟用（isActive 設為 true），恢復在選取清單中的可見性。
 ```
 
 ### 3. Product_Registry 模組
@@ -375,12 +406,15 @@ interface SearchBarProps {
 }
 
 // EntitySelect.tsx — 實體選取（Autocomplete）
+// 預設僅顯示啟用中（isActive=true）的實體，確保停用的客戶/供應商不出現在
+// 訂單建立、進貨操作等選取清單中。歷史記錄中的停用實體仍可正常顯示（透過 ID 直接查詢）。
 interface EntitySelectProps<T> {
   label: string;
   value: T | null;
   onChange: (value: T | null) => void;
   searchFn: (query: string) => Promise<T[]>;
   getOptionLabel: (option: T) => string;
+  filterActive?: boolean; // 是否僅顯示啟用中的實體（預設 true）
 }
 
 // StatusChip.tsx — 狀態標籤
@@ -593,6 +627,7 @@ interface Customer {
   phone: string; // 電話（必填）
   email: string; // Email（選填）
   address: string; // 地址（選填）
+  isActive: boolean; // 啟用狀態（預設 true，false 表示已停用）
   createdAt: string; // ISO 8601 建立時間
   updatedAt: string; // ISO 8601 更新時間
 }
@@ -608,6 +643,7 @@ interface Supplier {
   phone: string; // 電話（必填）
   email: string; // Email（選填）
   address: string; // 地址（選填）
+  isActive: boolean; // 啟用狀態（預設 true，false 表示已停用）
   createdAt: string; // ISO 8601 建立時間
   updatedAt: string; // ISO 8601 更新時間
 }
