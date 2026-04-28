@@ -26,7 +26,7 @@
   - **入庫確認**：增加 ProductVariant（或 Product）庫存 + 更新 PurchaseRecord 狀態 + 更新 LineItem 狀態
   - **訂單合併**：建立新 Order + 搬移 LineItems + 取消來源 Orders
   - **訂單分拆**：建立多筆新 Orders + 分配 LineItems + 取消原 Order
-- **伺服器端狀態轉移驗證**：`src/logic/` 下的狀態轉換函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`）以純函式實作，前端與 Lambda 共用同一份邏輯。Lambda Custom Mutation 在執行狀態變更前，先呼叫對應的驗證函式校驗當前狀態是否允許目標轉移，防止前端 API 被直接呼叫或繞過 UI 驗證導致的非法狀態轉換。狀態轉移矩陣定義於純函式模組中，作為單一事實來源（Single Source of Truth）。- **軟刪除模式（Soft Delete）**：Customer 與 Supplier 採用軟刪除（停用/啟用）而非硬刪除。在資料模型中加入 `isActive: boolean`（預設 `true`）欄位。原因：(1) 訂單、採購記錄等歷史資料透過 `customerId` / `supplierId` 外鍵關聯至客戶/供應商，硬刪除會破壞參照完整性（Referential Integrity），導致歷史訂單無法顯示客戶資訊、歷史採購記錄無法顯示供應商資訊；(2) 停用後的實體在建立新訂單/新採購時不可選取（EntitySelect 僅顯示 `isActive=true` 的實體），但既有關聯資料仍可正常顯示；(3) 支援重新啟用，操作可逆。此模式確保資料完整性的同時提供靈活的生命週期管理。
+- **伺服器端狀態轉移驗證**：`src/logic/` 下的狀態轉換函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`）以純函式實作，前端與 Lambda 共用同一份邏輯。Lambda Custom Mutation 在執行狀態變更前，先呼叫對應的驗證函式校驗當前狀態是否允許目標轉移，防止前端 API 被直接呼叫或繞過 UI 驗證導致的非法狀態轉換。狀態轉移矩陣定義於純函式模組中，作為單一事實來源（Single Source of Truth）。- **軟刪除模式（Soft Delete）**：Customer、Supplier 與 Product 採用軟刪除（停用/啟用）而非硬刪除。在資料模型中加入 `isActive: boolean`（預設 `true`）欄位。原因：(1) 訂單、採購記錄等歷史資料透過外鍵關聯至這些實體，硬刪除會破壞參照完整性（Referential Integrity）；(2) 停用後的實體在建立新訂單/新採購時不可選取（EntitySelect 僅顯示 `isActive=true` 的實體），但既有關聯資料仍可正常顯示；(3) 支援重新啟用，操作可逆。此模式確保資料完整性的同時提供靈活的生命週期管理。
 - **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
 - **TanStack Query 快取策略**：
   - **樂觀更新（Optimistic Updates）**：對於狀態變更操作（出貨、入庫確認、訂單狀態切換），在 `useMutation` 的 `onMutate` 中先更新快取，讓使用者立即看到 UI 變化，無需等待 Lambda 執行完畢（通常 1-2 秒）。若 mutation 失敗，在 `onError` 中自動回滾至先前狀態。
@@ -250,7 +250,7 @@ function useActivateSupplier(): UseMutationResult<
 
 **頁面元件：**
 
-- `ProductListPage`：分頁列表 + 搜尋（顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）
+- `ProductListPage`：分頁列表 + 搜尋 + 啟用/停用狀態篩選切換（顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）。預設僅顯示啟用中的商品，可切換顯示停用商品。提供停用/啟用操作按鈕。
 - `ProductFormPage`：新增/編輯表單（供應商選取使用 `EntitySelect`，含規格維度定義區塊與規格組合表格）
 
 **Hooks：**
@@ -260,6 +260,7 @@ function useActivateSupplier(): UseMutationResult<
 function useProductList(params: {
   page: number;
   search?: string;
+  isActive?: boolean; // 篩選啟用/停用狀態，預設 true（僅顯示啟用中）
 }): UseQueryResult<PaginatedResult<Product>>;
 function useProduct(id: string): UseQueryResult<Product>;
 function useCreateProduct(): UseMutationResult<
@@ -302,6 +303,21 @@ function useGenerateVariants(): UseMutationResult<
 >;
 // 根據規格維度自動產生所有規格組合（笛卡爾積），
 // 已存在的組合保留不變，僅新增缺少的組合。
+
+function useDeactivateProduct(): UseMutationResult<
+  Product,
+  Error,
+  { productId: string }
+>;
+// 將商品的 isActive 設為 false（停用）。停用後的商品不出現在訂單建立的商品選取清單中，
+// 但歷史訂單明細仍可顯示該商品資訊。
+
+function useActivateProduct(): UseMutationResult<
+  Product,
+  Error,
+  { productId: string }
+>;
+// 將已停用的商品重新啟用（isActive 設為 true），恢復在選取清單中的可見性。
 ```
 
 **商品照片管理 Hooks：**
@@ -663,6 +679,7 @@ interface Product {
   specDimensions: SpecDimension[]; // 規格維度定義（如顏色、尺寸）
   variants: ProductVariant[]; // 規格組合列表（由 specDimensions 笛卡爾積產生）
   imageUrls: string[]; // 商品照片 S3 key 列表（存放於 product-images/{productId}/ 路徑下）
+  isActive: boolean; // 啟用狀態（預設 true，false 表示已停用）
   version: number; // 樂觀併發控制版本號（無規格組合時，庫存更新時遞增）
   createdAt: string;
   updatedAt: string;

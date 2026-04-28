@@ -263,8 +263,11 @@
     - _需求：2.1, 2.4_
 
 - [ ] 10. 實作商品管理模組（Product_Registry）
-  - [ ] 10.1 建立商品 CRUD hooks（含規格組合 CRUD）
-    - 建立 `src/hooks/useProducts.ts`，實作 `useProductList`、`useProduct`、`useCreateProduct`、`useUpdateProduct`
+  - [ ] 10.1 建立商品 CRUD 與停用/啟用 hooks（含規格組合 CRUD）
+    - 建立 `src/hooks/useProducts.ts`，實作 `useProductList`、`useProduct`、`useCreateProduct`、`useUpdateProduct`、`useDeactivateProduct`、`useActivateProduct`
+    - `useProductList` 支援 `isActive` 篩選參數，預設僅查詢啟用中的商品
+    - `useDeactivateProduct`：將商品的 `isActive` 設為 `false`，mutation 成功後 invalidate 商品列表快取
+    - `useActivateProduct`：將商品的 `isActive` 設為 `true`，mutation 成功後 invalidate 商品列表快取
     - 實作規格組合 CRUD hooks：`useCreateVariant`、`useUpdateVariant`、`useDeleteVariant`、`useGenerateVariants`
     - `useGenerateVariants`：根據規格維度自動產生所有規格組合（笛卡爾積），已存在的組合保留不變，僅新增缺少的組合
     - 商品列表中有規格組合的商品顯示各規格組合庫存加總
@@ -278,6 +281,9 @@
     - _需求：3.9, 3.10, 3.11_
   - [ ] 10.3 建立商品列表頁面與表單頁面
     - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）
+    - 商品列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的商品，可切換顯示停用商品
+    - 商品列表每行新增停用/啟用操作按鈕：啟用中的商品顯示「停用」按鈕，停用中的商品顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
+    - 停用/啟用操作呼叫 `useDeactivateProduct` / `useActivateProduct` hooks
     - 建立 `src/routes/products/new.tsx`（新增商品表單，供應商選取使用 EntitySelect）
     - 建立 `src/routes/products/$productId.tsx`（編輯商品表單）
     - SKU 欄位使用 TanStack Form 的 `onBlurAsync` 進行非同步唯一性檢查，離開欄位時呼叫 API 驗證 SKU 是否已存在，驗證中顯示 CircularProgress 指示
