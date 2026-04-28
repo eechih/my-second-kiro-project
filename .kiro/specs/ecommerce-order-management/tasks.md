@@ -7,70 +7,70 @@
 ## 任務
 
 - [ ] 1. 建立資料模型型別定義與序列化工具
-  - [ ] 1.1 建立 `src/models/` 目錄，定義 Customer、Supplier、Product 介面與型別
-    - 建立 `src/models/customer.ts`、`src/models/supplier.ts`、`src/models/product.ts`
+  - [ ] 1.1 建立 `shared/models/` 目錄，定義 Customer、Supplier、Product 介面與型別
+    - 建立 `shared/models/customer.ts`、`shared/models/supplier.ts`、`shared/models/product.ts`
     - 定義所有必填與選填欄位，包含 `CreateXxxInput`、`UpdateXxxInput` 型別
     - Customer 與 Supplier 介面需包含 `isActive: boolean` 欄位（預設 `true`），用於軟刪除（停用/啟用）機制
     - Product 介面需包含 `imageUrls: string[]` 欄位，儲存 S3 中商品照片的 key 列表
     - Product 介面需包含 `specDimensions: SpecDimension[]` 及 `variants: ProductVariant[]` 欄位
-    - 在 `src/models/product.ts` 中定義 `SpecDimension` 介面（`name: string`、`values: string[]`）
-    - 在 `src/models/product.ts` 中定義 `ProductVariant` 介面（`id`、`combination: Record<string, string>`、`label`、`sku`、`stockQuantity`、`unitPriceOverride: number | null`、`defaultCostOverride: number | null`、`version: number`）
+    - 在 `shared/models/product.ts` 中定義 `SpecDimension` 介面（`name: string`、`values: string[]`）
+    - 在 `shared/models/product.ts` 中定義 `ProductVariant` 介面（`id`、`combination: Record<string, string>`、`label`、`sku`、`stockQuantity`、`unitPriceOverride: number | null`、`defaultCostOverride: number | null`、`version: number`）
     - 定義 `CreateVariantInput`、`UpdateVariantInput` 型別
     - _需求：1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.9, 3.10, 3.12, 3.13, 3.14, 3.15_
   - [ ] 1.2 定義 Order、LineItem、PurchaseRecord 及共用型別
-    - 建立 `src/models/order.ts`，定義 Order、LineItem、PurchaseRecord、StatusChange、ValidationResult、PaginatedResult、SplitAllocation 等介面
+    - 建立 `shared/models/order.ts`，定義 Order、LineItem、PurchaseRecord、StatusChange、ValidationResult、PaginatedResult、SplitAllocation 等介面
     - LineItem 介面需包含 `variantId: string | null` 及 `variantLabel: string | null` 欄位（商品有規格組合時必填）
     - 定義 OrderStatus、LineItemStatus、PurchaseRecordStatus 型別
-    - 建立 `src/models/index.ts` 統一匯出所有型別（含 SpecDimension、ProductVariant）
+    - 建立 `shared/models/index.ts` 統一匯出所有型別（含 SpecDimension、ProductVariant）
     - _需求：4.1, 4.3, 4.4, 4.12, 4.13, 5.1, 6.1, 6.9_
   - [ ] 1.3 實作序列化與反序列化工具函式
-    - 建立 `src/logic/serialization.ts`
+    - 建立 `shared/logic/serialization.ts`
     - 實作 serializeOrder / deserializeOrder、serializeProduct / deserializeProduct、serializeCustomer / deserializeCustomer、serializeSupplier / deserializeSupplier
     - _需求：10.1, 10.2, 10.3, 10.4_
   - [ ]\* 1.4 撰寫序列化往返屬性測試
     - **屬性 16：序列化往返——所有資料模型**
     - **驗證需求：10.1, 10.2, 10.3, 10.4**
-    - 建立 `src/models/__tests__/serialization.property.test.ts`
+    - 建立 `shared/models/__tests__/serialization.property.test.ts`
     - 使用 fast-check 產生任意有效的 Order、Product、Customer、Supplier 物件，驗證序列化後再反序列化產生深度相等的物件
 
 - [ ] 2. 實作訂單狀態轉換與明細狀態轉換業務邏輯
   - [ ] 2.1 實作訂單狀態轉換驗證函式
-    - 建立 `src/logic/order-status.ts`，實作 `isValidOrderStatusTransition`、`getNextAllowedOrderStatuses`
+    - 建立 `shared/logic/order-status.ts`，實作 `isValidOrderStatusTransition`、`getNextAllowedOrderStatuses`
     - 允許路徑：pending → confirmed → shipping → completed，任何狀態 → cancelled
     - _需求：5.1, 5.2, 5.3_
   - [ ]\* 2.2 撰寫訂單狀態轉換屬性測試
     - **屬性 2：訂單狀態轉換——僅允許合法轉換**
     - **驗證需求：5.2, 5.3**
-    - 建立 `src/logic/__tests__/order-status.property.test.ts`
+    - 建立 `shared/logic/__tests__/order-status.property.test.ts`
     - 使用 fast-check 對所有狀態對 (from, to) 驗證轉換合法性
   - [ ] 2.3 實作明細項目狀態轉換驗證函式
-    - 建立 `src/logic/line-item-status.ts`，實作 `isValidLineItemStatusTransition`、`getNextAllowedLineItemStatuses`
+    - 建立 `shared/logic/line-item-status.ts`，實作 `isValidLineItemStatusTransition`、`getNextAllowedLineItemStatuses`
     - 允許路徑：待處理 → 已訂購 → 已收到 → 已出貨，待處理 → 缺貨，已訂購 → 缺貨
     - _需求：4.10, 7.1_
   - [ ]\* 2.4 撰寫明細項目狀態轉換屬性測試
     - **屬性 3：明細項目狀態轉換——僅允許合法轉換**
     - **驗證需求：4.10, 7.1**
-    - 建立 `src/logic/__tests__/line-item-status.property.test.ts`
+    - 建立 `shared/logic/__tests__/line-item-status.property.test.ts`
   - [ ] 2.5 實作採購記錄狀態轉換驗證函式
-    - 建立 `src/logic/purchase-record.ts`，實作 `isValidPurchaseStatusTransition`、`calculateRemainingPurchaseQuantity`、`validatePurchaseQuantity`
+    - 建立 `shared/logic/purchase-record.ts`，實作 `isValidPurchaseStatusTransition`、`calculateRemainingPurchaseQuantity`、`validatePurchaseQuantity`
     - 允許路徑：pending → received，pending → cancelled；received → cancelled 不允許
     - _需求：6.8, 6.9, 6.2, 6.3_
   - [ ]\* 2.6 撰寫採購記錄狀態轉換與數量守恆屬性測試
     - **屬性 4：採購記錄狀態轉換——僅允許合法轉換**
     - **屬性 6：採購數量守恆——累計採購不超過訂單數量**
     - **驗證需求：6.8, 6.9, 6.2, 6.3**
-    - 建立 `src/logic/__tests__/purchase-record.property.test.ts`
+    - 建立 `shared/logic/__tests__/purchase-record.property.test.ts`
 
 - [ ] 3. 實作金額計算、出貨驗證與庫存邏輯
   - [ ] 3.1 實作訂單金額計算函式
-    - 建立 `src/logic/order-calculations.ts`，實作 `calculateLineItemSubtotal`、`calculateOrderTotal`
+    - 建立 `shared/logic/order-calculations.ts`，實作 `calculateLineItemSubtotal`、`calculateOrderTotal`
     - _需求：4.11_
   - [ ]\* 3.2 撰寫金額計算屬性測試
     - **屬性 5：訂單金額計算——小計與總金額一致性**
     - **驗證需求：4.11**
-    - 建立 `src/logic/__tests__/order-calculations.property.test.ts`
+    - 建立 `shared/logic/__tests__/order-calculations.property.test.ts`
   - [ ] 3.3 實作出貨數量與庫存驗證函式
-    - 建立 `src/logic/shipment.ts`，實作 `calculateRemainingShipQuantity`、`validateShipment`、`resolveStockQuantity`
+    - 建立 `shared/logic/shipment.ts`，實作 `calculateRemainingShipQuantity`、`validateShipment`、`resolveStockQuantity`
     - `resolveStockQuantity(product, variantId)`：若 variantId 不為 null，回傳對應規格組合的庫存；否則回傳商品的 stockQuantity
     - `validateShipment` 的 stockQuantity 參數應傳入規格組合層級的庫存（若商品有規格組合），或商品層級的庫存（若商品無規格組合）
     - 同時驗證未出貨餘額與庫存數量
@@ -80,46 +80,46 @@
     - **屬性 8：入庫增加庫存**
     - **屬性 9：出貨減少庫存**
     - **驗證需求：7.2, 7.3, 7.4, 6.5, 7.5**
-    - 建立 `src/logic/__tests__/shipment.property.test.ts`
+    - 建立 `shared/logic/__tests__/shipment.property.test.ts`
   - [ ] 3.5 實作訂單狀態自動推導邏輯
-    - 在 `src/logic/order-status.ts` 中新增 `deriveOrderStatusFromLineItems` 函式
+    - 在 `shared/logic/order-status.ts` 中新增 `deriveOrderStatusFromLineItems` 函式
     - 依明細狀態自動決定訂單應為 shipping 或 completed
     - _需求：5.5, 5.6_
   - [ ]\* 3.6 撰寫訂單狀態自動推導與狀態歷史屬性測試
     - **屬性 10：訂單狀態自動推導——依明細狀態決定訂單狀態**
     - **屬性 11：狀態變更歷史記錄完整性**
     - **驗證需求：5.5, 5.6, 5.4, 6.10**
-    - 新增至 `src/logic/__tests__/order-status.property.test.ts`
+    - 新增至 `shared/logic/__tests__/order-status.property.test.ts`
 
 - [ ] 4. 實作表單驗證與訂單合併/分拆邏輯
   - [ ] 4.1 實作表單驗證規則純函式
-    - 建立 `src/logic/validation.ts`，實作各實體（Customer、Supplier、Product、Order）的必填欄位驗證函式
+    - 建立 `shared/logic/validation.ts`，實作各實體（Customer、Supplier、Product、Order）的必填欄位驗證函式
     - 驗證失敗時回傳缺少的欄位名稱
     - _需求：1.4, 2.4, 3.4, 4.12_
   - [ ]\* 4.2 撰寫實體驗證屬性測試
     - **屬性 1：實體驗證——缺少必填欄位應產生錯誤**
     - **驗證需求：1.4, 2.4, 3.4, 4.12**
-    - 建立 `src/logic/__tests__/validation.property.test.ts`
+    - 建立 `shared/logic/__tests__/validation.property.test.ts`
   - [ ] 4.3 實作訂單合併邏輯
-    - 建立 `src/logic/order-merge.ts`，實作 `validateMergeOrders`、`mergeOrders`
+    - 建立 `shared/logic/order-merge.ts`，實作 `validateMergeOrders`、`mergeOrders`
     - 驗證同一客戶、狀態為 pending 或 confirmed
     - _需求：9.1, 9.2, 9.3, 9.4_
   - [ ]\* 4.4 撰寫訂單合併屬性測試
     - **屬性 12：訂單合併——明細項目與金額守恆**
     - **屬性 13：訂單合併前置驗證**
     - **驗證需求：9.1, 9.2, 9.3, 9.4**
-    - 建立 `src/logic/__tests__/order-merge.property.test.ts`
+    - 建立 `shared/logic/__tests__/order-merge.property.test.ts`
   - [ ] 4.5 實作訂單分拆邏輯
-    - 建立 `src/logic/order-split.ts`，實作 `validateSplitOrder`、`splitOrder`
+    - 建立 `shared/logic/order-split.ts`，實作 `validateSplitOrder`、`splitOrder`
     - 驗證狀態為 pending 或 confirmed，分拆後數量守恆
     - _需求：9.5, 9.6, 9.7_
   - [ ]\* 4.6 撰寫訂單分拆屬性測試
     - **屬性 14：訂單分拆——數量守恆**
     - **屬性 15：訂單分拆前置驗證**
     - **驗證需求：9.5, 9.6, 9.7**
-    - 建立 `src/logic/__tests__/order-split.property.test.ts`
+    - 建立 `shared/logic/__tests__/order-split.property.test.ts`
   - [ ] 4.7 實作規格組合純函式
-    - 建立 `src/logic/product-variant.ts`
+    - 建立 `shared/logic/product-variant.ts`
     - 實作 `generateVariants(specDimensions)`：根據規格維度產生所有規格組合（笛卡爾積），例如 [{name:"顏色", values:["紅","黑"]}, {name:"尺寸", values:["L","M"]}] 產生 4 個組合
     - 實作 `generateVariantSku(productSku, combination)`：根據商品 SKU 與規格組合自動產生規格組合 SKU，例如 "SHIRT-001-黑-L"
     - 實作 `resolveEffectivePrice(variant, product)`：若 variant.unitPriceOverride 不為 null 回傳覆寫值，否則回傳 product.unitPrice
@@ -131,7 +131,7 @@
     - **屬性 18：規格組合價格/成本解析——覆寫優先**
     - **屬性 19：規格組合必選驗證**
     - **驗證需求：3.13, 3.14, 3.15, 4.12, 4.13**
-    - 建立 `src/logic/__tests__/product-variant.property.test.ts`
+    - 建立 `shared/logic/__tests__/product-variant.property.test.ts`
     - 使用 fast-check 驗證：笛卡爾積數量等於各維度選項值數量的乘積、無重複組合、SKU 互不相同、覆寫優先邏輯、必選驗證邏輯
 
 - [ ] 5. 檢查點 — 確認所有業務邏輯測試通過
@@ -163,8 +163,8 @@
     - 更新 `amplify/backend.ts` 加入 storage 資源與縮圖 Lambda 函式
     - _需求：3.9, 3.10, 3.11_
   - [ ] 6.4 實作 Lambda Custom Mutation 函式（事務性操作）
-    - 所有 Lambda 函式共用 `src/logic/` 下的狀態轉換驗證函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`），在執行狀態變更前先校驗當前狀態是否允許目標轉移，防止非法狀態轉換
-    - Lambda 函式透過相對路徑或 Lambda Layer 引入 `src/logic/` 模組，確保前端與後端使用同一份狀態轉移矩陣（Single Source of Truth）
+    - 所有 Lambda 函式共用 `shared/logic/` 下的狀態轉換驗證函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`），在執行狀態變更前先校驗當前狀態是否允許目標轉移，防止非法狀態轉換
+    - Lambda 函式透過相對路徑 `../../../shared/logic/` 引入共用模組，確保前端與後端使用同一份狀態轉移矩陣（Single Source of Truth）
     - 建立 `amplify/functions/ship-line-item/` Lambda 函式（出貨操作）
       - 使用 DynamoDB `TransactWriteItems` 在單一交易中執行：扣減 ProductVariant（或 Product）的 `stockQuantity`、更新 LineItem 的 `shippedQuantity` 與狀態為「已出貨」、條件性更新 Order 狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
       - 包含驗證邏輯：出貨數量不超過未出貨餘額、庫存數量充足（使用 ConditionExpression 檢查庫存充足且 `version` 值一致，確保併發安全）
@@ -235,7 +235,7 @@
     - 停用/啟用操作呼叫 `useDeactivateCustomer` / `useActivateCustomer` hooks
     - 建立 `src/routes/customers/new.tsx`（新增客戶表單，使用 TanStack Form + MUI）
     - 建立 `src/routes/customers/$customerId.tsx`（編輯客戶表單）
-    - 表單驗證使用 `src/logic/validation.ts` 中的驗證函式
+    - 表單驗證使用 `shared/logic/validation.ts` 中的驗證函式
     - 受保護路由使用 `beforeLoad` + `redirect`
     - _需求：1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.8, 1.9_
   - [ ]\* 8.3 撰寫客戶模組單元測試

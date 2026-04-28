@@ -26,7 +26,8 @@
   - **入庫確認**：增加 ProductVariant（或 Product）庫存 + 更新 PurchaseRecord 狀態 + 更新 LineItem 狀態
   - **訂單合併**：建立新 Order + 搬移 LineItems + 取消來源 Orders
   - **訂單分拆**：建立多筆新 Orders + 分配 LineItems + 取消原 Order
-- **伺服器端狀態轉移驗證**：`src/logic/` 下的狀態轉換函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`）以純函式實作，前端與 Lambda 共用同一份邏輯。Lambda Custom Mutation 在執行狀態變更前，先呼叫對應的驗證函式校驗當前狀態是否允許目標轉移，防止前端 API 被直接呼叫或繞過 UI 驗證導致的非法狀態轉換。狀態轉移矩陣定義於純函式模組中，作為單一事實來源（Single Source of Truth）。- **軟刪除模式（Soft Delete）**：Customer、Supplier 與 Product 採用軟刪除（停用/啟用）而非硬刪除。在資料模型中加入 `isActive: boolean`（預設 `true`）欄位。原因：(1) 訂單、採購記錄等歷史資料透過外鍵關聯至這些實體，硬刪除會破壞參照完整性（Referential Integrity）；(2) 停用後的實體在建立新訂單/新採購時不可選取（EntitySelect 僅顯示 `isActive=true` 的實體），但既有關聯資料仍可正常顯示；(3) 支援重新啟用，操作可逆。此模式確保資料完整性的同時提供靈活的生命週期管理。
+- **伺服器端狀態轉移驗證**：`shared/logic/` 下的狀態轉換函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`）以純函式實作，前端與 Lambda 共用同一份邏輯。前端透過 TypeScript Path Alias `@shared/` 引入，Lambda 函式透過相對路徑引入同一目錄。Lambda Custom Mutation 在執行狀態變更前，先呼叫對應的驗證函式校驗當前狀態是否允許目標轉移，防止前端 API 被直接呼叫或繞過 UI 驗證導致的非法狀態轉換。狀態轉移矩陣定義於純函式模組中，作為單一事實來源（Single Source of Truth）。
+- **前後端共用邏輯層（shared/）**：將所有純函式業務邏輯（狀態轉換、金額計算、庫存驗證、合併/分拆邏輯、序列化）從 `src/logic/` 搬移至專案根目錄的 `shared/logic/`，資料模型型別定義搬移至 `shared/models/`。前端透過 `tsconfig.json` 的 Path Alias `@shared/*` → `./shared/*` 引入，Lambda 函式透過相對路徑 `../../../shared/logic/` 引入。此架構確保前端 UI 判斷（如按鈕是否可點擊）與後端執行（如庫存扣減）使用完全相同的程式碼，消除邏輯不一致的風險。- **軟刪除模式（Soft Delete）**：Customer、Supplier 與 Product 採用軟刪除（停用/啟用）而非硬刪除。在資料模型中加入 `isActive: boolean`（預設 `true`）欄位。原因：(1) 訂單、採購記錄等歷史資料透過外鍵關聯至這些實體，硬刪除會破壞參照完整性（Referential Integrity）；(2) 停用後的實體在建立新訂單/新採購時不可選取（EntitySelect 僅顯示 `isActive=true` 的實體），但既有關聯資料仍可正常顯示；(3) 支援重新啟用，操作可逆。此模式確保資料完整性的同時提供靈活的生命週期管理。
 - **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
 - **TanStack Query 快取策略**：
   - **樂觀更新（Optimistic Updates）**：對於狀態變更操作（出貨、入庫確認、訂單狀態切換），在 `useMutation` 的 `onMutate` 中先更新快取，讓使用者立即看到 UI 變化，無需等待 Lambda 執行完畢（通常 1-2 秒）。若 mutation 失敗，在 `onError` 中自動回滾至先前狀態。
@@ -80,15 +81,35 @@ graph TB
     Logic --> Query
 ```
 
-### 前端分層架構
+### 專案分層架構
 
 ```
+shared/                        # 前端與 Lambda 共用的純函式模組（無 React 依賴）
+├── models/                    # 資料模型型別定義與序列化
+│   ├── customer.ts
+│   ├── supplier.ts
+│   ├── product.ts             # 含 Product、SpecDimension、ProductVariant 型別
+│   ├── order.ts
+│   └── index.ts
+├── logic/                     # 業務邏輯純函式
+│   ├── order-status.ts        # 訂單狀態轉換驗證
+│   ├── line-item-status.ts    # 明細項目狀態轉換驗證
+│   ├── purchase-record.ts     # 採購記錄狀態與數量驗證
+│   ├── shipment.ts            # 出貨數量與庫存驗證（規格組合層級）
+│   ├── order-calculations.ts  # 金額計算（小計、總金額）
+│   ├── order-merge.ts         # 訂單合併邏輯
+│   ├── order-split.ts         # 訂單分拆邏輯
+│   ├── product-variant.ts     # 規格組合產生、SKU 產生、價格/成本解析
+│   ├── validation.ts          # 表單驗證規則
+│   └── serialization.ts       # 序列化/反序列化工具
+└── tsconfig.json              # shared 模組的 TypeScript 設定
+
 amplify/
 ├── auth/
 │   └── resource.ts            # 認證設定（Cognito）
 ├── data/
 │   └── resource.ts            # 資料模型定義（AppSync + DynamoDB）
-├── functions/                 # Custom Mutation Lambda 函式
+├── functions/                 # Custom Mutation Lambda 函式（透過相對路徑引入 shared/）
 │   ├── ship-line-item/        # 出貨操作（庫存扣減 + 狀態更新，TransactWriteItems）
 │   ├── confirm-received/      # 入庫確認（庫存增加 + 狀態更新，TransactWriteItems）
 │   ├── merge-orders/          # 訂單合併（建立新訂單 + 搬移明細 + 取消來源，TransactWriteItems）
@@ -97,7 +118,7 @@ amplify/
 │   └── resource.ts            # 儲存設定（S3 商品照片）
 └── backend.ts                 # 後端進入點
 
-src/
+src/                           # 前端（透過 @shared/* Path Alias 引入 shared/）
 ├── routes/                    # 頁面路由（檔案式路由）
 │   ├── __root.tsx             # 根佈局（導覽列）
 │   ├── index.tsx              # 儀表板首頁
@@ -119,23 +140,6 @@ src/
 │       ├── $orderId.tsx       # 訂單詳情（含明細、進貨、出貨操作）
 │       ├── merge.tsx          # 訂單合併
 │       └── $orderId.split.tsx # 訂單分拆
-├── models/                    # 資料模型型別定義與序列化
-│   ├── customer.ts
-│   ├── supplier.ts
-│   ├── product.ts             # 含 Product、SpecDimension、ProductVariant 型別
-│   ├── order.ts
-│   └── index.ts
-├── logic/                     # 業務邏輯純函式
-│   ├── order-status.ts        # 訂單狀態轉換驗證
-│   ├── line-item-status.ts    # 明細項目狀態轉換驗證
-│   ├── purchase-record.ts     # 採購記錄狀態與數量驗證
-│   ├── shipment.ts            # 出貨數量與庫存驗證（規格組合層級）
-│   ├── order-calculations.ts  # 金額計算（小計、總金額）
-│   ├── order-merge.ts         # 訂單合併邏輯
-│   ├── order-split.ts         # 訂單分拆邏輯
-│   ├── product-variant.ts     # 規格組合產生、SKU 產生、價格/成本解析
-│   ├── validation.ts          # 表單驗證規則
-│   └── serialization.ts       # 序列化/反序列化工具
 ├── hooks/                     # 共用 React Hooks
 │   ├── useCustomers.ts        # 客戶 CRUD hooks (TanStack Query)
 │   ├── useSuppliers.ts        # 供應商 CRUD hooks

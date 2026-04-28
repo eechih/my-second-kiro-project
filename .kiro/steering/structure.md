@@ -8,6 +8,10 @@ inclusion: always
 
 ```
 .
+├── shared/                    # 前端與 Lambda 共用的純函式模組（無 React 依賴）
+│   ├── models/                # 資料模型型別定義與序列化
+│   ├── logic/                 # 業務邏輯純函式（狀態轉換、金額計算、庫存驗證等）
+│   └── tsconfig.json          # shared 模組的 TypeScript 設定
 ├── amplify/                   # Amplify Gen2 後端定義
 │   ├── auth/
 │   │   └── resource.ts        # 認證設定（Cognito）
@@ -28,8 +32,6 @@ inclusion: always
 │   │   ├── suppliers/         # 供應商管理頁面
 │   │   ├── products/          # 商品管理頁面
 │   │   └── orders/            # 訂單管理頁面
-│   ├── models/                # 資料模型型別定義與序列化
-│   ├── logic/                 # 業務邏輯純函式（無 React 依賴）
 │   ├── hooks/                 # 共用 React Hooks（TanStack Query）
 │   ├── components/            # 共用 UI 元件（MUI）
 │   ├── lib/                   # 工具函式（Amplify client 等）
@@ -52,8 +54,8 @@ inclusion: always
 | 新頁面 / 路由   | `src/routes/`     | 檔名即 URL 路徑。路由樹自動重新產生。子目錄用於模組分組（如 `customers/`、`orders/`）。                     |
 | 可重用 UI 元件  | `src/components/` | 每個元件一個檔案。使用 MUI + `sx` prop 設定樣式。                                                           |
 | 自訂 React Hook | `src/hooks/`      | 以 `use` 為前綴。每個 hook 專注於單一關注點。每個實體模組一個檔案（如 `useCustomers.ts`、`useOrders.ts`）。 |
-| 純業務邏輯      | `src/logic/`      | 不引入 React。必須可獨立測試。狀態轉換、金額計算、庫存驗證、合併/分拆邏輯皆放此處。                         |
-| 資料模型型別    | `src/models/`     | TypeScript 介面與型別定義。每個實體一個檔案，`index.ts` 統一匯出。                                          |
+| 純業務邏輯      | `shared/logic/`   | 不引入 React。前端與 Lambda 共用。狀態轉換、金額計算、庫存驗證、合併/分拆邏輯皆放此處。                     |
+| 資料模型型別    | `shared/models/`  | TypeScript 介面與型別定義。前端與 Lambda 共用。每個實體一個檔案，`index.ts` 統一匯出。                      |
 | 工具函式        | `src/lib/`        | Amplify client 封裝等非 React 工具。                                                                        |
 | 後端資源        | `amplify/<資源>/` | 每種資源類型（auth、data、storage）各自一個子目錄。新增後須在 `backend.ts` 中註冊。                         |
 | 測試檔案        | 與原始碼同層      | 命名為 `<source>.test.tsx` 或 `<source>.test.ts`。屬性測試命名為 `<source>.property.test.ts`。              |
