@@ -30,6 +30,10 @@
 - **表單與 MUI 整合**：封裝 `FormField` 元件橋接 TanStack Form 的 `field.state` 與 MUI 受控元件（TextField 等），自動綁定 `value`/`onChange`、`error`/`helperText`，減少每個表單欄位的樣板程式碼。所有表單頁面統一使用 `FormField` 而非直接操作 `field` API。
 - **路由結構**：遵循現有檔案式路由慣例，管理頁面放置於 `src/routes/` 下，受保護路由使用 `beforeLoad` 搭配 redirect。
 - **檔案儲存**：使用 Amplify Gen2 Storage（基於 Amazon S3）管理商品照片的上傳、刪除與存取。選擇此方案是因為 Amplify Gen2 提供 `defineStorage` 原生整合 Cognito 授權，可直接設定路徑前綴的存取規則，並透過 `uploadData`、`remove`、`getUrl` 等 API 簡化前端與 S3 的互動，無需自行管理 AWS SDK 或預簽名 URL 邏輯。
+- **圖片上傳效能優化**：
+  - **前端壓縮**：上傳前使用 Canvas API 將圖片壓縮至合理尺寸（如最大寬度 1200px、品質 0.8），減少上傳時間與 S3 儲存成本。
+  - **縮圖產生**：上傳完成後透過 S3 觸發 Lambda 函式自動產生縮圖（如 300px 寬），存放於 `product-images/{productId}/thumbnails/` 路徑。列表頁面與預覽使用縮圖，詳情頁面點擊後載入原圖。
+  - **S3 權限控制**：在 `amplify/storage/resource.ts` 中設定嚴格的路徑權限，僅已驗證使用者可上傳至 `product-images/` 路徑，所有已驗證使用者可讀取。
 
 ## 架構
 
@@ -285,6 +289,10 @@ function useDeleteProductImage(): UseMutationResult<
 function useProductImageUrls(imageKeys: string[]): UseQueryResult<string[]>;
 // 使用 Amplify Storage getUrl 將 S3 key 列表轉換為可存取的預簽名 URL 列表，
 // 供前端 <img> 標籤顯示使用。
+
+function useProductThumbnailUrls(imageKeys: string[]): UseQueryResult<string[]>;
+// 將 S3 key 列表轉換為對應縮圖的預簽名 URL 列表（路徑加入 thumbnails/ 前綴），
+// 用於列表頁面與預覽顯示，減少頁面載入時間。
 ```
 
 ### 4. Order_Manager 模組
@@ -383,8 +391,9 @@ interface StatusChipProps {
 
 // ImageUploader.tsx — 商品照片上傳與管理元件
 // 整合 useProductImages hooks，提供照片上傳、預覽、刪除功能
+// 上傳前使用 Canvas API 壓縮圖片（最大寬度 1200px、品質 0.8），減少上傳時間
 // 使用 MUI Button + 隱藏的 <input type="file" accept="image/*" multiple> 實作多檔選取
-// 上傳中顯示 CircularProgress，已上傳照片以 ImageList 或 Grid 排列
+// 上傳中顯示 CircularProgress，已上傳照片以 ImageList 或 Grid 排列（使用縮圖 URL）
 // 每張照片旁顯示刪除按鈕（IconButton + DeleteIcon），點擊後彈出 ConfirmDialog 確認
 interface ImageUploaderProps {
   productId: string; // 商品 ID（用於 S3 路徑前綴）
@@ -392,6 +401,8 @@ interface ImageUploaderProps {
   onUploadComplete: (newImageKey: string) => void; // 上傳完成回呼
   onDeleteComplete: (deletedImageKey: string) => void; // 刪除完成回呼
   disabled?: boolean; // 是否停用上傳/刪除操作
+  maxWidth?: number; // 壓縮最大寬度（預設 1200）
+  quality?: number; // 壓縮品質 0-1（預設 0.8）
 }
 
 // VariantSelect.tsx — 規格組合選取元件
