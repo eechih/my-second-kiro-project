@@ -27,6 +27,7 @@
 - **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
 - **表格管理**：使用 TanStack Table 管理 DataTable 元件，提供排序、分頁、欄位定義等功能，搭配 MUI 元件渲染。
 - **表單驗證**：使用 TanStack Form 搭配自訂驗證函式，驗證邏輯抽離為純函式以利單元測試。
+- **表單與 MUI 整合**：封裝 `FormField` 元件橋接 TanStack Form 的 `field.state` 與 MUI 受控元件（TextField 等），自動綁定 `value`/`onChange`、`error`/`helperText`，減少每個表單欄位的樣板程式碼。所有表單頁面統一使用 `FormField` 而非直接操作 `field` API。
 - **路由結構**：遵循現有檔案式路由慣例，管理頁面放置於 `src/routes/` 下，受保護路由使用 `beforeLoad` 搭配 redirect。
 - **檔案儲存**：使用 Amplify Gen2 Storage（基於 Amazon S3）管理商品照片的上傳、刪除與存取。選擇此方案是因為 Amplify Gen2 提供 `defineStorage` 原生整合 Cognito 授權，可直接設定路徑前綴的存取規則，並透過 `uploadData`、`remove`、`getUrl` 等 API 簡化前端與 S3 的互動，無需自行管理 AWS SDK 或預簽名 URL 邏輯。
 
@@ -135,7 +136,8 @@ src/
 │   ├── EntitySelect.tsx        # 實體選取元件（客戶/供應商/商品）
 │   ├── VariantSelect.tsx       # 規格組合選取元件（商品規格組合下拉選取）
 │   ├── VariantTable.tsx        # 規格組合表格元件（顯示/編輯規格組合列表）
-│   └── ImageUploader.tsx       # 商品照片上傳與管理元件
+│   ├── ImageUploader.tsx       # 商品照片上傳與管理元件
+│   └── FormField.tsx           # TanStack Form + MUI 整合元件（自動綁定 error/helperText）
 ├── auth/
 │   └── AuthProvider.tsx       # 既有認證 Context
 ├── theme.ts                   # MUI 主題設定
@@ -416,6 +418,26 @@ interface VariantTableProps {
   onUpdateVariant: (variantId: string, updates: UpdateVariantInput) => void;
   onDeleteVariant: (variantId: string) => void;
   isLoading?: boolean;
+}
+
+// FormField.tsx — TanStack Form + MUI 整合元件
+// 封裝 TanStack Form 的 field.state 與 MUI 受控元件的綁定，自動處理：
+// - value / onChange 雙向綁定
+// - error 狀態（field.state.meta.isTouched && field.state.meta.errors.length > 0）
+// - helperText 顯示第一個驗證錯誤訊息
+// - 必填欄位標記星號（*）
+// 減少每個表單欄位的樣板程式碼，統一錯誤顯示風格
+interface FormFieldProps<TData> {
+  form: FormApi<TData>; // TanStack Form 實例
+  name: DeepKeys<TData>; // 欄位路徑（型別安全）
+  label: string; // 欄位標籤
+  required?: boolean; // 是否必填（預設 false）
+  type?: "text" | "number" | "email" | "password"; // 輸入類型（預設 'text'）
+  multiline?: boolean; // 是否多行（預設 false）
+  rows?: number; // 多行時的行數
+  disabled?: boolean;
+  fullWidth?: boolean; // 預設 true
+  children?: (field: FieldApi<TData>) => React.ReactNode; // 自訂渲染（用於非 TextField 的元件，如 EntitySelect、VariantSelect）
 }
 ```
 

@@ -182,12 +182,18 @@
     - 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell、TablePagination 渲染
     - 支援排序、分頁、行點擊、載入狀態
     - _需求：1.1, 2.1, 3.1, 4.2_
-  - [ ] 7.2 實作搜尋列、狀態標籤、確認對話框、實體選取元件
+  - [ ] 7.2 實作搜尋列、狀態標籤、確認對話框、實體選取、表單欄位元件
     - 建立 `src/components/SearchBar.tsx`（搜尋輸入框，含防抖）
     - 建立 `src/components/StatusChip.tsx`（狀態標籤，依狀態顯示不同顏色）
     - 建立 `src/components/ConfirmDialog.tsx`（確認對話框，用於刪除/取消等操作）
     - 建立 `src/components/EntitySelect.tsx`（實體選取 Autocomplete，用於客戶/供應商/商品選取）
-    - _需求：1.5, 1.6, 2.5, 2.6, 3.5, 3.6, 4.13, 5.1_
+    - 建立 `src/components/FormField.tsx`（TanStack Form + MUI 整合元件）
+      - 封裝 TanStack Form 的 `field.state` 與 MUI TextField 的綁定
+      - 自動處理 `value`/`onChange` 雙向綁定、`error` 狀態、`helperText` 顯示第一個驗證錯誤
+      - 必填欄位自動標記星號（\*）
+      - 支援 `children` render prop 用於自訂渲染（EntitySelect、VariantSelect 等非 TextField 元件）
+      - 所有表單頁面統一使用 `FormField` 而非直接操作 TanStack Form 的 `field` API
+    - _需求：1.4, 1.5, 1.6, 2.4, 2.5, 2.6, 3.4, 3.5, 3.6, 4.13, 4.14, 5.1_
   - [ ] 7.3 實作規格組合選取與規格組合表格元件
     - 建立 `src/components/VariantSelect.tsx`（規格組合選取元件）
       - 使用 MUI Autocomplete，選項標籤顯示規格組合名稱（如「黑 L」）及庫存數量
