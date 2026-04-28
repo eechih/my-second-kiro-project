@@ -44,6 +44,7 @@
   - **縮圖產生**：上傳完成後透過 S3 觸發 Lambda 函式自動產生縮圖（如 300px 寬），使用 `sharp` 套件處理圖片（Node.js 效能最佳、資源消耗最低的圖片處理方案）。縮圖存放於 `product-images/{productId}/thumbnails/` 路徑。列表頁面與預覽使用縮圖，詳情頁面點擊後載入原圖。
   - **S3 物件標籤**：上傳時為圖片加上 `productId` 標籤（S3 Object Tagging），方便未來批次清理無效圖片（如刪除商品時）或進行儲存分析。
   - **S3 權限控制**：在 `amplify/storage/resource.ts` 中設定嚴格的路徑權限，僅已驗證使用者可上傳至 `product-images/` 路徑，所有已驗證使用者可讀取。
+  - **預簽名 URL 快取**：S3 預簽名 URL 有時效性（預設 1 小時），在 TanStack Query 的 `queryFn` 中呼叫 `getUrl`，利用 `staleTime` 設定（建議為 URL 有效期的 80%）避免每次元件渲染重複產生新 URL。商品列表頁面的圖片欄位必須使用 `useProductThumbnailUrls` 取得縮圖 URL。
 
 ## 架構
 
@@ -345,10 +346,15 @@ function useDeleteProductImage(): UseMutationResult<
 function useProductImageUrls(imageKeys: string[]): UseQueryResult<string[]>;
 // 使用 Amplify Storage getUrl 將 S3 key 列表轉換為可存取的預簽名 URL 列表，
 // 供前端 <img> 標籤顯示使用。
+// 快取策略：在 TanStack Query 的 queryFn 中呼叫 getUrl，利用 staleTime（建議設為預簽名 URL
+// 有效期的 80%，如 URL 有效 1 小時則 staleTime 設為 48 分鐘）避免每次渲染重複產生新 URL。
+// queryKey 包含 imageKeys 陣列，確保 key 變更時自動重新取得。
 
 function useProductThumbnailUrls(imageKeys: string[]): UseQueryResult<string[]>;
 // 將 S3 key 列表轉換為對應縮圖的預簽名 URL 列表（路徑加入 thumbnails/ 前綴），
-// 用於列表頁面與預覽顯示，減少頁面載入時間。
+// 用於商品列表頁面（TanStack Table）與預覽顯示，減少頁面載入時間。
+// 商品列表中的圖片欄位必須使用此 hook 取得縮圖 URL，不可使用原圖 URL。
+// 快取策略同 useProductImageUrls，利用 staleTime 避免重複產生預簽名 URL。
 ```
 
 ### 4. Order_Manager 模組

@@ -276,8 +276,8 @@
     - 建立 `src/hooks/useProductImages.ts`，實作 `useUploadProductImage`、`useDeleteProductImage`、`useProductImageUrls`
     - `useUploadProductImage`：使用 Amplify Storage `uploadData` 將檔案上傳至 S3 的 `product-images/{productId}/` 路徑，上傳時加上 `productId` S3 物件標籤（方便未來批次清理），上傳成功後將 S3 key 新增至商品的 `imageUrls` 陣列並更新商品記錄
     - `useDeleteProductImage`：使用 Amplify Storage `remove` 刪除 S3 檔案，同時從商品的 `imageUrls` 陣列中移除對應 key 並更新商品記錄
-    - `useProductImageUrls`：使用 Amplify Storage `getUrl` 將 S3 key 列表轉換為可存取的預簽名 URL 列表，供前端顯示使用
-    - `useProductThumbnailUrls`：將 S3 key 列表轉換為對應縮圖的預簽名 URL 列表（路徑加入 `thumbnails/` 前綴），用於列表頁面與預覽顯示
+    - `useProductImageUrls`：使用 Amplify Storage `getUrl` 將 S3 key 列表轉換為可存取的預簽名 URL 列表，供前端顯示使用。在 TanStack Query 的 `queryFn` 中呼叫 `getUrl`，設定 `staleTime` 為預簽名 URL 有效期的 80%（如 URL 有效 1 小時則 staleTime 設為 48 分鐘），避免每次渲染重複產生新 URL
+    - `useProductThumbnailUrls`：將 S3 key 列表轉換為對應縮圖的預簽名 URL 列表（路徑加入 `thumbnails/` 前綴），用於商品列表頁面（TanStack Table）與預覽顯示。快取策略同 `useProductImageUrls`
     - _需求：3.9, 3.10, 3.11_
   - [ ] 10.3 建立商品列表頁面與表單頁面
     - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）
