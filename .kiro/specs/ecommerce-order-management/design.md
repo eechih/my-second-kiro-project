@@ -1,0 +1,759 @@
+# 設計文件
+
+## 概述
+
+本設計文件描述電子商務訂單管理系統的技術架構與實作方案。系統建構於現有 React 19 + AWS Amplify Gen2 專案之上，使用 TanStack Router（檔案式路由）、TanStack Query（資料擷取與快取）、TanStack Table（表格管理）、TanStack Form（表單管理）及 MUI v6（UI 元件庫）。
+
+系統涵蓋四大核心模組：
+
+1. **Customer_Registry**：客戶基本資料 CRUD 與搜尋
+2. **Supplier_Registry**：供應商基本資料 CRUD 與搜尋
+3. **Product_Registry**：商品基本資料 CRUD、搜尋及庫存追蹤
+4. **Order_Manager**：訂單生命週期管理，包含明細項目狀態機、進貨採購/入庫、出貨/庫存扣減、訂單分拆與合併
+
+核心業務流程：客戶下單 → 依訂單明細進貨採購 → 入庫確認（庫存增加）→ 出貨（庫存扣減）→ 訂單完成。
+
+### 設計決策
+
+- **後端資料層**：使用 Amplify Gen2 Data（基於 AWS AppSync + DynamoDB）定義 GraphQL schema，自動產生 CRUD API。選擇此方案是因為專案已使用 Amplify Gen2，可直接整合認證與授權。
+- **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
+- **表格管理**：使用 TanStack Table 管理 DataTable 元件，提供排序、分頁、欄位定義等功能，搭配 MUI 元件渲染。
+- **表單驗證**：使用 TanStack Form 搭配自訂驗證函式，驗證邏輯抽離為純函式以利單元測試。
+- **路由結構**：遵循現有檔案式路由慣例，管理頁面放置於 `src/routes/` 下，受保護路由使用 `beforeLoad` 搭配 redirect。
+
+## 架構
+
+```mermaid
+graph TB
+    subgraph "前端 (React 19 SPA)"
+        UI["UI 層<br/>MUI v6 元件"]
+        Router["TanStack Router<br/>檔案式路由"]
+        Forms["TanStack Form<br/>表單管理"]
+        Query["TanStack Query<br/>資料擷取/快取"]
+        Logic["業務邏輯層<br/>純函式模組"]
+    end
+
+    subgraph "AWS Amplify Gen2 後端"
+        AppSync["AWS AppSync<br/>GraphQL API"]
+        Cognito["Amazon Cognito<br/>身份驗證"]
+        DynamoDB["Amazon DynamoDB<br/>資料儲存"]
+    end
+
+    UI --> Router
+    UI --> Forms
+    Router --> Query
+    Forms --> Logic
+    Query --> AppSync
+    AppSync --> Cognito
+    AppSync --> DynamoDB
+    Logic --> Query
+```
+
+### 前端分層架構
+
+```
+src/
+├── routes/                    # 頁面路由（檔案式路由）
+│   ├── __root.tsx             # 根佈局（導覽列）
+│   ├── index.tsx              # 儀表板首頁
+│   ├── customers/             # 客戶管理頁面
+│   │   ├── index.tsx          # 客戶列表
+│   │   ├── new.tsx            # 新增客戶
+│   │   └── $customerId.tsx    # 編輯客戶
+│   ├── suppliers/             # 供應商管理頁面
+│   │   ├── index.tsx          # 供應商列表
+│   │   ├── new.tsx            # 新增供應商
+│   │   └── $supplierId.tsx    # 編輯供應商
+│   ├── products/              # 商品管理頁面
+│   │   ├── index.tsx          # 商品列表
+│   │   ├── new.tsx            # 新增商品
+│   │   └── $productId.tsx     # 編輯商品
+│   └── orders/                # 訂單管理頁面
+│       ├── index.tsx          # 訂單列表
+│       ├── new.tsx            # 新增訂單
+│       ├── $orderId.tsx       # 訂單詳情（含明細、進貨、出貨操作）
+│       ├── merge.tsx          # 訂單合併
+│       └── $orderId.split.tsx # 訂單分拆
+├── models/                    # 資料模型型別定義與序列化
+│   ├── customer.ts
+│   ├── supplier.ts
+│   ├── product.ts
+│   ├── order.ts
+│   └── index.ts
+├── logic/                     # 業務邏輯純函式
+│   ├── order-status.ts        # 訂單狀態轉換驗證
+│   ├── line-item-status.ts    # 明細項目狀態轉換驗證
+│   ├── purchase-record.ts     # 採購記錄狀態與數量驗證
+│   ├── shipment.ts            # 出貨數量與庫存驗證
+│   ├── order-calculations.ts  # 金額計算（小計、總金額）
+│   ├── order-merge.ts         # 訂單合併邏輯
+│   ├── order-split.ts         # 訂單分拆邏輯
+│   ├── validation.ts          # 表單驗證規則
+│   └── serialization.ts       # 序列化/反序列化工具
+├── hooks/                     # 共用 React Hooks
+│   ├── useCustomers.ts        # 客戶 CRUD hooks (TanStack Query)
+│   ├── useSuppliers.ts        # 供應商 CRUD hooks
+│   ├── useProducts.ts         # 商品 CRUD hooks
+│   ├── useOrders.ts           # 訂單 CRUD hooks
+│   └── useDashboard.ts        # 儀表板摘要 hooks
+├── components/                # 共用 UI 元件
+│   ├── DataTable.tsx           # 通用分頁表格元件（TanStack Table + MUI）
+│   ├── SearchBar.tsx           # 搜尋列元件
+│   ├── ConfirmDialog.tsx       # 確認對話框
+│   ├── StatusChip.tsx          # 狀態標籤元件
+│   └── EntitySelect.tsx        # 實體選取元件（客戶/供應商/商品）
+├── auth/
+│   └── AuthProvider.tsx       # 既有認證 Context
+├── theme.ts                   # MUI 主題設定
+└── main.tsx                   # 應用程式進入點
+```
+
+## 元件與介面
+
+### 1. Customer_Registry 模組
+
+**頁面元件：**
+
+- `CustomerListPage`：分頁列表 + 搜尋，使用 `DataTable` 與 `SearchBar`
+- `CustomerFormPage`：新增/編輯表單，使用 TanStack Form
+
+**Hooks：**
+
+```typescript
+// useCustomers.ts
+function useCustomerList(params: {
+  page: number;
+  search?: string;
+}): UseQueryResult<PaginatedResult<Customer>>;
+function useCustomer(id: string): UseQueryResult<Customer>;
+function useCreateCustomer(): UseMutationResult<
+  Customer,
+  Error,
+  CreateCustomerInput
+>;
+function useUpdateCustomer(): UseMutationResult<
+  Customer,
+  Error,
+  UpdateCustomerInput
+>;
+```
+
+### 2. Supplier_Registry 模組
+
+**頁面元件：**
+
+- `SupplierListPage`：分頁列表 + 搜尋
+- `SupplierFormPage`：新增/編輯表單
+
+**Hooks：**
+
+```typescript
+// useSuppliers.ts
+function useSupplierList(params: {
+  page: number;
+  search?: string;
+}): UseQueryResult<PaginatedResult<Supplier>>;
+function useSupplier(id: string): UseQueryResult<Supplier>;
+function useCreateSupplier(): UseMutationResult<
+  Supplier,
+  Error,
+  CreateSupplierInput
+>;
+function useUpdateSupplier(): UseMutationResult<
+  Supplier,
+  Error,
+  UpdateSupplierInput
+>;
+```
+
+### 3. Product_Registry 模組
+
+**頁面元件：**
+
+- `ProductListPage`：分頁列表 + 搜尋（顯示庫存數量）
+- `ProductFormPage`：新增/編輯表單（供應商選取使用 `EntitySelect`）
+
+**Hooks：**
+
+```typescript
+// useProducts.ts
+function useProductList(params: {
+  page: number;
+  search?: string;
+}): UseQueryResult<PaginatedResult<Product>>;
+function useProduct(id: string): UseQueryResult<Product>;
+function useCreateProduct(): UseMutationResult<
+  Product,
+  Error,
+  CreateProductInput
+>;
+function useUpdateProduct(): UseMutationResult<
+  Product,
+  Error,
+  UpdateProductInput
+>;
+```
+
+### 4. Order_Manager 模組
+
+**頁面元件：**
+
+- `OrderListPage`：訂單分頁列表 + 搜尋 + 合併操作入口
+- `OrderFormPage`：新增訂單（客戶選取 + 明細項目新增）
+- `OrderDetailPage`：訂單詳情（明細列表、進貨操作、出貨操作、狀態變更）
+- `OrderMergePage`：選取同一客戶訂單進行合併
+- `OrderSplitPage`：指定明細分配方式進行分拆
+
+**Hooks：**
+
+```typescript
+// useOrders.ts
+function useOrderList(params: {
+  page: number;
+  search?: string;
+}): UseQueryResult<PaginatedResult<Order>>;
+function useOrder(id: string): UseQueryResult<Order>;
+function useCreateOrder(): UseMutationResult<Order, Error, CreateOrderInput>;
+function useUpdateOrderStatus(): UseMutationResult<
+  Order,
+  Error,
+  { orderId: string; newStatus: OrderStatus }
+>;
+function useCreatePurchaseRecord(): UseMutationResult<
+  PurchaseRecord,
+  Error,
+  CreatePurchaseRecordInput
+>;
+function useConfirmReceived(): UseMutationResult<
+  PurchaseRecord,
+  Error,
+  { purchaseRecordId: string }
+>;
+function useShipLineItem(): UseMutationResult<void, Error, ShipLineItemInput>;
+function useMergeOrders(): UseMutationResult<
+  Order,
+  Error,
+  { orderIds: string[] }
+>;
+function useSplitOrder(): UseMutationResult<Order[], Error, SplitOrderInput>;
+```
+
+### 5. 共用元件
+
+```typescript
+// DataTable.tsx — 通用分頁表格（基於 TanStack Table）
+// 使用 @tanstack/react-table 的 useReactTable + getCoreRowModel
+// 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell、TablePagination 渲染
+interface DataTableProps<T> {
+  columns: ColumnDef<T, unknown>[]; // TanStack Table 欄位定義
+  data: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+  isLoading: boolean;
+  onRowClick?: (row: T) => void;
+  enableSorting?: boolean; // 預設 true
+}
+
+// SearchBar.tsx — 搜尋列
+interface SearchBarProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}
+
+// EntitySelect.tsx — 實體選取（Autocomplete）
+interface EntitySelectProps<T> {
+  label: string;
+  value: T | null;
+  onChange: (value: T | null) => void;
+  searchFn: (query: string) => Promise<T[]>;
+  getOptionLabel: (option: T) => string;
+}
+
+// StatusChip.tsx — 狀態標籤
+interface StatusChipProps {
+  status: string;
+  colorMap: Record<
+    string,
+    | "default"
+    | "primary"
+    | "secondary"
+    | "error"
+    | "info"
+    | "success"
+    | "warning"
+  >;
+}
+```
+
+### 6. 業務邏輯純函式介面
+
+```typescript
+// order-status.ts
+function isValidOrderStatusTransition(
+  from: OrderStatus,
+  to: OrderStatus,
+): boolean;
+function getNextAllowedOrderStatuses(current: OrderStatus): OrderStatus[];
+
+// line-item-status.ts
+function isValidLineItemStatusTransition(
+  from: LineItemStatus,
+  to: LineItemStatus,
+): boolean;
+function getNextAllowedLineItemStatuses(
+  current: LineItemStatus,
+): LineItemStatus[];
+
+// purchase-record.ts
+function isValidPurchaseStatusTransition(
+  from: PurchaseRecordStatus,
+  to: PurchaseRecordStatus,
+): boolean;
+function calculateRemainingPurchaseQuantity(
+  orderQuantity: number,
+  purchasedQuantity: number,
+): number;
+function validatePurchaseQuantity(
+  requestedQty: number,
+  remainingQty: number,
+): ValidationResult;
+
+// shipment.ts
+function calculateRemainingShipQuantity(
+  orderQuantity: number,
+  shippedQuantity: number,
+): number;
+function validateShipment(
+  requestedQty: number,
+  remainingShipQty: number,
+  stockQuantity: number,
+): ValidationResult;
+
+// order-calculations.ts
+function calculateLineItemSubtotal(quantity: number, unitPrice: number): number;
+function calculateOrderTotal(lineItems: LineItem[]): number;
+
+// order-merge.ts
+function validateMergeOrders(orders: Order[]): ValidationResult;
+function mergeOrders(orders: Order[]): MergedOrderData;
+
+// order-split.ts
+function validateSplitOrder(
+  order: Order,
+  allocation: SplitAllocation[],
+): ValidationResult;
+function splitOrder(
+  order: Order,
+  allocation: SplitAllocation[],
+): SplitOrderData[];
+
+// serialization.ts
+function serializeOrder(order: Order): string;
+function deserializeOrder(json: string): Order;
+function serializeProduct(product: Product): string;
+function deserializeProduct(json: string): Product;
+function serializeCustomer(customer: Customer): string;
+function deserializeCustomer(json: string): Customer;
+function serializeSupplier(supplier: Supplier): string;
+function deserializeSupplier(json: string): Supplier;
+```
+
+## 資料模型
+
+### Customer（客戶）
+
+```typescript
+interface Customer {
+  id: string;
+  name: string; // 客戶名稱（必填）
+  contactPerson: string; // 聯絡人（必填）
+  phone: string; // 電話（必填）
+  email: string; // Email（選填）
+  address: string; // 地址（選填）
+  createdAt: string; // ISO 8601 建立時間
+  updatedAt: string; // ISO 8601 更新時間
+}
+```
+
+### Supplier（供應商）
+
+```typescript
+interface Supplier {
+  id: string;
+  name: string; // 供應商名稱（必填）
+  contactPerson: string; // 聯絡人（必填）
+  phone: string; // 電話（必填）
+  email: string; // Email（選填）
+  address: string; // 地址（選填）
+  createdAt: string; // ISO 8601 建立時間
+  updatedAt: string; // ISO 8601 更新時間
+}
+```
+
+### Product（商品）
+
+```typescript
+interface Product {
+  id: string;
+  name: string; // 商品名稱（必填）
+  sku: string; // SKU 編號（必填，唯一）
+  unitPrice: number; // 單價（必填，>= 0）
+  defaultCost: number; // 預設進貨成本（必填，>= 0）
+  defaultSupplierId: string | null; // 預設供應商 ID（選填）
+  stockQuantity: number; // 庫存數量（>= 0）
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### Order（訂單）
+
+```typescript
+type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "shipping"
+  | "completed"
+  | "cancelled";
+
+interface Order {
+  id: string;
+  orderNumber: string; // 訂單編號（系統自動產生，唯一）
+  customerId: string; // 客戶 ID（必填）
+  customerName: string; // 客戶名稱（反正規化，方便列表顯示）
+  lineItems: LineItem[]; // 明細項目
+  totalAmount: number; // 訂單總金額
+  status: OrderStatus; // 訂單狀態
+  statusHistory: StatusChange[]; // 狀態變更歷史
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### LineItem（訂單明細項目）
+
+```typescript
+type LineItemStatus = "待處理" | "已訂購" | "已收到" | "已出貨" | "缺貨";
+
+interface LineItem {
+  id: string;
+  productId: string; // 商品 ID
+  productName: string; // 商品名稱（反正規化）
+  quantity: number; // 訂購數量（> 0）
+  unitPrice: number; // 單價
+  subtotal: number; // 小計 = quantity * unitPrice
+  status: LineItemStatus; // 明細狀態
+  purchasedQuantity: number; // 累計已採購數量
+  shippedQuantity: number; // 累計已出貨數量
+  purchaseRecords: PurchaseRecord[]; // 採購記錄
+  orderedAt: string | null; // 訂購日期時間
+  receivedAt: string | null; // 收到日期時間
+  shippedAt: string | null; // 出貨日期時間
+}
+```
+
+### PurchaseRecord（採購記錄）
+
+```typescript
+type PurchaseRecordStatus = "pending" | "received" | "cancelled";
+
+interface PurchaseRecord {
+  id: string;
+  lineItemId: string; // 所屬明細項目 ID
+  supplierId: string; // 供應商 ID
+  supplierName: string; // 供應商名稱（反正規化）
+  quantity: number; // 採購數量（> 0）
+  unitCost: number; // 單位成本（>= 0）
+  status: PurchaseRecordStatus;
+  statusHistory: StatusChange[];
+  purchasedAt: string; // 採購日期
+  receivedAt: string | null; // 入庫日期
+}
+```
+
+### 共用型別
+
+```typescript
+interface StatusChange {
+  fromStatus: string;
+  toStatus: string;
+  changedAt: string; // ISO 8601 時間戳記
+}
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+interface PaginatedResult<T> {
+  items: T[];
+  totalCount: number;
+  nextToken?: string;
+}
+
+interface SplitAllocation {
+  lineItemId: string;
+  targetOrderIndex: number; // 分配到第幾筆新訂單（0-based）
+}
+```
+
+### 狀態機圖
+
+#### 訂單狀態轉換
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending : 建立訂單
+    pending --> confirmed : 確認訂單
+    confirmed --> shipping : 任一明細已出貨
+    shipping --> completed : 所有明細已出貨
+    pending --> cancelled : 取消
+    confirmed --> cancelled : 取消
+    shipping --> cancelled : 取消
+```
+
+#### 明細項目狀態轉換
+
+```mermaid
+stateDiagram-v2
+    [*] --> 待處理 : 新增明細
+    待處理 --> 已訂購 : 執行進貨採購
+    已訂購 --> 已收到 : 入庫確認
+    已收到 --> 已出貨 : 執行出貨
+    待處理 --> 缺貨 : 標記缺貨
+    已訂購 --> 缺貨 : 標記缺貨
+```
+
+#### 採購記錄狀態轉換
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending : 建立採購記錄
+    pending --> received : 入庫確認
+    pending --> cancelled : 取消
+```
+
+## 正確性屬性（Correctness Properties）
+
+_屬性（Property）是指在系統所有有效執行中都應成立的特徵或行為——本質上是對系統應做之事的形式化陳述。屬性作為人類可讀規格與機器可驗證正確性保證之間的橋樑。_
+
+### 屬性 1：實體驗證——缺少必填欄位應產生錯誤
+
+*對於任何*實體類型（Customer、Supplier、Product、Order）及其欄位的任意子集，若該子集缺少任何必填欄位，驗證函式應回傳失敗結果，且錯誤訊息應指出缺少的欄位名稱。
+
+**驗證需求：1.4, 2.4, 3.4, 4.12**
+
+### 屬性 2：訂單狀態轉換——僅允許合法轉換
+
+*對於任何*一對訂單狀態 (from, to)，`isValidOrderStatusTransition(from, to)` 應回傳 `true` 當且僅當該轉換屬於以下允許路徑之一：pending → confirmed → shipping → completed，或任何狀態 → cancelled。所有其他轉換應回傳 `false`。
+
+**驗證需求：5.2, 5.3**
+
+### 屬性 3：明細項目狀態轉換——僅允許合法轉換
+
+*對於任何*一對明細狀態 (from, to)，`isValidLineItemStatusTransition(from, to)` 應回傳 `true` 當且僅當該轉換屬於以下允許路徑之一：待處理 → 已訂購 → 已收到 → 已出貨，或待處理 → 缺貨，或已訂購 → 缺貨。所有其他轉換應回傳 `false`。
+
+**驗證需求：4.10, 7.1**
+
+### 屬性 4：採購記錄狀態轉換——僅允許合法轉換
+
+*對於任何*一對採購記錄狀態 (from, to)，`isValidPurchaseStatusTransition(from, to)` 應回傳 `true` 當且僅當該轉換屬於以下允許路徑之一：pending → received，或 pending → cancelled。特別是 received → cancelled 應回傳 `false`。
+
+**驗證需求：6.8, 6.9**
+
+### 屬性 5：訂單金額計算——小計與總金額一致性
+
+*對於任何*包含一或多筆明細項目的訂單，每筆明細的小計應等於 `quantity × unitPrice`，且訂單總金額應等於所有明細小計的加總。
+
+**驗證需求：4.11**
+
+### 屬性 6：採購數量守恆——累計採購不超過訂單數量
+
+*對於任何*明細項目及其任意序列的採購操作，累計已採購數量應等於所有採購記錄數量的加總，且任何單次採購的數量不得超過未採購餘額（訂單數量減去累計已採購數量）。
+
+**驗證需求：6.2, 6.3**
+
+### 屬性 7：出貨驗證——數量與庫存雙重檢查
+
+*對於任何*明細項目及其關聯商品，出貨操作應同時滿足：(a) 出貨數量不超過未出貨餘額（訂單數量減去累計已出貨數量），且 (b) 出貨數量不超過商品目前庫存數量。任一條件不滿足時，驗證應失敗。
+
+**驗證需求：7.2, 7.3, 7.4**
+
+### 屬性 8：入庫增加庫存
+
+*對於任何*商品（庫存為 S）及其關聯的採購記錄（數量為 Q），當採購記錄確認入庫後，商品庫存應變為 S + Q。
+
+**驗證需求：6.5**
+
+### 屬性 9：出貨減少庫存
+
+*對於任何*商品（庫存為 S）及有效的出貨操作（數量為 Q，其中 Q ≤ S），出貨完成後商品庫存應變為 S - Q。
+
+**驗證需求：7.5**
+
+### 屬性 10：訂單狀態自動推導——依明細狀態決定訂單狀態
+
+*對於任何*訂單，若至少一筆明細項目狀態為「已出貨」但非全部，訂單狀態應自動更新為「shipping」；若所有明細項目狀態皆為「已出貨」，訂單狀態應自動更新為「completed」。
+
+**驗證需求：5.5, 5.6**
+
+### 屬性 11：狀態變更歷史記錄完整性
+
+*對於任何*實體（訂單或採購記錄）的任何有效狀態轉換，狀態歷史陣列應新增一筆記錄，包含正確的 `fromStatus`、`toStatus` 及有效的 `changedAt` 時間戳記。
+
+**驗證需求：5.4, 6.10**
+
+### 屬性 12：訂單合併——明細項目與金額守恆
+
+*對於任何*屬於同一客戶且狀態為 pending 或 confirmed 的訂單集合，合併後的新訂單應包含所有來源訂單的全部明細項目，且新訂單總金額應等於所有來源訂單總金額的加總。
+
+**驗證需求：9.1, 9.2**
+
+### 屬性 13：訂單合併前置驗證
+
+*對於任何*訂單集合，若訂單不屬於同一客戶，或包含狀態為 shipping、completed 或 cancelled 的訂單，合併驗證應失敗並回傳對應的錯誤訊息。
+
+**驗證需求：9.3, 9.4**
+
+### 屬性 14：訂單分拆——數量守恆
+
+*對於任何*狀態為 pending 或 confirmed 的訂單及有效的分配方式，分拆後所有新訂單的明細項目總和應等於原訂單的明細項目總和（數量守恆），且原訂單狀態應變更為 cancelled。
+
+**驗證需求：9.5, 9.6**
+
+### 屬性 15：訂單分拆前置驗證
+
+*對於任何*狀態為 shipping、completed 或 cancelled 的訂單，分拆驗證應失敗並回傳錯誤訊息。
+
+**驗證需求：9.7**
+
+### 屬性 16：序列化往返——所有資料模型
+
+*對於任何*有效的 Order、Product、Customer 或 Supplier 物件，將其序列化為 JSON 後再反序列化回來，應產生與原始物件深度相等的物件。
+
+**驗證需求：10.1, 10.2, 10.3, 10.4**
+
+## 錯誤處理
+
+### 表單驗證錯誤
+
+- 所有表單（客戶、供應商、商品、訂單）在提交前進行前端驗證
+- 驗證錯誤以 MUI 的 `helperText` 顯示於對應欄位下方
+- 必填欄位標記星號（\*），缺少時顯示「此欄位為必填」
+- 數值欄位（單價、數量、成本）驗證非負數
+
+### 狀態轉換錯誤
+
+- 無效的訂單狀態轉換：顯示 Snackbar 錯誤訊息，說明當前狀態不允許轉換至目標狀態
+- 無效的明細狀態轉換：同上
+- 已入庫的採購記錄嘗試取消：顯示錯誤訊息「已入庫的記錄無法取消」
+
+### 數量驗證錯誤
+
+- 採購數量超過未採購餘額：顯示錯誤訊息，包含剩餘可採購數量
+- 出貨數量超過未出貨餘額：顯示錯誤訊息，包含剩餘可出貨數量
+- 庫存不足：顯示錯誤訊息，包含目前庫存數量
+
+### 合併/分拆錯誤
+
+- 選取不同客戶的訂單進行合併：顯示「僅能合併同一客戶的訂單」
+- 選取不可合併狀態的訂單：顯示「僅能合併待處理或已確認的訂單」
+- 對不可分拆狀態的訂單執行分拆：顯示「僅能分拆待處理或已確認的訂單」
+
+### API 錯誤
+
+- 網路錯誤：使用 TanStack Query 的 `onError` 回呼，顯示 Snackbar 通知使用者稍後重試
+- 認證過期：攔截 401/403 錯誤，重新導向至登入頁面
+- 樂觀更新失敗：TanStack Query 自動回滾快取至先前狀態
+
+### 認證錯誤
+
+- 未登入使用者存取受保護路由：透過 TanStack Router 的 `beforeLoad` 重新導向至 `/login`
+- 認證狀態載入中：顯示全頁 `CircularProgress`（沿用現有模式）
+
+## 測試策略
+
+### 雙軌測試方法
+
+本系統採用單元測試與屬性測試並行的策略，確保全面覆蓋：
+
+#### 屬性測試（Property-Based Testing）
+
+- **測試庫**：使用 [fast-check](https://github.com/dubzzz/fast-check) 搭配 Vitest
+- **最低迭代次數**：每個屬性測試至少執行 100 次
+- **標記格式**：`Feature: ecommerce-order-management, Property {number}: {property_text}`
+- **每個正確性屬性對應一個屬性測試**
+
+**適用範圍（純函式邏輯層）：**
+
+| 屬性    | 測試目標         | 測試檔案                                                  |
+| ------- | ---------------- | --------------------------------------------------------- |
+| 屬性 1  | 實體驗證函式     | `src/logic/__tests__/validation.property.test.ts`         |
+| 屬性 2  | 訂單狀態轉換     | `src/logic/__tests__/order-status.property.test.ts`       |
+| 屬性 3  | 明細狀態轉換     | `src/logic/__tests__/line-item-status.property.test.ts`   |
+| 屬性 4  | 採購記錄狀態轉換 | `src/logic/__tests__/purchase-record.property.test.ts`    |
+| 屬性 5  | 金額計算         | `src/logic/__tests__/order-calculations.property.test.ts` |
+| 屬性 6  | 採購數量守恆     | `src/logic/__tests__/purchase-record.property.test.ts`    |
+| 屬性 7  | 出貨驗證         | `src/logic/__tests__/shipment.property.test.ts`           |
+| 屬性 8  | 入庫庫存增加     | `src/logic/__tests__/shipment.property.test.ts`           |
+| 屬性 9  | 出貨庫存減少     | `src/logic/__tests__/shipment.property.test.ts`           |
+| 屬性 10 | 訂單狀態自動推導 | `src/logic/__tests__/order-status.property.test.ts`       |
+| 屬性 11 | 狀態歷史記錄     | `src/logic/__tests__/order-status.property.test.ts`       |
+| 屬性 12 | 訂單合併守恆     | `src/logic/__tests__/order-merge.property.test.ts`        |
+| 屬性 13 | 合併前置驗證     | `src/logic/__tests__/order-merge.property.test.ts`        |
+| 屬性 14 | 訂單分拆守恆     | `src/logic/__tests__/order-split.property.test.ts`        |
+| 屬性 15 | 分拆前置驗證     | `src/logic/__tests__/order-split.property.test.ts`        |
+| 屬性 16 | 序列化往返       | `src/models/__tests__/serialization.property.test.ts`     |
+
+#### 單元測試（Example-Based）
+
+- **測試庫**：Vitest + React Testing Library
+- **適用範圍**：
+
+| 測試目標    | 測試內容                                                |
+| ----------- | ------------------------------------------------------- |
+| UI 元件渲染 | 列表頁面欄位顯示、表單元件存在性、導覽連結              |
+| 表單預設值  | 進貨表單預填供應商與成本                                |
+| 初始狀態    | 新明細項目初始為「待處理」、新採購記錄初始為「pending」 |
+| 路由保護    | 未登入使用者重新導向至登入頁面                          |
+| 儀表板摘要  | 摘要數量正確顯示                                        |
+
+#### 整合測試
+
+- **適用範圍**：API 呼叫（CRUD 操作）、搜尋功能、端對端業務流程
+- **方法**：使用 mock 的 Amplify API 進行測試，驗證 hooks 正確呼叫 API 並處理回應
+
+### 測試檔案結構
+
+```
+src/
+├── logic/__tests__/
+│   ├── validation.property.test.ts
+│   ├── order-status.property.test.ts
+│   ├── line-item-status.property.test.ts
+│   ├── purchase-record.property.test.ts
+│   ├── order-calculations.property.test.ts
+│   ├── shipment.property.test.ts
+│   ├── order-merge.property.test.ts
+│   └── order-split.property.test.ts
+├── models/__tests__/
+│   └── serialization.property.test.ts
+├── components/__tests__/
+│   ├── DataTable.test.tsx
+│   ├── SearchBar.test.tsx
+│   └── StatusChip.test.tsx
+├── routes/__tests__/
+│   ├── customers.test.tsx
+│   ├── suppliers.test.tsx
+│   ├── products.test.tsx
+│   └── orders.test.tsx
+└── hooks/__tests__/
+    ├── useCustomers.test.ts
+    ├── useSuppliers.test.ts
+    ├── useProducts.test.ts
+    └── useOrders.test.ts
+```

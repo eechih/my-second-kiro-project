@@ -1,0 +1,294 @@
+# 實作計畫：電子商務訂單管理系統
+
+## 概述
+
+本實作計畫將電子商務訂單管理系統的設計拆解為可逐步執行的編碼任務。實作順序為：資料模型與業務邏輯純函式 → Amplify Gen2 後端資料層 → 共用 UI 元件 → 各模組頁面（客戶、供應商、商品、訂單）→ 導覽與儀表板 → 訂單進階功能（進貨、出貨、合併、分拆）。每個任務皆建立在前一步的基礎上，確保無孤立或未整合的程式碼。
+
+## 任務
+
+- [ ] 1. 建立資料模型型別定義與序列化工具
+  - [ ] 1.1 建立 `src/models/` 目錄，定義 Customer、Supplier、Product 介面與型別
+    - 建立 `src/models/customer.ts`、`src/models/supplier.ts`、`src/models/product.ts`
+    - 定義所有必填與選填欄位，包含 `CreateXxxInput`、`UpdateXxxInput` 型別
+    - _需求：1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3_
+  - [ ] 1.2 定義 Order、LineItem、PurchaseRecord 及共用型別
+    - 建立 `src/models/order.ts`，定義 Order、LineItem、PurchaseRecord、StatusChange、ValidationResult、PaginatedResult、SplitAllocation 等介面
+    - 定義 OrderStatus、LineItemStatus、PurchaseRecordStatus 型別
+    - 建立 `src/models/index.ts` 統一匯出所有型別
+    - _需求：4.1, 4.3, 4.4, 5.1, 6.1, 6.9_
+  - [ ] 1.3 實作序列化與反序列化工具函式
+    - 建立 `src/logic/serialization.ts`
+    - 實作 serializeOrder / deserializeOrder、serializeProduct / deserializeProduct、serializeCustomer / deserializeCustomer、serializeSupplier / deserializeSupplier
+    - _需求：10.1, 10.2, 10.3, 10.4_
+  - [ ]* 1.4 撰寫序列化往返屬性測試
+    - **屬性 16：序列化往返——所有資料模型**
+    - **驗證需求：10.1, 10.2, 10.3, 10.4**
+    - 建立 `src/models/__tests__/serialization.property.test.ts`
+    - 使用 fast-check 產生任意有效的 Order、Product、Customer、Supplier 物件，驗證序列化後再反序列化產生深度相等的物件
+
+- [ ] 2. 實作訂單狀態轉換與明細狀態轉換業務邏輯
+  - [ ] 2.1 實作訂單狀態轉換驗證函式
+    - 建立 `src/logic/order-status.ts`，實作 `isValidOrderStatusTransition`、`getNextAllowedOrderStatuses`
+    - 允許路徑：pending → confirmed → shipping → completed，任何狀態 → cancelled
+    - _需求：5.1, 5.2, 5.3_
+  - [ ]* 2.2 撰寫訂單狀態轉換屬性測試
+    - **屬性 2：訂單狀態轉換——僅允許合法轉換**
+    - **驗證需求：5.2, 5.3**
+    - 建立 `src/logic/__tests__/order-status.property.test.ts`
+    - 使用 fast-check 對所有狀態對 (from, to) 驗證轉換合法性
+  - [ ] 2.3 實作明細項目狀態轉換驗證函式
+    - 建立 `src/logic/line-item-status.ts`，實作 `isValidLineItemStatusTransition`、`getNextAllowedLineItemStatuses`
+    - 允許路徑：待處理 → 已訂購 → 已收到 → 已出貨，待處理 → 缺貨，已訂購 → 缺貨
+    - _需求：4.10, 7.1_
+  - [ ]* 2.4 撰寫明細項目狀態轉換屬性測試
+    - **屬性 3：明細項目狀態轉換——僅允許合法轉換**
+    - **驗證需求：4.10, 7.1**
+    - 建立 `src/logic/__tests__/line-item-status.property.test.ts`
+  - [ ] 2.5 實作採購記錄狀態轉換驗證函式
+    - 建立 `src/logic/purchase-record.ts`，實作 `isValidPurchaseStatusTransition`、`calculateRemainingPurchaseQuantity`、`validatePurchaseQuantity`
+    - 允許路徑：pending → received，pending → cancelled；received → cancelled 不允許
+    - _需求：6.8, 6.9, 6.2, 6.3_
+  - [ ]* 2.6 撰寫採購記錄狀態轉換與數量守恆屬性測試
+    - **屬性 4：採購記錄狀態轉換——僅允許合法轉換**
+    - **屬性 6：採購數量守恆——累計採購不超過訂單數量**
+    - **驗證需求：6.8, 6.9, 6.2, 6.3**
+    - 建立 `src/logic/__tests__/purchase-record.property.test.ts`
+
+- [ ] 3. 實作金額計算、出貨驗證與庫存邏輯
+  - [ ] 3.1 實作訂單金額計算函式
+    - 建立 `src/logic/order-calculations.ts`，實作 `calculateLineItemSubtotal`、`calculateOrderTotal`
+    - _需求：4.11_
+  - [ ]* 3.2 撰寫金額計算屬性測試
+    - **屬性 5：訂單金額計算——小計與總金額一致性**
+    - **驗證需求：4.11**
+    - 建立 `src/logic/__tests__/order-calculations.property.test.ts`
+  - [ ] 3.3 實作出貨數量與庫存驗證函式
+    - 建立 `src/logic/shipment.ts`，實作 `calculateRemainingShipQuantity`、`validateShipment`
+    - 同時驗證未出貨餘額與庫存數量
+    - _需求：7.2, 7.3, 7.4, 7.5_
+  - [ ]* 3.4 撰寫出貨驗證與庫存變動屬性測試
+    - **屬性 7：出貨驗證——數量與庫存雙重檢查**
+    - **屬性 8：入庫增加庫存**
+    - **屬性 9：出貨減少庫存**
+    - **驗證需求：7.2, 7.3, 7.4, 6.5, 7.5**
+    - 建立 `src/logic/__tests__/shipment.property.test.ts`
+  - [ ] 3.5 實作訂單狀態自動推導邏輯
+    - 在 `src/logic/order-status.ts` 中新增 `deriveOrderStatusFromLineItems` 函式
+    - 依明細狀態自動決定訂單應為 shipping 或 completed
+    - _需求：5.5, 5.6_
+  - [ ]* 3.6 撰寫訂單狀態自動推導與狀態歷史屬性測試
+    - **屬性 10：訂單狀態自動推導——依明細狀態決定訂單狀態**
+    - **屬性 11：狀態變更歷史記錄完整性**
+    - **驗證需求：5.5, 5.6, 5.4, 6.10**
+    - 新增至 `src/logic/__tests__/order-status.property.test.ts`
+
+- [ ] 4. 實作表單驗證與訂單合併/分拆邏輯
+  - [ ] 4.1 實作表單驗證規則純函式
+    - 建立 `src/logic/validation.ts`，實作各實體（Customer、Supplier、Product、Order）的必填欄位驗證函式
+    - 驗證失敗時回傳缺少的欄位名稱
+    - _需求：1.4, 2.4, 3.4, 4.12_
+  - [ ]* 4.2 撰寫實體驗證屬性測試
+    - **屬性 1：實體驗證——缺少必填欄位應產生錯誤**
+    - **驗證需求：1.4, 2.4, 3.4, 4.12**
+    - 建立 `src/logic/__tests__/validation.property.test.ts`
+  - [ ] 4.3 實作訂單合併邏輯
+    - 建立 `src/logic/order-merge.ts`，實作 `validateMergeOrders`、`mergeOrders`
+    - 驗證同一客戶、狀態為 pending 或 confirmed
+    - _需求：9.1, 9.2, 9.3, 9.4_
+  - [ ]* 4.4 撰寫訂單合併屬性測試
+    - **屬性 12：訂單合併——明細項目與金額守恆**
+    - **屬性 13：訂單合併前置驗證**
+    - **驗證需求：9.1, 9.2, 9.3, 9.4**
+    - 建立 `src/logic/__tests__/order-merge.property.test.ts`
+  - [ ] 4.5 實作訂單分拆邏輯
+    - 建立 `src/logic/order-split.ts`，實作 `validateSplitOrder`、`splitOrder`
+    - 驗證狀態為 pending 或 confirmed，分拆後數量守恆
+    - _需求：9.5, 9.6, 9.7_
+  - [ ]* 4.6 撰寫訂單分拆屬性測試
+    - **屬性 14：訂單分拆——數量守恆**
+    - **屬性 15：訂單分拆前置驗證**
+    - **驗證需求：9.5, 9.6, 9.7**
+    - 建立 `src/logic/__tests__/order-split.property.test.ts`
+
+- [ ] 5. 檢查點 — 確認所有業務邏輯測試通過
+  - 確認所有測試通過，若有問題請詢問使用者。
+
+- [ ] 6. 建立 Amplify Gen2 後端資料層
+  - [ ] 6.1 定義 Amplify Data schema（GraphQL 模型）
+    - 建立 `amplify/data/resource.ts`，使用 `defineData` 定義 Customer、Supplier、Product、Order、LineItem、PurchaseRecord 模型
+    - 設定授權規則（僅已驗證使用者可存取）
+    - 更新 `amplify/backend.ts` 加入 data 資源
+    - _需求：1.2, 2.2, 3.2, 4.1, 6.1_
+  - [ ] 6.2 建立 Amplify API 客戶端工具
+    - 建立 `src/lib/amplify-client.ts`，匯出型別安全的 Amplify Data client
+    - 提供 `generateClient` 封裝，供 hooks 使用
+    - _需求：1.2, 2.2, 3.2, 4.1_
+
+- [ ] 7. 建立共用 UI 元件
+  - [ ] 7.1 實作通用分頁表格元件 DataTable
+    - 建立 `src/components/DataTable.tsx`，使用 TanStack Table 的 `useReactTable` + `getCoreRowModel`
+    - 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell、TablePagination 渲染
+    - 支援排序、分頁、行點擊、載入狀態
+    - _需求：1.1, 2.1, 3.1, 4.2_
+  - [ ] 7.2 實作搜尋列、狀態標籤、確認對話框、實體選取元件
+    - 建立 `src/components/SearchBar.tsx`（搜尋輸入框，含防抖）
+    - 建立 `src/components/StatusChip.tsx`（狀態標籤，依狀態顯示不同顏色）
+    - 建立 `src/components/ConfirmDialog.tsx`（確認對話框，用於刪除/取消等操作）
+    - 建立 `src/components/EntitySelect.tsx`（實體選取 Autocomplete，用於客戶/供應商/商品選取）
+    - _需求：1.5, 1.6, 2.5, 2.6, 3.5, 3.6, 4.13, 5.1_
+  - [ ]* 7.3 撰寫共用元件單元測試
+    - 建立 `src/components/__tests__/DataTable.test.tsx`、`SearchBar.test.tsx`、`StatusChip.test.tsx`
+    - 測試元件渲染、分頁互動、搜尋輸入、狀態顏色對應
+    - _需求：1.1, 2.1, 3.1, 4.2_
+
+- [ ] 8. 實作客戶管理模組（Customer_Registry）
+  - [ ] 8.1 建立客戶 CRUD hooks
+    - 建立 `src/hooks/useCustomers.ts`，實作 `useCustomerList`、`useCustomer`、`useCreateCustomer`、`useUpdateCustomer`
+    - 使用 TanStack Query 管理快取與 mutation，搭配 Amplify Data client 呼叫 API
+    - _需求：1.1, 1.2, 1.3, 1.5_
+  - [ ] 8.2 建立客戶列表頁面與表單頁面
+    - 建立 `src/routes/customers/index.tsx`（客戶列表，使用 DataTable + SearchBar）
+    - 建立 `src/routes/customers/new.tsx`（新增客戶表單，使用 TanStack Form + MUI）
+    - 建立 `src/routes/customers/$customerId.tsx`（編輯客戶表單）
+    - 表單驗證使用 `src/logic/validation.ts` 中的驗證函式
+    - 受保護路由使用 `beforeLoad` + `redirect`
+    - _需求：1.1, 1.2, 1.3, 1.4, 1.5_
+  - [ ]* 8.3 撰寫客戶模組單元測試
+    - 建立 `src/routes/__tests__/customers.test.tsx`
+    - 測試列表頁面欄位顯示、表單元件存在性、驗證錯誤顯示
+    - _需求：1.1, 1.4_
+
+- [ ] 9. 實作供應商管理模組（Supplier_Registry）
+  - [ ] 9.1 建立供應商 CRUD hooks
+    - 建立 `src/hooks/useSuppliers.ts`，實作 `useSupplierList`、`useSupplier`、`useCreateSupplier`、`useUpdateSupplier`
+    - _需求：2.1, 2.2, 2.3, 2.5_
+  - [ ] 9.2 建立供應商列表頁面與表單頁面
+    - 建立 `src/routes/suppliers/index.tsx`（供應商列表）
+    - 建立 `src/routes/suppliers/new.tsx`（新增供應商表單）
+    - 建立 `src/routes/suppliers/$supplierId.tsx`（編輯供應商表單）
+    - _需求：2.1, 2.2, 2.3, 2.4, 2.5_
+  - [ ]* 9.3 撰寫供應商模組單元測試
+    - 建立 `src/routes/__tests__/suppliers.test.tsx`
+    - _需求：2.1, 2.4_
+
+- [ ] 10. 實作商品管理模組（Product_Registry）
+  - [ ] 10.1 建立商品 CRUD hooks
+    - 建立 `src/hooks/useProducts.ts`，實作 `useProductList`、`useProduct`、`useCreateProduct`、`useUpdateProduct`
+    - _需求：3.1, 3.2, 3.3, 3.5_
+  - [ ] 10.2 建立商品列表頁面與表單頁面
+    - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量）
+    - 建立 `src/routes/products/new.tsx`（新增商品表單，供應商選取使用 EntitySelect）
+    - 建立 `src/routes/products/$productId.tsx`（編輯商品表單）
+    - _需求：3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+  - [ ]* 10.3 撰寫商品模組單元測試
+    - 建立 `src/routes/__tests__/products.test.tsx`
+    - _需求：3.1, 3.4_
+
+- [ ] 11. 檢查點 — 確認基礎模組功能正常
+  - 確認所有測試通過，若有問題請詢問使用者。
+
+- [ ] 12. 實作訂單管理模組——建立與列表
+  - [ ] 12.1 建立訂單 CRUD hooks
+    - 建立 `src/hooks/useOrders.ts`，實作 `useOrderList`、`useOrder`、`useCreateOrder`、`useUpdateOrderStatus`
+    - 建立訂單時自動計算明細小計與總金額
+    - _需求：4.1, 4.2, 4.11, 4.13, 5.2_
+  - [ ] 12.2 建立訂單列表頁面
+    - 建立 `src/routes/orders/index.tsx`（訂單列表，顯示訂單編號、客戶名稱、總金額、狀態、建立日期）
+    - 支援依訂單編號或客戶名稱搜尋
+    - 提供合併操作入口按鈕
+    - _需求：4.2, 4.13_
+  - [ ] 12.3 建立新增訂單頁面
+    - 建立 `src/routes/orders/new.tsx`
+    - 使用 TanStack Form 管理表單狀態
+    - 客戶選取使用 EntitySelect（從 Customer_Registry 選取）
+    - 明細項目動態新增/移除，商品選取使用 EntitySelect
+    - 自動計算小計與總金額
+    - 新明細項目初始狀態為「待處理」
+    - _需求：1.6, 4.1, 4.5, 4.11, 4.12_
+  - [ ]* 12.4 撰寫訂單列表與建立頁面單元測試
+    - 建立 `src/routes/__tests__/orders.test.tsx`
+    - 測試列表欄位顯示、表單元件存在性、明細初始狀態
+    - _需求：4.2, 4.5, 4.12_
+
+- [ ] 13. 實作訂單詳情頁面——明細檢視與狀態管理
+  - [ ] 13.1 建立訂單詳情頁面基礎結構
+    - 建立 `src/routes/orders/$orderId.tsx`
+    - 顯示客戶資訊、訂單狀態（含狀態變更按鈕）、明細項目列表
+    - 明細列表顯示：商品名稱、數量、單價、小計、明細狀態、實際供應商、實際採購成本、相關日期
+    - 訂單狀態變更時驗證轉換合法性，記錄狀態歷史
+    - _需求：4.3, 4.4, 5.1, 5.2, 5.3, 5.4_
+  - [ ] 13.2 實作明細項目進貨採購操作
+    - 在訂單詳情頁面新增進貨操作對話框
+    - 在 `src/hooks/useOrders.ts` 中新增 `useCreatePurchaseRecord`、`useConfirmReceived` hooks
+    - 供應商預設為商品的預設供應商（可覆寫），單位成本預設為商品的預設進貨成本（可覆寫）
+    - 驗證採購數量不超過未採購餘額
+    - 建立採購記錄後更新明細狀態為「已訂購」
+    - 顯示每筆明細的所有採購記錄（供應商、數量、成本、日期、狀態）
+    - _需求：3.7, 3.8, 4.6, 6.1, 6.2, 6.3, 6.4, 6.6, 6.7_
+  - [ ] 13.3 實作入庫確認操作
+    - 在採購記錄上新增「確認入庫」按鈕
+    - 入庫時增加商品庫存數量
+    - 更新明細狀態為「已收到」
+    - 記錄入庫日期與採購記錄狀態歷史
+    - 已入庫記錄不可取消（顯示錯誤訊息）
+    - _需求：4.7, 6.5, 6.6, 6.8, 6.10_
+  - [ ] 13.4 實作明細項目出貨操作
+    - 在訂單詳情頁面新增出貨操作對話框
+    - 在 `src/hooks/useOrders.ts` 中新增 `useShipLineItem` hook
+    - 僅「已收到」狀態的明細可執行出貨
+    - 驗證出貨數量不超過未出貨餘額且不超過庫存
+    - 出貨成功後扣減庫存、更新明細狀態為「已出貨」、記錄出貨日期
+    - 自動推導訂單狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
+    - _需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5_
+  - [ ] 13.5 實作明細缺貨標記
+    - 新增「標記缺貨」按鈕，僅「待處理」或「已訂購」狀態可操作
+    - _需求：4.9, 4.10_
+
+- [ ] 14. 實作訂單合併與分拆頁面
+  - [ ] 14.1 建立訂單合併頁面
+    - 建立 `src/routes/orders/merge.tsx`
+    - 在 `src/hooks/useOrders.ts` 中新增 `useMergeOrders` hook
+    - 選取同一客戶的多筆 pending/confirmed 訂單
+    - 執行合併驗證（同一客戶、狀態檢查）
+    - 合併後建立新訂單，來源訂單狀態變更為 cancelled
+    - _需求：9.1, 9.2, 9.3, 9.4_
+  - [ ] 14.2 建立訂單分拆頁面
+    - 建立 `src/routes/orders/$orderId.split.tsx`
+    - 在 `src/hooks/useOrders.ts` 中新增 `useSplitOrder` hook
+    - 指定明細項目分配方式，建立多筆新訂單
+    - 執行分拆驗證（狀態檢查、數量守恆）
+    - 原訂單狀態變更為 cancelled
+    - _需求：9.5, 9.6, 9.7_
+
+- [ ] 15. 檢查點 — 確認訂單核心功能正常
+  - 確認所有測試通過，若有問題請詢問使用者。
+
+- [ ] 16. 實作導覽列、儀表板與路由保護
+  - [ ] 16.1 更新根佈局導覽列
+    - 修改 `src/routes/__root.tsx`，新增客戶管理、供應商管理、商品管理、訂單管理的導覽連結
+    - 僅已登入使用者顯示管理功能連結
+    - _需求：8.1_
+  - [ ] 16.2 建立儀表板頁面
+    - 修改 `src/routes/index.tsx` 或建立儀表板元件
+    - 建立 `src/hooks/useDashboard.ts`，查詢待處理訂單、待入庫採購記錄、待出貨明細的摘要數量
+    - 使用 MUI Card 元件顯示摘要資訊
+    - _需求：8.3_
+  - [ ] 16.3 確保所有管理頁面路由保護
+    - 在所有管理頁面路由的 `beforeLoad` 中檢查認證狀態
+    - 未登入使用者重新導向至登入頁面
+    - _需求：8.2_
+  - [ ]* 16.4 撰寫導覽與路由保護單元測試
+    - 測試導覽連結顯示、未登入重新導向、儀表板摘要數量
+    - _需求：8.1, 8.2, 8.3_
+
+- [ ] 17. 最終檢查點 — 確認所有測試通過
+  - 確認所有測試通過，若有問題請詢問使用者。
+
+## 備註
+
+- 標記 `*` 的任務為選擇性任務，可跳過以加速 MVP 開發
+- 每個任務皆參照具體需求編號，確保可追溯性
+- 檢查點確保漸進式驗證，及早發現問題
+- 屬性測試驗證通用正確性屬性（使用 fast-check 搭配 Vitest）
+- 單元測試驗證特定範例與邊界情況（使用 Vitest + React Testing Library）
+- 所有程式碼使用 TypeScript，遵循專案既有慣例（MUI sx prop、檔案式路由、TanStack Query 快取管理）
