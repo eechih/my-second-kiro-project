@@ -27,6 +27,10 @@
   - **訂單合併**：建立新 Order + 搬移 LineItems + 取消來源 Orders
   - **訂單分拆**：建立多筆新 Orders + 分配 LineItems + 取消原 Order
 - **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
+- **TanStack Query 快取策略**：
+  - **樂觀更新（Optimistic Updates）**：對於狀態變更操作（出貨、入庫確認、訂單狀態切換），在 `useMutation` 的 `onMutate` 中先更新快取，讓使用者立即看到 UI 變化，無需等待 Lambda 執行完畢（通常 1-2 秒）。若 mutation 失敗，在 `onError` 中自動回滾至先前狀態。
+  - **自動預取（Prefetching）**：在訂單列表頁面，當使用者將游標懸停在某筆訂單時，使用 `queryClient.prefetchQuery` 預取該訂單的 LineItems 與 PurchaseRecords 資料，提升進入詳情頁的流暢感。
+  - **快取失效（Invalidation）**：Custom mutation 成功後，invalidate 相關的 query keys（如 Order 詳情、Product/ProductVariant 庫存），確保資料最終一致。
 - **表格管理**：使用 TanStack Table 管理 DataTable 元件，提供排序、分頁、欄位定義等功能，搭配 MUI 元件渲染。
 - **表單驗證**：使用 TanStack Form 搭配自訂驗證函式，驗證邏輯抽離為純函式以利單元測試。
 - **表單與 MUI 整合**：封裝 `FormField` 元件橋接 TanStack Form 的 `field.state` 與 MUI 受控元件（TextField 等），自動綁定 `value`/`onChange`、`error`/`helperText`，減少每個表單欄位的樣板程式碼。所有表單頁面統一使用 `FormField` 而非直接操作 `field` API。

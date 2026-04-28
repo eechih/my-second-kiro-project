@@ -297,12 +297,14 @@
   - [ ] 12.1 建立訂單 CRUD hooks
     - 建立 `src/hooks/useOrders.ts`，實作 `useOrderList`、`useOrder`、`useCreateOrder`、`useUpdateOrderStatus`
     - 建立訂單時自動計算明細小計與總金額
-    - _需求：4.1, 4.2, 4.11, 4.13, 5.2_
+    - 實作 `usePrefetchOrder(orderId)` hook，供列表頁面在游標懸停時預取訂單詳情（含 LineItems、PurchaseRecords），使用 `queryClient.prefetchQuery`
+    - _需求：4.1, 4.2, 4.11, 4.15, 5.2_
   - [ ] 12.2 建立訂單列表頁面
     - 建立 `src/routes/orders/index.tsx`（訂單列表，顯示訂單編號、客戶名稱、總金額、狀態、建立日期）
     - 支援依訂單編號或客戶名稱搜尋
     - 提供合併操作入口按鈕
-    - _需求：4.2, 4.13_
+    - 在訂單列表行上加入 `onMouseEnter` 事件，觸發 `usePrefetchOrder` 預取該訂單詳情，提升進入詳情頁的流暢感
+    - _需求：4.2, 4.15_
   - [ ] 12.3 建立新增訂單頁面
     - 建立 `src/routes/orders/new.tsx`
     - 使用 TanStack Form 管理表單狀態
@@ -340,6 +342,8 @@
   - [ ] 13.3 實作入庫確認操作
     - 在採購記錄上新增「確認入庫」按鈕
     - 點擊後呼叫 `useConfirmReceived` hook，該 hook 呼叫 `confirmReceived` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
+      - 在 `onMutate` 中實作樂觀更新：立即更新快取中的 PurchaseRecord 狀態為 `received`、LineItem 狀態為「已收到」、增加庫存數量
+      - 在 `onError` 中自動回滾快取至先前狀態
       - 增加庫存數量：若明細項目有 variantId，增加對應 ProductVariant 的 stockQuantity；否則增加 Product 的 stockQuantity
       - 更新 PurchaseRecord 狀態為 `received`，記錄 `receivedAt` 及狀態歷史
       - 更新 LineItem 狀態為「已收到」，記錄 `receivedAt`
@@ -350,6 +354,8 @@
   - [ ] 13.4 實作明細項目出貨操作
     - 在訂單詳情頁面新增出貨操作對話框
     - 在 `src/hooks/useOrders.ts` 中新增 `useShipLineItem` hook，該 hook 呼叫 `shipLineItem` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
+      - 在 `onMutate` 中實作樂觀更新：立即更新快取中的 LineItem 狀態為「已出貨」、扣減庫存數量，讓使用者無需等待 Lambda 執行即可看到 UI 變化
+      - 在 `onError` 中自動回滾快取至先前狀態
       - 扣減對應層級庫存（若明細有 variantId 則扣減 ProductVariant 的 stockQuantity，否則扣減 Product 的 stockQuantity），使用 ConditionExpression 確保庫存充足
       - 更新 LineItem 的 `shippedQuantity` 與狀態為「已出貨」，記錄 `shippedAt`
       - 條件性更新 Order 狀態（任一明細已出貨 → shipping，全部已出貨 → completed），記錄狀態歷史
