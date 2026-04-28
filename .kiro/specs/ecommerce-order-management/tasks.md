@@ -154,7 +154,7 @@
   - [ ] 6.3 設定 Amplify Gen2 Storage（S3）資源
     - 建立 `amplify/storage/resource.ts`，使用 `defineStorage` 定義 S3 儲存桶
     - 設定 `product-images/` 路徑前綴，授權規則：已驗證使用者可上傳與刪除，所有已驗證使用者可讀取
-    - 建立 `amplify/functions/generate-thumbnail/` Lambda 函式，由 S3 上傳事件觸發，自動產生縮圖（300px 寬）存放於 `product-images/{productId}/thumbnails/` 路徑
+    - 建立 `amplify/functions/generate-thumbnail/` Lambda 函式，由 S3 上傳事件觸發，使用 `sharp` 套件自動產生縮圖（300px 寬），存放於 `product-images/{productId}/thumbnails/` 路徑
     - 更新 `amplify/backend.ts` 加入 storage 資源與縮圖 Lambda 函式
     - _需求：3.9, 3.10, 3.11_
   - [ ] 6.4 實作 Lambda Custom Mutation 函式（事務性操作）
@@ -250,7 +250,7 @@
     - _需求：3.1, 3.2, 3.3, 3.5, 3.12, 3.13, 3.14, 3.15_
   - [ ] 10.2 建立商品照片上傳/刪除 hooks
     - 建立 `src/hooks/useProductImages.ts`，實作 `useUploadProductImage`、`useDeleteProductImage`、`useProductImageUrls`
-    - `useUploadProductImage`：使用 Amplify Storage `uploadData` 將檔案上傳至 S3 的 `product-images/{productId}/` 路徑，上傳成功後將 S3 key 新增至商品的 `imageUrls` 陣列並更新商品記錄
+    - `useUploadProductImage`：使用 Amplify Storage `uploadData` 將檔案上傳至 S3 的 `product-images/{productId}/` 路徑，上傳時加上 `productId` S3 物件標籤（方便未來批次清理），上傳成功後將 S3 key 新增至商品的 `imageUrls` 陣列並更新商品記錄
     - `useDeleteProductImage`：使用 Amplify Storage `remove` 刪除 S3 檔案，同時從商品的 `imageUrls` 陣列中移除對應 key 並更新商品記錄
     - `useProductImageUrls`：使用 Amplify Storage `getUrl` 將 S3 key 列表轉換為可存取的預簽名 URL 列表，供前端顯示使用
     - `useProductThumbnailUrls`：將 S3 key 列表轉換為對應縮圖的預簽名 URL 列表（路徑加入 `thumbnails/` 前綴），用於列表頁面與預覽顯示

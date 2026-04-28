@@ -32,7 +32,8 @@
 - **檔案儲存**：使用 Amplify Gen2 Storage（基於 Amazon S3）管理商品照片的上傳、刪除與存取。選擇此方案是因為 Amplify Gen2 提供 `defineStorage` 原生整合 Cognito 授權，可直接設定路徑前綴的存取規則，並透過 `uploadData`、`remove`、`getUrl` 等 API 簡化前端與 S3 的互動，無需自行管理 AWS SDK 或預簽名 URL 邏輯。
 - **圖片上傳效能優化**：
   - **前端壓縮**：上傳前使用 Canvas API 將圖片壓縮至合理尺寸（如最大寬度 1200px、品質 0.8），減少上傳時間與 S3 儲存成本。
-  - **縮圖產生**：上傳完成後透過 S3 觸發 Lambda 函式自動產生縮圖（如 300px 寬），存放於 `product-images/{productId}/thumbnails/` 路徑。列表頁面與預覽使用縮圖，詳情頁面點擊後載入原圖。
+  - **縮圖產生**：上傳完成後透過 S3 觸發 Lambda 函式自動產生縮圖（如 300px 寬），使用 `sharp` 套件處理圖片（Node.js 效能最佳、資源消耗最低的圖片處理方案）。縮圖存放於 `product-images/{productId}/thumbnails/` 路徑。列表頁面與預覽使用縮圖，詳情頁面點擊後載入原圖。
+  - **S3 物件標籤**：上傳時為圖片加上 `productId` 標籤（S3 Object Tagging），方便未來批次清理無效圖片（如刪除商品時）或進行儲存分析。
   - **S3 權限控制**：在 `amplify/storage/resource.ts` 中設定嚴格的路徑權限，僅已驗證使用者可上傳至 `product-images/` 路徑，所有已驗證使用者可讀取。
 
 ## 架構
