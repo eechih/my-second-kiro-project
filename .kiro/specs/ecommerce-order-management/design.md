@@ -18,6 +18,12 @@
 ### 設計決策
 
 - **後端資料層**：使用 Amplify Gen2 Data（基於 AWS AppSync + DynamoDB）定義 GraphQL schema，自動產生 CRUD API。選擇此方案是因為專案已使用 Amplify Gen2，可直接整合認證與授權。
+- **商品規格組合資料模型**：採用 Product → ProductVariant 的一對多關聯（`hasMany` / `belongsTo`），而非將規格組合嵌入 Product 的 JSON 欄位。原因：(1) 每個 ProductVariant 有獨立的庫存數量，需要獨立更新；(2) 訂單明細的 `variantId` 可直接建立外鍵關聯；(3) 避免 DynamoDB 400KB 項目大小限制問題。
+- **事務性操作（Custom Mutations）**：出貨、入庫等涉及多表更新的操作（如「扣減庫存 + 更新明細狀態 + 更新訂單狀態」），使用 Amplify Gen2 的 custom mutations（Lambda 函式）實作，透過 DynamoDB `TransactWriteItems` 確保原子性。避免前端分步呼叫多個 mutation 導致資料不一致。需要 custom mutation 的操作包括：
+  - **出貨操作**：扣減 ProductVariant（或 Product）庫存 + 更新 LineItem 已出貨數量與狀態 + 條件性更新 Order 狀態
+  - **入庫確認**：增加 ProductVariant（或 Product）庫存 + 更新 PurchaseRecord 狀態 + 更新 LineItem 狀態
+  - **訂單合併**：建立新 Order + 搬移 LineItems + 取消來源 Orders
+  - **訂單分拆**：建立多筆新 Orders + 分配 LineItems + 取消原 Order
 - **前端狀態管理**：使用 TanStack Query 管理伺服器狀態快取與同步，不額外引入全域狀態管理庫。所有業務邏輯（狀態轉換驗證、金額計算、庫存檢查）封裝於獨立的純函式模組，方便測試。
 - **表格管理**：使用 TanStack Table 管理 DataTable 元件，提供排序、分頁、欄位定義等功能，搭配 MUI 元件渲染。
 - **表單驗證**：使用 TanStack Form 搭配自訂驗證函式，驗證邏輯抽離為純函式以利單元測試。
@@ -38,6 +44,7 @@ graph TB
 
     subgraph "AWS Amplify Gen2 後端"
         AppSync["AWS AppSync<br/>GraphQL API"]
+        Lambda["AWS Lambda<br/>Custom Mutations<br/>（事務性操作）"]
         Cognito["Amazon Cognito<br/>身份驗證"]
         DynamoDB["Amazon DynamoDB<br/>資料儲存"]
         S3["Amazon S3<br/>Amplify Storage<br/>商品照片儲存"]
@@ -49,8 +56,10 @@ graph TB
     Forms --> Logic
     Query --> AppSync
     Query --> S3
+    AppSync --> Lambda
     AppSync --> Cognito
     AppSync --> DynamoDB
+    Lambda --> DynamoDB
     S3 --> Cognito
     Logic --> Query
 ```
@@ -61,6 +70,13 @@ graph TB
 amplify/
 ├── auth/
 │   └── resource.ts            # 認證設定（Cognito）
+├── data/
+│   └── resource.ts            # 資料模型定義（AppSync + DynamoDB）
+├── functions/                 # Custom Mutation Lambda 函式
+│   ├── ship-line-item/        # 出貨操作（庫存扣減 + 狀態更新，TransactWriteItems）
+│   ├── confirm-received/      # 入庫確認（庫存增加 + 狀態更新，TransactWriteItems）
+│   ├── merge-orders/          # 訂單合併（建立新訂單 + 搬移明細 + 取消來源，TransactWriteItems）
+│   └── split-order/           # 訂單分拆（建立多筆新訂單 + 分配明細 + 取消原訂單，TransactWriteItems）
 ├── storage/
 │   └── resource.ts            # 儲存設定（S3 商品照片）
 └── backend.ts                 # 後端進入點

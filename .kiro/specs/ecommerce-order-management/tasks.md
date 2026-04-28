@@ -2,7 +2,7 @@
 
 ## 概述
 
-本實作計畫將電子商務訂單管理系統的設計拆解為可逐步執行的編碼任務。實作順序為：資料模型與業務邏輯純函式（含規格組合邏輯）→ Amplify Gen2 後端資料層 → 共用 UI 元件（含規格組合元件）→ 各模組頁面（客戶、供應商、商品含規格組合管理、訂單含規格組合選取）→ 導覽與儀表板 → 訂單進階功能（進貨、出貨皆在規格組合層級操作、合併、分拆）。每個任務皆建立在前一步的基礎上，確保無孤立或未整合的程式碼。
+本實作計畫將電子商務訂單管理系統的設計拆解為可逐步執行的編碼任務。實作順序為：資料模型與業務邏輯純函式（含規格組合邏輯）→ Amplify Gen2 後端資料層（含 Lambda Custom Mutation 函式）→ 共用 UI 元件（含規格組合元件）→ 各模組頁面（客戶、供應商、商品含規格組合管理、訂單含規格組合選取）→ 導覽與儀表板 → 訂單進階功能（進貨、出貨皆透過 Custom Mutation 確保原子性、合併、分拆）。每個任務皆建立在前一步的基礎上，確保無孤立或未整合的程式碼。
 
 ## 任務
 
@@ -139,12 +139,13 @@
 - [ ] 6. 建立 Amplify Gen2 後端資料層
   - [ ] 6.1 定義 Amplify Data schema（GraphQL 模型）
     - 建立 `amplify/data/resource.ts`，使用 `defineData` 定義 Customer、Supplier、Product、ProductVariant、Order、LineItem、PurchaseRecord 模型
+    - Product 與 ProductVariant 之間使用 `hasMany` / `belongsTo` 一對多關聯：Product 模型宣告 `variants: a.hasMany('ProductVariant', 'productId')`，ProductVariant 模型宣告 `product: a.belongsTo('Product', 'productId')` 並包含 `productId` 外鍵欄位
     - Product 模型需包含 `imageUrls` 欄位（字串陣列）、`specDimensions` 欄位（JSON 陣列，儲存 SpecDimension[]）
-    - ProductVariant 模型需包含 `combination`（JSON）、`label`、`sku`、`stockQuantity`、`unitPriceOverride`、`defaultCostOverride` 欄位，並建立與 Product 的 hasMany/belongsTo 關聯
+    - ProductVariant 模型需包含 `productId`（外鍵）、`combination`（JSON）、`label`、`sku`、`stockQuantity`、`unitPriceOverride`、`defaultCostOverride` 欄位
     - LineItem 模型需包含 `variantId`（選填）及 `variantLabel`（選填）欄位
-    - Product 模型需包含 `imageUrls` 欄位（字串陣列），儲存 S3 照片 key
+    - 在 schema 中註冊四個 custom mutations（對應 `amplify/functions/` 下的 Lambda 函式）：`shipLineItem`、`confirmReceived`、`mergeOrders`、`splitOrder`，使用 `a.mutation()` 搭配 `a.handler.function()` 指向對應的 Lambda 函式資源
     - 設定授權規則（僅已驗證使用者可存取）
-    - 更新 `amplify/backend.ts` 加入 data 資源
+    - 更新 `amplify/backend.ts` 加入 data 資源及四個 Lambda 函式資源
     - _需求：1.2, 2.2, 3.2, 3.9, 3.12, 3.13, 3.14, 4.1, 4.12, 6.1_
   - [ ] 6.2 建立 Amplify API 客戶端工具
     - 建立 `src/lib/amplify-client.ts`，匯出型別安全的 Amplify Data client
@@ -155,6 +156,25 @@
     - 設定 `product-images/` 路徑前綴，授權規則為已驗證使用者可讀寫
     - 更新 `amplify/backend.ts` 加入 storage 資源
     - _需求：3.9, 3.10, 3.11_
+  - [ ] 6.4 實作 Lambda Custom Mutation 函式（事務性操作）
+    - 建立 `amplify/functions/ship-line-item/` Lambda 函式（出貨操作）
+      - 使用 DynamoDB `TransactWriteItems` 在單一交易中執行：扣減 ProductVariant（或 Product）的 `stockQuantity`、更新 LineItem 的 `shippedQuantity` 與狀態為「已出貨」、條件性更新 Order 狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
+      - 包含驗證邏輯：出貨數量不超過未出貨餘額、庫存數量充足（使用 ConditionExpression 確保原子性）
+      - 記錄出貨日期（`shippedAt`）與訂單狀態歷史（`statusHistory`）
+    - 建立 `amplify/functions/confirm-received/` Lambda 函式（入庫確認操作）
+      - 使用 DynamoDB `TransactWriteItems` 在單一交易中執行：增加 ProductVariant（或 Product）的 `stockQuantity`、更新 PurchaseRecord 狀態為 `received` 並記錄 `receivedAt`、更新 LineItem 狀態為「已收到」並記錄 `receivedAt`
+      - 包含驗證邏輯：PurchaseRecord 狀態必須為 `pending`（已入庫記錄不可重複確認）
+      - 記錄採購記錄狀態歷史（`statusHistory`）
+    - 建立 `amplify/functions/merge-orders/` Lambda 函式（訂單合併操作）
+      - 使用 DynamoDB `TransactWriteItems` 在單一交易中執行：建立新 Order（包含所有來源訂單的 LineItems）、搬移所有 LineItems 的 `orderId` 至新 Order、將所有來源 Orders 狀態變更為 `cancelled`
+      - 包含驗證邏輯：所有來源訂單屬於同一客戶、狀態皆為 `pending` 或 `confirmed`
+      - 合併後新訂單總金額等於所有來源訂單總金額加總
+    - 建立 `amplify/functions/split-order/` Lambda 函式（訂單分拆操作）
+      - 使用 DynamoDB `TransactWriteItems` 在單一交易中執行：建立多筆新 Orders、依分配方式將 LineItems 的 `orderId` 更新至對應的新 Order、將原 Order 狀態變更為 `cancelled`
+      - 包含驗證邏輯：原訂單狀態為 `pending` 或 `confirmed`、所有 LineItems 皆有分配目標
+      - 分拆後所有新訂單的明細項目總和等於原訂單（數量守恆）
+    - 每個 Lambda 函式使用 `defineFunction` 定義，並在 `amplify/data/resource.ts` 的 schema 中以 `a.mutation()` 註冊為 custom mutation
+    - _需求：5.5, 5.6, 6.5, 6.8, 7.1, 7.2, 7.3, 7.4, 7.5, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7_
 
 - [ ] 7. 建立共用 UI 元件
   - [ ] 7.1 實作通用分頁表格元件 DataTable
@@ -294,7 +314,8 @@
     - _需求：4.3, 4.4, 5.1, 5.2, 5.3, 5.4_
   - [ ] 13.2 實作明細項目進貨採購操作
     - 在訂單詳情頁面新增進貨操作對話框
-    - 在 `src/hooks/useOrders.ts` 中新增 `useCreatePurchaseRecord`、`useConfirmReceived` hooks
+    - 在 `src/hooks/useOrders.ts` 中新增 `useCreatePurchaseRecord` hook（使用標準 Amplify mutation 建立採購記錄）
+    - 在 `src/hooks/useOrders.ts` 中新增 `useConfirmReceived` hook（呼叫 `confirmReceived` custom mutation，由 Lambda 函式透過 TransactWriteItems 原子性執行：增加庫存 + 更新 PurchaseRecord 狀態 + 更新 LineItem 狀態）
     - 供應商預設為商品的預設供應商（可覆寫），單位成本預設為商品的預設進貨成本（可覆寫）
     - 若明細項目有規格組合，單位成本預設使用 `resolveEffectiveCost` 解析（規格組合覆寫優先）
     - 驗證採購數量不超過未採購餘額
@@ -303,20 +324,24 @@
     - _需求：3.7, 3.8, 3.15, 4.6, 6.1, 6.2, 6.3, 6.4, 6.6, 6.7_
   - [ ] 13.3 實作入庫確認操作
     - 在採購記錄上新增「確認入庫」按鈕
-    - 入庫時增加庫存數量：若明細項目有 variantId，增加對應規格組合的 stockQuantity；否則增加商品的 stockQuantity
-    - 使用 `applyReceived` 計算新庫存
-    - 更新明細狀態為「已收到」
-    - 記錄入庫日期與採購記錄狀態歷史
-    - 已入庫記錄不可取消（顯示錯誤訊息）
+    - 點擊後呼叫 `useConfirmReceived` hook，該 hook 呼叫 `confirmReceived` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
+      - 增加庫存數量：若明細項目有 variantId，增加對應 ProductVariant 的 stockQuantity；否則增加 Product 的 stockQuantity
+      - 更新 PurchaseRecord 狀態為 `received`，記錄 `receivedAt` 及狀態歷史
+      - 更新 LineItem 狀態為「已收到」，記錄 `receivedAt`
+    - 前端使用 `applyReceived` 純函式進行樂觀更新計算
+    - 已入庫記錄不可取消（前端驗證 + Lambda 端 ConditionExpression 雙重保護）
+    - mutation 成功後 invalidate 相關 TanStack Query 快取（Order、Product/ProductVariant）
     - _需求：4.7, 6.5, 6.6, 6.8, 6.10_
   - [ ] 13.4 實作明細項目出貨操作
     - 在訂單詳情頁面新增出貨操作對話框
-    - 在 `src/hooks/useOrders.ts` 中新增 `useShipLineItem` hook
-    - 僅「已收到」狀態的明細可執行出貨
-    - 使用 `resolveStockQuantity(product, variantId)` 取得正確層級的庫存數量（規格組合層級或商品層級）
-    - 驗證出貨數量不超過未出貨餘額且不超過庫存（使用 `validateShipment`）
-    - 出貨成功後扣減對應層級庫存（若明細有 variantId 則扣減規格組合庫存，否則扣減商品庫存）、更新明細狀態為「已出貨」、記錄出貨日期
-    - 自動推導訂單狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
+    - 在 `src/hooks/useOrders.ts` 中新增 `useShipLineItem` hook，該 hook 呼叫 `shipLineItem` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
+      - 扣減對應層級庫存（若明細有 variantId 則扣減 ProductVariant 的 stockQuantity，否則扣減 Product 的 stockQuantity），使用 ConditionExpression 確保庫存充足
+      - 更新 LineItem 的 `shippedQuantity` 與狀態為「已出貨」，記錄 `shippedAt`
+      - 條件性更新 Order 狀態（任一明細已出貨 → shipping，全部已出貨 → completed），記錄狀態歷史
+    - 僅「已收到」狀態的明細可執行出貨（前端驗證 + Lambda 端驗證）
+    - 前端使用 `resolveStockQuantity(product, variantId)` 取得正確層級的庫存數量供 UI 顯示
+    - 前端使用 `validateShipment` 進行提交前驗證（出貨數量不超過未出貨餘額且不超過庫存）
+    - mutation 成功後 invalidate 相關 TanStack Query 快取（Order、Product/ProductVariant）
     - _需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5_
   - [ ] 13.5 實作明細缺貨標記
     - 新增「標記缺貨」按鈕，僅「待處理」或「已訂購」狀態可操作
@@ -325,17 +350,23 @@
 - [ ] 14. 實作訂單合併與分拆頁面
   - [ ] 14.1 建立訂單合併頁面
     - 建立 `src/routes/orders/merge.tsx`
-    - 在 `src/hooks/useOrders.ts` 中新增 `useMergeOrders` hook
+    - 在 `src/hooks/useOrders.ts` 中新增 `useMergeOrders` hook，該 hook 呼叫 `mergeOrders` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
+      - 建立新 Order（包含所有來源訂單的 LineItems，總金額為所有來源訂單加總）
+      - 搬移所有 LineItems 的 `orderId` 至新 Order
+      - 將所有來源 Orders 狀態變更為 `cancelled`，記錄狀態歷史
+    - 前端使用 `validateMergeOrders` 純函式進行提交前驗證（同一客戶、狀態檢查）
     - 選取同一客戶的多筆 pending/confirmed 訂單
-    - 執行合併驗證（同一客戶、狀態檢查）
-    - 合併後建立新訂單，來源訂單狀態變更為 cancelled
+    - mutation 成功後 invalidate 訂單列表快取，導向新訂單詳情頁面
     - _需求：9.1, 9.2, 9.3, 9.4_
   - [ ] 14.2 建立訂單分拆頁面
     - 建立 `src/routes/orders/$orderId.split.tsx`
-    - 在 `src/hooks/useOrders.ts` 中新增 `useSplitOrder` hook
-    - 指定明細項目分配方式，建立多筆新訂單
-    - 執行分拆驗證（狀態檢查、數量守恆）
-    - 原訂單狀態變更為 cancelled
+    - 在 `src/hooks/useOrders.ts` 中新增 `useSplitOrder` hook，該 hook 呼叫 `splitOrder` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
+      - 建立多筆新 Orders（各自包含指定的 LineItems）
+      - 依分配方式將 LineItems 的 `orderId` 更新至對應的新 Order
+      - 將原 Order 狀態變更為 `cancelled`，記錄狀態歷史
+    - 前端使用 `validateSplitOrder` 純函式進行提交前驗證（狀態檢查、數量守恆）
+    - 指定明細項目分配方式，預覽分拆結果
+    - mutation 成功後 invalidate 訂單列表快取，導向訂單列表頁面
     - _需求：9.5, 9.6, 9.7_
 
 - [ ] 15. 檢查點 — 確認訂單核心功能正常
@@ -372,3 +403,5 @@
 - 所有程式碼使用 TypeScript，遵循專案既有慣例（MUI sx prop、檔案式路由、TanStack Query 快取管理）
 - 商品照片上傳使用 Amplify Gen2 Storage（S3），照片 key 儲存於商品的 `imageUrls` 欄位，前端透過預簽名 URL 顯示
 - 商品支援多維度規格組合（Product Variant），進貨入庫與出貨扣減皆在規格組合層級操作；無規格組合的商品則在商品層級操作
+- 事務性操作（出貨、入庫確認、訂單合併、訂單分拆）使用 Amplify Gen2 Custom Mutations（Lambda 函式 + DynamoDB TransactWriteItems）確保原子性，避免前端分步呼叫多個 mutation 導致資料不一致
+- Product → ProductVariant 採用 `hasMany` / `belongsTo` 一對多關聯（非嵌入 JSON），每個 ProductVariant 為獨立的 DynamoDB 項目，支援獨立庫存更新與外鍵關聯
