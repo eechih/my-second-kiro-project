@@ -10,7 +10,8 @@
   - [ ] 1.1 建立 `src/models/` 目錄，定義 Customer、Supplier、Product 介面與型別
     - 建立 `src/models/customer.ts`、`src/models/supplier.ts`、`src/models/product.ts`
     - 定義所有必填與選填欄位，包含 `CreateXxxInput`、`UpdateXxxInput` 型別
-    - _需求：1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3_
+    - Product 介面需包含 `imageUrls: string[]` 欄位，儲存 S3 中商品照片的 key 列表
+    - _需求：1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.9, 3.10_
   - [ ] 1.2 定義 Order、LineItem、PurchaseRecord 及共用型別
     - 建立 `src/models/order.ts`，定義 Order、LineItem、PurchaseRecord、StatusChange、ValidationResult、PaginatedResult、SplitAllocation 等介面
     - 定義 OrderStatus、LineItemStatus、PurchaseRecordStatus 型別
@@ -20,7 +21,7 @@
     - 建立 `src/logic/serialization.ts`
     - 實作 serializeOrder / deserializeOrder、serializeProduct / deserializeProduct、serializeCustomer / deserializeCustomer、serializeSupplier / deserializeSupplier
     - _需求：10.1, 10.2, 10.3, 10.4_
-  - [ ]* 1.4 撰寫序列化往返屬性測試
+  - [ ]\* 1.4 撰寫序列化往返屬性測試
     - **屬性 16：序列化往返——所有資料模型**
     - **驗證需求：10.1, 10.2, 10.3, 10.4**
     - 建立 `src/models/__tests__/serialization.property.test.ts`
@@ -31,7 +32,7 @@
     - 建立 `src/logic/order-status.ts`，實作 `isValidOrderStatusTransition`、`getNextAllowedOrderStatuses`
     - 允許路徑：pending → confirmed → shipping → completed，任何狀態 → cancelled
     - _需求：5.1, 5.2, 5.3_
-  - [ ]* 2.2 撰寫訂單狀態轉換屬性測試
+  - [ ]\* 2.2 撰寫訂單狀態轉換屬性測試
     - **屬性 2：訂單狀態轉換——僅允許合法轉換**
     - **驗證需求：5.2, 5.3**
     - 建立 `src/logic/__tests__/order-status.property.test.ts`
@@ -40,7 +41,7 @@
     - 建立 `src/logic/line-item-status.ts`，實作 `isValidLineItemStatusTransition`、`getNextAllowedLineItemStatuses`
     - 允許路徑：待處理 → 已訂購 → 已收到 → 已出貨，待處理 → 缺貨，已訂購 → 缺貨
     - _需求：4.10, 7.1_
-  - [ ]* 2.4 撰寫明細項目狀態轉換屬性測試
+  - [ ]\* 2.4 撰寫明細項目狀態轉換屬性測試
     - **屬性 3：明細項目狀態轉換——僅允許合法轉換**
     - **驗證需求：4.10, 7.1**
     - 建立 `src/logic/__tests__/line-item-status.property.test.ts`
@@ -48,7 +49,7 @@
     - 建立 `src/logic/purchase-record.ts`，實作 `isValidPurchaseStatusTransition`、`calculateRemainingPurchaseQuantity`、`validatePurchaseQuantity`
     - 允許路徑：pending → received，pending → cancelled；received → cancelled 不允許
     - _需求：6.8, 6.9, 6.2, 6.3_
-  - [ ]* 2.6 撰寫採購記錄狀態轉換與數量守恆屬性測試
+  - [ ]\* 2.6 撰寫採購記錄狀態轉換與數量守恆屬性測試
     - **屬性 4：採購記錄狀態轉換——僅允許合法轉換**
     - **屬性 6：採購數量守恆——累計採購不超過訂單數量**
     - **驗證需求：6.8, 6.9, 6.2, 6.3**
@@ -58,7 +59,7 @@
   - [ ] 3.1 實作訂單金額計算函式
     - 建立 `src/logic/order-calculations.ts`，實作 `calculateLineItemSubtotal`、`calculateOrderTotal`
     - _需求：4.11_
-  - [ ]* 3.2 撰寫金額計算屬性測試
+  - [ ]\* 3.2 撰寫金額計算屬性測試
     - **屬性 5：訂單金額計算——小計與總金額一致性**
     - **驗證需求：4.11**
     - 建立 `src/logic/__tests__/order-calculations.property.test.ts`
@@ -66,7 +67,7 @@
     - 建立 `src/logic/shipment.ts`，實作 `calculateRemainingShipQuantity`、`validateShipment`
     - 同時驗證未出貨餘額與庫存數量
     - _需求：7.2, 7.3, 7.4, 7.5_
-  - [ ]* 3.4 撰寫出貨驗證與庫存變動屬性測試
+  - [ ]\* 3.4 撰寫出貨驗證與庫存變動屬性測試
     - **屬性 7：出貨驗證——數量與庫存雙重檢查**
     - **屬性 8：入庫增加庫存**
     - **屬性 9：出貨減少庫存**
@@ -76,7 +77,7 @@
     - 在 `src/logic/order-status.ts` 中新增 `deriveOrderStatusFromLineItems` 函式
     - 依明細狀態自動決定訂單應為 shipping 或 completed
     - _需求：5.5, 5.6_
-  - [ ]* 3.6 撰寫訂單狀態自動推導與狀態歷史屬性測試
+  - [ ]\* 3.6 撰寫訂單狀態自動推導與狀態歷史屬性測試
     - **屬性 10：訂單狀態自動推導——依明細狀態決定訂單狀態**
     - **屬性 11：狀態變更歷史記錄完整性**
     - **驗證需求：5.5, 5.6, 5.4, 6.10**
@@ -87,7 +88,7 @@
     - 建立 `src/logic/validation.ts`，實作各實體（Customer、Supplier、Product、Order）的必填欄位驗證函式
     - 驗證失敗時回傳缺少的欄位名稱
     - _需求：1.4, 2.4, 3.4, 4.12_
-  - [ ]* 4.2 撰寫實體驗證屬性測試
+  - [ ]\* 4.2 撰寫實體驗證屬性測試
     - **屬性 1：實體驗證——缺少必填欄位應產生錯誤**
     - **驗證需求：1.4, 2.4, 3.4, 4.12**
     - 建立 `src/logic/__tests__/validation.property.test.ts`
@@ -95,7 +96,7 @@
     - 建立 `src/logic/order-merge.ts`，實作 `validateMergeOrders`、`mergeOrders`
     - 驗證同一客戶、狀態為 pending 或 confirmed
     - _需求：9.1, 9.2, 9.3, 9.4_
-  - [ ]* 4.4 撰寫訂單合併屬性測試
+  - [ ]\* 4.4 撰寫訂單合併屬性測試
     - **屬性 12：訂單合併——明細項目與金額守恆**
     - **屬性 13：訂單合併前置驗證**
     - **驗證需求：9.1, 9.2, 9.3, 9.4**
@@ -104,7 +105,7 @@
     - 建立 `src/logic/order-split.ts`，實作 `validateSplitOrder`、`splitOrder`
     - 驗證狀態為 pending 或 confirmed，分拆後數量守恆
     - _需求：9.5, 9.6, 9.7_
-  - [ ]* 4.6 撰寫訂單分拆屬性測試
+  - [ ]\* 4.6 撰寫訂單分拆屬性測試
     - **屬性 14：訂單分拆——數量守恆**
     - **屬性 15：訂單分拆前置驗證**
     - **驗證需求：9.5, 9.6, 9.7**
@@ -116,13 +117,19 @@
 - [ ] 6. 建立 Amplify Gen2 後端資料層
   - [ ] 6.1 定義 Amplify Data schema（GraphQL 模型）
     - 建立 `amplify/data/resource.ts`，使用 `defineData` 定義 Customer、Supplier、Product、Order、LineItem、PurchaseRecord 模型
+    - Product 模型需包含 `imageUrls` 欄位（字串陣列），儲存 S3 照片 key
     - 設定授權規則（僅已驗證使用者可存取）
     - 更新 `amplify/backend.ts` 加入 data 資源
-    - _需求：1.2, 2.2, 3.2, 4.1, 6.1_
+    - _需求：1.2, 2.2, 3.2, 3.9, 4.1, 6.1_
   - [ ] 6.2 建立 Amplify API 客戶端工具
     - 建立 `src/lib/amplify-client.ts`，匯出型別安全的 Amplify Data client
     - 提供 `generateClient` 封裝，供 hooks 使用
     - _需求：1.2, 2.2, 3.2, 4.1_
+  - [ ] 6.3 設定 Amplify Gen2 Storage（S3）資源
+    - 建立 `amplify/storage/resource.ts`，使用 `defineStorage` 定義 S3 儲存桶
+    - 設定 `product-images/` 路徑前綴，授權規則為已驗證使用者可讀寫
+    - 更新 `amplify/backend.ts` 加入 storage 資源
+    - _需求：3.9, 3.10, 3.11_
 
 - [ ] 7. 建立共用 UI 元件
   - [ ] 7.1 實作通用分頁表格元件 DataTable
@@ -136,7 +143,7 @@
     - 建立 `src/components/ConfirmDialog.tsx`（確認對話框，用於刪除/取消等操作）
     - 建立 `src/components/EntitySelect.tsx`（實體選取 Autocomplete，用於客戶/供應商/商品選取）
     - _需求：1.5, 1.6, 2.5, 2.6, 3.5, 3.6, 4.13, 5.1_
-  - [ ]* 7.3 撰寫共用元件單元測試
+  - [ ]\* 7.3 撰寫共用元件單元測試
     - 建立 `src/components/__tests__/DataTable.test.tsx`、`SearchBar.test.tsx`、`StatusChip.test.tsx`
     - 測試元件渲染、分頁互動、搜尋輸入、狀態顏色對應
     - _需求：1.1, 2.1, 3.1, 4.2_
@@ -153,7 +160,7 @@
     - 表單驗證使用 `src/logic/validation.ts` 中的驗證函式
     - 受保護路由使用 `beforeLoad` + `redirect`
     - _需求：1.1, 1.2, 1.3, 1.4, 1.5_
-  - [ ]* 8.3 撰寫客戶模組單元測試
+  - [ ]\* 8.3 撰寫客戶模組單元測試
     - 建立 `src/routes/__tests__/customers.test.tsx`
     - 測試列表頁面欄位顯示、表單元件存在性、驗證錯誤顯示
     - _需求：1.1, 1.4_
@@ -167,7 +174,7 @@
     - 建立 `src/routes/suppliers/new.tsx`（新增供應商表單）
     - 建立 `src/routes/suppliers/$supplierId.tsx`（編輯供應商表單）
     - _需求：2.1, 2.2, 2.3, 2.4, 2.5_
-  - [ ]* 9.3 撰寫供應商模組單元測試
+  - [ ]\* 9.3 撰寫供應商模組單元測試
     - 建立 `src/routes/__tests__/suppliers.test.tsx`
     - _需求：2.1, 2.4_
 
@@ -175,14 +182,29 @@
   - [ ] 10.1 建立商品 CRUD hooks
     - 建立 `src/hooks/useProducts.ts`，實作 `useProductList`、`useProduct`、`useCreateProduct`、`useUpdateProduct`
     - _需求：3.1, 3.2, 3.3, 3.5_
-  - [ ] 10.2 建立商品列表頁面與表單頁面
+  - [ ] 10.2 建立商品照片上傳/刪除 hooks
+    - 建立 `src/hooks/useProductImages.ts`，實作 `useUploadProductImage`、`useDeleteProductImage`、`useProductImageUrls`
+    - `useUploadProductImage`：使用 Amplify Storage `uploadData` 將檔案上傳至 S3 的 `product-images/{productId}/` 路徑，上傳成功後將 S3 key 新增至商品的 `imageUrls` 陣列並更新商品記錄
+    - `useDeleteProductImage`：使用 Amplify Storage `remove` 刪除 S3 檔案，同時從商品的 `imageUrls` 陣列中移除對應 key 並更新商品記錄
+    - `useProductImageUrls`：使用 Amplify Storage `getUrl` 將 S3 key 列表轉換為可存取的預簽名 URL 列表，供前端顯示使用
+    - _需求：3.9, 3.10, 3.11_
+  - [ ] 10.3 建立商品列表頁面與表單頁面
     - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量）
     - 建立 `src/routes/products/new.tsx`（新增商品表單，供應商選取使用 EntitySelect）
     - 建立 `src/routes/products/$productId.tsx`（編輯商品表單）
     - _需求：3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
-  - [ ]* 10.3 撰寫商品模組單元測試
+  - [ ] 10.4 實作商品照片上傳與顯示功能
+    - 在商品新增/編輯表單頁面（`new.tsx`、`$productId.tsx`）中新增照片上傳區域
+    - 使用 MUI Button + 隱藏的 `<input type="file" accept="image/*" multiple>` 實作多檔選取
+    - 上傳時顯示 CircularProgress 進度指示
+    - 在商品詳情/編輯頁面使用 MUI ImageList 或 Grid 顯示所有已上傳的商品照片
+    - 每張照片旁顯示刪除按鈕（IconButton + DeleteIcon），點擊後彈出 ConfirmDialog 確認刪除
+    - 刪除確認後呼叫 `useDeleteProductImage` 同時移除 S3 檔案與商品資料中的照片記錄
+    - _需求：3.9, 3.10, 3.11_
+  - [ ]\* 10.5 撰寫商品模組單元測試
     - 建立 `src/routes/__tests__/products.test.tsx`
-    - _需求：3.1, 3.4_
+    - 測試商品列表頁面欄位顯示、表單元件存在性、照片上傳區域存在性、照片刪除按鈕存在性
+    - _需求：3.1, 3.4, 3.9, 3.10, 3.11_
 
 - [ ] 11. 檢查點 — 確認基礎模組功能正常
   - 確認所有測試通過，若有問題請詢問使用者。
@@ -205,7 +227,7 @@
     - 自動計算小計與總金額
     - 新明細項目初始狀態為「待處理」
     - _需求：1.6, 4.1, 4.5, 4.11, 4.12_
-  - [ ]* 12.4 撰寫訂單列表與建立頁面單元測試
+  - [ ]\* 12.4 撰寫訂單列表與建立頁面單元測試
     - 建立 `src/routes/__tests__/orders.test.tsx`
     - 測試列表欄位顯示、表單元件存在性、明細初始狀態
     - _需求：4.2, 4.5, 4.12_
@@ -277,7 +299,7 @@
     - 在所有管理頁面路由的 `beforeLoad` 中檢查認證狀態
     - 未登入使用者重新導向至登入頁面
     - _需求：8.2_
-  - [ ]* 16.4 撰寫導覽與路由保護單元測試
+  - [ ]\* 16.4 撰寫導覽與路由保護單元測試
     - 測試導覽連結顯示、未登入重新導向、儀表板摘要數量
     - _需求：8.1, 8.2, 8.3_
 
@@ -292,3 +314,4 @@
 - 屬性測試驗證通用正確性屬性（使用 fast-check 搭配 Vitest）
 - 單元測試驗證特定範例與邊界情況（使用 Vitest + React Testing Library）
 - 所有程式碼使用 TypeScript，遵循專案既有慣例（MUI sx prop、檔案式路由、TanStack Query 快取管理）
+- 商品照片上傳使用 Amplify Gen2 Storage（S3），照片 key 儲存於商品的 `imageUrls` 欄位，前端透過預簽名 URL 顯示
