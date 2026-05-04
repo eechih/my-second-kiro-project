@@ -23,7 +23,7 @@
     - 定義 OrderStatus、LineItemStatus、PurchaseRecordStatus 型別
     - 建立 `shared/models/index.ts` 統一匯出所有型別（含 SpecDimension、ProductVariant）
     - _需求：4.1, 4.3, 4.4, 4.12, 4.13, 5.1, 6.1, 6.9_
-  - [ ] 1.3 實作序列化與反序列化工具函式
+  - [x] 1.3 實作序列化與反序列化工具函式
     - 建立 `shared/logic/serialization.ts`
     - 實作 serializeOrder / deserializeOrder、serializeProduct / deserializeProduct、serializeCustomer / deserializeCustomer、serializeSupplier / deserializeSupplier
     - _需求：10.1, 10.2, 10.3, 10.4_
