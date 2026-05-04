@@ -43,7 +43,7 @@
     - **驗證需求：5.2, 5.3**
     - 建立 `shared/logic/__tests__/order-status.property.test.ts`
     - 使用 fast-check 對所有狀態對 (from, to) 驗證轉換合法性
-  - [ ] 2.3 實作明細項目狀態轉換驗證函式
+  - [x] 2.3 實作明細項目狀態轉換驗證函式
     - 建立 `shared/logic/line-item-status.ts`，實作 `isValidLineItemStatusTransition`、`getNextAllowedLineItemStatuses`
     - 允許路徑：待處理 → 已訂購 → 已收到 → 已出貨，待處理 → 缺貨，已訂購 → 缺貨
     - _需求：4.10, 7.1_
