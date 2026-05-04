@@ -92,7 +92,7 @@
     - 新增至 `shared/logic/__tests__/order-status.property.test.ts`
 
 - [ ] 4. 實作表單驗證與訂單合併/分拆邏輯
-  - [ ] 4.1 實作表單驗證規則純函式
+  - [x] 4.1 實作表單驗證規則純函式
     - 建立 `shared/logic/validation.ts`，實作各實體（Customer、Supplier、Product、Order）的必填欄位驗證函式
     - 驗證失敗時回傳缺少的欄位名稱
     - _需求：1.4, 2.4, 3.4, 4.12_
