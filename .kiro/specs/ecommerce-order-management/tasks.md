@@ -51,11 +51,11 @@
     - **屬性 3：明細項目狀態轉換——僅允許合法轉換**
     - **驗證需求：4.10, 7.1**
     - 建立 `shared/logic/__tests__/line-item-status.property.test.ts`
-  - [ ] 2.5 實作採購記錄狀態轉換驗證函式
+  - [x] 2.5 實作採購記錄狀態轉換驗證函式
     - 建立 `shared/logic/purchase-record.ts`，實作 `isValidPurchaseStatusTransition`、`calculateRemainingPurchaseQuantity`、`validatePurchaseQuantity`
     - 允許路徑：pending → received，pending → cancelled；received → cancelled 不允許
     - _需求：6.8, 6.9, 6.2, 6.3_
-  - [ ]\* 2.6 撰寫採購記錄狀態轉換與數量守恆屬性測試
+  - [x] 2.6 撰寫採購記錄狀態轉換與數量守恆屬性測試
     - **屬性 4：採購記錄狀態轉換——僅允許合法轉換**
     - **屬性 6：採購數量守恆——累計採購不超過訂單數量**
     - **驗證需求：6.8, 6.9, 6.2, 6.3**
