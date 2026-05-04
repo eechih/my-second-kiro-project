@@ -17,7 +17,7 @@
     - 在 `shared/models/product.ts` 中定義 `ProductVariant` 介面（`id`、`combination: Record<string, string>`、`label`、`sku`、`stockQuantity`、`unitPriceOverride: number | null`、`defaultCostOverride: number | null`、`version: number`）
     - 定義 `CreateVariantInput`、`UpdateVariantInput` 型別
     - _需求：1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.9, 3.10, 3.12, 3.13, 3.14, 3.15_
-  - [ ] 1.2 定義 Order、LineItem、PurchaseRecord 及共用型別
+  - [x] 1.2 定義 Order、LineItem、PurchaseRecord 及共用型別
     - 建立 `shared/models/order.ts`，定義 Order、LineItem、PurchaseRecord、StatusChange、ValidationResult、PaginatedResult、SplitAllocation 等介面
     - LineItem 介面需包含 `variantId: string | null` 及 `variantLabel: string | null` 欄位（商品有規格組合時必填）
     - 定義 OrderStatus、LineItemStatus、PurchaseRecordStatus 型別
