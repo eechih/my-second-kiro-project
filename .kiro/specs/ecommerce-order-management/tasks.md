@@ -7,7 +7,7 @@
 ## 任務
 
 - [ ] 1. 建立資料模型型別定義與序列化工具
-  - [ ] 1.1 建立 `shared/models/` 目錄，定義 Customer、Supplier、Product 介面與型別
+  - [x] 1.1 建立 `shared/models/` 目錄，定義 Customer、Supplier、Product 介面與型別
     - 建立 `shared/models/customer.ts`、`shared/models/supplier.ts`、`shared/models/product.ts`
     - 定義所有必填與選填欄位，包含 `CreateXxxInput`、`UpdateXxxInput` 型別
     - Customer 與 Supplier 介面需包含 `isActive: boolean` 欄位（預設 `true`），用於軟刪除（停用/啟用）機制
