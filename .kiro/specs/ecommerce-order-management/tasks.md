@@ -100,7 +100,7 @@
     - **屬性 1：實體驗證——缺少必填欄位應產生錯誤**
     - **驗證需求：1.4, 2.4, 3.4, 4.12**
     - 建立 `shared/logic/__tests__/validation.property.test.ts`
-  - [ ] 4.3 實作訂單合併邏輯
+  - [x] 4.3 實作訂單合併邏輯
     - 建立 `shared/logic/order-merge.ts`，實作 `validateMergeOrders`、`mergeOrders`
     - 驗證同一客戶、狀態為 pending 或 confirmed
     - _需求：9.1, 9.2, 9.3, 9.4_
