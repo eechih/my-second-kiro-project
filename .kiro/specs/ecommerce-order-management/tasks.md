@@ -109,7 +109,7 @@
     - **屬性 13：訂單合併前置驗證**
     - **驗證需求：9.1, 9.2, 9.3, 9.4**
     - 建立 `shared/logic/__tests__/order-merge.property.test.ts`
-  - [ ] 4.5 實作訂單分拆邏輯
+  - [x] 4.5 實作訂單分拆邏輯
     - 建立 `shared/logic/order-split.ts`，實作 `validateSplitOrder`、`splitOrder`
     - 驗證狀態為 pending 或 confirmed，分拆後數量守恆
     - _需求：9.5, 9.6, 9.7_
