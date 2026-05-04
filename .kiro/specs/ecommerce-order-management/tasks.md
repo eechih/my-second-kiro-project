@@ -162,7 +162,7 @@
     - 建立 `amplify/functions/generate-thumbnail/` Lambda 函式，由 S3 上傳事件觸發，使用 `sharp` 套件自動產生縮圖（300px 寬），存放於 `product-images/{productId}/thumbnails/` 路徑
     - 更新 `amplify/backend.ts` 加入 storage 資源與縮圖 Lambda 函式
     - _需求：3.9, 3.10, 3.11_
-  - [ ] 6.4 實作 Lambda Custom Mutation 函式（事務性操作）
+  - [x] 6.4 實作 Lambda Custom Mutation 函式（事務性操作）
     - 所有 Lambda 函式共用 `shared/logic/` 下的狀態轉換驗證函式（`isValidOrderStatusTransition`、`isValidLineItemStatusTransition`、`isValidPurchaseStatusTransition`），在執行狀態變更前先校驗當前狀態是否允許目標轉移，防止非法狀態轉換
     - Lambda 函式透過相對路徑 `../../../shared/logic/` 引入共用模組，確保前端與後端使用同一份狀態轉移矩陣（Single Source of Truth）
     - 建立 `amplify/functions/ship-line-item/` Lambda 函式（出貨操作）

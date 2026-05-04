@@ -32,6 +32,8 @@
   },
   "devDependencies": {
     "@aws-amplify/backend-cli": "^1.4.0",
+    "@aws-sdk/client-dynamodb": "^3.1041.0",
+    "@aws-sdk/util-dynamodb": "^3.996.2",
     "@tanstack/router-plugin": "^1.95.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
