@@ -118,7 +118,7 @@
     - **屬性 15：訂單分拆前置驗證**
     - **驗證需求：9.5, 9.6, 9.7**
     - 建立 `shared/logic/__tests__/order-split.property.test.ts`
-  - [ ] 4.7 實作規格組合純函式
+  - [x] 4.7 實作規格組合純函式
     - 建立 `shared/logic/product-variant.ts`
     - 實作 `generateVariants(specDimensions)`：根據規格維度產生所有規格組合（笛卡爾積），例如 [{name:"顏色", values:["紅","黑"]}, {name:"尺寸", values:["L","M"]}] 產生 4 個組合
     - 實作 `generateVariantSku(productSku, combination)`：根據商品 SKU 與規格組合自動產生規格組合 SKU，例如 "SHIRT-001-黑-L"
@@ -126,7 +126,7 @@
     - 實作 `resolveEffectiveCost(variant, product)`：若 variant.defaultCostOverride 不為 null 回傳覆寫值，否則回傳 product.defaultCost
     - 實作 `validateVariantRequired(product, variantId)`：商品有規格組合但 variantId 為 null 時回傳驗證失敗
     - _需求：3.12, 3.13, 3.14, 3.15, 4.12, 4.13_
-  - [ ]\* 4.8 撰寫規格組合純函式屬性測試
+  - [x] 4.8 撰寫規格組合純函式屬性測試
     - **屬性 17：規格組合產生——笛卡爾積正確性與 SKU 唯一性**
     - **屬性 18：規格組合價格/成本解析——覆寫優先**
     - **屬性 19：規格組合必選驗證**
