@@ -22,3 +22,6 @@ amplify_outputs.d.ts
 
 # TanStack Router generated
 src/routeTree.gen.ts
+
+# TypeScript build info
+*.tsbuildinfo
