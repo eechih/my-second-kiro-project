@@ -62,7 +62,7 @@
     - 建立 `shared/logic/__tests__/purchase-record.property.test.ts`
 
 - [ ] 3. 實作金額計算、出貨驗證與庫存邏輯
-  - [ ] 3.1 實作訂單金額計算函式
+  - [x] 3.1 實作訂單金額計算函式
     - 建立 `shared/logic/order-calculations.ts`，實作 `calculateLineItemSubtotal`、`calculateOrderTotal`
     - _需求：4.11_
   - [ ]\* 3.2 撰寫金額計算屬性測試
