@@ -138,7 +138,7 @@
   - 確認所有測試通過，若有問題請詢問使用者。
 
 - [ ] 6. 建立 Amplify Gen2 後端資料層
-  - [ ] 6.1 定義 Amplify Data schema（GraphQL 模型）
+  - [x] 6.1 定義 Amplify Data schema（GraphQL 模型）
     - 建立 `amplify/data/resource.ts`，使用 `defineData` 定義 Customer、Supplier、Product、ProductVariant、Order、LineItem、PurchaseRecord 模型
     - Customer 與 Supplier 模型需包含 `isActive: a.boolean().required().default(true)` 欄位，用於軟刪除（停用/啟用）機制，確保參照完整性
     - Product 與 ProductVariant 之間使用 `hasMany` / `belongsTo` 一對多關聯：Product 模型宣告 `variants: a.hasMany('ProductVariant', 'productId')`，ProductVariant 模型宣告 `product: a.belongsTo('Product', 'productId')` 並包含 `productId` 外鍵欄位
