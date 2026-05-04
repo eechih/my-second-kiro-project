@@ -69,7 +69,7 @@
     - **屬性 5：訂單金額計算——小計與總金額一致性**
     - **驗證需求：4.11**
     - 建立 `shared/logic/__tests__/order-calculations.property.test.ts`
-  - [ ] 3.3 實作出貨數量與庫存驗證函式
+  - [x] 3.3 實作出貨數量與庫存驗證函式
     - 建立 `shared/logic/shipment.ts`，實作 `calculateRemainingShipQuantity`、`validateShipment`、`resolveStockQuantity`
     - `resolveStockQuantity(product, variantId)`：若 variantId 不為 null，回傳對應規格組合的庫存；否則回傳商品的 stockQuantity
     - `validateShipment` 的 stockQuantity 參數應傳入規格組合層級的庫存（若商品有規格組合），或商品層級的庫存（若商品無規格組合）
