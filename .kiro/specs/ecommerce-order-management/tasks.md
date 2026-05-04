@@ -152,7 +152,7 @@
     - 設定授權規則（僅已驗證使用者可存取）
     - 更新 `amplify/backend.ts` 加入 data 資源及四個 Lambda 函式資源
     - _需求：1.2, 2.2, 3.2, 3.9, 3.12, 3.13, 3.14, 4.1, 4.12, 6.1_
-  - [ ] 6.2 建立 Amplify API 客戶端工具
+  - [x] 6.2 建立 Amplify API 客戶端工具
     - 建立 `src/lib/amplify-client.ts`，匯出型別安全的 Amplify Data client
     - 提供 `generateClient` 封裝，供 hooks 使用
     - _需求：1.2, 2.2, 3.2, 4.1_
