@@ -34,11 +34,11 @@
     - 使用 fast-check 產生任意有效的 Order、Product、Customer、Supplier 物件，驗證序列化後再反序列化產生深度相等的物件
 
 - [ ] 2. 實作訂單狀態轉換與明細狀態轉換業務邏輯
-  - [ ] 2.1 實作訂單狀態轉換驗證函式
+  - [x] 2.1 實作訂單狀態轉換驗證函式
     - 建立 `shared/logic/order-status.ts`，實作 `isValidOrderStatusTransition`、`getNextAllowedOrderStatuses`
     - 允許路徑：pending → confirmed → shipping → completed，任何狀態 → cancelled
     - _需求：5.1, 5.2, 5.3_
-  - [ ]\* 2.2 撰寫訂單狀態轉換屬性測試
+  - [x] 2.2 撰寫訂單狀態轉換屬性測試
     - **屬性 2：訂單狀態轉換——僅允許合法轉換**
     - **驗證需求：5.2, 5.3**
     - 建立 `shared/logic/__tests__/order-status.property.test.ts`
