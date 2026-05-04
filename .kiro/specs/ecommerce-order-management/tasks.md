@@ -156,7 +156,7 @@
     - 建立 `src/lib/amplify-client.ts`，匯出型別安全的 Amplify Data client
     - 提供 `generateClient` 封裝，供 hooks 使用
     - _需求：1.2, 2.2, 3.2, 4.1_
-  - [ ] 6.3 設定 Amplify Gen2 Storage（S3）資源
+  - [x] 6.3 設定 Amplify Gen2 Storage（S3）資源
     - 建立 `amplify/storage/resource.ts`，使用 `defineStorage` 定義 S3 儲存桶
     - 設定 `product-images/` 路徑前綴，授權規則：已驗證使用者可上傳與刪除，所有已驗證使用者可讀取
     - 建立 `amplify/functions/generate-thumbnail/` Lambda 函式，由 S3 上傳事件觸發，使用 `sharp` 套件自動產生縮圖（300px 寬），存放於 `product-images/{productId}/thumbnails/` 路徑
