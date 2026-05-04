@@ -81,7 +81,7 @@
     - **屬性 9：出貨減少庫存**
     - **驗證需求：7.2, 7.3, 7.4, 6.5, 7.5**
     - 建立 `shared/logic/__tests__/shipment.property.test.ts`
-  - [ ] 3.5 實作訂單狀態自動推導邏輯
+  - [x] 3.5 實作訂單狀態自動推導邏輯
     - 在 `shared/logic/order-status.ts` 中新增 `deriveOrderStatusFromLineItems` 函式
     - 依明細狀態自動決定訂單應為 shipping 或 completed
     - _需求：5.5, 5.6_
