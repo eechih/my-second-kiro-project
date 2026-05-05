@@ -263,7 +263,7 @@
     - _需求：2.1, 2.4_
 
 - [ ] 10. 實作商品管理模組（Product_Registry）
-  - [ ] 10.1 建立商品 CRUD 與停用/啟用 hooks（含規格組合 CRUD）
+  - [x] 10.1 建立商品 CRUD 與停用/啟用 hooks（含規格組合 CRUD）
     - 建立 `src/hooks/useProducts.ts`，實作 `useProductList`、`useProduct`、`useCreateProduct`、`useUpdateProduct`、`useDeactivateProduct`、`useActivateProduct`
     - `useProductList` 支援 `isActive` 篩選參數，預設僅查詢啟用中的商品
     - `useDeactivateProduct`：將商品的 `isActive` 設為 `false`，mutation 成功後 invalidate 商品列表快取
@@ -272,14 +272,14 @@
     - `useGenerateVariants`：根據規格維度自動產生所有規格組合（笛卡爾積），已存在的組合保留不變，僅新增缺少的組合
     - 商品列表中有規格組合的商品顯示各規格組合庫存加總
     - _需求：3.1, 3.2, 3.3, 3.5, 3.12, 3.13, 3.14, 3.15_
-  - [ ] 10.2 建立商品照片上傳/刪除 hooks
+  - [x] 10.2 建立商品照片上傳/刪除 hooks
     - 建立 `src/hooks/useProductImages.ts`，實作 `useUploadProductImage`、`useDeleteProductImage`、`useProductImageUrls`
     - `useUploadProductImage`：使用 Amplify Storage `uploadData` 將檔案上傳至 S3 的 `product-images/{productId}/` 路徑，上傳時加上 `productId` S3 物件標籤（方便未來批次清理），上傳成功後將 S3 key 新增至商品的 `imageUrls` 陣列並更新商品記錄
     - `useDeleteProductImage`：使用 Amplify Storage `remove` 刪除 S3 檔案，同時從商品的 `imageUrls` 陣列中移除對應 key 並更新商品記錄
     - `useProductImageUrls`：使用 Amplify Storage `getUrl` 將 S3 key 列表轉換為可存取的預簽名 URL 列表，供前端顯示使用。在 TanStack Query 的 `queryFn` 中呼叫 `getUrl`，設定 `staleTime` 為預簽名 URL 有效期的 80%（如 URL 有效 1 小時則 staleTime 設為 48 分鐘），避免每次渲染重複產生新 URL
     - `useProductThumbnailUrls`：將 S3 key 列表轉換為對應縮圖的預簽名 URL 列表（路徑加入 `thumbnails/` 前綴），用於商品列表頁面（TanStack Table）與預覽顯示。快取策略同 `useProductImageUrls`
     - _需求：3.9, 3.10, 3.11_
-  - [ ] 10.3 建立商品列表頁面與表單頁面
+  - [x] 10.3 建立商品列表頁面與表單頁面
     - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）
     - 商品列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的商品，可切換顯示停用商品
     - 商品列表每行新增停用/啟用操作按鈕：啟用中的商品顯示「停用」按鈕，停用中的商品顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
@@ -296,7 +296,7 @@
       - 支援行內編輯 SKU、單價覆寫、成本覆寫
       - 支援刪除個別規格組合
     - _需求：3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.12, 3.13, 3.14, 3.15, 3.16_
-  - [ ] 10.4 實作商品照片上傳與顯示功能
+  - [x] 10.4 實作商品照片上傳與顯示功能
     - 在商品新增/編輯表單頁面（`new.tsx`、`$productId.tsx`）中新增照片上傳區域
     - 使用 MUI Button + 隱藏的 `<input type="file" accept="image/*" multiple>` 實作多檔選取
     - 上傳前使用 Canvas API 壓縮圖片（最大寬度 1200px、品質 0.8），減少上傳時間與儲存成本
