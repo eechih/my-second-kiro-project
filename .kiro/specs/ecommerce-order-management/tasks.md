@@ -204,7 +204,7 @@
       - 支援 `children` render prop 用於自訂渲染（EntitySelect、VariantSelect 等非 TextField 元件）
       - 所有表單頁面統一使用 `FormField` 而非直接操作 TanStack Form 的 `field` API
     - _需求：1.4, 1.5, 1.6, 2.4, 2.5, 2.6, 3.4, 3.5, 3.6, 4.13, 4.14, 5.1_
-  - [ ] 7.3 實作規格組合選取與規格組合表格元件
+  - [x] 7.3 實作規格組合選取與規格組合表格元件
     - 建立 `src/components/VariantSelect.tsx`（規格組合選取元件）
       - 使用 MUI Autocomplete，選項標籤顯示規格組合名稱（如「黑 L」）及庫存數量
       - 用於訂單明細新增時，當選取的商品具有規格組合，顯示下拉選單供使用者選取特定規格組合
