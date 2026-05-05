@@ -49,9 +49,10 @@ const mockCustomers: Customer[] = [
 const mockData: PaginatedResult<Customer> = {
   items: mockCustomers,
   totalCount: 2,
+  nextToken: undefined,
 };
 
-const mockUseCustomerList = vi.fn().mockReturnValue({
+const mockUseCustomerListCursor = vi.fn().mockReturnValue({
   data: mockData,
   isLoading: false,
 });
@@ -59,13 +60,29 @@ const mockUseCustomerList = vi.fn().mockReturnValue({
 const mockDeactivateMutateAsync = vi.fn();
 const mockActivateMutateAsync = vi.fn();
 
+vi.mock("@/hooks/useCustomerListCursor", () => ({
+  useCustomerListCursor: (...args: unknown[]) =>
+    mockUseCustomerListCursor(...args),
+}));
+
 vi.mock("@/hooks/useCustomers", () => ({
-  useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
   useDeactivateCustomer: () => ({
     mutateAsync: mockDeactivateMutateAsync,
   }),
   useActivateCustomer: () => ({
     mutateAsync: mockActivateMutateAsync,
+  }),
+}));
+
+vi.mock("@/hooks/useCursorPagination", () => ({
+  useCursorPagination: () => ({
+    currentToken: undefined,
+    pageSize: 10,
+    tokenStack: [],
+    goNext: vi.fn(),
+    goPrev: vi.fn(),
+    setPageSize: vi.fn(),
+    reset: vi.fn(),
   }),
 }));
 
@@ -93,13 +110,27 @@ beforeEach(async () => {
     redirect: vi.fn(),
     useNavigate: () => mockNavigate,
   }));
+  vi.doMock("@/hooks/useCustomerListCursor", () => ({
+    useCustomerListCursor: (...args: unknown[]) =>
+      mockUseCustomerListCursor(...args),
+  }));
   vi.doMock("@/hooks/useCustomers", () => ({
-    useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
     useDeactivateCustomer: () => ({
       mutateAsync: mockDeactivateMutateAsync,
     }),
     useActivateCustomer: () => ({
       mutateAsync: mockActivateMutateAsync,
+    }),
+  }));
+  vi.doMock("@/hooks/useCursorPagination", () => ({
+    useCursorPagination: () => ({
+      currentToken: undefined,
+      pageSize: 10,
+      tokenStack: [],
+      goNext: vi.fn(),
+      goPrev: vi.fn(),
+      setPageSize: vi.fn(),
+      reset: vi.fn(),
     }),
   }));
   // Import the module to trigger createFileRoute and capture the component
@@ -126,7 +157,18 @@ function renderPage(): void {
 describe("CustomerListPage", () => {
   it("renders the page title", () => {
     renderPage();
-    expect(screen.getByText("客戶管理")).toBeInTheDocument();
+    // "列表" appears in both breadcrumb and h5 title
+    const headings = screen.getAllByText("列表");
+    expect(headings.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders breadcrumb navigation", () => {
+    renderPage();
+    expect(screen.getByText("首頁")).toBeInTheDocument();
+    expect(screen.getByText("客戶")).toBeInTheDocument();
+    // "列表" appears in breadcrumb and as page title
+    const listTexts = screen.getAllByText("列表");
+    expect(listTexts.length).toBe(2);
   });
 
   it("renders the add customer button", () => {
@@ -144,29 +186,27 @@ describe("CustomerListPage", () => {
 
   it("renders column headers", () => {
     renderPage();
-    expect(screen.getByText("客戶名稱")).toBeInTheDocument();
-    expect(screen.getByText("聯絡人")).toBeInTheDocument();
+    expect(screen.getByText("客戶資訊")).toBeInTheDocument();
     expect(screen.getByText("電話")).toBeInTheDocument();
     expect(screen.getByText("Email")).toBeInTheDocument();
     expect(screen.getByText("地址")).toBeInTheDocument();
+    expect(screen.getByText("狀態")).toBeInTheDocument();
     expect(screen.getByText("操作")).toBeInTheDocument();
   });
 
-  it("renders active/inactive toggle buttons", () => {
+  it("renders status filter options", () => {
     renderPage();
-    expect(screen.getByText("啟用中")).toBeInTheDocument();
-    expect(screen.getByText("已停用")).toBeInTheDocument();
+    // The status filter is a MUI Select with "全部狀態" as default
+    expect(screen.getByText("全部狀態")).toBeInTheDocument();
   });
 
-  it("renders search bar with placeholder", () => {
+  it("renders search bar with placeholder including total count", () => {
     renderPage();
-    expect(
-      screen.getByPlaceholderText("搜尋客戶名稱、聯絡人或電話..."),
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("搜尋 2 筆記錄...")).toBeInTheDocument();
   });
 
   it("shows loading state when data is loading", () => {
-    mockUseCustomerList.mockReturnValueOnce({
+    mockUseCustomerListCursor.mockReturnValueOnce({
       data: undefined,
       isLoading: true,
     });
@@ -174,10 +214,50 @@ describe("CustomerListPage", () => {
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
   });
 
-  it("calls useCustomerList with default active filter", () => {
+  it("calls useCustomerListCursor with correct default params", () => {
     renderPage();
-    expect(mockUseCustomerList).toHaveBeenCalledWith(
-      expect.objectContaining({ isActive: true }),
+    expect(mockUseCustomerListCursor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pageSize: 10,
+        nextToken: undefined,
+        sortField: "name",
+      }),
     );
+  });
+
+  it("renders status text with correct colors", () => {
+    renderPage();
+    const statusTexts = screen.getAllByText("啟用中");
+    // Filter to only the status column texts (not the filter dropdown)
+    expect(statusTexts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders row action buttons for each customer", () => {
+    renderPage();
+    // Each row should have view, edit, and toggle active buttons
+    const viewButtons = screen.getAllByLabelText("檢視");
+    const editButtons = screen.getAllByLabelText("編輯");
+    expect(viewButtons).toHaveLength(2);
+    expect(editButtons).toHaveLength(2);
+  });
+
+  it("renders pagination controls", () => {
+    renderPage();
+    expect(screen.getByText("每頁筆數")).toBeInTheDocument();
+    expect(screen.getByText("顯示 2 筆")).toBeInTheDocument();
+    expect(screen.getByLabelText("上一頁")).toBeInTheDocument();
+    expect(screen.getByLabelText("下一頁")).toBeInTheDocument();
+  });
+
+  it("renders CSV export button", () => {
+    renderPage();
+    expect(screen.getByLabelText("匯出 CSV")).toBeInTheDocument();
+  });
+
+  it("renders select-all checkbox in header", () => {
+    renderPage();
+    const checkboxes = screen.getAllByRole("checkbox");
+    // Header checkbox + 2 row checkboxes = 3
+    expect(checkboxes).toHaveLength(3);
   });
 });

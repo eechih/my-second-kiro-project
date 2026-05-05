@@ -1,25 +1,43 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { type ColumnDef } from "@tanstack/react-table";
+import {
+  useReactTable,
+  getCoreRowModel,
+  createColumnHelper,
+  flexRender,
+} from "@tanstack/react-table";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
-import ToggleButton from "@mui/material/ToggleButton";
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Link from "@mui/material/Link";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Paper from "@mui/material/Paper";
+import Checkbox from "@mui/material/Checkbox";
 import Alert from "@mui/material/Alert";
-import AddIcon from "@mui/icons-material/Add";
-import BlockIcon from "@mui/icons-material/Block";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import { DataTable } from "@/components/DataTable";
-import { SearchBar } from "@/components/SearchBar";
+import CircularProgress from "@mui/material/CircularProgress";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { CustomerToolbar } from "./-components/CustomerToolbar";
+import { UserInfoCell } from "./-components/UserInfoCell";
+import { CursorPagination } from "./-components/CursorPagination";
+import { RowActions } from "./-components/RowActions";
+import { useCursorPagination } from "@/hooks/useCursorPagination";
+import { useCustomerListCursor } from "@/hooks/useCustomerListCursor";
+import type { StatusFilter } from "@/hooks/useCustomerListCursor";
 import {
-  useCustomerList,
   useDeactivateCustomer,
   useActivateCustomer,
 } from "@/hooks/useCustomers";
+import {
+  generateCustomerCsv,
+  getCustomerCsvFilename,
+} from "@/lib/customer-csv";
+import { getRowNumber } from "@/lib/table-utils";
+import type { SortField } from "@/lib/table-utils";
 import type { Customer } from "@shared/models";
 
 export const Route = createFileRoute("/customers/")({
@@ -31,14 +49,24 @@ export const Route = createFileRoute("/customers/")({
   component: CustomerListPage,
 });
 
-function CustomerListPage() {
+const columnHelper = createColumnHelper<Customer>();
+
+function CustomerListPage(): React.ReactElement {
   const navigate = useNavigate();
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+
+  // --- 工具列狀態 ---
   const [search, setSearch] = useState("");
-  const [isActiveFilter, setIsActiveFilter] = useState<"active" | "inactive">(
-    "active",
-  );
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [isExporting, setIsExporting] = useState(false);
+
+  // --- 分頁狀態 ---
+  const pagination = useCursorPagination(10);
+
+  // --- 批次選取狀態 ---
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // --- 確認對話框狀態 ---
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     customer: Customer | null;
@@ -46,37 +74,123 @@ function CustomerListPage() {
   }>({ open: false, customer: null, action: "deactivate" });
   const [error, setError] = useState<string | null>(null);
 
-  const isActive = isActiveFilter === "active";
+  // --- 資料查詢 ---
+  const isActive =
+    statusFilter === "all" ? undefined : statusFilter === "active";
+  const { data, isLoading } = useCustomerListCursor({
+    pageSize: pagination.pageSize,
+    nextToken: pagination.currentToken,
+    search: search || undefined,
+    isActive,
+    sortField,
+  });
 
-  const { data, isLoading } = useCustomerList({ page, search, isActive });
+  const customers = data?.items ?? [];
+  const nextToken = data?.nextToken;
+
+  // --- Mutations ---
   const deactivateMutation = useDeactivateCustomer();
   const activateMutation = useActivateCustomer();
 
-  const handleFilterChange = (
-    _event: React.MouseEvent<HTMLElement>,
-    newValue: "active" | "inactive" | null,
-  ): void => {
-    if (newValue !== null) {
-      setIsActiveFilter(newValue);
-      setPage(0);
+  // --- 篩選/搜尋/每頁筆數變更時重置分頁 ---
+  const handleSearchChange = useCallback(
+    (value: string): void => {
+      setSearch(value);
+      setSelectedIds(new Set());
+      pagination.reset();
+    },
+    [pagination],
+  );
+
+  const handleStatusFilterChange = useCallback(
+    (value: StatusFilter): void => {
+      setStatusFilter(value);
+      setSelectedIds(new Set());
+      pagination.reset();
+    },
+    [pagination],
+  );
+
+  const handleSortFieldChange = useCallback((value: SortField): void => {
+    setSortField(value);
+  }, []);
+
+  const handlePageSizeChange = useCallback(
+    (size: number): void => {
+      setSelectedIds(new Set());
+      pagination.setPageSize(size);
+    },
+    [pagination],
+  );
+
+  // --- 分頁導覽 ---
+  const handleNextPage = useCallback((): void => {
+    if (nextToken) {
+      setSelectedIds(new Set());
+      pagination.goNext(nextToken);
     }
-  };
+  }, [nextToken, pagination]);
 
-  const handleDeactivateClick = (
-    event: React.MouseEvent,
-    customer: Customer,
-  ): void => {
-    event.stopPropagation();
-    setConfirmDialog({ open: true, customer, action: "deactivate" });
-  };
+  const handlePrevPage = useCallback((): void => {
+    setSelectedIds(new Set());
+    pagination.goPrev();
+  }, [pagination]);
 
-  const handleActivateClick = (
-    event: React.MouseEvent,
-    customer: Customer,
-  ): void => {
-    event.stopPropagation();
-    setConfirmDialog({ open: true, customer, action: "activate" });
-  };
+  // --- 批次選取邏輯 ---
+  const allSelected =
+    customers.length > 0 && selectedIds.size === customers.length;
+  const someSelected =
+    selectedIds.size > 0 && selectedIds.size < customers.length;
+
+  const handleSelectAll = useCallback((): void => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(customers.map((c) => c.id)));
+    }
+  }, [allSelected, customers]);
+
+  const handleSelectRow = useCallback((customerId: string): void => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(customerId)) {
+        next.delete(customerId);
+      } else {
+        next.add(customerId);
+      }
+      return next;
+    });
+  }, []);
+
+  // --- 行操作 ---
+  const handleView = useCallback(
+    (customer: Customer): void => {
+      void navigate({
+        to: "/customers/$customerId",
+        params: { customerId: customer.id },
+      });
+    },
+    [navigate],
+  );
+
+  const handleEdit = useCallback(
+    (customer: Customer): void => {
+      void navigate({
+        to: "/customers/$customerId",
+        params: { customerId: customer.id },
+        search: { edit: true },
+      });
+    },
+    [navigate],
+  );
+
+  const handleToggleActive = useCallback((customer: Customer): void => {
+    setConfirmDialog({
+      open: true,
+      customer,
+      action: customer.isActive ? "deactivate" : "activate",
+    });
+  }, []);
 
   const handleConfirm = async (): Promise<void> => {
     const { customer, action } = confirmDialog;
@@ -100,134 +214,250 @@ function CustomerListPage() {
     setConfirmDialog({ open: false, customer: null, action: "deactivate" });
   };
 
-  const columns: ColumnDef<Customer, unknown>[] = [
-    {
-      accessorKey: "name",
-      header: "客戶名稱",
-    },
-    {
-      accessorKey: "contactPerson",
-      header: "聯絡人",
-    },
-    {
-      accessorKey: "phone",
-      header: "電話",
-    },
-    {
-      accessorKey: "email",
-      header: "Email",
-    },
-    {
-      accessorKey: "address",
-      header: "地址",
-    },
-    {
-      id: "actions",
-      header: "操作",
-      enableSorting: false,
-      cell: ({ row }) => {
-        const customer = row.original;
-        if (customer.isActive) {
-          return (
-            <Tooltip title="停用">
-              <IconButton
-                size="small"
-                color="warning"
-                onClick={(e) => handleDeactivateClick(e, customer)}
-              >
-                <BlockIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          );
-        }
-        return (
-          <Tooltip title="啟用">
-            <IconButton
-              size="small"
-              color="success"
-              onClick={(e) => handleActivateClick(e, customer)}
-            >
-              <CheckCircleIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        );
-      },
-    },
-  ];
+  // --- CSV 匯出 ---
+  const handleExport = useCallback((): void => {
+    if (customers.length === 0) {
+      setError("目前無資料可匯出");
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const csv = generateCustomerCsv(customers);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = getCustomerCsvFilename();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "匯出失敗");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [customers]);
+
+  // --- TanStack Table 欄位定義 ---
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "select",
+        header: () => (
+          <Checkbox
+            checked={allSelected}
+            indeterminate={someSelected}
+            onChange={handleSelectAll}
+            size="small"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={selectedIds.has(row.original.id)}
+            onChange={() => handleSelectRow(row.original.id)}
+            size="small"
+          />
+        ),
+        enableSorting: false,
+      }),
+      columnHelper.display({
+        id: "rowNumber",
+        header: "#",
+        cell: ({ row }) =>
+          getRowNumber(
+            pagination.tokenStack.length,
+            pagination.pageSize,
+            row.index,
+          ),
+        enableSorting: false,
+      }),
+      columnHelper.display({
+        id: "customerInfo",
+        header: "客戶資訊",
+        cell: ({ row }) => (
+          <UserInfoCell
+            name={row.original.name}
+            contactPerson={row.original.contactPerson}
+          />
+        ),
+      }),
+      columnHelper.accessor("phone", {
+        header: "電話",
+      }),
+      columnHelper.accessor("email", {
+        header: "Email",
+      }),
+      columnHelper.accessor("address", {
+        header: "地址",
+      }),
+      columnHelper.display({
+        id: "status",
+        header: "狀態",
+        cell: ({ row }) => (
+          <Typography
+            variant="body2"
+            sx={{
+              color: row.original.isActive ? "success.main" : "error.main",
+              fontWeight: 500,
+            }}
+          >
+            {row.original.isActive ? "啟用中" : "已停用"}
+          </Typography>
+        ),
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: "操作",
+        cell: ({ row }) => (
+          <RowActions
+            customer={row.original}
+            onView={handleView}
+            onEdit={handleEdit}
+            onToggleActive={handleToggleActive}
+          />
+        ),
+        enableSorting: false,
+      }),
+    ],
+    [
+      allSelected,
+      someSelected,
+      selectedIds,
+      handleSelectAll,
+      handleSelectRow,
+      handleView,
+      handleEdit,
+      handleToggleActive,
+      pagination.tokenStack.length,
+      pagination.pageSize,
+    ],
+  );
+
+  const table = useReactTable({
+    data: customers,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
-        <Typography variant="h4">客戶管理</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate({ to: "/customers/new" })}
+      {/* 麵包屑導覽 - 需求 8.1, 8.2 */}
+      <Breadcrumbs sx={{ mb: 1 }}>
+        <Link
+          underline="hover"
+          color="inherit"
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            void navigate({ to: "/" });
+          }}
         >
-          新增客戶
-        </Button>
-      </Box>
+          首頁
+        </Link>
+        <Typography color="text.primary">客戶</Typography>
+        <Typography color="text.primary">列表</Typography>
+      </Breadcrumbs>
 
+      {/* 頁面標題 - 需求 8.3 */}
+      <Typography variant="h5" sx={{ mb: 3 }}>
+        列表
+      </Typography>
+
+      {/* 錯誤提示 */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
-      >
-        <SearchBar
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            setPage(0);
-          }}
-          placeholder="搜尋客戶名稱、聯絡人或電話..."
-        />
-        <ToggleButtonGroup
-          value={isActiveFilter}
-          exclusive
-          onChange={handleFilterChange}
-          size="small"
-        >
-          <ToggleButton value="active">啟用中</ToggleButton>
-          <ToggleButton value="inactive">已停用</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-
-      <DataTable<Customer>
-        columns={columns}
-        data={data?.items ?? []}
+      {/* 工具列 - 需求 1.1–1.7 */}
+      <CustomerToolbar
+        search={search}
+        onSearchChange={handleSearchChange}
         totalCount={data?.totalCount ?? 0}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(newSize) => {
-          setPageSize(newSize);
-          setPage(0);
-        }}
-        isLoading={isLoading}
-        onRowClick={(customer) =>
-          navigate({
-            to: "/customers/$customerId",
-            params: { customerId: customer.id },
-          })
-        }
+        statusFilter={statusFilter}
+        onStatusFilterChange={handleStatusFilterChange}
+        sortField={sortField}
+        onSortFieldChange={handleSortFieldChange}
+        onAddClick={() => void navigate({ to: "/customers/new" })}
+        onExportClick={handleExport}
+        isExporting={isExporting}
       />
 
+      {/* 表格 - 需求 2.1–2.4, 3.1–3.4, 4.1–4.6, 5.1–5.4 */}
+      <TableContainer component={Paper} sx={{ mt: 2 }}>
+        {isLoading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Table>
+            <TableHead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableCell key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHead>
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    align="center"
+                    sx={{ py: 4 }}
+                  >
+                    <Typography color="text.secondary">
+                      目前沒有符合條件的客戶資料
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    selected={selectedIds.has(row.original.id)}
+                    hover
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </TableContainer>
+
+      {/* 分頁控制 - 需求 6.1–6.7 */}
+      <CursorPagination
+        pageSize={pagination.pageSize}
+        onPageSizeChange={handlePageSizeChange}
+        hasNextPage={!!nextToken}
+        hasPrevPage={pagination.tokenStack.length > 0}
+        onNextPage={handleNextPage}
+        onPrevPage={handlePrevPage}
+        currentCount={customers.length}
+      />
+
+      {/* 確認對話框 - 需求 4.4, 4.5 */}
       <ConfirmDialog
         open={confirmDialog.open}
         title={confirmDialog.action === "deactivate" ? "停用客戶" : "啟用客戶"}

@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [
     TanStackRouterVite({
       routeFileIgnorePattern: "(__tests__|\\.(test|spec))\\.(tsx?|jsx?)$",
+      routeFileIgnorePrefix: "-",
     }),
     react(),
   ],
