@@ -221,7 +221,7 @@
     - _需求：1.1, 2.1, 3.1, 3.15, 3.16, 4.2, 4.12_
 
 - [ ] 8. 實作客戶管理模組（Customer_Registry）
-  - [ ] 8.1 建立客戶 CRUD 與停用/啟用 hooks
+  - [x] 8.1 建立客戶 CRUD 與停用/啟用 hooks
     - 建立 `src/hooks/useCustomers.ts`，實作 `useCustomerList`、`useCustomer`、`useCreateCustomer`、`useUpdateCustomer`、`useDeactivateCustomer`、`useActivateCustomer`
     - `useCustomerList` 支援 `isActive` 篩選參數，預設僅查詢啟用中的客戶
     - `useDeactivateCustomer`：將客戶的 `isActive` 設為 `false`，mutation 成功後 invalidate 客戶列表快取
