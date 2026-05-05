@@ -1,16 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-  createMemoryHistory,
-  RouterProvider,
-} from "@tanstack/react-router";
 import { ThemeProvider } from "@mui/material";
 import { theme } from "../theme";
 import type { AuthContext } from "../auth/AuthProvider";
-import type { QueryClient } from "@tanstack/react-query";
 
 // Mock aws-amplify/auth so AuthProvider imports don't fail
 vi.mock("aws-amplify/auth", () => ({
@@ -20,6 +12,20 @@ vi.mock("aws-amplify/auth", () => ({
   signUp: vi.fn(),
   confirmSignUp: vi.fn(),
   fetchUserAttributes: vi.fn(),
+}));
+
+const mockNavigate = vi.fn();
+
+// Capture the component passed to createFileRoute(...).component
+let CapturedComponent: React.ComponentType | null = null;
+
+vi.mock("@tanstack/react-router", () => ({
+  createFileRoute: () => (options: { component: React.ComponentType }) => {
+    CapturedComponent = options.component;
+    return { options };
+  },
+  redirect: vi.fn(),
+  useNavigate: () => mockNavigate,
 }));
 
 function createMockAuth(overrides: Partial<AuthContext> = {}): AuthContext {
@@ -36,43 +42,32 @@ function createMockAuth(overrides: Partial<AuthContext> = {}): AuthContext {
   };
 }
 
-const mockQueryClient = {} as QueryClient;
+const mockAuth = createMockAuth();
 
-async function renderLoginPage(authOverrides: Partial<AuthContext> = {}) {
-  const auth = createMockAuth(authOverrides);
+vi.mock("@/auth/AuthProvider", () => ({
+  useAuth: () => mockAuth,
+}));
 
-  // Dynamically import the actual login route module
-  const loginModule = await import("./login");
+async function renderLoginPage() {
+  // Dynamically import the module to trigger createFileRoute and capture the component
+  await import("./login");
 
-  const rootRoute = createRootRoute();
-  const loginRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/login",
-    component: loginModule.Route.options.component,
-  });
-  rootRoute.addChildren([loginRoute]);
-
-  const router = createRouter({
-    routeTree: rootRoute,
-    history: createMemoryHistory({ initialEntries: ["/login"] }),
-    context: { auth, queryClient: mockQueryClient },
-  });
+  if (!CapturedComponent) {
+    throw new Error("LoginPage component was not captured from route");
+  }
+  const PageComponent = CapturedComponent;
 
   render(
     <ThemeProvider theme={theme}>
-      <RouterProvider router={router} />
+      <PageComponent />
     </ThemeProvider>,
   );
-
-  // Wait for the route to render
-  return screen.findByText("登入", {}, { timeout: 3000 });
 }
 
 describe("LoginPage", () => {
   it("renders without crashing and shows the sign-in heading", async () => {
     await renderLoginPage();
 
-    // The heading should show "登入"
     expect(screen.getByRole("heading", { name: "登入" })).toBeInTheDocument();
   });
 

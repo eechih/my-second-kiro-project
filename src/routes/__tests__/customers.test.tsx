@@ -82,6 +82,26 @@ function createQueryClient(): QueryClient {
 beforeEach(async () => {
   vi.clearAllMocks();
   CapturedComponent = null;
+  // Reset the module registry so the import re-executes createFileRoute
+  vi.resetModules();
+  // Re-apply mocks after module reset
+  vi.doMock("@tanstack/react-router", () => ({
+    createFileRoute: () => (options: { component: React.ComponentType }) => {
+      CapturedComponent = options.component;
+      return { options };
+    },
+    redirect: vi.fn(),
+    useNavigate: () => mockNavigate,
+  }));
+  vi.doMock("@/hooks/useCustomers", () => ({
+    useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
+    useDeactivateCustomer: () => ({
+      mutateAsync: mockDeactivateMutateAsync,
+    }),
+    useActivateCustomer: () => ({
+      mutateAsync: mockActivateMutateAsync,
+    }),
+  }));
   // Import the module to trigger createFileRoute and capture the component
   await import("../customers/index");
 });
