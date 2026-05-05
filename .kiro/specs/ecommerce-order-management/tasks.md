@@ -228,7 +228,7 @@
     - `useActivateCustomer`：將客戶的 `isActive` 設為 `true`，mutation 成功後 invalidate 客戶列表快取
     - 使用 TanStack Query 管理快取與 mutation，搭配 Amplify Data client 呼叫 API
     - _需求：1.1, 1.2, 1.3, 1.5, 1.7, 1.8, 1.9_
-  - [ ] 8.2 建立客戶列表頁面與表單頁面
+  - [x] 8.2 建立客戶列表頁面與表單頁面
     - 建立 `src/routes/customers/index.tsx`（客戶列表，使用 DataTable + SearchBar）
     - 客戶列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的客戶，可切換顯示停用客戶
     - 客戶列表每行新增停用/啟用操作按鈕：啟用中的客戶顯示「停用」按鈕，停用中的客戶顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
