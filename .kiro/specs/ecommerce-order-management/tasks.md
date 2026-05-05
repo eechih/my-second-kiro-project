@@ -187,7 +187,7 @@
     - _需求：5.5, 5.6, 6.5, 6.8, 7.1, 7.2, 7.3, 7.4, 7.5, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7_
 
 - [ ] 7. 建立共用 UI 元件
-  - [ ] 7.1 實作通用分頁表格元件 DataTable
+  - [x] 7.1 實作通用分頁表格元件 DataTable
     - 建立 `src/components/DataTable.tsx`，使用 TanStack Table 的 `useReactTable` + `getCoreRowModel`
     - 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell、TablePagination 渲染
     - 支援排序、分頁、行點擊、載入狀態
