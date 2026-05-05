@@ -4,4 +4,5 @@ export const splitOrder = defineFunction({
   name: "split-order",
   entry: "./handler.ts",
   timeoutSeconds: 30,
+  resourceGroupName: "data",
 });

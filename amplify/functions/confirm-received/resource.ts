@@ -4,4 +4,5 @@ export const confirmReceived = defineFunction({
   name: "confirm-received",
   entry: "./handler.ts",
   timeoutSeconds: 30,
+  resourceGroupName: "data",
 });

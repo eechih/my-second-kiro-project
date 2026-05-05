@@ -102,7 +102,7 @@ const schema = a.schema({
       totalAmount: a.float().required(),
       status: a.string().required().default("pending"),
       statusHistory: a.json(),
-      lineItems: a.hasMany("LineItem", "orderId"),
+      lineItems: a.hasMany("LineItem", ["orderId", "orderSortKey"]),
     })
     .identifier(["customerId", "sortKey"])
     .authorization((allow) => [allow.authenticated()]),

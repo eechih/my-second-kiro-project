@@ -5,4 +5,5 @@ export const generateThumbnail = defineFunction({
   entry: "./handler.ts",
   timeoutSeconds: 60,
   memoryMB: 512,
+  resourceGroupName: "storage",
 });
