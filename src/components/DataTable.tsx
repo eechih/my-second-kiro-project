@@ -30,6 +30,7 @@ export interface DataTableProps<T> {
   onPageSizeChange: (pageSize: number) => void;
   isLoading: boolean;
   onRowClick?: (row: T) => void;
+  onRowMouseEnter?: (row: T) => void;
   enableSorting?: boolean;
 }
 
@@ -43,6 +44,7 @@ export function DataTable<T>({
   onPageSizeChange,
   isLoading,
   onRowClick,
+  onRowMouseEnter,
   enableSorting = true,
 }: DataTableProps<T>): React.ReactElement {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -134,6 +136,11 @@ export function DataTable<T>({
                   hover
                   onClick={
                     onRowClick ? () => onRowClick(row.original) : undefined
+                  }
+                  onMouseEnter={
+                    onRowMouseEnter
+                      ? () => onRowMouseEnter(row.original)
+                      : undefined
                   }
                   sx={{
                     cursor: onRowClick ? "pointer" : "default",
