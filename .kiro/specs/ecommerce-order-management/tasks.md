@@ -192,7 +192,7 @@
     - 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell、TablePagination 渲染
     - 支援排序、分頁、行點擊、載入狀態
     - _需求：1.1, 2.1, 3.1, 4.2_
-  - [ ] 7.2 實作搜尋列、狀態標籤、確認對話框、實體選取、表單欄位元件
+  - [x] 7.2 實作搜尋列、狀態標籤、確認對話框、實體選取、表單欄位元件
     - 建立 `src/components/SearchBar.tsx`（搜尋輸入框，含防抖）
     - 建立 `src/components/StatusChip.tsx`（狀態標籤，依狀態顯示不同顏色）
     - 建立 `src/components/ConfirmDialog.tsx`（確認對話框，用於刪除/取消等操作）
