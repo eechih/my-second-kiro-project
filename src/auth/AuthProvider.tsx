@@ -49,15 +49,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const checkUser = useCallback(async () => {
+    console.log("checkUser...");
     try {
       const currentUser = await getCurrentUser();
+      console.log("currentUser", currentUser);
       const attributes = await fetchUserAttributes();
+
+      console.log("attributes", attributes);
       setUser(currentUser);
       setUserAttributes(attributes);
     } catch {
       setUser(null);
       setUserAttributes(null);
     } finally {
+      console.log("setIsLoading to false");
       setIsLoading(false);
     }
   }, []);

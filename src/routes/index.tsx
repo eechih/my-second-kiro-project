@@ -1,12 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Box, Typography, Button, Paper, Avatar } from "@mui/material";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardActionArea from "@mui/material/CardActionArea";
+import Grid from "@mui/material/Grid2";
+import Skeleton from "@mui/material/Skeleton";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import { useAuth } from "@/auth/AuthProvider";
+import { useDashboardSummary } from "@/hooks/useDashboard";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
-  const { auth } = Route.useRouteContext();
+  const auth = useAuth();
 
   if (!auth.isAuthenticated) {
     return (
@@ -31,26 +44,106 @@ function HomePage() {
     );
   }
 
+  return <Dashboard />;
+}
+
+function Dashboard() {
+  const { data, isLoading } = useDashboardSummary();
+
   return (
     <Box>
-      <Paper elevation={2} sx={{ p: 3, maxWidth: 600 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={2}>
-          <Avatar sx={{ bgcolor: "primary.main" }}>
-            {auth.userAttributes?.email?.charAt(0).toUpperCase() ?? "?"}
-          </Avatar>
-          <Box>
-            <Typography variant="h5">
-              你好，
-              {auth.userAttributes?.name ??
-                auth.userAttributes?.email ??
-                "使用者"}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {auth.userAttributes?.email}
-            </Typography>
-          </Box>
-        </Box>
-      </Paper>
+      <Typography variant="h4" gutterBottom>
+        儀表板
+      </Typography>
+
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <Card>
+            <CardActionArea component={Link} to="/orders">
+              <CardContent>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    mb: 1,
+                  }}
+                >
+                  <ShoppingCartIcon color="primary" fontSize="large" />
+                  <Typography variant="h6" color="text.secondary">
+                    待處理訂單
+                  </Typography>
+                </Box>
+                {isLoading ? (
+                  <Skeleton variant="text" width={60} height={48} />
+                ) : (
+                  <Typography variant="h3" color="primary.main">
+                    {data?.pendingOrdersCount ?? 0}
+                  </Typography>
+                )}
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <Card>
+            <CardActionArea component={Link} to="/orders">
+              <CardContent>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    mb: 1,
+                  }}
+                >
+                  <InventoryIcon color="warning" fontSize="large" />
+                  <Typography variant="h6" color="text.secondary">
+                    待入庫採購
+                  </Typography>
+                </Box>
+                {isLoading ? (
+                  <Skeleton variant="text" width={60} height={48} />
+                ) : (
+                  <Typography variant="h3" color="warning.main">
+                    {data?.pendingPurchaseRecordsCount ?? 0}
+                  </Typography>
+                )}
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <Card>
+            <CardActionArea component={Link} to="/orders">
+              <CardContent>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    mb: 1,
+                  }}
+                >
+                  <LocalShippingIcon color="success" fontSize="large" />
+                  <Typography variant="h6" color="text.secondary">
+                    待出貨明細
+                  </Typography>
+                </Box>
+                {isLoading ? (
+                  <Skeleton variant="text" width={60} height={48} />
+                ) : (
+                  <Typography variant="h3" color="success.main">
+                    {data?.readyToShipLineItemsCount ?? 0}
+                  </Typography>
+                )}
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        </Grid>
+      </Grid>
     </Box>
   );
 }

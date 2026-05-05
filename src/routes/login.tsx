@@ -11,6 +11,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import EmailIcon from "@mui/icons-material/Email";
+import { useAuth } from "@/auth/AuthProvider";
 
 type AuthMode = "signIn" | "signUp" | "confirmSignUp";
 
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { auth } = Route.useRouteContext();
+  const auth = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<AuthMode>("signIn");
@@ -39,7 +40,7 @@ function LoginPage() {
     setLoading(true);
     try {
       await auth.signInWithEmail(email, password);
-      navigate({ to: "/" });
+      void navigate({ to: "/", replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "登入失敗");
     } finally {
@@ -68,7 +69,7 @@ function LoginPage() {
     try {
       await auth.confirmSignUp(email, confirmCode);
       await auth.signInWithEmail(email, password);
-      navigate({ to: "/" });
+      void navigate({ to: "/", replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "驗證失敗");
     } finally {
