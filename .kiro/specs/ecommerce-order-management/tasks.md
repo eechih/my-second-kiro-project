@@ -243,14 +243,14 @@
     - 測試列表頁面欄位顯示、表單元件存在性、驗證錯誤顯示
     - _需求：1.1, 1.4_
 
-- [ ] 9. 實作供應商管理模組（Supplier_Registry）
-  - [ ] 9.1 建立供應商 CRUD 與停用/啟用 hooks
+- [x] 9. 實作供應商管理模組（Supplier_Registry）
+  - [x] 9.1 建立供應商 CRUD 與停用/啟用 hooks
     - 建立 `src/hooks/useSuppliers.ts`，實作 `useSupplierList`、`useSupplier`、`useCreateSupplier`、`useUpdateSupplier`、`useDeactivateSupplier`、`useActivateSupplier`
     - `useSupplierList` 支援 `isActive` 篩選參數，預設僅查詢啟用中的供應商
     - `useDeactivateSupplier`：將供應商的 `isActive` 設為 `false`，mutation 成功後 invalidate 供應商列表快取
     - `useActivateSupplier`：將供應商的 `isActive` 設為 `true`，mutation 成功後 invalidate 供應商列表快取
     - _需求：2.1, 2.2, 2.3, 2.5, 2.7, 2.8, 2.9_
-  - [ ] 9.2 建立供應商列表頁面與表單頁面
+  - [x] 9.2 建立供應商列表頁面與表單頁面
     - 建立 `src/routes/suppliers/index.tsx`（供應商列表）
     - 供應商列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的供應商，可切換顯示停用供應商
     - 供應商列表每行新增停用/啟用操作按鈕：啟用中的供應商顯示「停用」按鈕，停用中的供應商顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
