@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
+import InputAdornment from "@mui/material/InputAdornment";
+import TextField from "@mui/material/TextField";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface SearchBarProps {
   value: string;
@@ -61,7 +61,7 @@ export function SearchBar({
       onChange={handleChange}
       placeholder={placeholder}
       size="small"
-      sx={{ minWidth: 250 }}
+      sx={{ minWidth: 250, flex: 1 }}
       slotProps={{
         input: {
           startAdornment: (

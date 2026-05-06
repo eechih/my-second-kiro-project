@@ -1,27 +1,44 @@
-import { useState } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { type ColumnDef } from "@tanstack/react-table";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
-import ToggleButton from "@mui/material/ToggleButton";
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Alert from "@mui/material/Alert";
-import AddIcon from "@mui/icons-material/Add";
-import BlockIcon from "@mui/icons-material/Block";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import { DataTable } from "@/components/DataTable";
-import { SearchBar } from "@/components/SearchBar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
-  useProductList,
-  useDeactivateProduct,
   useActivateProduct,
+  useDeactivateProduct,
+  useProductList,
 } from "@/hooks/useProducts";
+import { getRowNumber } from "@/lib/table-utils";
+import BlockIcon from "@mui/icons-material/Block";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import EditIcon from "@mui/icons-material/Edit";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Checkbox from "@mui/material/Checkbox";
+import CircularProgress from "@mui/material/CircularProgress";
+import IconButton from "@mui/material/IconButton";
+import Link from "@mui/material/Link";
+import Paper from "@mui/material/Paper";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import type { Product } from "@shared/models";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { useCallback, useMemo, useState } from "react";
+import { CursorPagination } from "./-components/CursorPagination";
+import {
+  ProductToolbar,
+  type ProductStatusFilter,
+} from "./-components/ProductToolbar";
 
 export const Route = createFileRoute("/products/")({
   beforeLoad: ({ context }) => {
@@ -32,13 +49,14 @@ export const Route = createFileRoute("/products/")({
   component: ProductListPage,
 });
 
-function ProductListPage() {
+const columnHelper = createColumnHelper<Product>();
+
+function ProductListPage(): React.ReactElement {
   const navigate = useNavigate();
   const pagination = useCursorPagination(10);
   const [search, setSearch] = useState("");
-  const [isActiveFilter, setIsActiveFilter] = useState<"active" | "inactive">(
-    "active",
-  );
+  const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     product: Product | null;
@@ -46,7 +64,8 @@ function ProductListPage() {
   }>({ open: false, product: null, action: "deactivate" });
   const [error, setError] = useState<string | null>(null);
 
-  const isActive = isActiveFilter === "active";
+  const isActive =
+    statusFilter === "all" ? undefined : statusFilter === "active";
 
   const { data, isLoading } = useProductList({
     pageSize: pagination.pageSize,
@@ -54,36 +73,104 @@ function ProductListPage() {
     search: search || undefined,
     isActive,
   });
+
+  const products = data?.items ?? [];
+  const nextToken = data?.nextToken;
+
   const deactivateMutation = useDeactivateProduct();
   const activateMutation = useActivateProduct();
 
-  const nextToken = data?.nextToken;
-
-  const handleFilterChange = (
-    _event: React.MouseEvent<HTMLElement>,
-    newValue: "active" | "inactive" | null,
-  ): void => {
-    if (newValue !== null) {
-      setIsActiveFilter(newValue);
+  const handleSearchChange = useCallback(
+    (value: string): void => {
+      setSearch(value);
+      setSelectedIds(new Set());
       pagination.reset();
+    },
+    [pagination],
+  );
+
+  const handleStatusFilterChange = useCallback(
+    (value: ProductStatusFilter): void => {
+      setStatusFilter(value);
+      setSelectedIds(new Set());
+      pagination.reset();
+    },
+    [pagination],
+  );
+
+  const handlePageSizeChange = useCallback(
+    (size: number): void => {
+      setSelectedIds(new Set());
+      pagination.setPageSize(size);
+    },
+    [pagination],
+  );
+
+  const handleNextPage = useCallback((): void => {
+    if (nextToken) {
+      setSelectedIds(new Set());
+      pagination.goNext(nextToken);
     }
-  };
+  }, [nextToken, pagination]);
 
-  const handleDeactivateClick = (
-    event: React.MouseEvent,
-    product: Product,
-  ): void => {
-    event.stopPropagation();
-    setConfirmDialog({ open: true, product, action: "deactivate" });
-  };
+  const handlePrevPage = useCallback((): void => {
+    setSelectedIds(new Set());
+    pagination.goPrev();
+  }, [pagination]);
 
-  const handleActivateClick = (
-    event: React.MouseEvent,
-    product: Product,
-  ): void => {
-    event.stopPropagation();
-    setConfirmDialog({ open: true, product, action: "activate" });
-  };
+  const allSelected =
+    products.length > 0 && selectedIds.size === products.length;
+  const someSelected =
+    selectedIds.size > 0 && selectedIds.size < products.length;
+
+  const handleSelectAll = useCallback((): void => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(products.map((product) => product.id)));
+    }
+  }, [allSelected, products]);
+
+  const handleSelectRow = useCallback((productId: string): void => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleView = useCallback(
+    (product: Product): void => {
+      void navigate({
+        to: "/products/$productId",
+        params: { productId: product.id },
+      });
+    },
+    [navigate],
+  );
+
+  const handleEdit = useCallback(
+    (product: Product): void => {
+      void navigate({
+        to: "/products/$productId",
+        params: { productId: product.id },
+        search: { edit: true },
+      });
+    },
+    [navigate],
+  );
+
+  const handleToggleActive = useCallback((product: Product): void => {
+    setConfirmDialog({
+      open: true,
+      product,
+      action: product.isActive ? "deactivate" : "activate",
+    });
+  }, []);
 
   const handleConfirm = async (): Promise<void> => {
     const { product, action } = confirmDialog;
@@ -107,93 +194,178 @@ function ProductListPage() {
     setConfirmDialog({ open: false, product: null, action: "deactivate" });
   };
 
-  const columns: ColumnDef<Product, unknown>[] = [
-    {
-      accessorKey: "name",
-      header: "商品名稱",
-    },
-    {
-      accessorKey: "sku",
-      header: "SKU",
-    },
-    {
-      accessorKey: "unitPrice",
-      header: "單價",
-      cell: ({ getValue }) => `$${getValue<number>()}`,
-    },
-    {
-      accessorKey: "defaultCost",
-      header: "進貨成本",
-      cell: ({ getValue }) => `$${getValue<number>()}`,
-    },
-    {
-      accessorKey: "stockQuantity",
-      header: "庫存數量",
-      cell: ({ row }) => {
-        const product = row.original;
-        if (product.variants.length > 0) {
-          const totalStock = product.variants.reduce(
-            (sum, v) => sum + v.stockQuantity,
-            0,
-          );
-          return `${totalStock}（${product.variants.length} 規格）`;
-        }
-        return product.stockQuantity;
-      },
-    },
-    {
-      id: "actions",
-      header: "操作",
-      enableSorting: false,
-      cell: ({ row }) => {
-        const product = row.original;
-        if (product.isActive) {
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "select",
+        header: () => (
+          <Checkbox
+            checked={allSelected}
+            indeterminate={someSelected}
+            onChange={handleSelectAll}
+            size="small"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={selectedIds.has(row.original.id)}
+            onChange={() => handleSelectRow(row.original.id)}
+            size="small"
+          />
+        ),
+        enableSorting: false,
+      }),
+      columnHelper.display({
+        id: "rowNumber",
+        header: "#",
+        cell: ({ row }) =>
+          getRowNumber(
+            pagination.tokenStack.length,
+            pagination.pageSize,
+            row.index,
+          ),
+        enableSorting: false,
+      }),
+      columnHelper.accessor("name", {
+        header: "商品名稱",
+        cell: ({ row }) => (
+          <Box>
+            <Typography sx={{ fontWeight: 600 }}>{row.original.name}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {row.original.sku}
+            </Typography>
+          </Box>
+        ),
+      }),
+      columnHelper.accessor("unitPrice", {
+        header: "單價",
+        cell: ({ getValue }) => `$${getValue<number>()}`,
+      }),
+      columnHelper.accessor("defaultCost", {
+        header: "進貨成本",
+        cell: ({ getValue }) => `$${getValue<number>()}`,
+      }),
+      columnHelper.display({
+        id: "stock",
+        header: "庫存",
+        cell: ({ row }) => {
+          const product = row.original;
+          if (product.variants.length > 0) {
+            const totalStock = product.variants.reduce(
+              (sum, variant) => sum + variant.stockQuantity,
+              0,
+            );
+            return `${totalStock}（${product.variants.length} 規格）`;
+          }
+          return product.stockQuantity;
+        },
+      }),
+      columnHelper.display({
+        id: "status",
+        header: "狀態",
+        cell: ({ row }) => (
+          <Typography
+            variant="body2"
+            sx={{
+              color: row.original.isActive ? "success.main" : "error.main",
+              fontWeight: 500,
+            }}
+          >
+            {row.original.isActive ? "啟用中" : "已停用"}
+          </Typography>
+        ),
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: "操作",
+        cell: ({ row }) => {
+          const product = row.original;
           return (
-            <Tooltip title="停用">
-              <IconButton
-                size="small"
-                color="warning"
-                onClick={(e) => handleDeactivateClick(e, product)}
-              >
-                <BlockIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Tooltip title="編輯">
+                <IconButton
+                  size="small"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleEdit(product);
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              {product.isActive ? (
+                <Tooltip title="停用">
+                  <IconButton
+                    size="small"
+                    color="warning"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleToggleActive(product);
+                    }}
+                  >
+                    <BlockIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Tooltip title="啟用">
+                  <IconButton
+                    size="small"
+                    color="success"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleToggleActive(product);
+                    }}
+                  >
+                    <CheckCircleIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
           );
-        }
-        return (
-          <Tooltip title="啟用">
-            <IconButton
-              size="small"
-              color="success"
-              onClick={(e) => handleActivateClick(e, product)}
-            >
-              <CheckCircleIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        );
-      },
-    },
-  ];
+        },
+        enableSorting: false,
+      }),
+    ],
+    [
+      allSelected,
+      someSelected,
+      selectedIds,
+      handleSelectAll,
+      handleSelectRow,
+      handleEdit,
+      handleToggleActive,
+      pagination.tokenStack.length,
+      pagination.pageSize,
+    ],
+  );
+
+  const table = useReactTable({
+    data: products,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
-        <Typography variant="h4">商品管理</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate({ to: "/products/new" })}
+      <Breadcrumbs sx={{ mb: 1 }}>
+        <Link
+          underline="hover"
+          color="inherit"
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            void navigate({ to: "/" });
+          }}
         >
-          新增商品
-        </Button>
-      </Box>
+          首頁
+        </Link>
+        <Typography color="text.primary">商品</Typography>
+        <Typography color="text.primary">列表</Typography>
+      </Breadcrumbs>
+
+      <Typography variant="h5" sx={{ mb: 3 }}>
+        列表
+      </Typography>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -201,52 +373,84 @@ function ProductListPage() {
         </Alert>
       )}
 
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
-      >
-        <SearchBar
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            pagination.reset();
-          }}
-          placeholder="搜尋商品名稱或 SKU..."
-        />
-        <ToggleButtonGroup
-          value={isActiveFilter}
-          exclusive
-          onChange={handleFilterChange}
-          size="small"
-        >
-          <ToggleButton value="active">啟用中</ToggleButton>
-          <ToggleButton value="inactive">已停用</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-
-      <DataTable<Product>
-        columns={columns}
-        data={data?.items ?? []}
+      <ProductToolbar
+        search={search}
+        onSearchChange={handleSearchChange}
         totalCount={data?.totalCount ?? 0}
+        statusFilter={statusFilter}
+        onStatusFilterChange={handleStatusFilterChange}
+        onAddClick={() => void navigate({ to: "/products/new" })}
+      />
+
+      <TableContainer component={Paper} sx={{ mt: 2 }}>
+        {isLoading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Table>
+            <TableHead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableCell key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHead>
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    align="center"
+                    sx={{ py: 4 }}
+                  >
+                    <Typography color="text.secondary">
+                      目前沒有符合條件的商品資料
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    selected={selectedIds.has(row.original.id)}
+                    hover
+                    onClick={() => handleView(row.original)}
+                    sx={{ cursor: "pointer" }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </TableContainer>
+
+      <CursorPagination
         pageSize={pagination.pageSize}
-        onPageSizeChange={pagination.setPageSize}
+        onPageSizeChange={handlePageSizeChange}
         hasNextPage={!!nextToken}
         hasPrevPage={pagination.tokenStack.length > 0}
-        onNextPage={() => {
-          if (nextToken) pagination.goNext(nextToken);
-        }}
-        onPrevPage={pagination.goPrev}
-        isLoading={isLoading}
-        onRowClick={(product) =>
-          navigate({
-            to: "/products/$productId",
-            params: { productId: product.id },
-          })
-        }
+        onNextPage={handleNextPage}
+        onPrevPage={handlePrevPage}
+        currentCount={products.length}
       />
 
       <ConfirmDialog
