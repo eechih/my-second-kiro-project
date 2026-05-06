@@ -286,7 +286,7 @@
     - `useProductImageUrls`：使用 Amplify Storage `getUrl` 將 S3 key 列表轉換為可存取的預簽名 URL 列表，供前端顯示使用。在 TanStack Query 的 `queryFn` 中呼叫 `getUrl`，設定 `staleTime` 為預簽名 URL 有效期的 80%（如 URL 有效 1 小時則 staleTime 設為 48 分鐘），避免每次渲染重複產生新 URL
     - `useProductThumbnailUrls`：將 S3 key 列表轉換為對應縮圖的預簽名 URL 列表（路徑加入 `thumbnails/` 前綴），用於商品列表頁面（TanStack Table）與預覽顯示。快取策略同 `useProductImageUrls`
     - _需求：3.9, 3.10, 3.11_
-  - [ ] 10.3 建立商品列表頁面與表單頁面
+  - [x] 10.3 建立商品列表頁面與表單頁面
     - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）
     - 使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁
     - 商品列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的商品，可切換顯示停用商品
@@ -321,7 +321,7 @@
     - 測試 VariantTable 正確顯示所有規格組合的 SKU、單價、成本、庫存
     - _需求：3.1, 3.4, 3.9, 3.10, 3.11, 3.12, 3.15, 3.16_
 
-- [ ] 11. 檢查點 — 確認基礎模組功能正常
+- [x] 11. 檢查點 — 確認基礎模組功能正常
   - 確認所有測試通過，若有問題請詢問使用者。
 
 - [ ] 12. 實作訂單管理模組——建立與列表
