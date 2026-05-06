@@ -12,6 +12,14 @@
       "env": {
         "CONTEXT7_API_KEY": "ctx7sk-4354f315-a058-413f-841e-da25a3d4b9aa"
       }
+    },
+    "mui": {
+      "disabled": false,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mui/mcp"
+      ]
     }
   }
 }
