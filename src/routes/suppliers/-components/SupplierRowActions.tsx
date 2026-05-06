@@ -3,7 +3,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditIcon from "@mui/icons-material/Edit";
 import BlockIcon from "@mui/icons-material/Block";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import type { Supplier } from "../../../../shared/models/supplier";
+import type { Supplier } from "@shared/models";
 
 export interface SupplierRowActionsProps {
   supplier: Supplier;

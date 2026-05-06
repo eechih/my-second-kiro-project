@@ -8,7 +8,7 @@ import Stack from "@mui/material/Stack";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Skeleton from "@mui/material/Skeleton";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FormField } from "@/components/FormField";
 import { useSupplier, useUpdateSupplier } from "@/hooks/useSuppliers";
 import { validateSupplier } from "@shared/logic/validation";
@@ -67,6 +67,20 @@ function SupplierEditPage() {
       }
     },
   });
+
+  // 當供應商資料載入完成後，重置表單值
+  useEffect(() => {
+    if (supplier) {
+      form.reset({
+        name: supplier.name,
+        contactPerson: supplier.contactPerson,
+        phone: supplier.phone,
+        email: supplier.email,
+        address: supplier.address,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supplier]);
 
   if (isLoadingSupplier) {
     return (

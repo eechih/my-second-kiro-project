@@ -255,7 +255,7 @@
     - `useDeactivateSupplier`：將供應商的 `isActive` 設為 `false`，mutation 成功後 invalidate 供應商列表快取
     - `useActivateSupplier`：將供應商的 `isActive` 設為 `true`，mutation 成功後 invalidate 供應商列表快取
     - _需求：2.1, 2.2, 2.3, 2.5, 2.7, 2.8, 2.9_
-  - [ ] 9.2 建立供應商列表頁面與表單頁面
+  - [x] 9.2 建立供應商列表頁面與表單頁面
     - 供應商列表頁面（`src/routes/suppliers/index.tsx`）已完成 UI 重構，使用獨立的 TanStack Table + MUI Table 實作（不使用共用 `DataTable`）
     - 已整合子元件（放置於 `src/routes/suppliers/-components/`）：`SupplierToolbar`（搜尋/篩選/排序/新增/CSV匯出）、`SupplierInfoCell`（Avatar + 名稱/聯絡人複合欄位）、`CursorPagination`（游標式分頁）、`SupplierRowActions`（檢視/編輯/停用啟用）
     - 已使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁
