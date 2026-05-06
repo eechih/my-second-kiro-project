@@ -4,6 +4,8 @@
 
 本實作計畫將電子商務訂單管理系統的設計拆解為可逐步執行的編碼任務。實作順序為：資料模型與業務邏輯純函式（含規格組合邏輯）→ Amplify Gen2 後端資料層（含 Lambda Custom Mutation 函式）→ 共用 UI 元件（含規格組合元件）→ 各模組頁面（客戶、供應商、商品含規格組合管理、訂單含規格組合選取）→ 導覽與儀表板 → 訂單進階功能（進貨、出貨皆透過 Custom Mutation 確保原子性、合併、分拆）。每個任務皆建立在前一步的基礎上，確保無孤立或未整合的程式碼。
 
+客戶與供應商列表頁面已完成 UI 重構（參見 customer-list-ui-refinement 與 supplier-list-ui-refinement specs），使用獨立的 TanStack Table + MUI Table 實作搭配專屬子元件（Toolbar、InfoCell、CursorPagination、RowActions），不再使用共用 `DataTable` 元件。列表頁面使用 `useXxxListCursor` hook（支援搜尋、狀態篩選、客戶端排序）搭配 `useCursorPagination` hook（token 堆疊管理）。
+
 ## 任務
 
 - [ ] 1. 建立資料模型型別定義與序列化工具
@@ -230,11 +232,12 @@
     - 使用 TanStack Query 管理快取與 mutation，搭配 Amplify Data client 呼叫 API
     - _需求：1.1, 1.2, 1.3, 1.5, 1.7, 1.8, 1.9_
   - [ ] 8.2 建立客戶列表頁面與表單頁面
-    - 建立 `src/routes/customers/index.tsx`（客戶列表，使用 DataTable + SearchBar）
-    - 使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁
-    - 客戶列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的客戶，可切換顯示停用客戶
-    - 客戶列表每行新增停用/啟用操作按鈕：啟用中的客戶顯示「停用」按鈕，停用中的客戶顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
-    - 停用/啟用操作呼叫 `useDeactivateCustomer` / `useActivateCustomer` hooks
+    - 客戶列表頁面（`src/routes/customers/index.tsx`）已完成 UI 重構，使用獨立的 TanStack Table + MUI Table 實作（不使用共用 `DataTable`）
+    - 已整合子元件（放置於 `src/routes/customers/-components/`）：`CustomerToolbar`（搜尋/篩選/排序/新增/CSV匯出）、`UserInfoCell`（Avatar + 名稱/聯絡人複合欄位）、`CursorPagination`（游標式分頁）、`RowActions`（檢視/編輯/停用啟用）
+    - 已使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁
+    - 已使用 `useCustomerListCursor` hook 取得資料（支援搜尋、狀態篩選 MUI Select、客戶端排序）
+    - 已實作批次選取（全選/單選/不確定狀態）、麵包屑導覽、CSV 匯出
+    - 客戶列表每行停用/啟用操作按鈕，點擊後彈出 ConfirmDialog 確認操作，呼叫 `useDeactivateCustomer` / `useActivateCustomer` hooks
     - 建立 `src/routes/customers/new.tsx`（新增客戶表單，使用 TanStack Form + MUI）
     - 建立 `src/routes/customers/$customerId.tsx`（編輯客戶表單）
     - 表單驗證使用 `shared/logic/validation.ts` 中的驗證函式
@@ -253,11 +256,12 @@
     - `useActivateSupplier`：將供應商的 `isActive` 設為 `true`，mutation 成功後 invalidate 供應商列表快取
     - _需求：2.1, 2.2, 2.3, 2.5, 2.7, 2.8, 2.9_
   - [ ] 9.2 建立供應商列表頁面與表單頁面
-    - 建立 `src/routes/suppliers/index.tsx`（供應商列表）
-    - 使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁
-    - 供應商列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的供應商，可切換顯示停用供應商
-    - 供應商列表每行新增停用/啟用操作按鈕：啟用中的供應商顯示「停用」按鈕，停用中的供應商顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
-    - 停用/啟用操作呼叫 `useDeactivateSupplier` / `useActivateSupplier` hooks
+    - 供應商列表頁面（`src/routes/suppliers/index.tsx`）已完成 UI 重構，使用獨立的 TanStack Table + MUI Table 實作（不使用共用 `DataTable`）
+    - 已整合子元件（放置於 `src/routes/suppliers/-components/`）：`SupplierToolbar`（搜尋/篩選/排序/新增/CSV匯出）、`SupplierInfoCell`（Avatar + 名稱/聯絡人複合欄位）、`CursorPagination`（游標式分頁）、`SupplierRowActions`（檢視/編輯/停用啟用）
+    - 已使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁
+    - 已使用 `useSupplierListCursor` hook 取得資料（支援搜尋、狀態篩選 MUI Select、客戶端排序）
+    - 已實作批次選取（全選/單選/不確定狀態）、麵包屑導覽、CSV 匯出
+    - 供應商列表每行停用/啟用操作按鈕，點擊後彈出 ConfirmDialog 確認操作，呼叫 `useDeactivateSupplier` / `useActivateSupplier` hooks
     - 建立 `src/routes/suppliers/new.tsx`（新增供應商表單）
     - 建立 `src/routes/suppliers/$supplierId.tsx`（編輯供應商表單）
     - _需求：2.1, 2.2, 2.3, 2.4, 2.5, 2.7, 2.8, 2.9_
@@ -456,3 +460,6 @@
 - 商品支援多維度規格組合（Product Variant），進貨入庫與出貨扣減皆在規格組合層級操作；無規格組合的商品則在商品層級操作
 - 事務性操作（出貨、入庫確認、訂單合併、訂單分拆）使用 Amplify Gen2 Custom Mutations（Lambda 函式 + DynamoDB TransactWriteItems）確保原子性，避免前端分步呼叫多個 mutation 導致資料不一致
 - Product → ProductVariant 採用 `hasMany` / `belongsTo` 一對多關聯（非嵌入 JSON），每個 ProductVariant 為獨立的 DynamoDB 項目，支援獨立庫存更新與外鍵關聯
+- 客戶與供應商列表頁面已完成 UI 重構，使用獨立的 TanStack Table + MUI Table 實作（不使用共用 `DataTable`），搭配專屬 `-components/` 子目錄放置 Toolbar、InfoCell、CursorPagination、RowActions 等子元件
+- 列表頁面使用 `useXxxListCursor` hook（支援搜尋、狀態篩選、客戶端排序）搭配 `useCursorPagination` hook（token 堆疊管理）
+- 純函式工具模組：`src/lib/avatar-utils.ts`（Avatar 色彩衍生）、`src/lib/table-utils.ts`（列號計算、排序）、`src/lib/customer-csv.ts` 與 `src/lib/supplier-csv.ts`（CSV 匯出）
