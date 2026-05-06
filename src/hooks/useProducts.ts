@@ -28,8 +28,12 @@ import {
 const PRODUCT_KEYS = {
   all: ["products"] as const,
   lists: () => [...PRODUCT_KEYS.all, "list"] as const,
-  list: (params: { page: number; search?: string; isActive?: boolean }) =>
-    [...PRODUCT_KEYS.lists(), params] as const,
+  list: (params: {
+    pageSize: number;
+    nextToken?: string;
+    search?: string;
+    isActive?: boolean;
+  }) => [...PRODUCT_KEYS.lists(), params] as const,
   details: () => [...PRODUCT_KEYS.all, "detail"] as const,
   detail: (id: string) => [...PRODUCT_KEYS.details(), id] as const,
   variants: (productId: string) =>
@@ -43,21 +47,22 @@ const PRODUCT_KEYS = {
 /**
  * 商品列表查詢 hook
  *
- * 支援分頁、搜尋與啟用/停用狀態篩選。
+ * 支援游標式分頁、搜尋與啟用/停用狀態篩選。
  * 預設僅查詢啟用中的商品（isActive = true）。
  * 有規格組合的商品顯示各規格組合庫存加總。
  *
  * 需求：3.1, 3.5
  */
 export function useProductList(params: {
-  page: number;
+  pageSize: number;
+  nextToken?: string;
   search?: string;
   isActive?: boolean;
 }): UseQueryResult<PaginatedResult<Product>> {
-  const { page, search, isActive = true } = params;
+  const { pageSize, nextToken, search, isActive = true } = params;
 
   return useQuery({
-    queryKey: PRODUCT_KEYS.list({ page, search, isActive }),
+    queryKey: PRODUCT_KEYS.list({ pageSize, nextToken, search, isActive }),
     queryFn: async (): Promise<PaginatedResult<Product>> => {
       const filter: Record<string, unknown> = {
         isActive: { eq: isActive },
@@ -70,9 +75,9 @@ export function useProductList(params: {
         ];
       }
 
-      const { data, errors } = await client.models.Product.list({
+      const listParams: Record<string, unknown> = {
         filter,
-        limit: 10,
+        limit: pageSize,
         selectionSet: [
           "id",
           "name",
@@ -89,7 +94,17 @@ export function useProductList(params: {
           "updatedAt",
           "variants.*",
         ],
-      });
+      };
+
+      if (nextToken) {
+        listParams.nextToken = nextToken;
+      }
+
+      const {
+        data,
+        errors,
+        nextToken: responseNextToken,
+      } = await client.models.Product.list(listParams);
 
       if (errors && errors.length > 0) {
         throw new Error(errors[0]?.message ?? "查詢商品列表失敗");
@@ -100,6 +115,7 @@ export function useProductList(params: {
       return {
         items,
         totalCount: items.length,
+        nextToken: responseNextToken ?? undefined,
       };
     },
   });

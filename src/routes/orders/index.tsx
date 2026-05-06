@@ -10,6 +10,7 @@ import { DataTable } from "@/components/DataTable";
 import { SearchBar } from "@/components/SearchBar";
 import { StatusChip } from "@/components/StatusChip";
 import { useOrderList, usePrefetchOrder } from "@/hooks/useOrders";
+import { useCursorPagination } from "@/hooks/useCursorPagination";
 import type { Order } from "@shared/models";
 
 export const Route = createFileRoute("/orders/")({
@@ -44,12 +45,17 @@ const ORDER_STATUS_LABEL: Record<string, string> = {
 
 function OrderListPage() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const pagination = useCursorPagination(10);
   const [search, setSearch] = useState("");
 
-  const { data, isLoading } = useOrderList({ page, search });
+  const { data, isLoading } = useOrderList({
+    pageSize: pagination.pageSize,
+    nextToken: pagination.currentToken,
+    search: search || undefined,
+  });
   const prefetchOrder = usePrefetchOrder();
+
+  const nextToken = data?.nextToken;
 
   const handleRowHover = useCallback(
     (order: Order) => {
@@ -141,7 +147,7 @@ function OrderListPage() {
           value={search}
           onChange={(value) => {
             setSearch(value);
-            setPage(0);
+            pagination.reset();
           }}
           placeholder="搜尋訂單編號或客戶名稱..."
         />
@@ -151,13 +157,14 @@ function OrderListPage() {
         columns={columns}
         data={data?.items ?? []}
         totalCount={data?.totalCount ?? 0}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(newSize) => {
-          setPageSize(newSize);
-          setPage(0);
+        pageSize={pagination.pageSize}
+        onPageSizeChange={pagination.setPageSize}
+        hasNextPage={!!nextToken}
+        hasPrevPage={pagination.tokenStack.length > 0}
+        onNextPage={() => {
+          if (nextToken) pagination.goNext(nextToken);
         }}
+        onPrevPage={pagination.goPrev}
         isLoading={isLoading}
         onRowClick={(order) =>
           navigate({

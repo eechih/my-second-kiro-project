@@ -20,8 +20,12 @@ import type {
 const CUSTOMER_KEYS = {
   all: ["customers"] as const,
   lists: () => [...CUSTOMER_KEYS.all, "list"] as const,
-  list: (params: { page: number; search?: string; isActive?: boolean }) =>
-    [...CUSTOMER_KEYS.lists(), params] as const,
+  list: (params: {
+    pageSize: number;
+    nextToken?: string;
+    search?: string;
+    isActive?: boolean;
+  }) => [...CUSTOMER_KEYS.lists(), params] as const,
   details: () => [...CUSTOMER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...CUSTOMER_KEYS.details(), id] as const,
 };
@@ -31,27 +35,31 @@ const CUSTOMER_KEYS = {
 // ---------------------------------------------------------------------------
 
 /**
- * 客戶列表查詢 hook
+ * 客戶列表查詢 hook（游標式分頁）
  *
- * 支援分頁、搜尋與啟用/停用狀態篩選。
+ * 使用 TanStack Query 搭配 DynamoDB nextToken 實現游標式分頁。
+ * 支援搜尋（name/contactPerson/phone 模糊比對）與 isActive 篩選。
  * 預設僅查詢啟用中的客戶（isActive = true）。
  *
  * 需求：1.1, 1.5, 1.9
  */
 export function useCustomerList(params: {
-  page: number;
+  pageSize: number;
+  nextToken?: string;
   search?: string;
   isActive?: boolean;
 }): UseQueryResult<PaginatedResult<Customer>> {
-  const { page, search, isActive = true } = params;
+  const { pageSize, nextToken, search, isActive = true } = params;
 
   return useQuery({
-    queryKey: CUSTOMER_KEYS.list({ page, search, isActive }),
+    queryKey: CUSTOMER_KEYS.list({ pageSize, nextToken, search, isActive }),
     queryFn: async (): Promise<PaginatedResult<Customer>> => {
-      const filter: Record<string, unknown> = {
-        isActive: { eq: isActive },
-      };
+      const filter: Record<string, unknown> = {};
 
+      // 狀態篩選
+      filter.isActive = { eq: isActive };
+
+      // 搜尋篩選（name/contactPerson/phone 模糊比對）
       if (search) {
         filter.or = [
           { name: { contains: search } },
@@ -60,10 +68,20 @@ export function useCustomerList(params: {
         ];
       }
 
-      const { data, errors } = await client.models.Customer.list({
+      const listParams: Record<string, unknown> = {
         filter,
-        limit: 10,
-      });
+        limit: pageSize,
+      };
+
+      if (nextToken) {
+        listParams.nextToken = nextToken;
+      }
+
+      const {
+        data,
+        errors,
+        nextToken: responseNextToken,
+      } = await client.models.Customer.list(listParams);
 
       if (errors && errors.length > 0) {
         throw new Error(errors[0]?.message ?? "查詢客戶列表失敗");
@@ -74,6 +92,7 @@ export function useCustomerList(params: {
       return {
         items,
         totalCount: items.length,
+        nextToken: responseNextToken ?? undefined,
       };
     },
   });

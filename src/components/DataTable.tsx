@@ -13,35 +13,67 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import TablePagination from "@mui/material/TablePagination";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import Paper from "@mui/material/Paper";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
+import IconButton from "@mui/material/IconButton";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import FormControl from "@mui/material/FormControl";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
 export interface DataTableProps<T> {
+  /** TanStack Table 欄位定義 */
   columns: ColumnDef<T, unknown>[];
+  /** 表格資料 */
   data: T[];
+  /** 資料總筆數 */
   totalCount: number;
-  page: number;
+  /** 每頁筆數 */
   pageSize: number;
-  onPageChange: (page: number) => void;
+  /** 每頁筆數變更回呼 */
   onPageSizeChange: (pageSize: number) => void;
+  /** 是否有下一頁（由 API 回傳的 nextToken 是否存在決定） */
+  hasNextPage: boolean;
+  /** 是否有上一頁（由 tokenStack 長度 > 0 或 currentToken !== undefined 決定） */
+  hasPrevPage: boolean;
+  /** 點擊下一頁（呼叫 useCursorPagination 的 goNext） */
+  onNextPage: () => void;
+  /** 點擊上一頁（呼叫 useCursorPagination 的 goPrev） */
+  onPrevPage: () => void;
+  /** 是否載入中 */
   isLoading: boolean;
+  /** 行點擊回呼 */
   onRowClick?: (row: T) => void;
+  /** 行滑鼠進入回呼（用於預取） */
   onRowMouseEnter?: (row: T) => void;
+  /** 是否啟用排序（預設 true） */
   enableSorting?: boolean;
 }
 
+/**
+ * 通用分頁表格元件。
+ *
+ * 使用 TanStack Table 的 useReactTable + getCoreRowModel，
+ * 搭配 MUI Table 元件渲染。
+ * 分頁使用游標式分頁（Cursor-Based Pagination），
+ * 搭配 useCursorPagination hook 使用。
+ *
+ * 需求：1.1, 2.1, 3.1, 4.2
+ */
 export function DataTable<T>({
   columns,
   data,
   totalCount,
-  page,
   pageSize,
-  onPageChange,
   onPageSizeChange,
+  hasNextPage,
+  hasPrevPage,
+  onNextPage,
+  onPrevPage,
   isLoading,
   onRowClick,
   onRowMouseEnter,
@@ -59,7 +91,6 @@ export function DataTable<T>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
     manualPagination: true,
-    pageCount: Math.ceil(totalCount / pageSize),
   });
 
   return (
@@ -160,22 +191,59 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       </TableContainer>
-      <Box sx={{ borderTop: 1, borderColor: "divider" }}>
-        <TablePagination
-          component="div"
-          count={totalCount}
-          page={page}
-          rowsPerPage={pageSize}
-          onPageChange={(_event, newPage) => onPageChange(newPage)}
-          onRowsPerPageChange={(event) =>
-            onPageSizeChange(parseInt(event.target.value, 10))
-          }
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage="每頁筆數"
-          labelDisplayedRows={({ from, to, count }) =>
-            `${from}–${to} / 共 ${count !== -1 ? count : `超過 ${to}`} 筆`
-          }
-        />
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          px: 2,
+          py: 1.5,
+          borderTop: 1,
+          borderColor: "divider",
+          gap: 2,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            每頁筆數
+          </Typography>
+          <FormControl size="small" variant="outlined">
+            <Select
+              value={pageSize}
+              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+              sx={{ minWidth: 70 }}
+            >
+              {[5, 10, 25, 50].map((size) => (
+                <MenuItem key={size} value={size}>
+                  {size}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          {data.length === 0
+            ? "0 筆"
+            : `顯示 ${data.length} 筆${totalCount > 0 ? ` / 共 ${totalCount} 筆` : ""}`}
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <IconButton
+            size="small"
+            onClick={onPrevPage}
+            disabled={!hasPrevPage}
+            aria-label="上一頁"
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={onNextPage}
+            disabled={!hasNextPage}
+            aria-label="下一頁"
+          >
+            <ChevronRightIcon />
+          </IconButton>
+        </Box>
       </Box>
     </Paper>
   );

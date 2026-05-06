@@ -187,7 +187,7 @@
     - _需求：5.5, 5.6, 6.5, 6.8, 7.1, 7.2, 7.3, 7.4, 7.5, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7_
 
 - [ ] 7. 建立共用 UI 元件
-  - [ ] 7.1 實作通用分頁表格元件 DataTable
+  - [x] 7.1 實作通用分頁表格元件 DataTable
     - 建立 `src/components/DataTable.tsx`，使用 TanStack Table 的 `useReactTable` + `getCoreRowModel`
     - 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell 渲染
     - 分頁使用游標式分頁（Cursor-Based Pagination），介面為 `hasNextPage`/`hasPrevPage`/`onNextPage`/`onPrevPage`/`pageSize`/`onPageSizeChange`，搭配 `useCursorPagination` hook 使用
@@ -222,7 +222,7 @@
     - _需求：1.1, 2.1, 3.1, 3.15, 3.16, 4.2, 4.12_
 
 - [ ] 8. 實作客戶管理模組（Customer_Registry）
-  - [ ] 8.1 建立客戶 CRUD 與停用/啟用 hooks
+  - [x] 8.1 建立客戶 CRUD 與停用/啟用 hooks
     - 建立 `src/hooks/useCustomers.ts`，實作 `useCustomerList`、`useCustomer`、`useCreateCustomer`、`useUpdateCustomer`、`useDeactivateCustomer`、`useActivateCustomer`
     - `useCustomerList` 接受 `{ pageSize: number; nextToken?: string; search?: string; isActive?: boolean }` 參數，回傳 `PaginatedResult<Customer>`（含 `nextToken` 供游標式分頁使用）
     - `useDeactivateCustomer`：將客戶的 `isActive` 設為 `false`，mutation 成功後 invalidate 客戶列表快取
@@ -246,7 +246,7 @@
     - _需求：1.1, 1.4_
 
 - [ ] 9. 實作供應商管理模組（Supplier_Registry）
-  - [ ] 9.1 建立供應商 CRUD 與停用/啟用 hooks
+  - [x] 9.1 建立供應商 CRUD 與停用/啟用 hooks
     - 建立 `src/hooks/useSuppliers.ts`，實作 `useSupplierList`、`useSupplier`、`useCreateSupplier`、`useUpdateSupplier`、`useDeactivateSupplier`、`useActivateSupplier`
     - `useSupplierList` 接受 `{ pageSize: number; nextToken?: string; search?: string; isActive?: boolean }` 參數，回傳 `PaginatedResult<Supplier>`（含 `nextToken` 供游標式分頁使用）
     - `useDeactivateSupplier`：將供應商的 `isActive` 設為 `false`，mutation 成功後 invalidate 供應商列表快取
@@ -266,7 +266,7 @@
     - _需求：2.1, 2.4_
 
 - [ ] 10. 實作商品管理模組（Product_Registry）
-  - [ ] 10.1 建立商品 CRUD 與停用/啟用 hooks（含規格組合 CRUD）
+  - [x] 10.1 建立商品 CRUD 與停用/啟用 hooks（含規格組合 CRUD）
     - 建立 `src/hooks/useProducts.ts`，實作 `useProductList`、`useProduct`、`useCreateProduct`、`useUpdateProduct`、`useDeactivateProduct`、`useActivateProduct`
     - `useProductList` 接受 `{ pageSize: number; nextToken?: string; search?: string; isActive?: boolean }` 參數，回傳 `PaginatedResult<Product>`（含 `nextToken` 供游標式分頁使用）
     - `useDeactivateProduct`：將商品的 `isActive` 設為 `false`，mutation 成功後 invalidate 商品列表快取

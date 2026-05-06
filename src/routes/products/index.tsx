@@ -15,6 +15,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { DataTable } from "@/components/DataTable";
 import { SearchBar } from "@/components/SearchBar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
   useProductList,
   useDeactivateProduct,
@@ -33,8 +34,7 @@ export const Route = createFileRoute("/products/")({
 
 function ProductListPage() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const pagination = useCursorPagination(10);
   const [search, setSearch] = useState("");
   const [isActiveFilter, setIsActiveFilter] = useState<"active" | "inactive">(
     "active",
@@ -48,9 +48,16 @@ function ProductListPage() {
 
   const isActive = isActiveFilter === "active";
 
-  const { data, isLoading } = useProductList({ page, search, isActive });
+  const { data, isLoading } = useProductList({
+    pageSize: pagination.pageSize,
+    nextToken: pagination.currentToken,
+    search: search || undefined,
+    isActive,
+  });
   const deactivateMutation = useDeactivateProduct();
   const activateMutation = useActivateProduct();
+
+  const nextToken = data?.nextToken;
 
   const handleFilterChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -58,7 +65,7 @@ function ProductListPage() {
   ): void => {
     if (newValue !== null) {
       setIsActiveFilter(newValue);
-      setPage(0);
+      pagination.reset();
     }
   };
 
@@ -206,7 +213,7 @@ function ProductListPage() {
           value={search}
           onChange={(value) => {
             setSearch(value);
-            setPage(0);
+            pagination.reset();
           }}
           placeholder="搜尋商品名稱或 SKU..."
         />
@@ -225,13 +232,14 @@ function ProductListPage() {
         columns={columns}
         data={data?.items ?? []}
         totalCount={data?.totalCount ?? 0}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(newSize) => {
-          setPageSize(newSize);
-          setPage(0);
+        pageSize={pagination.pageSize}
+        onPageSizeChange={pagination.setPageSize}
+        hasNextPage={!!nextToken}
+        hasPrevPage={pagination.tokenStack.length > 0}
+        onNextPage={() => {
+          if (nextToken) pagination.goNext(nextToken);
         }}
+        onPrevPage={pagination.goPrev}
         isLoading={isLoading}
         onRowClick={(product) =>
           navigate({

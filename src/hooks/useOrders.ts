@@ -28,7 +28,7 @@ import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 const ORDER_KEYS = {
   all: ["orders"] as const,
   lists: () => [...ORDER_KEYS.all, "list"] as const,
-  list: (params: { page: number; search?: string }) =>
+  list: (params: { pageSize: number; nextToken?: string; search?: string }) =>
     [...ORDER_KEYS.lists(), params] as const,
   details: () => [...ORDER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...ORDER_KEYS.details(), id] as const,
@@ -41,18 +41,19 @@ const ORDER_KEYS = {
 /**
  * 訂單列表查詢 hook
  *
- * 支援分頁與搜尋（依訂單編號或客戶名稱）。
+ * 支援游標式分頁與搜尋（依訂單編號或客戶名稱）。
  *
  * 需求：4.2, 4.15
  */
 export function useOrderList(params: {
-  page: number;
+  pageSize: number;
+  nextToken?: string;
   search?: string;
 }): UseQueryResult<PaginatedResult<Order>> {
-  const { page, search } = params;
+  const { pageSize, nextToken, search } = params;
 
   return useQuery({
-    queryKey: ORDER_KEYS.list({ page, search }),
+    queryKey: ORDER_KEYS.list({ pageSize, nextToken, search }),
     queryFn: async (): Promise<PaginatedResult<Order>> => {
       const filter: Record<string, unknown> = {};
 
@@ -63,9 +64,8 @@ export function useOrderList(params: {
         ];
       }
 
-      const { data, errors } = await client.models.Order.list({
-        filter: Object.keys(filter).length > 0 ? filter : undefined,
-        limit: 10,
+      const listParams: Record<string, unknown> = {
+        limit: pageSize,
         selectionSet: [
           "customerId",
           "sortKey",
@@ -77,7 +77,21 @@ export function useOrderList(params: {
           "createdAt",
           "updatedAt",
         ],
-      });
+      };
+
+      if (Object.keys(filter).length > 0) {
+        listParams.filter = filter;
+      }
+
+      if (nextToken) {
+        listParams.nextToken = nextToken;
+      }
+
+      const {
+        data,
+        errors,
+        nextToken: responseNextToken,
+      } = await client.models.Order.list(listParams);
 
       if (errors && errors.length > 0) {
         throw new Error(errors[0]?.message ?? "查詢訂單列表失敗");
@@ -88,6 +102,7 @@ export function useOrderList(params: {
       return {
         items,
         totalCount: items.length,
+        nextToken: responseNextToken ?? undefined,
       };
     },
   });

@@ -20,8 +20,12 @@ import type {
 const SUPPLIER_KEYS = {
   all: ["suppliers"] as const,
   lists: () => [...SUPPLIER_KEYS.all, "list"] as const,
-  list: (params: { page: number; search?: string; isActive?: boolean }) =>
-    [...SUPPLIER_KEYS.lists(), params] as const,
+  list: (params: {
+    pageSize: number;
+    nextToken?: string;
+    search?: string;
+    isActive?: boolean;
+  }) => [...SUPPLIER_KEYS.lists(), params] as const,
   details: () => [...SUPPLIER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...SUPPLIER_KEYS.details(), id] as const,
 };
@@ -31,27 +35,31 @@ const SUPPLIER_KEYS = {
 // ---------------------------------------------------------------------------
 
 /**
- * 供應商列表查詢 hook
+ * 供應商列表查詢 hook（游標式分頁）
  *
- * 支援分頁、搜尋與啟用/停用狀態篩選。
+ * 使用 TanStack Query 搭配 DynamoDB nextToken 實現游標式分頁。
+ * 支援搜尋（name/contactPerson/phone 模糊比對）與 isActive 篩選。
  * 預設僅查詢啟用中的供應商（isActive = true）。
  *
  * 需求：2.1, 2.5, 2.9
  */
 export function useSupplierList(params: {
-  page: number;
+  pageSize: number;
+  nextToken?: string;
   search?: string;
   isActive?: boolean;
 }): UseQueryResult<PaginatedResult<Supplier>> {
-  const { page, search, isActive = true } = params;
+  const { pageSize, nextToken, search, isActive = true } = params;
 
   return useQuery({
-    queryKey: SUPPLIER_KEYS.list({ page, search, isActive }),
+    queryKey: SUPPLIER_KEYS.list({ pageSize, nextToken, search, isActive }),
     queryFn: async (): Promise<PaginatedResult<Supplier>> => {
-      const filter: Record<string, unknown> = {
-        isActive: { eq: isActive },
-      };
+      const filter: Record<string, unknown> = {};
 
+      // 狀態篩選
+      filter.isActive = { eq: isActive };
+
+      // 搜尋篩選（name/contactPerson/phone 模糊比對）
       if (search) {
         filter.or = [
           { name: { contains: search } },
@@ -60,10 +68,20 @@ export function useSupplierList(params: {
         ];
       }
 
-      const { data, errors } = await client.models.Supplier.list({
+      const listParams: Record<string, unknown> = {
         filter,
-        limit: 10,
-      });
+        limit: pageSize,
+      };
+
+      if (nextToken) {
+        listParams.nextToken = nextToken;
+      }
+
+      const {
+        data,
+        errors,
+        nextToken: responseNextToken,
+      } = await client.models.Supplier.list(listParams);
 
       if (errors && errors.length > 0) {
         throw new Error(errors[0]?.message ?? "查詢供應商列表失敗");
@@ -74,6 +92,7 @@ export function useSupplierList(params: {
       return {
         items,
         totalCount: items.length,
+        nextToken: responseNextToken ?? undefined,
       };
     },
   });
