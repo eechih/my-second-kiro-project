@@ -706,6 +706,21 @@ function OrderDetailPage(): React.ReactElement {
         </IconButton>
         <Typography variant="h4">訂單詳情</Typography>
         <Chip label={order.orderNumber} variant="outlined" />
+        {(order.status === "pending" || order.status === "confirmed") &&
+          order.lineItems.length >= 2 && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() =>
+                navigate({
+                  to: "/orders/$orderId/split",
+                  params: { orderId },
+                })
+              }
+            >
+              分拆訂單
+            </Button>
+          )}
       </Box>
 
       {statusError && (

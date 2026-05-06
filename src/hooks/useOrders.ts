@@ -14,12 +14,15 @@ import type {
   OrderStatus,
   PaginatedResult,
   StatusChange,
+  SplitAllocation,
 } from "@shared/models";
 import {
   calculateLineItemSubtotal,
   calculateOrderTotal,
 } from "@shared/logic/order-calculations";
 import { isValidOrderStatusTransition } from "@shared/logic/order-status";
+import { validateMergeOrders } from "@shared/logic/order-merge";
+import { validateSplitOrder } from "@shared/logic/order-split";
 
 // ---------------------------------------------------------------------------
 // Query Keys
@@ -759,6 +762,203 @@ export function useShipLineItem(): UseMutationResult<
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       // Invalidate product caches for stock update
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Merge Orders Hook
+// ---------------------------------------------------------------------------
+
+/**
+ * 訂單合併 mutation hook
+ *
+ * 呼叫 mergeOrders custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行）：
+ * - 建立新 Order（包含所有來源訂單的 LineItems，總金額為所有來源訂單加總）
+ * - 搬移所有 LineItems 的 orderId 至新 Order
+ * - 將所有來源 Orders 狀態變更為 cancelled，記錄狀態歷史
+ *
+ * 前端使用 validateMergeOrders 純函式進行提交前驗證。
+ *
+ * 需求：9.1, 9.2, 9.3, 9.4
+ */
+export function useMergeOrders(): UseMutationResult<
+  Order,
+  Error,
+  { orderIds: string[] }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { orderIds: string[] }): Promise<Order> => {
+      // 取得所有來源訂單的完整資料以進行前端驗證
+      const orders: Order[] = [];
+      for (const orderId of input.orderIds) {
+        const [customerId, sortKey] = orderId.split("|");
+        if (!customerId || !sortKey) {
+          throw new Error(`無效的訂單 ID 格式：${orderId}`);
+        }
+
+        const { data, errors } = await client.models.Order.get(
+          { customerId, sortKey },
+          {
+            selectionSet: [
+              "customerId",
+              "sortKey",
+              "orderNumber",
+              "customerName",
+              "totalAmount",
+              "status",
+              "statusHistory",
+              "createdAt",
+              "updatedAt",
+              "lineItems.*",
+            ],
+          },
+        );
+
+        if (errors && errors.length > 0) {
+          throw new Error(errors[0]?.message ?? "查詢訂單失敗");
+        }
+        if (!data) {
+          throw new Error(`找不到訂單：${orderId}`);
+        }
+
+        orders.push(mapToOrder(data));
+      }
+
+      // 前端驗證
+      const validation = validateMergeOrders(orders);
+      if (!validation.valid) {
+        throw new Error(validation.error ?? "合併驗證失敗");
+      }
+
+      // 呼叫 custom mutation
+      const { data, errors } = await client.mutations.mergeOrders({
+        orderIds: JSON.stringify(
+          input.orderIds.map((id) => {
+            const [customerId, sortKey] = id.split("|");
+            return { customerId, sortKey };
+          }),
+        ),
+      });
+
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "合併訂單失敗");
+      }
+
+      if (!data) {
+        throw new Error("合併訂單失敗：未回傳資料");
+      }
+
+      // Parse the response
+      const result =
+        typeof data === "string" ? JSON.parse(data) : (data as unknown);
+      return mapToOrder(result as Record<string, unknown>);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.details() });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Split Order Hook
+// ---------------------------------------------------------------------------
+
+/**
+ * 訂單分拆 mutation hook
+ *
+ * 呼叫 splitOrder custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行）：
+ * - 建立多筆新 Orders（各自包含指定的 LineItems）
+ * - 依分配方式將 LineItems 的 orderId 更新至對應的新 Order
+ * - 將原 Order 狀態變更為 cancelled，記錄狀態歷史
+ *
+ * 前端使用 validateSplitOrder 純函式進行提交前驗證。
+ *
+ * 需求：9.5, 9.6, 9.7
+ */
+export function useSplitOrder(): UseMutationResult<
+  Order[],
+  Error,
+  { orderId: string; allocations: SplitAllocation[] }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      orderId: string;
+      allocations: SplitAllocation[];
+    }): Promise<Order[]> => {
+      const [customerId, sortKey] = input.orderId.split("|");
+      if (!customerId || !sortKey) {
+        throw new Error("無效的訂單 ID 格式");
+      }
+
+      // 取得原訂單完整資料以進行前端驗證
+      const { data: orderData, errors: orderErrors } =
+        await client.models.Order.get(
+          { customerId, sortKey },
+          {
+            selectionSet: [
+              "customerId",
+              "sortKey",
+              "orderNumber",
+              "customerName",
+              "totalAmount",
+              "status",
+              "statusHistory",
+              "createdAt",
+              "updatedAt",
+              "lineItems.*",
+            ],
+          },
+        );
+
+      if (orderErrors && orderErrors.length > 0) {
+        throw new Error(orderErrors[0]?.message ?? "查詢訂單失敗");
+      }
+      if (!orderData) {
+        throw new Error("找不到該訂單");
+      }
+
+      const order = mapToOrder(orderData);
+
+      // 前端驗證
+      const validation = validateSplitOrder(order, input.allocations);
+      if (!validation.valid) {
+        throw new Error(validation.error ?? "分拆驗證失敗");
+      }
+
+      // 呼叫 custom mutation
+      const { data, errors } = await client.mutations.splitOrder({
+        orderId: customerId,
+        orderSortKey: sortKey,
+        allocations: JSON.stringify(input.allocations),
+      });
+
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "分拆訂單失敗");
+      }
+
+      if (!data) {
+        throw new Error("分拆訂單失敗：未回傳資料");
+      }
+
+      // Parse the response
+      const result =
+        typeof data === "string" ? JSON.parse(data) : (data as unknown);
+      if (Array.isArray(result)) {
+        return result.map((item: unknown) =>
+          mapToOrder(item as Record<string, unknown>),
+        );
+      }
+      return [mapToOrder(result as Record<string, unknown>)];
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.details() });
     },
   });
 }

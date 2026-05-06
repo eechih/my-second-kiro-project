@@ -402,8 +402,8 @@
     - 新增「標記缺貨」按鈕，僅「待處理」或「已訂購」狀態可操作
     - _需求：4.9, 4.10_
 
-- [ ] 14. 實作訂單合併與分拆頁面
-  - [ ] 14.1 建立訂單合併頁面
+- [x] 14. 實作訂單合併與分拆頁面
+  - [x] 14.1 建立訂單合併頁面
     - 建立 `src/routes/orders/merge.tsx`
     - 在 `src/hooks/useOrders.ts` 中新增 `useMergeOrders` hook，該 hook 呼叫 `mergeOrders` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
       - 建立新 Order（包含所有來源訂單的 LineItems，總金額為所有來源訂單加總）
@@ -413,7 +413,7 @@
     - 選取同一客戶的多筆 pending/confirmed 訂單
     - mutation 成功後 invalidate 訂單列表快取，導向新訂單詳情頁面
     - _需求：9.1, 9.2, 9.3, 9.4_
-  - [ ] 14.2 建立訂單分拆頁面
+  - [x] 14.2 建立訂單分拆頁面
     - 建立 `src/routes/orders/$orderId.split.tsx`
     - 在 `src/hooks/useOrders.ts` 中新增 `useSplitOrder` hook，該 hook 呼叫 `splitOrder` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
       - 建立多筆新 Orders（各自包含指定的 LineItems）
