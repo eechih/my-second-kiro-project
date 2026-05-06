@@ -231,7 +231,7 @@
     - `useActivateCustomer`：將客戶的 `isActive` 設為 `true`，mutation 成功後 invalidate 客戶列表快取
     - 使用 TanStack Query 管理快取與 mutation，搭配 Amplify Data client 呼叫 API
     - _需求：1.1, 1.2, 1.3, 1.5, 1.7, 1.8, 1.9_
-  - [ ] 8.2 建立客戶列表頁面與表單頁面
+  - [x] 8.2 建立客戶列表頁面與表單頁面
     - 客戶列表頁面（`src/routes/customers/index.tsx`）已完成 UI 重構，使用獨立的 TanStack Table + MUI Table 實作（不使用共用 `DataTable`）
     - 已整合子元件（放置於 `src/routes/customers/-components/`）：`CustomerToolbar`（搜尋/篩選/排序/新增/CSV匯出）、`UserInfoCell`（Avatar + 名稱/聯絡人複合欄位）、`CursorPagination`（游標式分頁）、`RowActions`（檢視/編輯/停用啟用）
     - 已使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁

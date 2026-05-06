@@ -8,7 +8,7 @@ import Stack from "@mui/material/Stack";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import Skeleton from "@mui/material/Skeleton";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FormField } from "@/components/FormField";
 import { useCustomer, useUpdateCustomer } from "@/hooks/useCustomers";
 import { validateCustomer } from "@shared/logic/validation";
@@ -67,6 +67,20 @@ function CustomerEditPage() {
       }
     },
   });
+
+  // 當客戶資料載入完成後，重置表單值
+  useEffect(() => {
+    if (customer) {
+      form.reset({
+        name: customer.name,
+        contactPerson: customer.contactPerson,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer]);
 
   if (isLoadingCustomer) {
     return (
