@@ -187,9 +187,10 @@
     - _需求：5.5, 5.6, 6.5, 6.8, 7.1, 7.2, 7.3, 7.4, 7.5, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7_
 
 - [ ] 7. 建立共用 UI 元件
-  - [x] 7.1 實作通用分頁表格元件 DataTable
+  - [ ] 7.1 實作通用分頁表格元件 DataTable
     - 建立 `src/components/DataTable.tsx`，使用 TanStack Table 的 `useReactTable` + `getCoreRowModel`
-    - 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell、TablePagination 渲染
+    - 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell 渲染
+    - 分頁使用游標式分頁（Cursor-Based Pagination），介面為 `hasNextPage`/`hasPrevPage`/`onNextPage`/`onPrevPage`/`pageSize`/`onPageSizeChange`，搭配 `useCursorPagination` hook 使用
     - 支援排序、分頁、行點擊、載入狀態
     - _需求：1.1, 2.1, 3.1, 4.2_
   - [x] 7.2 實作搜尋列、狀態標籤、確認對話框、實體選取、表單欄位元件
@@ -221,15 +222,16 @@
     - _需求：1.1, 2.1, 3.1, 3.15, 3.16, 4.2, 4.12_
 
 - [ ] 8. 實作客戶管理模組（Customer_Registry）
-  - [x] 8.1 建立客戶 CRUD 與停用/啟用 hooks
+  - [ ] 8.1 建立客戶 CRUD 與停用/啟用 hooks
     - 建立 `src/hooks/useCustomers.ts`，實作 `useCustomerList`、`useCustomer`、`useCreateCustomer`、`useUpdateCustomer`、`useDeactivateCustomer`、`useActivateCustomer`
-    - `useCustomerList` 支援 `isActive` 篩選參數，預設僅查詢啟用中的客戶
+    - `useCustomerList` 接受 `{ pageSize: number; nextToken?: string; search?: string; isActive?: boolean }` 參數，回傳 `PaginatedResult<Customer>`（含 `nextToken` 供游標式分頁使用）
     - `useDeactivateCustomer`：將客戶的 `isActive` 設為 `false`，mutation 成功後 invalidate 客戶列表快取
     - `useActivateCustomer`：將客戶的 `isActive` 設為 `true`，mutation 成功後 invalidate 客戶列表快取
     - 使用 TanStack Query 管理快取與 mutation，搭配 Amplify Data client 呼叫 API
     - _需求：1.1, 1.2, 1.3, 1.5, 1.7, 1.8, 1.9_
-  - [x] 8.2 建立客戶列表頁面與表單頁面
+  - [ ] 8.2 建立客戶列表頁面與表單頁面
     - 建立 `src/routes/customers/index.tsx`（客戶列表，使用 DataTable + SearchBar）
+    - 使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁
     - 客戶列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的客戶，可切換顯示停用客戶
     - 客戶列表每行新增停用/啟用操作按鈕：啟用中的客戶顯示「停用」按鈕，停用中的客戶顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
     - 停用/啟用操作呼叫 `useDeactivateCustomer` / `useActivateCustomer` hooks
@@ -243,15 +245,16 @@
     - 測試列表頁面欄位顯示、表單元件存在性、驗證錯誤顯示
     - _需求：1.1, 1.4_
 
-- [x] 9. 實作供應商管理模組（Supplier_Registry）
-  - [x] 9.1 建立供應商 CRUD 與停用/啟用 hooks
+- [ ] 9. 實作供應商管理模組（Supplier_Registry）
+  - [ ] 9.1 建立供應商 CRUD 與停用/啟用 hooks
     - 建立 `src/hooks/useSuppliers.ts`，實作 `useSupplierList`、`useSupplier`、`useCreateSupplier`、`useUpdateSupplier`、`useDeactivateSupplier`、`useActivateSupplier`
-    - `useSupplierList` 支援 `isActive` 篩選參數，預設僅查詢啟用中的供應商
+    - `useSupplierList` 接受 `{ pageSize: number; nextToken?: string; search?: string; isActive?: boolean }` 參數，回傳 `PaginatedResult<Supplier>`（含 `nextToken` 供游標式分頁使用）
     - `useDeactivateSupplier`：將供應商的 `isActive` 設為 `false`，mutation 成功後 invalidate 供應商列表快取
     - `useActivateSupplier`：將供應商的 `isActive` 設為 `true`，mutation 成功後 invalidate 供應商列表快取
     - _需求：2.1, 2.2, 2.3, 2.5, 2.7, 2.8, 2.9_
-  - [x] 9.2 建立供應商列表頁面與表單頁面
+  - [ ] 9.2 建立供應商列表頁面與表單頁面
     - 建立 `src/routes/suppliers/index.tsx`（供應商列表）
+    - 使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁
     - 供應商列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的供應商，可切換顯示停用供應商
     - 供應商列表每行新增停用/啟用操作按鈕：啟用中的供應商顯示「停用」按鈕，停用中的供應商顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
     - 停用/啟用操作呼叫 `useDeactivateSupplier` / `useActivateSupplier` hooks
@@ -263,9 +266,9 @@
     - _需求：2.1, 2.4_
 
 - [ ] 10. 實作商品管理模組（Product_Registry）
-  - [x] 10.1 建立商品 CRUD 與停用/啟用 hooks（含規格組合 CRUD）
+  - [ ] 10.1 建立商品 CRUD 與停用/啟用 hooks（含規格組合 CRUD）
     - 建立 `src/hooks/useProducts.ts`，實作 `useProductList`、`useProduct`、`useCreateProduct`、`useUpdateProduct`、`useDeactivateProduct`、`useActivateProduct`
-    - `useProductList` 支援 `isActive` 篩選參數，預設僅查詢啟用中的商品
+    - `useProductList` 接受 `{ pageSize: number; nextToken?: string; search?: string; isActive?: boolean }` 參數，回傳 `PaginatedResult<Product>`（含 `nextToken` 供游標式分頁使用）
     - `useDeactivateProduct`：將商品的 `isActive` 設為 `false`，mutation 成功後 invalidate 商品列表快取
     - `useActivateProduct`：將商品的 `isActive` 設為 `true`，mutation 成功後 invalidate 商品列表快取
     - 實作規格組合 CRUD hooks：`useCreateVariant`、`useUpdateVariant`、`useDeleteVariant`、`useGenerateVariants`
@@ -279,8 +282,9 @@
     - `useProductImageUrls`：使用 Amplify Storage `getUrl` 將 S3 key 列表轉換為可存取的預簽名 URL 列表，供前端顯示使用。在 TanStack Query 的 `queryFn` 中呼叫 `getUrl`，設定 `staleTime` 為預簽名 URL 有效期的 80%（如 URL 有效 1 小時則 staleTime 設為 48 分鐘），避免每次渲染重複產生新 URL
     - `useProductThumbnailUrls`：將 S3 key 列表轉換為對應縮圖的預簽名 URL 列表（路徑加入 `thumbnails/` 前綴），用於商品列表頁面（TanStack Table）與預覽顯示。快取策略同 `useProductImageUrls`
     - _需求：3.9, 3.10, 3.11_
-  - [x] 10.3 建立商品列表頁面與表單頁面
+  - [ ] 10.3 建立商品列表頁面與表單頁面
     - 建立 `src/routes/products/index.tsx`（商品列表，顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）
+    - 使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），篩選條件或每頁筆數變更時自動重置分頁
     - 商品列表新增啟用/停用狀態篩選切換（MUI ToggleButtonGroup 或 Tabs），預設僅顯示啟用中的商品，可切換顯示停用商品
     - 商品列表每行新增停用/啟用操作按鈕：啟用中的商品顯示「停用」按鈕，停用中的商品顯示「啟用」按鈕，點擊後彈出 ConfirmDialog 確認操作
     - 停用/啟用操作呼叫 `useDeactivateProduct` / `useActivateProduct` hooks
@@ -313,22 +317,24 @@
     - 測試 VariantTable 正確顯示所有規格組合的 SKU、單價、成本、庫存
     - _需求：3.1, 3.4, 3.9, 3.10, 3.11, 3.12, 3.15, 3.16_
 
-- [x] 11. 檢查點 — 確認基礎模組功能正常
+- [ ] 11. 檢查點 — 確認基礎模組功能正常
   - 確認所有測試通過，若有問題請詢問使用者。
 
-- [x] 12. 實作訂單管理模組——建立與列表
-  - [x] 12.1 建立訂單 CRUD hooks
+- [ ] 12. 實作訂單管理模組——建立與列表
+  - [ ] 12.1 建立訂單 CRUD hooks
     - 建立 `src/hooks/useOrders.ts`，實作 `useOrderList`、`useOrder`、`useCreateOrder`、`useUpdateOrderStatus`
+    - `useOrderList` 接受 `{ pageSize: number; nextToken?: string; search?: string }` 參數，回傳 `PaginatedResult<Order>`（含 `nextToken` 供游標式分頁使用）
     - 建立訂單時自動計算明細小計與總金額
     - 實作 `usePrefetchOrder(orderId)` hook，供列表頁面在游標懸停時預取訂單詳情（含 LineItems、PurchaseRecords），使用 `queryClient.prefetchQuery`
     - _需求：4.1, 4.2, 4.11, 4.15, 5.2_
-  - [x] 12.2 建立訂單列表頁面
+  - [ ] 12.2 建立訂單列表頁面
     - 建立 `src/routes/orders/index.tsx`（訂單列表，顯示訂單編號、客戶名稱、總金額、狀態、建立日期）
+    - 使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），搜尋條件或每頁筆數變更時自動重置分頁
     - 支援依訂單編號或客戶名稱搜尋
     - 提供合併操作入口按鈕
     - 在訂單列表行上加入 `onMouseEnter` 事件，觸發 `usePrefetchOrder` 預取該訂單詳情，提升進入詳情頁的流暢感
     - _需求：4.2, 4.15_
-  - [x] 12.3 建立新增訂單頁面
+  - [ ] 12.3 建立新增訂單頁面
     - 建立 `src/routes/orders/new.tsx`
     - 使用 TanStack Form 管理表單狀態
     - 客戶選取使用 EntitySelect（從 Customer_Registry 選取）

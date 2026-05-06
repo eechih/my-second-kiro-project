@@ -33,7 +33,8 @@
   - **樂觀更新（Optimistic Updates）**：對於狀態變更操作（出貨、入庫確認、訂單狀態切換），在 `useMutation` 的 `onMutate` 中先更新快取，讓使用者立即看到 UI 變化，無需等待 Lambda 執行完畢（通常 1-2 秒）。若 mutation 失敗，在 `onError` 中自動回滾至先前狀態。
   - **自動預取（Prefetching）**：在訂單列表頁面，當使用者將游標懸停在某筆訂單時，使用 `queryClient.prefetchQuery` 預取該訂單的 LineItems 與 PurchaseRecords 資料，提升進入詳情頁的流暢感。
   - **快取失效（Invalidation）**：Custom mutation 成功後，invalidate 相關的 query keys（如 Order 詳情、Product/ProductVariant 庫存），確保資料最終一致。
-- **表格管理**：使用 TanStack Table 管理 DataTable 元件，提供排序、分頁、欄位定義等功能，搭配 MUI 元件渲染。
+- **表格管理**：使用 TanStack Table 管理 DataTable 元件，提供排序、欄位定義等功能，搭配 MUI 元件渲染。
+- **游標式分頁（Cursor-Based Pagination）**：所有列表頁面統一使用游標式分頁，以 DynamoDB `nextToken` 為基礎，搭配本地 token 堆疊（`useCursorPagination` hook）支援上一頁導覽。選擇此方案是因為 DynamoDB 不支援 offset-based 分頁，且游標式分頁在大量資料下效能穩定（不隨頁碼增加而變慢）。篩選條件或每頁筆數變更時自動重置分頁狀態。
 - **表單驗證**：使用 TanStack Form 搭配自訂驗證函式，驗證邏輯抽離為純函式以利單元測試。
 - **表單與 MUI 整合**：封裝 `FormField` 元件橋接 TanStack Form 的 `field.state` 與 MUI 受控元件（TextField 等），自動綁定 `value`/`onChange`、`error`/`helperText`，減少每個表單欄位的樣板程式碼。所有表單頁面統一使用 `FormField` 而非直接操作 `field` API。
   - **非同步驗證（onBlurAsync）**：需要呼叫 API 的驗證（如 SKU 唯一性檢查）使用 TanStack Form 的 `onBlurAsync` 觸發，避免每次按鍵輸入都發送後端請求。驗證中顯示 CircularProgress 指示。
@@ -141,6 +142,7 @@ src/                           # 前端（透過 @shared/* Path Alias 引入 sha
 │       ├── merge.tsx          # 訂單合併
 │       └── $orderId.split.tsx # 訂單分拆
 ├── hooks/                     # 共用 React Hooks
+│   ├── useCursorPagination.ts  # 游標式分頁 hook（token 堆疊管理）
 │   ├── useCustomers.ts        # 客戶 CRUD hooks (TanStack Query)
 │   ├── useSuppliers.ts        # 供應商 CRUD hooks
 │   ├── useProducts.ts         # 商品 CRUD hooks（含規格組合 CRUD）
@@ -169,7 +171,7 @@ src/                           # 前端（透過 @shared/* Path Alias 引入 sha
 
 **頁面元件：**
 
-- `CustomerListPage`：分頁列表 + 搜尋 + 啟用/停用狀態篩選切換，使用 `DataTable` 與 `SearchBar`。預設僅顯示啟用中的客戶，可切換顯示停用客戶。提供停用/啟用操作按鈕。
+- `CustomerListPage`：游標式分頁列表 + 搜尋 + 啟用/停用狀態篩選切換，使用 `DataTable` 與 `SearchBar`。預設僅顯示啟用中的客戶，可切換顯示停用客戶。提供停用/啟用操作按鈕。使用 `useCursorPagination` hook 管理分頁狀態。
 - `CustomerFormPage`：新增/編輯表單，使用 TanStack Form
 
 **Hooks：**
@@ -177,7 +179,8 @@ src/                           # 前端（透過 @shared/* Path Alias 引入 sha
 ```typescript
 // useCustomers.ts
 function useCustomerList(params: {
-  page: number;
+  pageSize: number;
+  nextToken?: string;
   search?: string;
   isActive?: boolean; // 篩選啟用/停用狀態，預設 true（僅顯示啟用中）
 }): UseQueryResult<PaginatedResult<Customer>>;
@@ -212,7 +215,7 @@ function useActivateCustomer(): UseMutationResult<
 
 **頁面元件：**
 
-- `SupplierListPage`：分頁列表 + 搜尋 + 啟用/停用狀態篩選切換。預設僅顯示啟用中的供應商，可切換顯示停用供應商。提供停用/啟用操作按鈕。
+- `SupplierListPage`：游標式分頁列表 + 搜尋 + 啟用/停用狀態篩選切換。預設僅顯示啟用中的供應商，可切換顯示停用供應商。提供停用/啟用操作按鈕。使用 `useCursorPagination` hook 管理分頁狀態。
 - `SupplierFormPage`：新增/編輯表單
 
 **Hooks：**
@@ -220,7 +223,8 @@ function useActivateCustomer(): UseMutationResult<
 ```typescript
 // useSuppliers.ts
 function useSupplierList(params: {
-  page: number;
+  pageSize: number;
+  nextToken?: string;
   search?: string;
   isActive?: boolean; // 篩選啟用/停用狀態，預設 true（僅顯示啟用中）
 }): UseQueryResult<PaginatedResult<Supplier>>;
@@ -255,7 +259,7 @@ function useActivateSupplier(): UseMutationResult<
 
 **頁面元件：**
 
-- `ProductListPage`：分頁列表 + 搜尋 + 啟用/停用狀態篩選切換（顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）。預設僅顯示啟用中的商品，可切換顯示停用商品。提供停用/啟用操作按鈕。
+- `ProductListPage`：游標式分頁列表 + 搜尋 + 啟用/停用狀態篩選切換（顯示庫存數量；有規格組合的商品顯示各規格組合庫存加總）。預設僅顯示啟用中的商品，可切換顯示停用商品。提供停用/啟用操作按鈕。使用 `useCursorPagination` hook 管理分頁狀態。
 - `ProductFormPage`：新增/編輯表單（供應商選取使用 `EntitySelect`，含規格維度定義區塊與規格組合表格）
 
 **Hooks：**
@@ -263,7 +267,8 @@ function useActivateSupplier(): UseMutationResult<
 ```typescript
 // useProducts.ts
 function useProductList(params: {
-  page: number;
+  pageSize: number;
+  nextToken?: string;
   search?: string;
   isActive?: boolean; // 篩選啟用/停用狀態，預設 true（僅顯示啟用中）
 }): UseQueryResult<PaginatedResult<Product>>;
@@ -365,7 +370,7 @@ function useProductThumbnailUrls(imageKeys: string[]): UseQueryResult<string[]>;
 
 **頁面元件：**
 
-- `OrderListPage`：訂單分頁列表 + 搜尋 + 合併操作入口
+- `OrderListPage`：訂單游標式分頁列表 + 搜尋 + 合併操作入口。使用 `useCursorPagination` hook 管理分頁狀態。
 - `OrderFormPage`：新增訂單（客戶選取 + 明細項目新增）
 - `OrderDetailPage`：訂單詳情（明細列表、進貨操作、出貨操作、狀態變更）
 - `OrderMergePage`：選取同一客戶訂單進行合併
@@ -376,7 +381,8 @@ function useProductThumbnailUrls(imageKeys: string[]): UseQueryResult<string[]>;
 ```typescript
 // useOrders.ts
 function useOrderList(params: {
-  page: number;
+  pageSize: number;
+  nextToken?: string;
   search?: string;
 }): UseQueryResult<PaginatedResult<Order>>;
 function useOrder(id: string): UseQueryResult<Order>;
@@ -405,20 +411,56 @@ function useMergeOrders(): UseMutationResult<
 function useSplitOrder(): UseMutationResult<Order[], Error, SplitOrderInput>;
 ```
 
-### 5. 共用元件
+### 5. 共用 Hooks
+
+#### `useCursorPagination`（`src/hooks/useCursorPagination.ts`）
+
+管理游標式分頁的 token 堆疊邏輯，所有列表頁面共用。
+
+```typescript
+interface CursorPaginationState {
+  currentToken: string | undefined; // 目前頁面的 nextToken（undefined 表示首頁）
+  pageSize: number;
+  tokenStack: string[]; // 歷史 token 堆疊（不含 undefined 首頁）
+}
+
+interface CursorPaginationActions {
+  goNext: (nextToken: string) => void; // 前進至下一頁
+  goPrev: () => void; // 回到上一頁
+  setPageSize: (size: number) => void; // 變更每頁筆數（重置分頁）
+  reset: () => void; // 重置分頁狀態（篩選條件變更時呼叫）
+}
+
+function useCursorPagination(
+  initialPageSize?: number, // 預設 10
+): CursorPaginationState & CursorPaginationActions;
+```
+
+Token 堆疊運作方式：
+
+- 首頁：`currentToken = undefined`，`tokenStack = []`
+- 點擊下一頁：將 `currentToken` push 到 `tokenStack`（若為 undefined 則不 push），設定新的 `currentToken` 為後端回傳的 `nextToken`
+- 點擊上一頁：從 `tokenStack` pop 出前一個 token 作為 `currentToken`；若堆疊為空則回到首頁（undefined）
+- 重置（變更 pageSize 或篩選條件）：清空 `tokenStack`，`currentToken = undefined`
+
+### 6. 共用元件
 
 ```typescript
 // DataTable.tsx — 通用分頁表格（基於 TanStack Table）
 // 使用 @tanstack/react-table 的 useReactTable + getCoreRowModel
-// 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell、TablePagination 渲染
+// 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell 渲染
+// 分頁使用游標式分頁（CursorPagination），以 DynamoDB nextToken 為基礎，
+// 搭配本地 token 堆疊支援上一頁導覽
 interface DataTableProps<T> {
   columns: ColumnDef<T, unknown>[]; // TanStack Table 欄位定義
   data: T[];
   totalCount: number;
-  page: number;
   pageSize: number;
-  onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  hasNextPage: boolean; // 是否有下一頁（由 API 回傳的 nextToken 是否存在決定）
+  hasPrevPage: boolean; // 是否有上一頁（由 tokenStack 長度 > 0 或 currentToken !== undefined 決定）
+  onNextPage: () => void; // 點擊下一頁（呼叫 useCursorPagination 的 goNext）
+  onPrevPage: () => void; // 點擊上一頁（呼叫 useCursorPagination 的 goPrev）
   isLoading: boolean;
   onRowClick?: (row: T) => void;
   enableSorting?: boolean; // 預設 true
@@ -521,7 +563,7 @@ interface FormFieldProps<TData> {
 }
 ```
 
-### 6. 業務邏輯純函式介面
+### 7. 業務邏輯純函式介面
 
 ```typescript
 // order-status.ts
@@ -804,7 +846,7 @@ interface ValidationResult {
 interface PaginatedResult<T> {
   items: T[];
   totalCount: number;
-  nextToken?: string;
+  nextToken?: string; // DynamoDB 游標 token，存在時表示有下一頁；搭配 useCursorPagination hook 使用
 }
 
 interface SplitAllocation {
