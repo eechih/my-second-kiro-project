@@ -1,28 +1,28 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  type UseQueryResult,
-  type UseMutationResult,
-} from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
-import type {
-  Order,
-  LineItem,
-  PurchaseRecord,
-  CreateOrderInput,
-  OrderStatus,
-  PaginatedResult,
-  StatusChange,
-  SplitAllocation,
-} from "@shared/models";
 import {
   calculateLineItemSubtotal,
   calculateOrderTotal,
 } from "@shared/logic/order-calculations";
-import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 import { validateMergeOrders } from "@shared/logic/order-merge";
 import { validateSplitOrder } from "@shared/logic/order-split";
+import { isValidOrderStatusTransition } from "@shared/logic/order-status";
+import type {
+  CreateOrderInput,
+  LineItem,
+  Order,
+  OrderStatus,
+  PaginatedResult,
+  PurchaseRecord,
+  SplitAllocation,
+  StatusChange,
+} from "@shared/models";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 
 // ---------------------------------------------------------------------------
 // Query Keys
@@ -31,8 +31,12 @@ import { validateSplitOrder } from "@shared/logic/order-split";
 const ORDER_KEYS = {
   all: ["orders"] as const,
   lists: () => [...ORDER_KEYS.all, "list"] as const,
-  list: (params: { pageSize: number; nextToken?: string; search?: string }) =>
-    [...ORDER_KEYS.lists(), params] as const,
+  list: (params: {
+    pageSize: number;
+    nextToken?: string;
+    search?: string;
+    status?: string;
+  }) => [...ORDER_KEYS.lists(), params] as const,
   details: () => [...ORDER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...ORDER_KEYS.details(), id] as const,
 };
@@ -52,8 +56,9 @@ export function useOrderList(params: {
   pageSize: number;
   nextToken?: string;
   search?: string;
+  status?: string;
 }): UseQueryResult<PaginatedResult<Order>> {
-  const { pageSize, nextToken, search } = params;
+  const { pageSize, nextToken, search, status } = params;
 
   return useQuery({
     queryKey: ORDER_KEYS.list({ pageSize, nextToken, search }),
@@ -65,6 +70,10 @@ export function useOrderList(params: {
           { orderNumber: { contains: search } },
           { customerName: { contains: search } },
         ];
+      }
+
+      if (status) {
+        filter.status = { eq: status };
       }
 
       const listParams: Record<string, unknown> = {

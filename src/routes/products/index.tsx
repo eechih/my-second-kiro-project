@@ -230,7 +230,9 @@ function ProductListPage(): React.ReactElement {
         header: "商品名稱",
         cell: ({ row }) => (
           <Box>
-            <Typography sx={{ fontWeight: 600 }}>{row.original.name}</Typography>
+            <Typography sx={{ fontWeight: 600 }}>
+              {row.original.name}
+            </Typography>
             <Typography variant="body2" color="text.secondary">
               {row.original.sku}
             </Typography>
