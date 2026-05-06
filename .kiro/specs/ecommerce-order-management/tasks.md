@@ -356,14 +356,14 @@
     - 測試列表欄位顯示、表單元件存在性、明細初始狀態
     - _需求：4.2, 4.5, 4.12_
 
-- [ ] 13. 實作訂單詳情頁面——明細檢視與狀態管理
-  - [ ] 13.1 建立訂單詳情頁面基礎結構
+- [x] 13. 實作訂單詳情頁面——明細檢視與狀態管理
+  - [x] 13.1 建立訂單詳情頁面基礎結構
     - 建立 `src/routes/orders/$orderId.tsx`
     - 顯示客戶資訊、訂單狀態（含狀態變更按鈕）、明細項目列表
     - 明細列表顯示：商品名稱、規格組合標籤（variantLabel）、數量、單價、小計、明細狀態、實際供應商、實際採購成本、相關日期
     - 訂單狀態變更時驗證轉換合法性，記錄狀態歷史
     - _需求：4.3, 4.4, 5.1, 5.2, 5.3, 5.4_
-  - [ ] 13.2 實作明細項目進貨採購操作
+  - [x] 13.2 實作明細項目進貨採購操作
     - 在訂單詳情頁面新增進貨操作對話框
     - 在 `src/hooks/useOrders.ts` 中新增 `useCreatePurchaseRecord` hook（使用標準 Amplify mutation 建立採購記錄）
     - 在 `src/hooks/useOrders.ts` 中新增 `useConfirmReceived` hook（呼叫 `confirmReceived` custom mutation，由 Lambda 函式透過 TransactWriteItems 原子性執行：增加庫存 + 更新 PurchaseRecord 狀態 + 更新 LineItem 狀態）
@@ -373,7 +373,7 @@
     - 建立採購記錄後更新明細狀態為「已訂購」
     - 顯示每筆明細的所有採購記錄（供應商、數量、成本、日期、狀態）
     - _需求：3.7, 3.8, 3.15, 4.6, 6.1, 6.2, 6.3, 6.4, 6.6, 6.7_
-  - [ ] 13.3 實作入庫確認操作
+  - [x] 13.3 實作入庫確認操作
     - 在採購記錄上新增「確認入庫」按鈕
     - 點擊後呼叫 `useConfirmReceived` hook，該 hook 呼叫 `confirmReceived` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
       - 在 `onMutate` 中實作樂觀更新：立即更新快取中的 PurchaseRecord 狀態為 `received`、LineItem 狀態為「已收到」、增加庫存數量
@@ -385,7 +385,7 @@
     - 已入庫記錄不可取消（前端驗證 + Lambda 端 ConditionExpression 雙重保護）
     - mutation 成功後 invalidate 相關 TanStack Query 快取（Order、Product/ProductVariant）
     - _需求：4.7, 6.5, 6.6, 6.8, 6.10_
-  - [ ] 13.4 實作明細項目出貨操作
+  - [x] 13.4 實作明細項目出貨操作
     - 在訂單詳情頁面新增出貨操作對話框
     - 在 `src/hooks/useOrders.ts` 中新增 `useShipLineItem` hook，該 hook 呼叫 `shipLineItem` custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行以下操作）：
       - 在 `onMutate` 中實作樂觀更新：立即更新快取中的 LineItem 狀態為「已出貨」、扣減庫存數量，讓使用者無需等待 Lambda 執行即可看到 UI 變化
@@ -398,7 +398,7 @@
     - 前端使用 `validateShipment` 進行提交前驗證（出貨數量不超過未出貨餘額且不超過庫存）
     - mutation 成功後 invalidate 相關 TanStack Query 快取（Order、Product/ProductVariant）
     - _需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5_
-  - [ ] 13.5 實作明細缺貨標記
+  - [x] 13.5 實作明細缺貨標記
     - 新增「標記缺貨」按鈕，僅「待處理」或「已訂購」狀態可操作
     - _需求：4.9, 4.10_
 

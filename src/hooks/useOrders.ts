@@ -137,6 +137,7 @@ export function useOrder(id: string): UseQueryResult<Order> {
             "createdAt",
             "updatedAt",
             "lineItems.*",
+            "lineItems.purchaseRecords.*",
           ],
         },
       );
@@ -364,6 +365,7 @@ export function usePrefetchOrder(): (orderId: string) => void {
               "createdAt",
               "updatedAt",
               "lineItems.*",
+              "lineItems.purchaseRecords.*",
             ],
           },
         );
@@ -485,6 +487,280 @@ function mapToPurchaseRecord(raw: Record<string, unknown>): PurchaseRecord {
     purchasedAt: String(raw.purchasedAt ?? ""),
     receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Purchase Record Hooks
+// ---------------------------------------------------------------------------
+
+/**
+ * 建立採購記錄 mutation hook
+ *
+ * 使用標準 Amplify mutation 建立採購記錄。
+ * 建立後更新明細狀態為「已訂購」。
+ *
+ * 需求：6.1, 6.2, 6.3, 6.4
+ */
+export function useCreatePurchaseRecord(): UseMutationResult<
+  PurchaseRecord,
+  Error,
+  {
+    lineItemId: string;
+    supplierId: string;
+    supplierName: string;
+    quantity: number;
+    unitCost: number;
+    orderId: string;
+    orderSortKey: string;
+  }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input): Promise<PurchaseRecord> => {
+      const now = new Date().toISOString();
+
+      // Create purchase record
+      const { data, errors } = await client.models.PurchaseRecord.create({
+        lineItemId: input.lineItemId,
+        purchasedAt: now,
+        supplierId: input.supplierId,
+        supplierName: input.supplierName,
+        quantity: input.quantity,
+        unitCost: input.unitCost,
+        status: "pending",
+        statusHistory: JSON.stringify([]),
+      });
+
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "建立採購記錄失敗");
+      }
+
+      if (!data) {
+        throw new Error("建立採購記錄失敗：未回傳資料");
+      }
+
+      // Update line item: increment purchasedQuantity and set status to 已訂購
+      // First get current line item data
+      const { data: lineItemData } = await client.models.LineItem.get({
+        id: input.lineItemId,
+      });
+
+      if (lineItemData) {
+        const currentPurchasedQty = Number(lineItemData.purchasedQuantity ?? 0);
+        await client.models.LineItem.update({
+          id: input.lineItemId,
+          purchasedQuantity: currentPurchasedQty + input.quantity,
+          status: "已訂購",
+          orderedAt: now,
+        });
+      }
+
+      return mapToPurchaseRecord(data as unknown as Record<string, unknown>);
+    },
+    onSuccess: (_, input) => {
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+      });
+    },
+  });
+}
+
+/**
+ * 入庫確認 mutation hook
+ *
+ * 呼叫 confirmReceived custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems）。
+ * 實作樂觀更新：立即更新快取中的 PurchaseRecord 狀態為 received、LineItem 狀態為「已收到」。
+ *
+ * 需求：4.7, 6.5, 6.6, 6.8, 6.10
+ */
+export function useConfirmReceived(): UseMutationResult<
+  unknown,
+  Error,
+  {
+    purchaseRecordId: string;
+    purchaseRecordSortKey: string;
+    lineItemId: string;
+    orderId: string;
+    orderSortKey: string;
+  }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input) => {
+      const { data, errors } = await client.mutations.confirmReceived({
+        purchaseRecordId: input.purchaseRecordId,
+        purchaseRecordSortKey: input.purchaseRecordSortKey,
+        lineItemId: input.lineItemId,
+      });
+
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "入庫確認失敗");
+      }
+
+      return data;
+    },
+    onMutate: async (input) => {
+      // Cancel outgoing refetches
+      const orderKey = ORDER_KEYS.detail(
+        `${input.orderId}|${input.orderSortKey}`,
+      );
+      await queryClient.cancelQueries({ queryKey: orderKey });
+
+      // Snapshot previous value
+      const previousOrder = queryClient.getQueryData<Order>(orderKey);
+
+      // Optimistic update
+      if (previousOrder) {
+        const updatedOrder = { ...previousOrder };
+        updatedOrder.lineItems = updatedOrder.lineItems.map((li) => {
+          if (li.id === input.lineItemId) {
+            const updatedRecords = li.purchaseRecords.map((pr) => {
+              if (
+                pr.lineItemId === input.purchaseRecordId &&
+                pr.purchasedAt === input.purchaseRecordSortKey
+              ) {
+                return {
+                  ...pr,
+                  status: "received" as const,
+                  receivedAt: new Date().toISOString(),
+                };
+              }
+              return pr;
+            });
+            return {
+              ...li,
+              status: "已收到" as const,
+              receivedAt: new Date().toISOString(),
+              purchaseRecords: updatedRecords,
+            };
+          }
+          return li;
+        });
+        queryClient.setQueryData(orderKey, updatedOrder);
+      }
+
+      return { previousOrder };
+    },
+    onError: (_err, input, context) => {
+      // Rollback
+      if (context?.previousOrder) {
+        const orderKey = ORDER_KEYS.detail(
+          `${input.orderId}|${input.orderSortKey}`,
+        );
+        queryClient.setQueryData(orderKey, context.previousOrder);
+      }
+    },
+    onSettled: (_, __, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+      });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      // Invalidate product caches for stock update
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+/**
+ * 出貨操作 mutation hook
+ *
+ * 呼叫 shipLineItem custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems）。
+ * 實作樂觀更新：立即更新快取中的 LineItem 狀態為「已出貨」、扣減庫存。
+ *
+ * 需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5
+ */
+export function useShipLineItem(): UseMutationResult<
+  unknown,
+  Error,
+  {
+    orderId: string;
+    orderSortKey: string;
+    lineItemId: string;
+    quantity: number;
+  }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input) => {
+      const { data, errors } = await client.mutations.shipLineItem({
+        orderId: input.orderId,
+        orderSortKey: input.orderSortKey,
+        lineItemId: input.lineItemId,
+        quantity: input.quantity,
+      });
+
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "出貨操作失敗");
+      }
+
+      return data;
+    },
+    onMutate: async (input) => {
+      // Cancel outgoing refetches
+      const orderKey = ORDER_KEYS.detail(
+        `${input.orderId}|${input.orderSortKey}`,
+      );
+      await queryClient.cancelQueries({ queryKey: orderKey });
+
+      // Snapshot previous value
+      const previousOrder = queryClient.getQueryData<Order>(orderKey);
+
+      // Optimistic update
+      if (previousOrder) {
+        const updatedOrder = { ...previousOrder };
+        updatedOrder.lineItems = updatedOrder.lineItems.map((li) => {
+          if (li.id === input.lineItemId) {
+            const newShippedQty = li.shippedQuantity + input.quantity;
+            return {
+              ...li,
+              shippedQuantity: newShippedQty,
+              status: "已出貨" as const,
+              shippedAt: new Date().toISOString(),
+            };
+          }
+          return li;
+        });
+
+        // Derive order status
+        const allShipped = updatedOrder.lineItems.every(
+          (li) => li.status === "已出貨",
+        );
+        const someShipped = updatedOrder.lineItems.some(
+          (li) => li.status === "已出貨",
+        );
+        if (allShipped) {
+          updatedOrder.status = "completed";
+        } else if (someShipped) {
+          updatedOrder.status = "shipping";
+        }
+
+        queryClient.setQueryData(orderKey, updatedOrder);
+      }
+
+      return { previousOrder };
+    },
+    onError: (_err, input, context) => {
+      // Rollback
+      if (context?.previousOrder) {
+        const orderKey = ORDER_KEYS.detail(
+          `${input.orderId}|${input.orderSortKey}`,
+        );
+        queryClient.setQueryData(orderKey, context.previousOrder);
+      }
+    },
+    onSettled: (_, __, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+      });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      // Invalidate product caches for stock update
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
 }
 
 export { ORDER_KEYS };
