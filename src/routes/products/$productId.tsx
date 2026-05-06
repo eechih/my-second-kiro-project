@@ -262,7 +262,7 @@ function ProductEditPage() {
 
   if (isLoadingProduct) {
     return (
-      <Box maxWidth={800}>
+      <Box sx={{ maxWidth: 800 }}>
         <Skeleton variant="text" width={200} height={40} sx={{ mb: 2 }} />
         <Paper sx={{ p: 3 }}>
           <Stack spacing={3}>
@@ -277,7 +277,7 @@ function ProductEditPage() {
 
   if (loadError) {
     return (
-      <Box maxWidth={800}>
+      <Box sx={{ maxWidth: 800 }}>
         <Alert severity="error">
           {loadError instanceof Error ? loadError.message : "載入商品資料失敗"}
         </Alert>
@@ -287,14 +287,14 @@ function ProductEditPage() {
 
   if (!product) {
     return (
-      <Box maxWidth={800}>
+      <Box sx={{ maxWidth: 800 }}>
         <Alert severity="warning">找不到該商品</Alert>
       </Box>
     );
   }
 
   return (
-    <Box maxWidth={800}>
+    <Box sx={{ maxWidth: 800 }}>
       <Typography variant="h4" gutterBottom>
         編輯商品
       </Typography>
@@ -435,7 +435,7 @@ function ProductEditPage() {
                     mb: 1,
                   }}
                 >
-                  <Typography variant="subtitle1" fontWeight={600}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                     {dim.name}
                   </Typography>
                   <IconButton

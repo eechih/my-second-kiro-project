@@ -6,7 +6,7 @@ import Paper from "@mui/material/Paper";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActionArea from "@mui/material/CardActionArea";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import Skeleton from "@mui/material/Skeleton";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
@@ -24,10 +24,12 @@ function HomePage() {
   if (!auth.isAuthenticated) {
     return (
       <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="60vh"
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "60vh",
+        }}
       >
         <Paper elevation={3} sx={{ p: 4, textAlign: "center", maxWidth: 400 }}>
           <Typography variant="h4" gutterBottom>

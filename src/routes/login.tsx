@@ -94,13 +94,15 @@ function LoginPage() {
 
   return (
     <Box
-      display="flex"
-      justifyContent="center"
-      alignItems="center"
-      minHeight="60vh"
+      sx={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "60vh",
+      }}
     >
       <Paper elevation={3} sx={{ p: 4, maxWidth: 420, width: "100%" }}>
-        <Typography variant="h5" textAlign="center" gutterBottom>
+        <Typography variant="h5" sx={{ textAlign: "center" }} gutterBottom>
           {mode === "signIn" && "登入"}
           {mode === "signUp" && "註冊"}
           {mode === "confirmSignUp" && "驗證 Email"}
@@ -166,7 +168,7 @@ function LoginPage() {
 
         {mode !== "confirmSignUp" && (
           <>
-            <Box textAlign="center" sx={{ mb: 2 }}>
+            <Box sx={{ textAlign: "center", mb: 2 }}>
               {mode === "signIn" ? (
                 <Typography variant="body2">
                   還沒有帳號？{" "}

@@ -151,7 +151,7 @@ function ProductNewPage() {
   };
 
   return (
-    <Box maxWidth={800}>
+    <Box sx={{ maxWidth: 800 }}>
       <Typography variant="h4" gutterBottom>
         新增商品
       </Typography>
@@ -287,7 +287,7 @@ function ProductNewPage() {
                     mb: 1,
                   }}
                 >
-                  <Typography variant="subtitle1" fontWeight={600}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                     {dim.name}
                   </Typography>
                   <IconButton

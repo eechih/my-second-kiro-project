@@ -23,7 +23,7 @@ function ProfilePage() {
   const attrs = auth.userAttributes;
 
   return (
-    <Box maxWidth={600}>
+    <Box sx={{ maxWidth: 600 }}>
       <Typography variant="h4" gutterBottom>
         個人資料
       </Typography>

@@ -84,7 +84,7 @@ function CustomerEditPage() {
 
   if (isLoadingCustomer) {
     return (
-      <Box maxWidth={600}>
+      <Box sx={{ maxWidth: 600 }}>
         <Skeleton variant="text" width={200} height={40} sx={{ mb: 2 }} />
         <Paper sx={{ p: 3 }}>
           <Stack spacing={3}>
@@ -99,7 +99,7 @@ function CustomerEditPage() {
 
   if (loadError) {
     return (
-      <Box maxWidth={600}>
+      <Box sx={{ maxWidth: 600 }}>
         <Alert severity="error">
           {loadError instanceof Error ? loadError.message : "載入客戶資料失敗"}
         </Alert>
@@ -109,14 +109,14 @@ function CustomerEditPage() {
 
   if (!customer) {
     return (
-      <Box maxWidth={600}>
+      <Box sx={{ maxWidth: 600 }}>
         <Alert severity="warning">找不到該客戶</Alert>
       </Box>
     );
   }
 
   return (
-    <Box maxWidth={600}>
+    <Box sx={{ maxWidth: 600 }}>
       <Typography variant="h4" gutterBottom>
         編輯客戶
       </Typography>

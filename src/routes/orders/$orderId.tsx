@@ -251,8 +251,8 @@ function PurchaseDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Typography variant="body2" color="text.secondary">
-            訂購數量：{lineItem.quantity}　已採購：{lineItem.purchasedQuantity}
-            　未採購餘額：{remaining}
+            訂購數量：{lineItem.quantity} 已採購：{lineItem.purchasedQuantity} 未採購餘額：
+            {remaining}
           </Typography>
           <EntitySelect<Supplier>
             label="供應商"
@@ -369,8 +369,8 @@ function ShipDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Typography variant="body2" color="text.secondary">
-            訂購數量：{lineItem.quantity}　已出貨：{lineItem.shippedQuantity}
-            　未出貨餘額：{remainingShip}　目前庫存：{stockQty}
+            訂購數量：{lineItem.quantity} 已出貨：{lineItem.shippedQuantity} 未出貨餘額：
+            {remainingShip} 目前庫存：{stockQty}
           </Typography>
           <TextField
             label="出貨數量"
@@ -535,8 +535,8 @@ function LineItemRowComponent({
                 相關日期
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                訂購日期：{formatDate(lineItem.orderedAt)}　 收到日期：
-                {formatDate(lineItem.receivedAt)}　 出貨日期：
+                訂購日期：{formatDate(lineItem.orderedAt)} 收到日期：
+                {formatDate(lineItem.receivedAt)} 出貨日期：
                 {formatDate(lineItem.shippedAt)}
               </Typography>
 

@@ -61,7 +61,7 @@ function CustomerNewPage() {
   });
 
   return (
-    <Box maxWidth={600}>
+    <Box sx={{ maxWidth: 600 }}>
       <Typography variant="h4" gutterBottom>
         新增客戶
       </Typography>

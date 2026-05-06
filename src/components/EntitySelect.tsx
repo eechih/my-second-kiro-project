@@ -102,13 +102,23 @@ export function EntitySelect<T>({
           helperText={error}
           slotProps={{
             input: {
-              ...params.InputProps,
+              ...(((params as unknown as { slotProps?: { input?: unknown } })
+                .slotProps?.input ??
+                (params as unknown as { InputProps?: unknown }).InputProps) as
+                | Record<string, unknown>
+                | undefined),
               endAdornment: (
                 <>
                   {loading ? (
                     <CircularProgress color="inherit" size={20} />
                   ) : null}
-                  {params.InputProps.endAdornment}
+                  {(
+                    ((params as unknown as { slotProps?: { input?: unknown } })
+                      .slotProps?.input ??
+                      (params as unknown as { InputProps?: unknown }).InputProps) as
+                      | { endAdornment?: React.ReactNode }
+                      | undefined
+                  )?.endAdornment}
                 </>
               ),
             },

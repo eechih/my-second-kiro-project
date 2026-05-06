@@ -84,7 +84,7 @@ function SupplierEditPage() {
 
   if (isLoadingSupplier) {
     return (
-      <Box maxWidth={600}>
+      <Box sx={{ maxWidth: 600 }}>
         <Skeleton variant="text" width={200} height={40} sx={{ mb: 2 }} />
         <Paper sx={{ p: 3 }}>
           <Stack spacing={3}>
@@ -99,7 +99,7 @@ function SupplierEditPage() {
 
   if (loadError) {
     return (
-      <Box maxWidth={600}>
+      <Box sx={{ maxWidth: 600 }}>
         <Alert severity="error">
           {loadError instanceof Error
             ? loadError.message
@@ -111,14 +111,14 @@ function SupplierEditPage() {
 
   if (!supplier) {
     return (
-      <Box maxWidth={600}>
+      <Box sx={{ maxWidth: 600 }}>
         <Alert severity="warning">找不到該供應商</Alert>
       </Box>
     );
   }
 
   return (
-    <Box maxWidth={600}>
+    <Box sx={{ maxWidth: 600 }}>
       <Typography variant="h4" gutterBottom>
         編輯供應商
       </Typography>
