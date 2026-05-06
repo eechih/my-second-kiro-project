@@ -8,7 +8,7 @@
 
 ## 任務
 
-- [ ] 1. 建立資料模型型別定義與序列化工具
+- [x] 1. 建立資料模型型別定義與序列化工具
   - [x] 1.1 建立 `shared/models/` 目錄，定義 Customer、Supplier、Product 介面與型別
     - 建立 `shared/models/customer.ts`、`shared/models/supplier.ts`、`shared/models/product.ts`
     - 定義所有必填與選填欄位，包含 `CreateXxxInput`、`UpdateXxxInput` 型別
@@ -35,7 +35,7 @@
     - 建立 `shared/models/__tests__/serialization.property.test.ts`
     - 使用 fast-check 產生任意有效的 Order、Product、Customer、Supplier 物件，驗證序列化後再反序列化產生深度相等的物件
 
-- [ ] 2. 實作訂單狀態轉換與明細狀態轉換業務邏輯
+- [x] 2. 實作訂單狀態轉換與明細狀態轉換業務邏輯
   - [x] 2.1 實作訂單狀態轉換驗證函式
     - 建立 `shared/logic/order-status.ts`，實作 `isValidOrderStatusTransition`、`getNextAllowedOrderStatuses`
     - 允許路徑：pending → confirmed → shipping → completed，任何狀態 → cancelled
@@ -63,7 +63,7 @@
     - **驗證需求：6.8, 6.9, 6.2, 6.3**
     - 建立 `shared/logic/__tests__/purchase-record.property.test.ts`
 
-- [ ] 3. 實作金額計算、出貨驗證與庫存邏輯
+- [x] 3. 實作金額計算、出貨驗證與庫存邏輯
   - [x] 3.1 實作訂單金額計算函式
     - 建立 `shared/logic/order-calculations.ts`，實作 `calculateLineItemSubtotal`、`calculateOrderTotal`
     - _需求：4.11_
@@ -93,7 +93,7 @@
     - **驗證需求：5.5, 5.6, 5.4, 6.10**
     - 新增至 `shared/logic/__tests__/order-status.property.test.ts`
 
-- [ ] 4. 實作表單驗證與訂單合併/分拆邏輯
+- [x] 4. 實作表單驗證與訂單合併/分拆邏輯
   - [x] 4.1 實作表單驗證規則純函式
     - 建立 `shared/logic/validation.ts`，實作各實體（Customer、Supplier、Product、Order）的必填欄位驗證函式
     - 驗證失敗時回傳缺少的欄位名稱
@@ -139,7 +139,7 @@
 - [x] 5. 檢查點 — 確認所有業務邏輯測試通過
   - 確認所有測試通過，若有問題請詢問使用者。
 
-- [ ] 6. 建立 Amplify Gen2 後端資料層
+- [x] 6. 建立 Amplify Gen2 後端資料層
   - [x] 6.1 定義 Amplify Data schema（GraphQL 模型）
     - 建立 `amplify/data/resource.ts`，使用 `defineData` 定義 Customer、Supplier、Product、ProductVariant、Order、LineItem、PurchaseRecord 模型
     - Customer 與 Supplier 模型需包含 `isActive: a.boolean().required().default(true)` 欄位，用於軟刪除（停用/啟用）機制，確保參照完整性
@@ -188,7 +188,7 @@
     - 每個 Lambda 函式使用 `defineFunction` 定義，並在 `amplify/data/resource.ts` 的 schema 中以 `a.mutation()` 註冊為 custom mutation
     - _需求：5.5, 5.6, 6.5, 6.8, 7.1, 7.2, 7.3, 7.4, 7.5, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7_
 
-- [ ] 7. 建立共用 UI 元件
+- [x] 7. 建立共用 UI 元件
   - [x] 7.1 實作通用分頁表格元件 DataTable
     - 建立 `src/components/DataTable.tsx`，使用 TanStack Table 的 `useReactTable` + `getCoreRowModel`
     - 搭配 MUI 的 Table、TableHead、TableBody、TableRow、TableCell 渲染
@@ -223,7 +223,7 @@
     - 測試 VariantSelect 正確顯示可選規格組合、VariantTable 正確顯示所有規格組合的 SKU、單價、成本、庫存
     - _需求：1.1, 2.1, 3.1, 3.15, 3.16, 4.2, 4.12_
 
-- [ ] 8. 實作客戶管理模組（Customer_Registry）
+- [x] 8. 實作客戶管理模組（Customer_Registry）
   - [x] 8.1 建立客戶 CRUD 與停用/啟用 hooks
     - 建立 `src/hooks/useCustomers.ts`，實作 `useCustomerList`、`useCustomer`、`useCreateCustomer`、`useUpdateCustomer`、`useDeactivateCustomer`、`useActivateCustomer`
     - `useCustomerList` 接受 `{ pageSize: number; nextToken?: string; search?: string; isActive?: boolean }` 參數，回傳 `PaginatedResult<Customer>`（含 `nextToken` 供游標式分頁使用）
@@ -248,7 +248,7 @@
     - 測試列表頁面欄位顯示、表單元件存在性、驗證錯誤顯示
     - _需求：1.1, 1.4_
 
-- [ ] 9. 實作供應商管理模組（Supplier_Registry）
+- [x] 9. 實作供應商管理模組（Supplier_Registry）
   - [x] 9.1 建立供應商 CRUD 與停用/啟用 hooks
     - 建立 `src/hooks/useSuppliers.ts`，實作 `useSupplierList`、`useSupplier`、`useCreateSupplier`、`useUpdateSupplier`、`useDeactivateSupplier`、`useActivateSupplier`
     - `useSupplierList` 接受 `{ pageSize: number; nextToken?: string; search?: string; isActive?: boolean }` 參數，回傳 `PaginatedResult<Supplier>`（含 `nextToken` 供游標式分頁使用）
@@ -269,7 +269,7 @@
     - 建立 `src/routes/__tests__/suppliers.test.tsx`
     - _需求：2.1, 2.4_
 
-- [ ] 10. 實作商品管理模組（Product_Registry）
+- [x] 10. 實作商品管理模組（Product_Registry）
   - [x] 10.1 建立商品 CRUD 與停用/啟用 hooks（含規格組合 CRUD）
     - 建立 `src/hooks/useProducts.ts`，實作 `useProductList`、`useProduct`、`useCreateProduct`、`useUpdateProduct`、`useDeactivateProduct`、`useActivateProduct`
     - `useProductList` 接受 `{ pageSize: number; nextToken?: string; search?: string; isActive?: boolean }` 參數，回傳 `PaginatedResult<Product>`（含 `nextToken` 供游標式分頁使用）
@@ -324,7 +324,7 @@
 - [x] 11. 檢查點 — 確認基礎模組功能正常
   - 確認所有測試通過，若有問題請詢問使用者。
 
-- [ ] 12. 實作訂單管理模組——建立與列表
+- [x] 12. 實作訂單管理模組——建立與列表
   - [x] 12.1 建立訂單 CRUD hooks
     - 建立 `src/hooks/useOrders.ts`，實作 `useOrderList`、`useOrder`、`useCreateOrder`、`useUpdateOrderStatus`
     - `useOrderList` 接受 `{ pageSize: number; nextToken?: string; search?: string }` 參數，回傳 `PaginatedResult<Order>`（含 `nextToken` 供游標式分頁使用）
@@ -424,7 +424,7 @@
     - mutation 成功後 invalidate 訂單列表快取，導向訂單列表頁面
     - _需求：9.5, 9.6, 9.7_
 
-- [ ] 15. 檢查點 — 確認訂單核心功能正常
+- [x] 15. 檢查點 — 確認訂單核心功能正常
   - 確認所有測試通過，若有問題請詢問使用者。
 
 - [x] 16. 實作導覽列、儀表板與路由保護
@@ -445,7 +445,7 @@
     - 測試導覽連結顯示、未登入重新導向、儀表板摘要數量
     - _需求：8.1, 8.2, 8.3_
 
-- [ ] 17. 最終檢查點 — 確認所有測試通過
+- [x] 17. 最終檢查點 — 確認所有測試通過
   - 確認所有測試通過，若有問題請詢問使用者。
 
 ## 備註
