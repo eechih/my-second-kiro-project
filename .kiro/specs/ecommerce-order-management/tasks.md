@@ -325,20 +325,20 @@
   - 確認所有測試通過，若有問題請詢問使用者。
 
 - [ ] 12. 實作訂單管理模組——建立與列表
-  - [ ] 12.1 建立訂單 CRUD hooks
+  - [x] 12.1 建立訂單 CRUD hooks
     - 建立 `src/hooks/useOrders.ts`，實作 `useOrderList`、`useOrder`、`useCreateOrder`、`useUpdateOrderStatus`
     - `useOrderList` 接受 `{ pageSize: number; nextToken?: string; search?: string }` 參數，回傳 `PaginatedResult<Order>`（含 `nextToken` 供游標式分頁使用）
     - 建立訂單時自動計算明細小計與總金額
     - 實作 `usePrefetchOrder(orderId)` hook，供列表頁面在游標懸停時預取訂單詳情（含 LineItems、PurchaseRecords），使用 `queryClient.prefetchQuery`
     - _需求：4.1, 4.2, 4.11, 4.15, 5.2_
-  - [ ] 12.2 建立訂單列表頁面
+  - [x] 12.2 建立訂單列表頁面
     - 建立 `src/routes/orders/index.tsx`（訂單列表，顯示訂單編號、客戶名稱、總金額、狀態、建立日期）
     - 使用 `useCursorPagination` hook 管理分頁狀態（token 堆疊支援上一頁導覽），搜尋條件或每頁筆數變更時自動重置分頁
     - 支援依訂單編號或客戶名稱搜尋
     - 提供合併操作入口按鈕
     - 在訂單列表行上加入 `onMouseEnter` 事件，觸發 `usePrefetchOrder` 預取該訂單詳情，提升進入詳情頁的流暢感
     - _需求：4.2, 4.15_
-  - [ ] 12.3 建立新增訂單頁面
+  - [x] 12.3 建立新增訂單頁面
     - 建立 `src/routes/orders/new.tsx`
     - 使用 TanStack Form 管理表單狀態
     - 客戶選取使用 EntitySelect（從 Customer_Registry 選取）
