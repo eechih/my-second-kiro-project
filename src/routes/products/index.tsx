@@ -34,7 +34,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
-import { CursorPagination } from "./-components/CursorPagination";
+import { CursorPagination } from "@/components/CursorPagination";
 import {
   ProductToolbar,
   type ProductStatusFilter,

@@ -22,7 +22,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
-import { CursorPagination } from "./-components/CursorPagination.tsx";
+import { CursorPagination } from "@/components/CursorPagination";
 import {
   OrderToolbar,
   type OrderStatusFilter,

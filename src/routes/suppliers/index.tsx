@@ -23,7 +23,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { SupplierToolbar } from "./-components/SupplierToolbar";
 import { SupplierInfoCell } from "./-components/SupplierInfoCell";
-import { CursorPagination } from "./-components/CursorPagination";
+import { CursorPagination } from "@/components/CursorPagination";
 import { SupplierRowActions } from "./-components/SupplierRowActions";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import { useSupplierListCursor } from "@/hooks/useSupplierListCursor";
