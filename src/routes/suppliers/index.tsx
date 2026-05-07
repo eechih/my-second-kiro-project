@@ -7,8 +7,6 @@ import { listTableBodyTextSx } from "@/components/listTableStyles";
 import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
-  useActivateSupplier,
-  useDeactivateSupplier,
   useSupplier,
   useSupplierList,
   useUpdateSupplier,
@@ -50,7 +48,8 @@ type EditableSupplierField =
   | "contactPerson"
   | "phone"
   | "email"
-  | "address";
+  | "address"
+  | "isActive";
 
 function SupplierListPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -87,8 +86,6 @@ function SupplierListPage(): React.ReactElement {
   const nextToken = data?.nextToken;
 
   // --- Mutations ---
-  const deactivateMutation = useDeactivateSupplier();
-  const activateMutation = useActivateSupplier();
   const updateMutation = useUpdateSupplier();
 
   // --- 篩選/搜尋/每頁筆數變更時重置分頁 ---
@@ -179,9 +176,11 @@ function SupplierListPage(): React.ReactElement {
     async (
       supplier: Supplier,
       field: EditableSupplierField,
-      value: string,
+      value: string | boolean,
     ): Promise<void> => {
-      const nextValue = value.trim();
+      if (field === "isActive" && value === supplier.isActive) return;
+
+      const nextValue = typeof value === "string" ? value.trim() : value;
       if (
         (field === "name" || field === "contactPerson" || field === "phone") &&
         !nextValue
@@ -211,24 +210,6 @@ function SupplierListPage(): React.ReactElement {
       }
     },
     [updateMutation],
-  );
-
-  const handleStatusEdit = useCallback(
-    async (supplier: Supplier, isActive: boolean): Promise<void> => {
-      if (supplier.isActive === isActive) return;
-
-      setError(null);
-      try {
-        if (isActive) {
-          await activateMutation.mutateAsync({ supplierId: supplier.id });
-        } else {
-          await deactivateMutation.mutateAsync({ supplierId: supplier.id });
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "更新供應商狀態失敗");
-      }
-    },
-    [activateMutation, deactivateMutation],
   );
 
   const handleSupplierLoaded = useCallback((supplier: Supplier): void => {
@@ -358,14 +339,10 @@ function SupplierListPage(): React.ReactElement {
                     key={supplierId}
                     supplierId={supplierId}
                     selected={selectedIds.has(supplierId)}
-                    statusDisabled={
-                      activateMutation.isPending ||
-                      deactivateMutation.isPending
-                    }
+                    statusDisabled={updateMutation.isPending}
                     onSelect={handleSelectRow}
                     onEdit={handleEdit}
                     onCellEdit={handleCellEdit}
-                    onStatusEdit={handleStatusEdit}
                     onSupplierLoaded={handleSupplierLoaded}
                   />
                 ))
@@ -399,9 +376,8 @@ interface SupplierTableRowProps {
   onCellEdit: (
     supplier: Supplier,
     field: EditableSupplierField,
-    value: string,
+    value: string | boolean,
   ) => Promise<void>;
-  onStatusEdit: (supplier: Supplier, isActive: boolean) => Promise<void>;
   onSupplierLoaded: (supplier: Supplier) => void;
 }
 
@@ -412,7 +388,6 @@ function SupplierTableRow({
   onSelect,
   onEdit,
   onCellEdit,
-  onStatusEdit,
   onSupplierLoaded,
 }: SupplierTableRowProps): React.ReactElement {
   const { data: supplier, isLoading, error } = useSupplier(supplierId);
@@ -519,7 +494,7 @@ function SupplierTableRow({
         <EditableStatusCell
           isActive={supplier.isActive}
           disabled={statusDisabled}
-          onCommit={(isActive) => onStatusEdit(supplier, isActive)}
+          onCommit={(isActive) => onCellEdit(supplier, "isActive", isActive)}
         />
       </TableCell>
       <TableCell>

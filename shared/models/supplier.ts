@@ -54,4 +54,6 @@ export interface UpdateSupplierInput {
   email?: string;
   /** 地址 */
   address?: string;
+  /** 啟用狀態 */
+  isActive?: boolean;
 }

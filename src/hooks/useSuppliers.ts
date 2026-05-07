@@ -217,6 +217,7 @@ export function useUpdateSupplier(): UseMutationResult<
         ...(input.phone !== undefined && { phone: input.phone }),
         ...(input.email !== undefined && { email: input.email }),
         ...(input.address !== undefined && { address: input.address }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
       });
 
       if (errors && errors.length > 0) {
@@ -247,6 +248,7 @@ export function useUpdateSupplier(): UseMutationResult<
         ...(input.phone !== undefined && { phone: input.phone }),
         ...(input.email !== undefined && { email: input.email }),
         ...(input.address !== undefined && { address: input.address }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
       });
 
       if (previousSupplier) {
@@ -265,7 +267,6 @@ export function useUpdateSupplier(): UseMutationResult<
           context.previousSupplier,
         );
       }
-
     },
     onSuccess: (updatedSupplier) => {
       queryClient.setQueryData(
@@ -277,97 +278,6 @@ export function useUpdateSupplier(): UseMutationResult<
       void queryClient.invalidateQueries({ queryKey: SUPPLIER_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: SUPPLIER_KEYS.detail(input.id),
-      });
-    },
-  });
-}
-
-/**
- * 停用供應商 mutation hook
- *
- * 將供應商的 isActive 設為 false（停用）。
- * 停用後的供應商不出現在進貨操作的供應商選取清單中，
- * 但歷史採購記錄仍可顯示該供應商資訊。
- *
- * 需求：2.7
- */
-export function useDeactivateSupplier(): UseMutationResult<
-  Supplier,
-  Error,
-  { supplierId: string }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      supplierId,
-    }: {
-      supplierId: string;
-    }): Promise<Supplier> => {
-      const { data, errors } = await client.models.Supplier.update({
-        id: supplierId,
-        isActive: false,
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "停用供應商失敗");
-      }
-
-      if (!data) {
-        throw new Error("停用供應商失敗：未回傳資料");
-      }
-
-      return mapToSupplier(data);
-    },
-    onSuccess: (_, { supplierId }) => {
-      void queryClient.invalidateQueries({ queryKey: SUPPLIER_KEYS.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: SUPPLIER_KEYS.detail(supplierId),
-      });
-    },
-  });
-}
-
-/**
- * 啟用供應商 mutation hook
- *
- * 將已停用的供應商重新啟用（isActive 設為 true），
- * 恢復在選取清單中的可見性。
- *
- * 需求：2.8
- */
-export function useActivateSupplier(): UseMutationResult<
-  Supplier,
-  Error,
-  { supplierId: string }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      supplierId,
-    }: {
-      supplierId: string;
-    }): Promise<Supplier> => {
-      const { data, errors } = await client.models.Supplier.update({
-        id: supplierId,
-        isActive: true,
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "啟用供應商失敗");
-      }
-
-      if (!data) {
-        throw new Error("啟用供應商失敗：未回傳資料");
-      }
-
-      return mapToSupplier(data);
-    },
-    onSuccess: (_, { supplierId }) => {
-      void queryClient.invalidateQueries({ queryKey: SUPPLIER_KEYS.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: SUPPLIER_KEYS.detail(supplierId),
       });
     },
   });
