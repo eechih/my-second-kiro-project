@@ -274,6 +274,7 @@ export function useUpdateSupplier(): UseMutationResult<
       );
     },
     onSettled: (_data, _error, input) => {
+      void queryClient.invalidateQueries({ queryKey: SUPPLIER_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: SUPPLIER_KEYS.detail(input.id),
       });
@@ -319,6 +320,7 @@ export function useDeactivateSupplier(): UseMutationResult<
       return mapToSupplier(data);
     },
     onSuccess: (_, { supplierId }) => {
+      void queryClient.invalidateQueries({ queryKey: SUPPLIER_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: SUPPLIER_KEYS.detail(supplierId),
       });
@@ -363,6 +365,7 @@ export function useActivateSupplier(): UseMutationResult<
       return mapToSupplier(data);
     },
     onSuccess: (_, { supplierId }) => {
+      void queryClient.invalidateQueries({ queryKey: SUPPLIER_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: SUPPLIER_KEYS.detail(supplierId),
       });

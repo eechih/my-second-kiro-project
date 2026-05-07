@@ -393,6 +393,7 @@ export function useUpdateProduct(): UseMutationResult<
       );
     },
     onSettled: (_data, _error, input) => {
+      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: PRODUCT_KEYS.detail(input.id),
       });
@@ -438,6 +439,7 @@ export function useDeactivateProduct(): UseMutationResult<
       return mapToProduct(data);
     },
     onSuccess: (_, { productId }) => {
+      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: PRODUCT_KEYS.detail(productId),
       });
@@ -482,6 +484,7 @@ export function useActivateProduct(): UseMutationResult<
       return mapToProduct(data);
     },
     onSuccess: (_, { productId }) => {
+      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: PRODUCT_KEYS.detail(productId),
       });
@@ -553,6 +556,7 @@ export function useCreateVariant(): UseMutationResult<
       void queryClient.invalidateQueries({
         queryKey: PRODUCT_KEYS.variants(productId),
       });
+      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
     },
   });
 }
@@ -613,6 +617,7 @@ export function useUpdateVariant(): UseMutationResult<
       void queryClient.invalidateQueries({
         queryKey: PRODUCT_KEYS.variants(productId),
       });
+      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
     },
   });
 }
@@ -653,6 +658,7 @@ export function useDeleteVariant(): UseMutationResult<
       void queryClient.invalidateQueries({
         queryKey: PRODUCT_KEYS.variants(productId),
       });
+      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
     },
   });
 }
@@ -781,6 +787,7 @@ export function useGenerateVariants(): UseMutationResult<
       void queryClient.invalidateQueries({
         queryKey: PRODUCT_KEYS.variants(productId),
       });
+      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
     },
   });
 }

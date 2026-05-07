@@ -263,6 +263,7 @@ export function useUpdateCustomer(): UseMutationResult<
       );
     },
     onSettled: (_data, _error, input) => {
+      void queryClient.invalidateQueries({ queryKey: CUSTOMER_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: CUSTOMER_KEYS.detail(input.id),
       });
@@ -308,6 +309,7 @@ export function useDeactivateCustomer(): UseMutationResult<
       return mapToCustomer(data);
     },
     onSuccess: (_, { customerId }) => {
+      void queryClient.invalidateQueries({ queryKey: CUSTOMER_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: CUSTOMER_KEYS.detail(customerId),
       });
@@ -352,6 +354,7 @@ export function useActivateCustomer(): UseMutationResult<
       return mapToCustomer(data);
     },
     onSuccess: (_, { customerId }) => {
+      void queryClient.invalidateQueries({ queryKey: CUSTOMER_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: CUSTOMER_KEYS.detail(customerId),
       });
