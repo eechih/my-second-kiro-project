@@ -9,6 +9,93 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useEffect, useRef, useState } from "react";
 
+const SAVING_LABEL = "保存中";
+
+function InlineSavingIndicator(): React.ReactElement {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <CircularProgress size={16} />
+      <Typography variant="body2" color="text.secondary">
+        {SAVING_LABEL}
+      </Typography>
+    </Box>
+  );
+}
+
+function SavingAdornment(): React.ReactElement {
+  return (
+    <InputAdornment position="end">
+      <CircularProgress size={16} />
+    </InputAdornment>
+  );
+}
+
+interface EditableDisplayProps {
+  children: React.ReactNode;
+  disabled?: boolean;
+  variant?: "body1" | "body2";
+  color?: string;
+  sx?: object;
+  onOpen: () => void;
+}
+
+function EditableDisplay({
+  children,
+  disabled = false,
+  variant,
+  color,
+  sx,
+  onOpen,
+}: EditableDisplayProps): React.ReactElement {
+  return (
+    <Typography
+      role="button"
+      tabIndex={0}
+      variant={variant}
+      color={color}
+      sx={{ cursor: disabled ? "default" : "text", ...sx }}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (!disabled) onOpen();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && !disabled) {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+interface SavingCommitState {
+  isSaving: boolean;
+  isSavingRef: React.MutableRefObject<boolean>;
+  runSavingCommit: (task: () => Promise<void>) => Promise<void>;
+}
+
+function useSavingCommit(): SavingCommitState {
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
+
+  const runSavingCommit = async (task: () => Promise<void>): Promise<void> => {
+    if (isSavingRef.current) return;
+
+    isSavingRef.current = true;
+    setIsSaving(true);
+    try {
+      await task();
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
+    }
+  };
+
+  return { isSaving, isSavingRef, runSavingCommit };
+}
+
 interface EditableTextCellProps {
   value: string;
   emptyLabel?: string;
@@ -24,43 +111,25 @@ export function EditableTextCell({
 }: EditableTextCellProps): React.ReactElement {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(value);
-  const [isSaving, setIsSaving] = useState(false);
-  const isSavingRef = useRef(false);
-  const commitSourceRef = useRef<"enter" | "blur" | null>(null);
+  const { isSaving, isSavingRef, runSavingCommit } = useSavingCommit();
 
   const commit = async (): Promise<void> => {
-    // 如果已經在存檔中（由 blur 重複觸發），直接返回
-    if (isSaving) return;
+    if (isSavingRef.current) return;
 
     const nextValue = draft.trim();
     if (nextValue === value) {
-      isSavingRef.current = false;
-      commitSourceRef.current = null;
       setIsEditing(false);
       return;
     }
 
-    isSavingRef.current = true;
-    setIsSaving(true);
-    try {
+    await runSavingCommit(async () => {
       await onCommit(nextValue);
-    } finally {
-      isSavingRef.current = false;
-      setIsSaving(false);
       setIsEditing(false);
-      commitSourceRef.current = null;
-    }
+    });
   };
 
   if (isSaving) {
-    return (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <CircularProgress size={16} />
-        <Typography variant="body2" color="text.secondary">
-          保存中
-        </Typography>
-      </Box>
-    );
+    return <InlineSavingIndicator />;
   }
 
   if (isEditing) {
@@ -73,8 +142,7 @@ export function EditableTextCell({
         fullWidth
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => {
-          // blur 放棄編輯，除非是 Enter 觸發的存檔
-          if (!isSavingRef.current && commitSourceRef.current !== "enter") {
+          if (!isSavingRef.current) {
             setDraft(value);
             setIsEditing(false);
           }
@@ -83,9 +151,6 @@ export function EditableTextCell({
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            // 同步標記，防止後續 blur 干擾
-            commitSourceRef.current = "enter";
-            isSavingRef.current = true;
             void commit();
           }
           if (event.key === "Escape" && !isSavingRef.current) {
@@ -98,25 +163,15 @@ export function EditableTextCell({
   }
 
   return (
-    <Typography
-      role="button"
-      tabIndex={0}
-      sx={{ cursor: "text", ...textSx }}
-      onClick={(event) => {
-        event.stopPropagation();
+    <EditableDisplay
+      sx={textSx}
+      onOpen={() => {
         setDraft(value);
         setIsEditing(true);
       }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          setDraft(value);
-          setIsEditing(true);
-        }
-      }}
     >
       {value || emptyLabel}
-    </Typography>
+    </EditableDisplay>
   );
 }
 
@@ -141,8 +196,7 @@ export function EditableNumberCell({
 }: EditableNumberCellProps): React.ReactElement {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
-  const [isSaving, setIsSaving] = useState(false);
-  const isSavingRef = useRef(false);
+  const { isSaving, isSavingRef, runSavingCommit } = useSavingCommit();
 
   const commit = async (): Promise<void> => {
     if (isSavingRef.current) return;
@@ -160,15 +214,10 @@ export function EditableNumberCell({
       return;
     }
 
-    isSavingRef.current = true;
-    setIsSaving(true);
-    try {
+    await runSavingCommit(async () => {
       await onCommit(nextValue);
-    } finally {
-      isSavingRef.current = false;
-      setIsSaving(false);
       setIsEditing(false);
-    }
+    });
   };
 
   if (disabled) {
@@ -184,20 +233,20 @@ export function EditableNumberCell({
   if (isEditing) {
     return (
       <TextField
-        value={isSaving ? "保存中" : draft}
+        value={isSaving ? SAVING_LABEL : draft}
         size="small"
         variant="outlined"
         type={isSaving ? "text" : "number"}
         autoFocus
         disabled={isSaving}
         slotProps={{
-          htmlInput: { min: 0, step: integer ? 1 : 0.01, style: align ? { textAlign: align } : undefined },
+          htmlInput: {
+            min: 0,
+            step: integer ? 1 : 0.01,
+            style: align ? { textAlign: align } : undefined,
+          },
           input: {
-            endAdornment: isSaving ? (
-              <InputAdornment position="end">
-                <CircularProgress size={16} />
-              </InputAdornment>
-            ) : undefined,
+            endAdornment: isSaving ? <SavingAdornment /> : undefined,
           },
         }}
         onChange={(event) => setDraft(event.target.value)}
@@ -208,7 +257,7 @@ export function EditableNumberCell({
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            (event.target as HTMLElement).blur();
+            void commit();
           }
           if (event.key === "Escape" && !isSavingRef.current) {
             setDraft(String(value));
@@ -221,25 +270,15 @@ export function EditableNumberCell({
   }
 
   return (
-    <Typography
-      role="button"
-      tabIndex={0}
-      sx={{ cursor: "text", textAlign: align }}
-      onClick={(event) => {
-        event.stopPropagation();
+    <EditableDisplay
+      sx={{ textAlign: align }}
+      onOpen={() => {
         setDraft(String(value));
         setIsEditing(true);
       }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          setDraft(String(value));
-          setIsEditing(true);
-        }
-      }}
     >
       {format(value)}
-    </Typography>
+    </EditableDisplay>
   );
 }
 
@@ -255,8 +294,7 @@ export function EditableStatusCell({
   onCommit,
 }: EditableStatusCellProps): React.ReactElement {
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const isSavingRef = useRef(false);
+  const { isSaving, isSavingRef, runSavingCommit } = useSavingCommit();
 
   const commit = async (nextIsActive: boolean): Promise<void> => {
     if (isSavingRef.current) return;
@@ -266,15 +304,10 @@ export function EditableStatusCell({
       return;
     }
 
-    isSavingRef.current = true;
-    setIsSaving(true);
-    try {
+    await runSavingCommit(async () => {
       await onCommit(nextIsActive);
       setIsEditing(false);
-    } finally {
-      isSavingRef.current = false;
-      setIsSaving(false);
-    }
+    });
   };
 
   if (isEditing) {
@@ -287,7 +320,9 @@ export function EditableStatusCell({
           autoFocus
           open
           disabled={disabled || isSaving}
-          renderValue={() => (isSaving ? "保存中" : isActive ? "啟用中" : "已停用")}
+          renderValue={() =>
+            isSaving ? SAVING_LABEL : isActive ? "啟用中" : "已停用"
+          }
           sx={{
             minWidth: 88,
             color: isActive ? "success.main" : "error.main",
@@ -311,28 +346,17 @@ export function EditableStatusCell({
   }
 
   return (
-    <Typography
-      role="button"
-      tabIndex={0}
+    <EditableDisplay
       variant="body2"
+      disabled={disabled}
       sx={{
         color: isActive ? "success.main" : "error.main",
-        cursor: disabled ? "default" : "text",
         fontWeight: 500,
       }}
-      onClick={(event) => {
-        event.stopPropagation();
-        if (!disabled) setIsEditing(true);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" && !disabled) {
-          event.preventDefault();
-          setIsEditing(true);
-        }
-      }}
+      onOpen={() => setIsEditing(true)}
     >
       {isActive ? "啟用中" : "已停用"}
-    </Typography>
+    </EditableDisplay>
   );
 }
 
@@ -365,8 +389,7 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
   const [value, setValue] = useState<T | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const isSavingRef = useRef(false);
+  const { isSaving, isSavingRef, runSavingCommit } = useSavingCommit();
 
   useEffect(() => {
     if (!isEditing) return;
@@ -406,15 +429,10 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
       return;
     }
 
-    isSavingRef.current = true;
-    setIsSaving(true);
-    try {
+    await runSavingCommit(async () => {
       await onCommit(nextValueId);
       setIsEditing(false);
-    } finally {
-      isSavingRef.current = false;
-      setIsSaving(false);
-    }
+    });
   };
 
   if (isEditing) {
@@ -424,7 +442,7 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
         size="small"
         value={value}
         options={options}
-        inputValue={isSaving ? "保存中" : inputValue}
+        inputValue={isSaving ? SAVING_LABEL : inputValue}
         loading={isLoading}
         disabled={isSaving}
         clearOnBlur={false}
@@ -474,24 +492,12 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
   }
 
   return (
-    <Typography
-      role="button"
-      tabIndex={0}
+    <EditableDisplay
       variant="body2"
       color={valueId ? "text.primary" : "text.secondary"}
-      sx={{ cursor: "text" }}
-      onClick={(event) => {
-        event.stopPropagation();
-        openEditor();
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          openEditor();
-        }
-      }}
+      onOpen={openEditor}
     >
       {valueLabel ?? emptyLabel}
-    </Typography>
+    </EditableDisplay>
   );
 }
