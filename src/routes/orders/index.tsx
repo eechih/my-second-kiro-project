@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusChip } from "@/components/StatusChip";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import type { OrderStatusFilter } from "@/hooks/useOrders";
-import { useOrderList, usePrefetchOrder } from "@/hooks/useOrders";
+import { useOrderList } from "@/hooks/useOrders";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
@@ -23,7 +23,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { OrderToolbar } from "./-components/OrderToolbar";
 
 export const Route = createFileRoute("/orders/")({
@@ -66,17 +66,8 @@ function OrderListPage(): React.ReactElement {
     search: search || undefined,
     status: statusFilter === "all" ? undefined : statusFilter,
   });
-  const prefetchOrder = usePrefetchOrder();
-
   const orders = useMemo(() => data?.items ?? [], [data?.items]);
   const nextToken = data?.nextToken;
-
-  const handleRowHover = useCallback(
-    (order: Order) => {
-      prefetchOrder(order.id);
-    },
-    [prefetchOrder],
-  );
 
   const columns = useMemo(
     () => [
@@ -192,17 +183,6 @@ function OrderListPage(): React.ReactElement {
                   <TableRow
                     key={row.id}
                     hover
-                    onClick={() =>
-                      navigate({
-                        to: "/orders/$orderId" as string,
-                        params: { orderId: row.original.id } as Record<
-                          string,
-                          string
-                        >,
-                      })
-                    }
-                    onMouseEnter={() => handleRowHover(row.original)}
-                    sx={{ cursor: "pointer" }}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>

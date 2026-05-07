@@ -13,7 +13,6 @@ import {
   getCustomerCsvFilename,
 } from "@/lib/customer-csv";
 import type { SortField } from "@/lib/table-utils";
-import { getRowNumber } from "@/lib/table-utils";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
@@ -259,17 +258,6 @@ function CustomerListPage(): React.ReactElement {
         enableSorting: false,
       }),
       columnHelper.display({
-        id: "rowNumber",
-        header: "#",
-        cell: ({ row }) =>
-          getRowNumber(
-            pagination.tokenStack.length,
-            pagination.pageSize,
-            row.index,
-          ),
-        enableSorting: false,
-      }),
-      columnHelper.display({
         id: "customerInfo",
         header: "客戶資訊",
         cell: ({ row }) => (
@@ -326,8 +314,6 @@ function CustomerListPage(): React.ReactElement {
       handleView,
       handleEdit,
       handleToggleActive,
-      pagination.tokenStack.length,
-      pagination.pageSize,
     ],
   );
 

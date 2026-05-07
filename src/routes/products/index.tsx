@@ -9,7 +9,6 @@ import {
   useProductList,
 } from "@/hooks/useProducts";
 import { useProductThumbnailUrls } from "@/hooks/useProductImages";
-import { getRowNumber } from "@/lib/table-utils";
 import { client } from "@/lib/amplify-client";
 import BlockIcon from "@mui/icons-material/Block";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -199,16 +198,6 @@ function ProductListPage(): React.ReactElement {
     });
   }, []);
 
-  const handleView = useCallback(
-    (product: Product): void => {
-      void navigate({
-        to: "/products/$productId",
-        params: { productId: product.id },
-      });
-    },
-    [navigate],
-  );
-
   const handleEdit = useCallback(
     (product: Product): void => {
       void navigate({
@@ -272,17 +261,6 @@ function ProductListPage(): React.ReactElement {
         enableSorting: false,
       }),
       columnHelper.display({
-        id: "rowNumber",
-        header: "#",
-        cell: ({ row }) =>
-          getRowNumber(
-            pagination.tokenStack.length,
-            pagination.pageSize,
-            row.index,
-          ),
-        enableSorting: false,
-      }),
-      columnHelper.display({
         id: "thumbnail",
         header: "圖片",
         cell: ({ row }) => {
@@ -311,10 +289,6 @@ function ProductListPage(): React.ReactElement {
       }),
       columnHelper.accessor("unitPrice", {
         header: "單價",
-        cell: ({ getValue }) => `$${getValue<number>()}`,
-      }),
-      columnHelper.accessor("defaultCost", {
-        header: "進貨成本",
         cell: ({ getValue }) => `$${getValue<number>()}`,
       }),
       columnHelper.display({
@@ -346,6 +320,10 @@ function ProductListPage(): React.ReactElement {
           const name = supplierMap?.get(supplierId);
           return <Typography variant="body2">{name ?? "—"}</Typography>;
         },
+      }),
+      columnHelper.accessor("defaultCost", {
+        header: "進貨成本",
+        cell: ({ getValue }) => `$${getValue<number>()}`,
       }),
       columnHelper.accessor("createdAt", {
         header: "建立日期",
@@ -433,8 +411,6 @@ function ProductListPage(): React.ReactElement {
       handleSelectRow,
       handleEdit,
       handleToggleActive,
-      pagination.tokenStack.length,
-      pagination.pageSize,
       thumbnailMap,
       supplierMap,
     ],
@@ -507,8 +483,6 @@ function ProductListPage(): React.ReactElement {
                     key={row.id}
                     selected={selectedIds.has(row.original.id)}
                     hover
-                    onClick={() => handleView(row.original)}
-                    sx={{ cursor: "pointer" }}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>

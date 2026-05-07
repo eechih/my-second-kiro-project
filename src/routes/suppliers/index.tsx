@@ -13,7 +13,6 @@ import {
   generateSupplierCsv,
   getSupplierCsvFilename,
 } from "@/lib/supplier-csv";
-import { getRowNumber } from "@/lib/table-utils";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
@@ -262,17 +261,6 @@ function SupplierListPage(): React.ReactElement {
         enableSorting: false,
       }),
       columnHelper.display({
-        id: "rowNumber",
-        header: "#",
-        cell: ({ row }) =>
-          getRowNumber(
-            pagination.tokenStack.length,
-            pagination.pageSize,
-            row.index,
-          ),
-        enableSorting: false,
-      }),
-      columnHelper.display({
         id: "supplierInfo",
         header: "供應商資訊",
         cell: ({ row }) => (
@@ -329,8 +317,6 @@ function SupplierListPage(): React.ReactElement {
       handleView,
       handleEdit,
       handleToggleActive,
-      pagination.tokenStack.length,
-      pagination.pageSize,
     ],
   );
 
