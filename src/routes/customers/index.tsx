@@ -313,8 +313,8 @@ function CustomerListPage(): React.ReactElement {
                 <TableCell>電話</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>地址</TableCell>
-                <TableCell>狀態</TableCell>
-                <TableCell>操作</TableCell>
+                <TableCell align="center">狀態</TableCell>
+                <TableCell align="center">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -487,14 +487,14 @@ function CustomerTableRow({
           onCommit={(value) => onCellEdit(customer, "address", value)}
         />
       </TableCell>
-      <TableCell>
+      <TableCell align="center">
         <EditableStatusCell
           isActive={customer.isActive}
           disabled={statusDisabled}
           onCommit={(isActive) => onCellEdit(customer, "isActive", isActive)}
         />
       </TableCell>
-      <TableCell>
+      <TableCell align="center">
         <RowActions customer={customer} onEdit={onEdit} />
       </TableCell>
     </TableRow>

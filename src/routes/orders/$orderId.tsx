@@ -484,14 +484,14 @@ function LineItemRowComponent({
         <TableCell align="right">
           {lineItem.subtotal.toLocaleString()}
         </TableCell>
-        <TableCell>
+        <TableCell align="center">
           <StatusChip
             status={lineItem.status}
             colorMap={LINE_ITEM_STATUS_COLOR_MAP}
           />
         </TableCell>
-        <TableCell>
-          <Box sx={{ display: "flex", gap: 0.5 }}>
+        <TableCell align="center">
+          <Box sx={{ display: "flex", justifyContent: "center", gap: 0.5 }}>
             {canPurchase && (
               <Button
                 size="small"
@@ -558,8 +558,8 @@ function LineItemRowComponent({
                         <TableCell align="right">數量</TableCell>
                         <TableCell align="right">單位成本</TableCell>
                         <TableCell>採購日期</TableCell>
-                        <TableCell>狀態</TableCell>
-                        <TableCell>操作</TableCell>
+                        <TableCell align="center">狀態</TableCell>
+                        <TableCell align="center">操作</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -575,7 +575,7 @@ function LineItemRowComponent({
                           <TableCell>
                             {formatDate(record.purchasedAt)}
                           </TableCell>
-                          <TableCell>
+                          <TableCell align="center">
                             <StatusChip
                               status={
                                 PURCHASE_STATUS_LABEL[record.status] ??
@@ -588,7 +588,7 @@ function LineItemRowComponent({
                               }}
                             />
                           </TableCell>
-                          <TableCell>
+                          <TableCell align="center">
                             {record.status === "pending" && (
                               <Button
                                 size="small"
@@ -839,8 +839,8 @@ function OrderDetailPage(): React.ReactElement {
                   <TableCell align="right">數量</TableCell>
                   <TableCell align="right">單價</TableCell>
                   <TableCell align="right">小計</TableCell>
-                  <TableCell>狀態</TableCell>
-                  <TableCell>操作</TableCell>
+                  <TableCell align="center">狀態</TableCell>
+                  <TableCell align="center">操作</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

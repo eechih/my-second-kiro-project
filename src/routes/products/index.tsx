@@ -253,8 +253,8 @@ function ProductListPage(): React.ReactElement {
                 <TableCell align="center">供應商</TableCell>
                 <TableCell align="right">進貨成本</TableCell>
                 <TableCell>建立日期</TableCell>
-                <TableCell>狀態</TableCell>
-                <TableCell>操作</TableCell>
+                <TableCell align="center">狀態</TableCell>
+                <TableCell align="center">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -479,15 +479,15 @@ function ProductTableRow({
         />
       </TableCell>
       <TableCell>{createdDate}</TableCell>
-      <TableCell>
+      <TableCell align="center">
         <EditableStatusCell
           isActive={product.isActive}
           disabled={statusDisabled}
           onCommit={(isActive) => onCellEdit(product, "isActive", isActive)}
         />
       </TableCell>
-      <TableCell>
-        <Box sx={{ display: "flex", gap: 1 }}>
+      <TableCell align="center">
+        <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
           <Tooltip title="編輯">
             <IconButton
               size="small"

@@ -17,7 +17,14 @@ export function SupplierRowActions({
   onEdit,
 }: SupplierRowActionsProps): React.ReactElement {
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 0.5,
+      }}
+    >
       <Tooltip title="編輯">
         <IconButton size="small" onClick={() => onEdit(supplier)}>
           <EditIcon fontSize="small" />

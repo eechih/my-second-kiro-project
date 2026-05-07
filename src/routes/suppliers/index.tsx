@@ -316,8 +316,8 @@ function SupplierListPage(): React.ReactElement {
                 <TableCell>電話</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>地址</TableCell>
-                <TableCell>狀態</TableCell>
-                <TableCell>操作</TableCell>
+                <TableCell align="center">狀態</TableCell>
+                <TableCell align="center">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -490,14 +490,14 @@ function SupplierTableRow({
           onCommit={(value) => onCellEdit(supplier, "address", value)}
         />
       </TableCell>
-      <TableCell>
+      <TableCell align="center">
         <EditableStatusCell
           isActive={supplier.isActive}
           disabled={statusDisabled}
           onCommit={(isActive) => onCellEdit(supplier, "isActive", isActive)}
         />
       </TableCell>
-      <TableCell>
+      <TableCell align="center">
         <SupplierRowActions supplier={supplier} onEdit={onEdit} />
       </TableCell>
     </TableRow>

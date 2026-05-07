@@ -108,10 +108,10 @@ function OrderListPage(): React.ReactElement {
               <TableRow>
                 <TableCell>訂單編號</TableCell>
                 <TableCell>客戶名稱</TableCell>
-                <TableCell align="right">總金額</TableCell>
+                <TableCell>訂購日期</TableCell>
                 <TableCell align="center">狀態</TableCell>
-                <TableCell>建立日期</TableCell>
-                <TableCell>操作</TableCell>
+                <TableCell align="right">總金額</TableCell>
+                <TableCell align="center">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -189,11 +189,16 @@ function OrderTableRow({
   }
 
   return (
-    <TableRow hover>
-      <TableCell>{order.orderNumber}</TableCell>
-      <TableCell>{order.customerName}</TableCell>
-      <TableCell align="right">
-        ${order.totalAmount.toLocaleString()}
+      <TableRow hover>
+        <TableCell>{order.orderNumber}</TableCell>
+        <TableCell>{order.customerName}</TableCell>
+      <TableCell>
+        <Box>
+          <Typography variant="body2">{formatDate(order.createdAt)}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {formatTime(order.createdAt)}
+          </Typography>
+        </Box>
       </TableCell>
       <TableCell align="center">
         <StatusChip
@@ -208,8 +213,10 @@ function OrderTableRow({
           }}
         />
       </TableCell>
-      <TableCell>{formatDate(order.createdAt)}</TableCell>
-      <TableCell>
+      <TableCell align="right">
+        ${order.totalAmount.toLocaleString()}
+      </TableCell>
+      <TableCell align="center">
         <Tooltip title="編輯">
           <IconButton
             size="small"
@@ -228,8 +235,26 @@ function OrderTableRow({
 function formatDate(dateStr: string): string {
   if (!dateStr) return "";
   try {
-    return new Date(dateStr).toLocaleDateString("zh-TW");
+    return new Date(dateStr).toLocaleDateString("zh-TW", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
   } catch {
     return dateStr;
+  }
+}
+
+function formatTime(dateStr: string): string {
+  if (!dateStr) return "";
+  try {
+    return new Date(dateStr).toLocaleTimeString("zh-TW", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return "";
   }
 }
