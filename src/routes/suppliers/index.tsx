@@ -1,35 +1,10 @@
-import { useState, useMemo, useCallback } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import {
-  useReactTable,
-  getCoreRowModel,
-  createColumnHelper,
-  flexRender,
-} from "@tanstack/react-table";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
-import Link from "@mui/material/Link";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
-import Checkbox from "@mui/material/Checkbox";
-import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { SupplierToolbar } from "./-components/SupplierToolbar";
-import { SupplierInfoCell } from "./-components/SupplierInfoCell";
 import { CursorPagination } from "@/components/CursorPagination";
-import { SupplierRowActions } from "./-components/SupplierRowActions";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
-  useSupplierList,
-  useDeactivateSupplier,
   useActivateSupplier,
+  useDeactivateSupplier,
+  useSupplierList,
   type StatusFilter,
   type SupplierSortField,
 } from "@/hooks/useSuppliers";
@@ -38,10 +13,38 @@ import {
   getSupplierCsvFilename,
 } from "@/lib/supplier-csv";
 import { getRowNumber } from "@/lib/table-utils";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Checkbox from "@mui/material/Checkbox";
+import CircularProgress from "@mui/material/CircularProgress";
+import Link from "@mui/material/Link";
+import Paper from "@mui/material/Paper";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Typography from "@mui/material/Typography";
 import type { Supplier } from "@shared/models";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { useCallback, useMemo, useState } from "react";
+import { SupplierInfoCell } from "./-components/SupplierInfoCell";
+import { SupplierRowActions } from "./-components/SupplierRowActions";
+import { SupplierToolbar } from "./-components/SupplierToolbar";
 
 export const Route = createFileRoute("/suppliers/")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

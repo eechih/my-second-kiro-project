@@ -1,67 +1,70 @@
-import { useState, useCallback } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EntitySelect } from "@/components/EntitySelect";
+import { StatusChip } from "@/components/StatusChip";
+import {
+  useConfirmReceived,
+  useCreatePurchaseRecord,
+  useOrder,
+  useShipLineItem,
+  useUpdateOrderStatus,
+} from "@/hooks/useOrders";
+import { useProduct } from "@/hooks/useProducts";
+import { client } from "@/lib/amplify-client";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import BlockIcon from "@mui/icons-material/Block";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Collapse from "@mui/material/Collapse";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import IconButton from "@mui/material/IconButton";
-import Collapse from "@mui/material/Collapse";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import LocalShippingIcon from "@mui/icons-material/LocalShipping";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import BlockIcon from "@mui/icons-material/Block";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import { StatusChip } from "@/components/StatusChip";
-import { EntitySelect } from "@/components/EntitySelect";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
-import {
-  useOrder,
-  useUpdateOrderStatus,
-  useCreatePurchaseRecord,
-  useConfirmReceived,
-  useShipLineItem,
-} from "@/hooks/useOrders";
-import { useProduct } from "@/hooks/useProducts";
-import { client } from "@/lib/amplify-client";
+import Typography from "@mui/material/Typography";
 import { getNextAllowedOrderStatuses } from "@shared/logic/order-status";
+import { resolveEffectiveCost } from "@shared/logic/product-variant";
 import {
   calculateRemainingPurchaseQuantity,
   validatePurchaseQuantity,
 } from "@shared/logic/purchase-record";
 import {
   calculateRemainingShipQuantity,
-  validateShipment,
   resolveStockQuantity,
+  validateShipment,
 } from "@shared/logic/shipment";
-import { resolveEffectiveCost } from "@shared/logic/product-variant";
 import type {
-  Order,
   LineItem,
-  PurchaseRecord,
+  Order,
   OrderStatus,
+  PurchaseRecord,
   Supplier,
 } from "@shared/models";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useCallback, useState } from "react";
 
 export const Route = createFileRoute("/orders/$orderId")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }
@@ -251,7 +254,8 @@ function PurchaseDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Typography variant="body2" color="text.secondary">
-            訂購數量：{lineItem.quantity} 已採購：{lineItem.purchasedQuantity} 未採購餘額：
+            訂購數量：{lineItem.quantity} 已採購：{lineItem.purchasedQuantity}{" "}
+            未採購餘額：
             {remaining}
           </Typography>
           <EntitySelect<Supplier>
@@ -369,7 +373,8 @@ function ShipDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Typography variant="body2" color="text.secondary">
-            訂購數量：{lineItem.quantity} 已出貨：{lineItem.shippedQuantity} 未出貨餘額：
+            訂購數量：{lineItem.quantity} 已出貨：{lineItem.shippedQuantity}{" "}
+            未出貨餘額：
             {remainingShip} 目前庫存：{stockQty}
           </Typography>
           <TextField

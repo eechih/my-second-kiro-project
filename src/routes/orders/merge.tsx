@@ -1,29 +1,32 @@
-import { useState, useCallback, useMemo } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EntitySelect } from "@/components/EntitySelect";
+import { StatusChip } from "@/components/StatusChip";
+import { useMergeOrders, useOrderList } from "@/hooks/useOrders";
+import { client } from "@/lib/amplify-client";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import MergeIcon from "@mui/icons-material/CallMerge";
 import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
+import CircularProgress from "@mui/material/CircularProgress";
+import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import MergeIcon from "@mui/icons-material/CallMerge";
-import { EntitySelect } from "@/components/EntitySelect";
-import { StatusChip } from "@/components/StatusChip";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { useOrderList, useMergeOrders } from "@/hooks/useOrders";
-import { client } from "@/lib/amplify-client";
+import Typography from "@mui/material/Typography";
 import { validateMergeOrders } from "@shared/logic/order-merge";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useCallback, useMemo, useState } from "react";
 
 export const Route = createFileRoute("/orders/merge")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

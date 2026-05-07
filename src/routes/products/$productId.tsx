@@ -1,43 +1,46 @@
-import { useState, useCallback, useEffect } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useForm } from "@tanstack/react-form";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
-import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
-import Skeleton from "@mui/material/Skeleton";
-import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
-import Chip from "@mui/material/Chip";
-import TextField from "@mui/material/TextField";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import { FormField } from "@/components/FormField";
-import { EntitySelect } from "@/components/EntitySelect";
-import { VariantTable } from "@/components/VariantTable";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EntitySelect } from "@/components/EntitySelect";
+import { FormField } from "@/components/FormField";
 import { ImageUploader } from "@/components/ImageUploader";
+import { VariantTable } from "@/components/VariantTable";
 import {
+  useDeleteVariant,
+  useGenerateVariants,
   useProduct,
   useUpdateProduct,
-  useGenerateVariants,
   useUpdateVariant,
-  useDeleteVariant,
 } from "@/hooks/useProducts";
-import { validateProduct } from "@shared/logic/validation";
 import { client } from "@/lib/amplify-client";
+import AddIcon from "@mui/icons-material/Add";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import DeleteIcon from "@mui/icons-material/Delete";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
+import Skeleton from "@mui/material/Skeleton";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import { validateProduct } from "@shared/logic/validation";
 import type {
-  Supplier,
   SpecDimension,
+  Supplier,
   UpdateVariantInput,
 } from "@shared/models";
+import { useForm } from "@tanstack/react-form";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useState } from "react";
 
 export const Route = createFileRoute("/products/$productId")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

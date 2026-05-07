@@ -1,47 +1,50 @@
-import { useState, useMemo, useCallback } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import {
-  useReactTable,
-  getCoreRowModel,
-  createColumnHelper,
-  flexRender,
-} from "@tanstack/react-table";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
-import Link from "@mui/material/Link";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Paper from "@mui/material/Paper";
-import Checkbox from "@mui/material/Checkbox";
-import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { CustomerToolbar } from "./-components/CustomerToolbar";
-import { UserInfoCell } from "./-components/UserInfoCell";
 import { CursorPagination } from "@/components/CursorPagination";
-import { RowActions } from "./-components/RowActions";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
+  useActivateCustomer,
   useCustomerList,
   useDeactivateCustomer,
-  useActivateCustomer,
   type StatusFilter,
 } from "@/hooks/useCustomers";
 import {
   generateCustomerCsv,
   getCustomerCsvFilename,
 } from "@/lib/customer-csv";
-import { getRowNumber } from "@/lib/table-utils";
 import type { SortField } from "@/lib/table-utils";
+import { getRowNumber } from "@/lib/table-utils";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Checkbox from "@mui/material/Checkbox";
+import CircularProgress from "@mui/material/CircularProgress";
+import Link from "@mui/material/Link";
+import Paper from "@mui/material/Paper";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Typography from "@mui/material/Typography";
 import type { Customer } from "@shared/models";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { useCallback, useMemo, useState } from "react";
+import { CustomerToolbar } from "./-components/CustomerToolbar";
+import { RowActions } from "./-components/RowActions";
+import { UserInfoCell } from "./-components/UserInfoCell";
 
 export const Route = createFileRoute("/customers/")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

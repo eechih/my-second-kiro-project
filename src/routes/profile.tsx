@@ -1,16 +1,19 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
 import {
   Box,
-  Typography,
-  Paper,
+  Divider,
   List,
   ListItem,
   ListItemText,
-  Divider,
+  Paper,
+  Typography,
 } from "@mui/material";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/profile")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

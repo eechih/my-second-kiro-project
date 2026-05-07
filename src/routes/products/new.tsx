@@ -1,29 +1,34 @@
-import { useState, useCallback } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useForm } from "@tanstack/react-form";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
-import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
-import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
-import Chip from "@mui/material/Chip";
-import TextField from "@mui/material/TextField";
+import { EntitySelect } from "@/components/EntitySelect";
+import { FormField } from "@/components/FormField";
+import { useCreateProduct } from "@/hooks/useProducts";
+import { client } from "@/lib/amplify-client";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import { FormField } from "@/components/FormField";
-import { EntitySelect } from "@/components/EntitySelect";
-import { useCreateProduct } from "@/hooks/useProducts";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { validateProduct } from "@shared/logic/validation";
-import { client } from "@/lib/amplify-client";
-import type { Supplier, SpecDimension } from "@shared/models";
+import type { SpecDimension, Supplier } from "@shared/models";
+import { useForm } from "@tanstack/react-form";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useCallback, useState } from "react";
 
 export const Route = createFileRoute("/products/new")({
   beforeLoad: ({ context }) => {
+    // 等待認證載入完成
+    if (context.auth.isLoading) {
+      return;
+    }
+    // 如果未認證，導向首頁
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

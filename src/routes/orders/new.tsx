@@ -1,14 +1,17 @@
-import { useState, useCallback, useEffect } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useForm } from "@tanstack/react-form";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
+import { EntitySelect } from "@/components/EntitySelect";
+import { VariantSelect } from "@/components/VariantSelect";
+import { useCreateOrder } from "@/hooks/useOrders";
+import { useProduct } from "@/hooks/useProducts";
+import { client } from "@/lib/amplify-client";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -16,19 +19,19 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
-import { EntitySelect } from "@/components/EntitySelect";
-import { VariantSelect } from "@/components/VariantSelect";
-import { useCreateOrder } from "@/hooks/useOrders";
-import { useProduct } from "@/hooks/useProducts";
-import { client } from "@/lib/amplify-client";
-import { resolveEffectivePrice } from "@shared/logic/product-variant";
+import Typography from "@mui/material/Typography";
 import { calculateLineItemSubtotal } from "@shared/logic/order-calculations";
+import { resolveEffectivePrice } from "@shared/logic/product-variant";
 import type { Customer, Product, ProductVariant } from "@shared/models";
+import { useForm } from "@tanstack/react-form";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useState } from "react";
 
 export const Route = createFileRoute("/orders/new")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

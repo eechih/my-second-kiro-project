@@ -1,5 +1,7 @@
+import { CursorPagination } from "@/components/CursorPagination";
 import { StatusChip } from "@/components/StatusChip";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
+import type { OrderStatusFilter } from "@/hooks/useOrders";
 import { useOrderList, usePrefetchOrder } from "@/hooks/useOrders";
 import Box from "@mui/material/Box";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
@@ -22,12 +24,13 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
-import { CursorPagination } from "@/components/CursorPagination";
 import { OrderToolbar } from "./-components/OrderToolbar";
-import type { OrderStatusFilter } from "@/hooks/useOrders";
 
 export const Route = createFileRoute("/orders/")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

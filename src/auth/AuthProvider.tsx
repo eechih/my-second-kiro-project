@@ -1,20 +1,20 @@
 import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  type ReactNode,
-} from "react";
-import {
-  getCurrentUser,
-  signOut as amplifySignOut,
-  signIn as amplifySignIn,
-  signUp as amplifySignUp,
   confirmSignUp as amplifyConfirmSignUp,
+  signIn as amplifySignIn,
+  signOut as amplifySignOut,
+  signUp as amplifySignUp,
   fetchUserAttributes,
+  getCurrentUser,
   type AuthUser,
 } from "aws-amplify/auth";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
 export interface AuthContext {
   isAuthenticated: boolean;
@@ -68,9 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Guard against getCurrentUser hanging (e.g. network issues)
-    const timeout = setTimeout(() => setIsLoading(false), 5000);
-    checkUser().finally(() => clearTimeout(timeout));
+    checkUser();
   }, [checkUser]);
 
   const signInWithEmail = useCallback(

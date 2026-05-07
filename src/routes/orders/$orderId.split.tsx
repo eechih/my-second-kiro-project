@@ -1,32 +1,35 @@
-import { useState, useMemo } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { useOrder, useSplitOrder } from "@/hooks/useOrders";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CallSplitIcon from "@mui/icons-material/CallSplit";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Divider from "@mui/material/Divider";
+import FormControl from "@mui/material/FormControl";
+import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import FormControl from "@mui/material/FormControl";
-import Chip from "@mui/material/Chip";
-import Divider from "@mui/material/Divider";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import CallSplitIcon from "@mui/icons-material/CallSplit";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { useOrder, useSplitOrder } from "@/hooks/useOrders";
-import { validateSplitOrder } from "@shared/logic/order-split";
+import Typography from "@mui/material/Typography";
 import { calculateOrderTotal } from "@shared/logic/order-calculations";
-import type { SplitAllocation, LineItem } from "@shared/models";
+import { validateSplitOrder } from "@shared/logic/order-split";
+import type { LineItem, SplitAllocation } from "@shared/models";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/orders/$orderId/split")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

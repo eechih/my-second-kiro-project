@@ -1,5 +1,7 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { CursorPagination } from "@/components/CursorPagination";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
+import type { ProductStatusFilter } from "@/hooks/useProducts";
 import {
   useActivateProduct,
   useDeactivateProduct,
@@ -34,12 +36,13 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
-import { CursorPagination } from "@/components/CursorPagination";
 import { ProductToolbar } from "./-components/ProductToolbar";
-import type { ProductStatusFilter } from "@/hooks/useProducts";
 
 export const Route = createFileRoute("/products/")({
   beforeLoad: ({ context }) => {
+    if (context.auth.isLoading) {
+      return;
+    }
     if (!context.auth.isAuthenticated) {
       throw redirect({ to: "/" });
     }

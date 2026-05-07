@@ -1,18 +1,18 @@
 import {
+  AppBar,
+  Box,
+  Button,
+  CircularProgress,
+  Toolbar,
+  Typography,
+} from "@mui/material";
+import type { QueryClient } from "@tanstack/react-query";
+import {
   createRootRouteWithContext,
   Link,
   Outlet,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import {
-  Box,
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
-  CircularProgress,
-} from "@mui/material";
-import type { QueryClient } from "@tanstack/react-query";
 import { useAuth, type AuthContext } from "../auth/AuthProvider";
 
 interface RouterContext {
