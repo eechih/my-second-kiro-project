@@ -47,6 +47,19 @@ if (
   );
 }
 
+// 匯出表格名稱至 amplify_outputs.json，供前端 Infrastructure 頁面建構 Console 連結
+const tableOutputs = Object.entries(backend.data.resources.tables).reduce(
+  (acc, [key, value]) => ({
+    ...acc,
+    [key]: { tableName: value.tableName, tableArn: value.tableArn },
+  }),
+  {},
+);
+
+backend.addOutput({
+  custom: { tables: tableOutputs },
+});
+
 // 所有需要直接存取 DynamoDB 的 Lambda 函式
 const transactionalFunctions = [
   backend.shipLineItem,
