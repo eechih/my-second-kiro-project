@@ -61,23 +61,14 @@ const mockUseCustomer = vi.fn((id: string) => ({
   isLoading: false,
 }));
 
-const mockDeactivateMutateAsync = vi.fn();
-const mockActivateMutateAsync = vi.fn();
 const mockUpdateMutateAsync = vi.fn();
 
 vi.mock("@/hooks/useCustomers", () => ({
   useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
   useCustomer: (id: string) => mockUseCustomer(id),
-  useDeactivateCustomer: () => ({
-    mutateAsync: mockDeactivateMutateAsync,
-    isPending: false,
-  }),
-  useActivateCustomer: () => ({
-    mutateAsync: mockActivateMutateAsync,
-    isPending: false,
-  }),
   useUpdateCustomer: () => ({
     mutateAsync: mockUpdateMutateAsync,
+    isPending: false,
   }),
 }));
 
@@ -120,16 +111,9 @@ beforeEach(async () => {
   vi.doMock("@/hooks/useCustomers", () => ({
     useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
     useCustomer: (id: string) => mockUseCustomer(id),
-    useDeactivateCustomer: () => ({
-      mutateAsync: mockDeactivateMutateAsync,
-      isPending: false,
-    }),
-    useActivateCustomer: () => ({
-      mutateAsync: mockActivateMutateAsync,
-      isPending: false,
-    }),
     useUpdateCustomer: () => ({
       mutateAsync: mockUpdateMutateAsync,
+      isPending: false,
     }),
   }));
   vi.doMock("@/hooks/useCursorPagination", () => ({

@@ -212,6 +212,7 @@ export function useUpdateCustomer(): UseMutationResult<
         ...(input.phone !== undefined && { phone: input.phone }),
         ...(input.email !== undefined && { email: input.email }),
         ...(input.address !== undefined && { address: input.address }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
       });
 
       if (errors && errors.length > 0) {
@@ -243,6 +244,7 @@ export function useUpdateCustomer(): UseMutationResult<
           ...(input.phone !== undefined && { phone: input.phone }),
           ...(input.email !== undefined && { email: input.email }),
           ...(input.address !== undefined && { address: input.address }),
+          ...(input.isActive !== undefined && { isActive: input.isActive }),
         });
       }
 
@@ -266,97 +268,6 @@ export function useUpdateCustomer(): UseMutationResult<
       void queryClient.invalidateQueries({ queryKey: CUSTOMER_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: CUSTOMER_KEYS.detail(input.id),
-      });
-    },
-  });
-}
-
-/**
- * 停用客戶 mutation hook
- *
- * 將客戶的 isActive 設為 false（停用）。
- * 停用後的客戶不出現在訂單建立的客戶選取清單中，
- * 但歷史訂單仍可顯示該客戶資訊。
- *
- * 需求：1.7
- */
-export function useDeactivateCustomer(): UseMutationResult<
-  Customer,
-  Error,
-  { customerId: string }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      customerId,
-    }: {
-      customerId: string;
-    }): Promise<Customer> => {
-      const { data, errors } = await client.models.Customer.update({
-        id: customerId,
-        isActive: false,
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "停用客戶失敗");
-      }
-
-      if (!data) {
-        throw new Error("停用客戶失敗：未回傳資料");
-      }
-
-      return mapToCustomer(data);
-    },
-    onSuccess: (_, { customerId }) => {
-      void queryClient.invalidateQueries({ queryKey: CUSTOMER_KEYS.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: CUSTOMER_KEYS.detail(customerId),
-      });
-    },
-  });
-}
-
-/**
- * 啟用客戶 mutation hook
- *
- * 將已停用的客戶重新啟用（isActive 設為 true），
- * 恢復在選取清單中的可見性。
- *
- * 需求：1.8
- */
-export function useActivateCustomer(): UseMutationResult<
-  Customer,
-  Error,
-  { customerId: string }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      customerId,
-    }: {
-      customerId: string;
-    }): Promise<Customer> => {
-      const { data, errors } = await client.models.Customer.update({
-        id: customerId,
-        isActive: true,
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "啟用客戶失敗");
-      }
-
-      if (!data) {
-        throw new Error("啟用客戶失敗：未回傳資料");
-      }
-
-      return mapToCustomer(data);
-    },
-    onSuccess: (_, { customerId }) => {
-      void queryClient.invalidateQueries({ queryKey: CUSTOMER_KEYS.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: CUSTOMER_KEYS.detail(customerId),
       });
     },
   });

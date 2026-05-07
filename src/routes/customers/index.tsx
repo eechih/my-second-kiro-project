@@ -7,10 +7,8 @@ import { listTableBodyTextSx } from "@/components/listTableStyles";
 import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
-  useActivateCustomer,
   useCustomer,
   useCustomerList,
-  useDeactivateCustomer,
   useUpdateCustomer,
   type StatusFilter,
 } from "@/hooks/useCustomers";
@@ -50,7 +48,8 @@ type EditableCustomerField =
   | "contactPerson"
   | "phone"
   | "email"
-  | "address";
+  | "address"
+  | "isActive";
 
 function CustomerListPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -87,8 +86,6 @@ function CustomerListPage(): React.ReactElement {
   const nextToken = data?.nextToken;
 
   // --- Mutations ---
-  const deactivateMutation = useDeactivateCustomer();
-  const activateMutation = useActivateCustomer();
   const updateMutation = useUpdateCustomer();
 
   // --- 篩選/搜尋/每頁筆數變更時重置分頁 ---
@@ -176,9 +173,11 @@ function CustomerListPage(): React.ReactElement {
     async (
       customer: Customer,
       field: EditableCustomerField,
-      value: string,
+      value: string | boolean,
     ): Promise<void> => {
-      const nextValue = value.trim();
+      if (field === "isActive" && value === customer.isActive) return;
+
+      const nextValue = typeof value === "string" ? value.trim() : value;
       if (
         (field === "name" || field === "contactPerson" || field === "phone") &&
         !nextValue
@@ -208,24 +207,6 @@ function CustomerListPage(): React.ReactElement {
       }
     },
     [updateMutation],
-  );
-
-  const handleStatusEdit = useCallback(
-    async (customer: Customer, isActive: boolean): Promise<void> => {
-      if (customer.isActive === isActive) return;
-
-      setError(null);
-      try {
-        if (isActive) {
-          await activateMutation.mutateAsync({ customerId: customer.id });
-        } else {
-          await deactivateMutation.mutateAsync({ customerId: customer.id });
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "更新客戶狀態失敗");
-      }
-    },
-    [activateMutation, deactivateMutation],
   );
 
   const handleCustomerLoaded = useCallback((customer: Customer): void => {
@@ -355,14 +336,10 @@ function CustomerListPage(): React.ReactElement {
                     key={customerId}
                     customerId={customerId}
                     selected={selectedIds.has(customerId)}
-                    statusDisabled={
-                      activateMutation.isPending ||
-                      deactivateMutation.isPending
-                    }
+                    statusDisabled={updateMutation.isPending}
                     onSelect={handleSelectRow}
                     onEdit={handleEdit}
                     onCellEdit={handleCellEdit}
-                    onStatusEdit={handleStatusEdit}
                     onCustomerLoaded={handleCustomerLoaded}
                   />
                 ))
@@ -396,9 +373,8 @@ interface CustomerTableRowProps {
   onCellEdit: (
     customer: Customer,
     field: EditableCustomerField,
-    value: string,
+    value: string | boolean,
   ) => Promise<void>;
-  onStatusEdit: (customer: Customer, isActive: boolean) => Promise<void>;
   onCustomerLoaded: (customer: Customer) => void;
 }
 
@@ -409,7 +385,6 @@ function CustomerTableRow({
   onSelect,
   onEdit,
   onCellEdit,
-  onStatusEdit,
   onCustomerLoaded,
 }: CustomerTableRowProps): React.ReactElement {
   const { data: customer, isLoading, error } = useCustomer(customerId);
@@ -516,7 +491,7 @@ function CustomerTableRow({
         <EditableStatusCell
           isActive={customer.isActive}
           disabled={statusDisabled}
-          onCommit={(isActive) => onStatusEdit(customer, isActive)}
+          onCommit={(isActive) => onCellEdit(customer, "isActive", isActive)}
         />
       </TableCell>
       <TableCell>
