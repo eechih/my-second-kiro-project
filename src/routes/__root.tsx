@@ -1,5 +1,16 @@
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import BusinessIcon from "@mui/icons-material/Business";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import DnsIcon from "@mui/icons-material/Dns";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import LoginIcon from "@mui/icons-material/Login";
+import LogoutIcon from "@mui/icons-material/Logout";
+import MenuIcon from "@mui/icons-material/Menu";
+import PeopleIcon from "@mui/icons-material/People";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import {
   AppBar,
+  Avatar,
   Box,
   Button,
   CircularProgress,
@@ -11,22 +22,12 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Tooltip,
+  Stack,
   Toolbar,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import AccountCircleIcon from "@mui/icons-material/AccountCircle";
-import BusinessIcon from "@mui/icons-material/Business";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import DnsIcon from "@mui/icons-material/Dns";
-import InventoryIcon from "@mui/icons-material/Inventory";
-import LoginIcon from "@mui/icons-material/Login";
-import LogoutIcon from "@mui/icons-material/Logout";
-import MenuIcon from "@mui/icons-material/Menu";
-import PeopleIcon from "@mui/icons-material/People";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import { alpha, useTheme } from "@mui/material/styles";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
@@ -36,7 +37,6 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { useState, type ReactElement } from "react";
-import { useTheme, type Theme } from "@mui/material/styles";
 import { useAuth, type AuthContext } from "../auth/AuthProvider";
 
 interface RouterContext {
@@ -48,7 +48,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
 });
 
-const drawerWidth = 240;
+const drawerWidth = 280;
 
 type NavigationPath =
   | "/"
@@ -60,27 +60,49 @@ type NavigationPath =
 
 interface NavigationItem {
   label: string;
+  description: string;
   to: NavigationPath;
   icon: ReactElement;
 }
 
 const navigationItems = [
-  { label: "儀表板", to: "/", icon: <DashboardIcon /> },
-  { label: "客戶管理", to: "/customers", icon: <PeopleIcon /> },
-  { label: "供應商管理", to: "/suppliers", icon: <BusinessIcon /> },
-  { label: "商品管理", to: "/products", icon: <InventoryIcon /> },
-  { label: "訂單管理", to: "/orders", icon: <ReceiptLongIcon /> },
-  { label: "基礎設施", to: "/infrastructure", icon: <DnsIcon /> },
+  {
+    label: "儀表板",
+    description: "營運總覽",
+    to: "/",
+    icon: <DashboardIcon />,
+  },
+  {
+    label: "客戶管理",
+    description: "客戶資料與狀態",
+    to: "/customers",
+    icon: <PeopleIcon />,
+  },
+  {
+    label: "供應商管理",
+    description: "供應商聯絡資料",
+    to: "/suppliers",
+    icon: <BusinessIcon />,
+  },
+  {
+    label: "商品管理",
+    description: "商品、照片與規格",
+    to: "/products",
+    icon: <InventoryIcon />,
+  },
+  {
+    label: "訂單管理",
+    description: "採購、入庫與出貨",
+    to: "/orders",
+    icon: <ReceiptLongIcon />,
+  },
+  {
+    label: "基礎設施",
+    description: "Amplify 資源檢視",
+    to: "/infrastructure",
+    icon: <DnsIcon />,
+  },
 ] as const satisfies readonly NavigationItem[];
-
-function getClosedDrawerWidth(theme: Theme) {
-  return {
-    width: `calc(${theme.spacing(7)} + 1px)`,
-    [theme.breakpoints.up("sm")]: {
-      width: `calc(${theme.spacing(8)} + 1px)`,
-    },
-  };
-}
 
 function isNavigationItemSelected(pathname: string, to: NavigationPath) {
   if (to === "/") {
@@ -88,6 +110,13 @@ function isNavigationItemSelected(pathname: string, to: NavigationPath) {
   }
 
   return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+function getCurrentSectionLabel(pathname: string) {
+  return (
+    navigationItems.find((item) => isNavigationItemSelected(pathname, item.to))
+      ?.label ?? "訂單管理系統"
+  );
 }
 
 function RootComponent() {
@@ -98,7 +127,7 @@ function RootComponent() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   if (auth.isLoading) {
     return (
@@ -115,208 +144,315 @@ function RootComponent() {
     );
   }
 
-  return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
-      <AppBar
-        position="fixed"
-        sx={{
-          zIndex: theme.zIndex.drawer + 1,
-          transition: theme.transitions.create(["width", "margin"], {
-            easing: theme.transitions.easing.sharp,
-            duration: drawerOpen
-              ? theme.transitions.duration.enteringScreen
-              : theme.transitions.duration.leavingScreen,
-          }),
-          ...(auth.isAuthenticated &&
-            drawerOpen && {
-              ml: `${drawerWidth}px`,
-              width: `calc(100% - ${drawerWidth}px)`,
-            }),
-        }}
-      >
-        <Toolbar>
-          {auth.isAuthenticated && (
-            <IconButton
-              color="inherit"
-              aria-label="開啟選單"
-              edge="start"
-              onClick={() => setDrawerOpen(true)}
-              sx={{
-                display: drawerOpen ? "none" : "inline-flex",
-                mr: 2,
-              }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
-          <Typography
-            variant="h6"
-            component={Link}
-            to="/"
-            noWrap
-            sx={{
-              textDecoration: "none",
-              color: "inherit",
-              flexGrow: 1,
-              minWidth: 0,
-              mr: 2,
-            }}
-          >
-            訂單管理系統
-          </Typography>
-          {auth.isAuthenticated ? (
-            <>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/profile"
-                aria-label="個人資料"
-                startIcon={<AccountCircleIcon />}
-                sx={{
-                  minWidth: { xs: 40, sm: "auto" },
-                  px: { xs: 1, sm: 2 },
-                  "& .MuiButton-startIcon": {
-                    mr: { xs: 0, sm: 1 },
-                  },
-                }}
-              >
-                <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                  個人資料
-                </Box>
-              </Button>
-              <Button
-                color="inherit"
-                aria-label="登出"
-                startIcon={<LogoutIcon />}
-                onClick={() => auth.signOut()}
-                sx={{
-                  minWidth: { xs: 40, sm: "auto" },
-                  px: { xs: 1, sm: 2 },
-                  "& .MuiButton-startIcon": {
-                    mr: { xs: 0, sm: 1 },
-                  },
-                }}
-              >
-                <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                  登出
-                </Box>
-              </Button>
-            </>
-          ) : (
-            <Button
-              color="inherit"
-              component={Link}
-              to="/login"
-              aria-label="登入"
-              startIcon={<LoginIcon />}
-              sx={{
-                minWidth: { xs: 40, sm: "auto" },
-                px: { xs: 1, sm: 2 },
-                "& .MuiButton-startIcon": {
-                  mr: { xs: 0, sm: 1 },
-                },
-              }}
-            >
-              登入
-            </Button>
-          )}
-        </Toolbar>
-      </AppBar>
-      {auth.isAuthenticated && (
-        <Drawer
-          variant="permanent"
-          open={drawerOpen}
+  if (!auth.isAuthenticated) {
+    return (
+      <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+        <PublicAppBar />
+        <Box
+          component="main"
           sx={{
-            flexShrink: 0,
-            whiteSpace: "nowrap",
-            boxSizing: "border-box",
-            ...(drawerOpen ? { width: drawerWidth } : getClosedDrawerWidth(theme)),
-            "& .MuiDrawer-paper": {
-              overflowX: "hidden",
-              whiteSpace: "nowrap",
-              boxSizing: "border-box",
-              transition: theme.transitions.create("width", {
-                easing: theme.transitions.easing.sharp,
-                duration: drawerOpen
-                  ? theme.transitions.duration.enteringScreen
-                  : theme.transitions.duration.leavingScreen,
-              }),
-              ...(drawerOpen ? { width: drawerWidth } : getClosedDrawerWidth(theme)),
-            },
+            maxWidth: 1200,
+            mx: "auto",
+            px: { xs: 2, sm: 3 },
+            py: { xs: 3, md: 4 },
           }}
         >
-          <Toolbar
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: drawerOpen ? "flex-end" : "center",
-              px: 1,
-            }}
-          >
-            <IconButton
-              aria-label="收合選單"
-              onClick={() => setDrawerOpen(false)}
-              sx={{ display: drawerOpen ? "inline-flex" : "none" }}
-            >
-              {theme.direction === "rtl" ? (
-                <ChevronRightIcon />
-              ) : (
-                <ChevronLeftIcon />
-              )}
-            </IconButton>
-          </Toolbar>
-          <Divider />
-          <List>
-            {navigationItems.map((item) => (
-              <ListItem key={item.to} disablePadding sx={{ display: "block" }}>
-                <Tooltip
-                  title={drawerOpen ? "" : item.label}
-                  placement="right"
-                  disableInteractive
-                >
-                  <ListItemButton
-                    component={Link}
-                    to={item.to}
-                    selected={isNavigationItemSelected(pathname, item.to)}
-                    aria-label={item.label}
-                    sx={{
-                      minHeight: 48,
-                      justifyContent: drawerOpen ? "initial" : "center",
-                      px: 2.5,
-                    }}
-                  >
-                    <ListItemIcon
-                      sx={{
-                        minWidth: 0,
-                        mr: drawerOpen ? 3 : "auto",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {item.icon}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={item.label}
-                      sx={{ opacity: drawerOpen ? 1 : 0 }}
-                    />
-                  </ListItemButton>
-                </Tooltip>
-              </ListItem>
-            ))}
-          </List>
-        </Drawer>
-      )}
+          <Outlet />
+        </Box>
+        <TanStackRouterDevtools />
+      </Box>
+    );
+  }
+
+  const sectionLabel = getCurrentSectionLabel(pathname);
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        bgcolor: alpha(theme.palette.primary.main, 0.03),
+      }}
+    >
+      <SideMenu pathname={pathname} />
+      <MobileAppBar
+        sectionLabel={sectionLabel}
+        onOpenMenu={() => setMobileOpen(true)}
+      />
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: "block", md: "none" },
+          "& .MuiDrawer-paper": {
+            width: drawerWidth,
+            boxSizing: "border-box",
+          },
+        }}
+      >
+        <NavigationPanel
+          pathname={pathname}
+          onNavigate={() => setMobileOpen(false)}
+        />
+      </Drawer>
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           minWidth: 0,
-          p: 3,
+          width: { md: `calc(100% - ${drawerWidth}px)` },
         }}
       >
-        <Toolbar />
-        <Outlet />
+        <Toolbar sx={{ display: { xs: "block", md: "none" } }} />
+        <Stack
+          spacing={3}
+          sx={{
+            width: "100%",
+            maxWidth: 1440,
+            mx: "auto",
+            px: { xs: 2, sm: 3, lg: 4 },
+            py: { xs: 3, md: 4 },
+          }}
+        >
+          <Outlet />
+        </Stack>
       </Box>
       <TanStackRouterDevtools />
     </Box>
+  );
+}
+
+function PublicAppBar() {
+  return (
+    <AppBar
+      position="static"
+      elevation={0}
+      sx={{
+        bgcolor: "background.paper",
+        color: "text.primary",
+        borderBottom: 1,
+        borderColor: "divider",
+      }}
+    >
+      <Toolbar sx={{ gap: 2 }}>
+        <BrandMark />
+        <Typography
+          variant="h6"
+          component={Link}
+          to="/"
+          noWrap
+          sx={{
+            color: "inherit",
+            flexGrow: 1,
+            minWidth: 0,
+            textDecoration: "none",
+          }}
+        >
+          訂單管理系統
+        </Typography>
+        <Button
+          variant="contained"
+          component={Link}
+          to="/login"
+          startIcon={<LoginIcon />}
+        >
+          登入
+        </Button>
+      </Toolbar>
+    </AppBar>
+  );
+}
+
+interface MobileAppBarProps {
+  sectionLabel: string;
+  onOpenMenu: () => void;
+}
+
+function MobileAppBar({ sectionLabel, onOpenMenu }: MobileAppBarProps) {
+  const auth = useAuth();
+
+  return (
+    <AppBar
+      position="fixed"
+      elevation={0}
+      sx={{
+        display: { xs: "block", md: "none" },
+        bgcolor: "background.paper",
+        color: "text.primary",
+        borderBottom: 1,
+        borderColor: "divider",
+      }}
+    >
+      <Toolbar sx={{ gap: 1.5 }}>
+        <IconButton edge="start" aria-label="開啟選單" onClick={onOpenMenu}>
+          <MenuIcon />
+        </IconButton>
+        <Typography variant="h6" noWrap sx={{ flexGrow: 1, minWidth: 0 }}>
+          {sectionLabel}
+        </Typography>
+        <Tooltip title="個人資料">
+          <IconButton component={Link} to="/profile" aria-label="個人資料">
+            <AccountCircleIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="登出">
+          <IconButton aria-label="登出" onClick={() => auth.signOut()}>
+            <LogoutIcon />
+          </IconButton>
+        </Tooltip>
+      </Toolbar>
+    </AppBar>
+  );
+}
+
+interface SideMenuProps {
+  pathname: string;
+}
+
+function SideMenu({ pathname }: SideMenuProps) {
+  return (
+    <Drawer
+      variant="permanent"
+      sx={{
+        display: { xs: "none", md: "block" },
+        width: drawerWidth,
+        flexShrink: 0,
+        "& .MuiDrawer-paper": {
+          width: drawerWidth,
+          boxSizing: "border-box",
+          borderRight: 1,
+          borderColor: "divider",
+          bgcolor: "background.paper",
+          backgroundImage: "none",
+        },
+      }}
+    >
+      <NavigationPanel pathname={pathname} />
+    </Drawer>
+  );
+}
+
+interface NavigationPanelProps {
+  pathname: string;
+  onNavigate?: () => void;
+}
+
+function NavigationPanel({ pathname, onNavigate }: NavigationPanelProps) {
+  const auth = useAuth();
+
+  return (
+    <Stack sx={{ height: "100%" }}>
+      <Toolbar sx={{ minHeight: 72, gap: 1.5, px: 2 }}>
+        <BrandMark />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="subtitle1" noWrap>
+            訂單管理系統
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            採購、入庫、出貨
+          </Typography>
+        </Box>
+      </Toolbar>
+      <Divider />
+      <List sx={{ flexGrow: 1, px: 1.5, py: 2 }}>
+        {navigationItems.map((item) => (
+          <ListItem key={item.to} disablePadding sx={{ display: "block", mb: 0.5 }}>
+            <ListItemButton
+              component={Link}
+              to={item.to}
+              selected={isNavigationItemSelected(pathname, item.to)}
+              aria-label={item.label}
+              onClick={onNavigate}
+              sx={{
+                minHeight: 56,
+                borderRadius: 1.5,
+                px: 1.5,
+                "&.Mui-selected": {
+                  bgcolor: "primary.main",
+                  color: "primary.contrastText",
+                  "&:hover": {
+                    bgcolor: "primary.dark",
+                  },
+                  "& .MuiListItemIcon-root": {
+                    color: "inherit",
+                  },
+                  "& .MuiTypography-root": {
+                    color: "inherit",
+                  },
+                },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 40,
+                  color: "text.secondary",
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {item.label}
+                  </Typography>
+                }
+                secondary={
+                  <Typography variant="caption" color="text.secondary">
+                    {item.description}
+                  </Typography>
+                }
+              />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+      <Divider />
+      <Box sx={{ p: 2 }}>
+        <Stack spacing={1}>
+          <Button
+            fullWidth
+            variant="outlined"
+            component={Link}
+            to="/profile"
+            startIcon={<AccountCircleIcon />}
+            onClick={onNavigate}
+            sx={{ justifyContent: "flex-start" }}
+          >
+            個人資料
+          </Button>
+          <Button
+            fullWidth
+            variant="contained"
+            color="inherit"
+            startIcon={<LogoutIcon />}
+            onClick={() => {
+              onNavigate?.();
+              void auth.signOut();
+            }}
+            sx={{ justifyContent: "flex-start" }}
+          >
+            登出
+          </Button>
+        </Stack>
+      </Box>
+    </Stack>
+  );
+}
+
+function BrandMark() {
+  return (
+    <Avatar
+      variant="rounded"
+      sx={{
+        width: 36,
+        height: 36,
+        bgcolor: "primary.main",
+        color: "primary.contrastText",
+      }}
+    >
+      <ReceiptLongIcon fontSize="small" />
+    </Avatar>
   );
 }
