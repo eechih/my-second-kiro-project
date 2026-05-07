@@ -1,19 +1,19 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  type UseQueryResult,
-  type UseMutationResult,
-} from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
-import type {
-  Customer,
-  CreateCustomerInput,
-  UpdateCustomerInput,
-  PaginatedResult,
-} from "@shared/models";
 import type { SortField } from "@/lib/table-utils";
 import { sortCustomers } from "@/lib/table-utils";
+import type {
+  CreateCustomerInput,
+  Customer,
+  PaginatedResult,
+  UpdateCustomerInput,
+} from "@shared/models";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,7 +43,8 @@ export interface CustomerListParams {
 const CUSTOMER_KEYS = {
   all: ["customers"] as const,
   lists: () => [...CUSTOMER_KEYS.all, "list"] as const,
-  list: (params: CustomerListParams) => [...CUSTOMER_KEYS.lists(), params] as const,
+  list: (params: CustomerListParams) =>
+    [...CUSTOMER_KEYS.lists(), params] as const,
   details: () => [...CUSTOMER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...CUSTOMER_KEYS.details(), id] as const,
 };
@@ -63,7 +64,7 @@ const CUSTOMER_KEYS = {
  */
 export function useCustomerList(
   params: CustomerListParams,
-): UseQueryResult<PaginatedResult<Customer>> {
+): UseQueryResult<PaginatedResult<string>> {
   const { pageSize, nextToken, search, isActive, sortField } = params;
 
   return useQuery({
@@ -74,7 +75,7 @@ export function useCustomerList(
       isActive,
       sortField,
     }),
-    queryFn: async (): Promise<PaginatedResult<Customer>> => {
+    queryFn: async (): Promise<PaginatedResult<string>> => {
       const filter: Record<string, unknown> = {};
 
       // 狀態篩選
@@ -115,7 +116,7 @@ export function useCustomerList(
       const sortedItems = sortField ? sortCustomers(items, sortField) : items;
 
       return {
-        items: sortedItems,
+        items: sortedItems.map((customer) => customer.id),
         totalCount: sortedItems.length,
         nextToken: responseNextToken ?? undefined,
       };
@@ -195,7 +196,8 @@ export function useCreateCustomer(): UseMutationResult<
 export function useUpdateCustomer(): UseMutationResult<
   Customer,
   Error,
-  UpdateCustomerInput
+  UpdateCustomerInput,
+  { previousCustomer?: Customer }
 > {
   const queryClient = useQueryClient();
 
@@ -222,10 +224,48 @@ export function useUpdateCustomer(): UseMutationResult<
 
       return mapToCustomer(data);
     },
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({
+        queryKey: CUSTOMER_KEYS.detail(input.id),
+      });
+
+      const previousCustomer = queryClient.getQueryData<Customer>(
+        CUSTOMER_KEYS.detail(input.id),
+      );
+
+      if (previousCustomer) {
+        queryClient.setQueryData<Customer>(CUSTOMER_KEYS.detail(input.id), {
+          ...previousCustomer,
+          ...(input.name !== undefined && { name: input.name }),
+          ...(input.contactPerson !== undefined && {
+            contactPerson: input.contactPerson,
+          }),
+          ...(input.phone !== undefined && { phone: input.phone }),
+          ...(input.email !== undefined && { email: input.email }),
+          ...(input.address !== undefined && { address: input.address }),
+        });
+      }
+
+      return { previousCustomer };
+    },
+    onError: (_error, input, context) => {
+      if (context?.previousCustomer) {
+        queryClient.setQueryData(
+          CUSTOMER_KEYS.detail(input.id),
+          context.previousCustomer,
+        );
+      }
+    },
     onSuccess: (updatedCustomer) => {
+      queryClient.setQueryData(
+        CUSTOMER_KEYS.detail(updatedCustomer.id),
+        updatedCustomer,
+      );
+    },
+    onSettled: (_data, _error, input) => {
       void queryClient.invalidateQueries({ queryKey: CUSTOMER_KEYS.lists() });
       void queryClient.invalidateQueries({
-        queryKey: CUSTOMER_KEYS.detail(updatedCustomer.id),
+        queryKey: CUSTOMER_KEYS.detail(input.id),
       });
     },
   });

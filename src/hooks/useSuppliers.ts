@@ -4,6 +4,7 @@ import {
   useQueryClient,
   type UseQueryResult,
   type UseMutationResult,
+  type QueryKey,
 } from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
 import type {
@@ -201,7 +202,11 @@ export function useCreateSupplier(): UseMutationResult<
 export function useUpdateSupplier(): UseMutationResult<
   Supplier,
   Error,
-  UpdateSupplierInput
+  UpdateSupplierInput,
+  {
+    previousSupplier?: Supplier;
+    previousLists: [QueryKey, PaginatedResult<Supplier> | undefined][];
+  }
 > {
   const queryClient = useQueryClient();
 
@@ -228,10 +233,90 @@ export function useUpdateSupplier(): UseMutationResult<
 
       return mapToSupplier(data);
     },
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({
+        queryKey: SUPPLIER_KEYS.detail(input.id),
+      });
+      await queryClient.cancelQueries({ queryKey: SUPPLIER_KEYS.lists() });
+
+      const previousSupplier = queryClient.getQueryData<Supplier>(
+        SUPPLIER_KEYS.detail(input.id),
+      );
+      const previousLists = queryClient.getQueriesData<
+        PaginatedResult<Supplier>
+      >({
+        queryKey: SUPPLIER_KEYS.lists(),
+      });
+
+      const applyUpdate = (supplier: Supplier): Supplier => ({
+        ...supplier,
+        ...(input.name !== undefined && { name: input.name }),
+        ...(input.contactPerson !== undefined && {
+          contactPerson: input.contactPerson,
+        }),
+        ...(input.phone !== undefined && { phone: input.phone }),
+        ...(input.email !== undefined && { email: input.email }),
+        ...(input.address !== undefined && { address: input.address }),
+      });
+
+      if (previousSupplier) {
+        queryClient.setQueryData<Supplier>(
+          SUPPLIER_KEYS.detail(input.id),
+          applyUpdate(previousSupplier),
+        );
+      }
+
+      queryClient.setQueriesData<PaginatedResult<Supplier>>(
+        { queryKey: SUPPLIER_KEYS.lists() },
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((supplier) =>
+                  supplier.id === input.id ? applyUpdate(supplier) : supplier,
+                ),
+              }
+            : current,
+      );
+
+      return { previousSupplier, previousLists };
+    },
+    onError: (_error, input, context) => {
+      if (context?.previousSupplier) {
+        queryClient.setQueryData(
+          SUPPLIER_KEYS.detail(input.id),
+          context.previousSupplier,
+        );
+      }
+
+      context?.previousLists.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+    },
     onSuccess: (updatedSupplier) => {
+      queryClient.setQueryData(
+        SUPPLIER_KEYS.detail(updatedSupplier.id),
+        updatedSupplier,
+      );
+      queryClient.setQueriesData<PaginatedResult<Supplier>>(
+        { queryKey: SUPPLIER_KEYS.lists() },
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((supplier) =>
+                  supplier.id === updatedSupplier.id
+                    ? updatedSupplier
+                    : supplier,
+                ),
+              }
+            : current,
+      );
+    },
+    onSettled: (_data, _error, input) => {
       void queryClient.invalidateQueries({ queryKey: SUPPLIER_KEYS.lists() });
       void queryClient.invalidateQueries({
-        queryKey: SUPPLIER_KEYS.detail(updatedSupplier.id),
+        queryKey: SUPPLIER_KEYS.detail(input.id),
       });
     },
   });

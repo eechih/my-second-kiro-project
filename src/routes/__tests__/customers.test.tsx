@@ -46,8 +46,8 @@ const mockCustomers: Customer[] = [
   },
 ];
 
-const mockData: PaginatedResult<Customer> = {
-  items: mockCustomers,
+const mockData: PaginatedResult<string> = {
+  items: mockCustomers.map((customer) => customer.id),
   totalCount: 2,
   nextToken: undefined,
 };
@@ -56,6 +56,10 @@ const mockUseCustomerList = vi.fn().mockReturnValue({
   data: mockData,
   isLoading: false,
 });
+const mockUseCustomer = vi.fn((id: string) => ({
+  data: mockCustomers.find((customer) => customer.id === id),
+  isLoading: false,
+}));
 
 const mockDeactivateMutateAsync = vi.fn();
 const mockActivateMutateAsync = vi.fn();
@@ -63,11 +67,14 @@ const mockUpdateMutateAsync = vi.fn();
 
 vi.mock("@/hooks/useCustomers", () => ({
   useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
+  useCustomer: (id: string) => mockUseCustomer(id),
   useDeactivateCustomer: () => ({
     mutateAsync: mockDeactivateMutateAsync,
+    isPending: false,
   }),
   useActivateCustomer: () => ({
     mutateAsync: mockActivateMutateAsync,
+    isPending: false,
   }),
   useUpdateCustomer: () => ({
     mutateAsync: mockUpdateMutateAsync,
@@ -112,11 +119,14 @@ beforeEach(async () => {
   }));
   vi.doMock("@/hooks/useCustomers", () => ({
     useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
+    useCustomer: (id: string) => mockUseCustomer(id),
     useDeactivateCustomer: () => ({
       mutateAsync: mockDeactivateMutateAsync,
+      isPending: false,
     }),
     useActivateCustomer: () => ({
       mutateAsync: mockActivateMutateAsync,
+      isPending: false,
     }),
     useUpdateCustomer: () => ({
       mutateAsync: mockUpdateMutateAsync,
@@ -223,6 +233,12 @@ describe("CustomerListPage", () => {
         sortField: "name",
       }),
     );
+  });
+
+  it("loads each customer row by customer id", () => {
+    renderPage();
+    expect(mockUseCustomer).toHaveBeenCalledWith("c1");
+    expect(mockUseCustomer).toHaveBeenCalledWith("c2");
   });
 
   it("renders status text with correct colors", () => {

@@ -4,6 +4,7 @@ import {
   useQueryClient,
   type UseQueryResult,
   type UseMutationResult,
+  type QueryKey,
 } from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
 import type {
@@ -283,7 +284,11 @@ export function useCreateProduct(): UseMutationResult<
 export function useUpdateProduct(): UseMutationResult<
   Product,
   Error,
-  UpdateProductInput
+  UpdateProductInput,
+  {
+    previousProduct?: Product;
+    previousLists: [QueryKey, PaginatedResult<Product> | undefined][];
+  }
 > {
   const queryClient = useQueryClient();
 
@@ -308,6 +313,24 @@ export function useUpdateProduct(): UseMutationResult<
 
       const { data, errors } = await client.models.Product.update(
         updatePayload as Parameters<typeof client.models.Product.update>[0],
+        {
+          selectionSet: [
+            "id",
+            "name",
+            "sku",
+            "unitPrice",
+            "defaultCost",
+            "defaultSupplierId",
+            "stockQuantity",
+            "specDimensions",
+            "imageUrls",
+            "isActive",
+            "version",
+            "createdAt",
+            "updatedAt",
+            "variants.*",
+          ],
+        },
       );
 
       if (errors && errors.length > 0) {
@@ -320,10 +343,97 @@ export function useUpdateProduct(): UseMutationResult<
 
       return mapToProduct(data);
     },
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({
+        queryKey: PRODUCT_KEYS.detail(input.id),
+      });
+      await queryClient.cancelQueries({ queryKey: PRODUCT_KEYS.lists() });
+
+      const previousProduct = queryClient.getQueryData<Product>(
+        PRODUCT_KEYS.detail(input.id),
+      );
+      const previousLists = queryClient.getQueriesData<
+        PaginatedResult<Product>
+      >({
+        queryKey: PRODUCT_KEYS.lists(),
+      });
+
+      const applyUpdate = (product: Product): Product => ({
+        ...product,
+        ...(input.name !== undefined && { name: input.name }),
+        ...(input.sku !== undefined && { sku: input.sku }),
+        ...(input.unitPrice !== undefined && { unitPrice: input.unitPrice }),
+        ...(input.defaultCost !== undefined && {
+          defaultCost: input.defaultCost,
+        }),
+        ...(input.defaultSupplierId !== undefined && {
+          defaultSupplierId: input.defaultSupplierId,
+        }),
+        ...(input.stockQuantity !== undefined && {
+          stockQuantity: input.stockQuantity,
+        }),
+        ...(input.specDimensions !== undefined && {
+          specDimensions: input.specDimensions,
+        }),
+        ...(input.imageUrls !== undefined && { imageUrls: input.imageUrls }),
+      });
+
+      if (previousProduct) {
+        queryClient.setQueryData<Product>(
+          PRODUCT_KEYS.detail(input.id),
+          applyUpdate(previousProduct),
+        );
+      }
+
+      queryClient.setQueriesData<PaginatedResult<Product>>(
+        { queryKey: PRODUCT_KEYS.lists() },
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((product) =>
+                  product.id === input.id ? applyUpdate(product) : product,
+                ),
+              }
+            : current,
+      );
+
+      return { previousProduct, previousLists };
+    },
+    onError: (_error, input, context) => {
+      if (context?.previousProduct) {
+        queryClient.setQueryData(
+          PRODUCT_KEYS.detail(input.id),
+          context.previousProduct,
+        );
+      }
+
+      context?.previousLists.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+    },
     onSuccess: (updatedProduct) => {
+      queryClient.setQueryData(
+        PRODUCT_KEYS.detail(updatedProduct.id),
+        updatedProduct,
+      );
+      queryClient.setQueriesData<PaginatedResult<Product>>(
+        { queryKey: PRODUCT_KEYS.lists() },
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.map((product) =>
+                  product.id === updatedProduct.id ? updatedProduct : product,
+                ),
+              }
+            : current,
+      );
+    },
+    onSettled: (_data, _error, input) => {
       void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
       void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.detail(updatedProduct.id),
+        queryKey: PRODUCT_KEYS.detail(input.id),
       });
     },
   });
