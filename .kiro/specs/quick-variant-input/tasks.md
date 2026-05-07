@@ -76,8 +76,8 @@
 - [x] 3. 檢查點 — 確認所有測試通過
   - 確認所有測試通過，如有問題詢問使用者。
 
-- [ ] 4. 實作 `QuickVariantInput` UI 元件
-  - [ ] 4.1 建立 `src/components/QuickVariantInput.tsx`
+- [x] 4. 實作 `QuickVariantInput` UI 元件
+  - [x] 4.1 建立 `src/components/QuickVariantInput.tsx`
     - 渲染 MUI TextField，標籤為 `快速規格輸入`，佔位文字為 `例：白，黑/35，36，37，38，39，40`
     - 輸入變更時呼叫 `parseVariantShorthand()` 並在欄位下方顯示預覽
     - 以 MUI Chip 顯示各維度群組
@@ -100,8 +100,8 @@
     - 測試停用狀態：`disabled` 為 true 時隱藏元件
     - _需求：4.1、4.2、4.3、4.4、4.5、4.6、4.7、5.3、5.4_
 
-- [ ] 5. 將 QuickVariantInput 整合至商品頁面
-  - [ ] 5.1 新增 `QuickVariantInput` 至商品新增頁面（`src/routes/products/new.tsx`）
+- [x] 5. 將 QuickVariantInput 整合至商品頁面
+  - [x] 5.1 新增 `QuickVariantInput` 至商品新增頁面（`src/routes/products/new.tsx`）
     - 匯入並渲染 `QuickVariantInput` 於商品表單中
     - 將 `onApply` 連接至更新表單 `specDimensions` 欄位
     - 套用後觸發 `generateVariants()` 產生 `ProductVariant[]`
@@ -109,7 +109,7 @@
     - 唯讀模式時隱藏元件（設定 `disabled`）
     - _需求：5.1、5.2、5.3、5.4_
 
-  - [ ] 5.2 新增 `QuickVariantInput` 至商品編輯頁面（`src/routes/products/$productId.tsx`）
+  - [x] 5.2 新增 `QuickVariantInput` 至商品編輯頁面（`src/routes/products/$productId.tsx`）
     - 與新增頁面相同的整合方式
     - 當商品已有包含庫存或價格覆寫的規格組合時設定 `hasExistingVariants={true}`
     - _需求：5.1、5.2、5.3、5.4_

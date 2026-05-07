@@ -1,5 +1,6 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { FormField } from "@/components/FormField";
+import { QuickVariantInput } from "@/components/QuickVariantInput";
 import { useCreateProduct } from "@/hooks/useProducts";
 import { client } from "@/lib/amplify-client";
 import AddIcon from "@mui/icons-material/Add";
@@ -273,6 +274,16 @@ function ProductNewPage() {
             <Typography variant="body2" color="text.secondary">
               定義商品的規格維度（如顏色、尺寸），建立商品後可產生規格組合。
             </Typography>
+
+            {/* 快速規格輸入 */}
+            <QuickVariantInput
+              onApply={(dimensions) => {
+                setSpecDimensions(dimensions);
+              }}
+              hasExistingVariants={specDimensions.some(
+                (d) => d.values.length > 0,
+              )}
+            />
 
             {specDimensions.map((dim, dimIndex) => (
               <Paper key={dimIndex} variant="outlined" sx={{ p: 2 }}>

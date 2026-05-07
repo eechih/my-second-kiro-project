@@ -2,6 +2,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EntitySelect } from "@/components/EntitySelect";
 import { FormField } from "@/components/FormField";
 import { ImageUploader } from "@/components/ImageUploader";
+import { QuickVariantInput } from "@/components/QuickVariantInput";
 import { VariantTable } from "@/components/VariantTable";
 import {
   useDeleteVariant,
@@ -421,6 +422,23 @@ function ProductEditPage() {
             <Typography variant="body2" color="text.secondary">
               定義商品的規格維度（如顏色、尺寸），變更後點擊「產生規格組合」按鈕自動產生笛卡爾積。
             </Typography>
+
+            {/* 快速規格輸入 */}
+            <QuickVariantInput
+              onApply={(dimensions) => {
+                setSpecDimensions(dimensions);
+                void generateVariantsMutation.mutateAsync({
+                  productId,
+                  specDimensions: dimensions,
+                });
+              }}
+              hasExistingVariants={product.variants.some(
+                (v) =>
+                  v.stockQuantity > 0 ||
+                  v.unitPriceOverride !== null ||
+                  v.defaultCostOverride !== null,
+              )}
+            />
 
             {specDimensions.map((dim, dimIndex) => (
               <Paper key={dimIndex} variant="outlined" sx={{ p: 2 }}>
