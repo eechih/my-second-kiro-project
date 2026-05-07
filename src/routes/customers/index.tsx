@@ -1,19 +1,28 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CursorPagination } from "@/components/CursorPagination";
+import {
+  EditableStatusCell,
+  EditableTextCell,
+} from "@/components/EditableCell";
+import { listTableBodyTextSx } from "@/components/listTableStyles";
 import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
   useActivateCustomer,
   useCustomerList,
   useDeactivateCustomer,
+  useUpdateCustomer,
   type StatusFilter,
 } from "@/hooks/useCustomers";
+import { getAvatarColor, getAvatarLetter } from "@/lib/avatar-utils";
 import {
   generateCustomerCsv,
   getCustomerCsvFilename,
 } from "@/lib/customer-csv";
+import { requireAuth } from "@/lib/route-guards";
 import type { SortField } from "@/lib/table-utils";
 import Alert from "@mui/material/Alert";
+import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -25,9 +34,8 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import type { Customer } from "@shared/models";
+import type { Customer, UpdateCustomerInput } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/route-guards";
 import {
   createColumnHelper,
   flexRender,
@@ -37,7 +45,6 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { CustomerToolbar } from "./-components/CustomerToolbar";
 import { RowActions } from "./-components/RowActions";
-import { UserInfoCell } from "./-components/UserInfoCell";
 
 export const Route = createFileRoute("/customers/")({
   beforeLoad: requireAuth,
@@ -45,6 +52,13 @@ export const Route = createFileRoute("/customers/")({
 });
 
 const columnHelper = createColumnHelper<Customer>();
+
+type EditableCustomerField =
+  | "name"
+  | "contactPerson"
+  | "phone"
+  | "email"
+  | "address";
 
 function CustomerListPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -86,6 +100,7 @@ function CustomerListPage(): React.ReactElement {
   // --- Mutations ---
   const deactivateMutation = useDeactivateCustomer();
   const activateMutation = useActivateCustomer();
+  const updateMutation = useUpdateCustomer();
 
   // --- 篩選/搜尋/每頁筆數變更時重置分頁 ---
   const handleSearchChange = useCallback(
@@ -157,17 +172,6 @@ function CustomerListPage(): React.ReactElement {
     });
   }, []);
 
-  // --- 行操作 ---
-  const handleView = useCallback(
-    (customer: Customer): void => {
-      void navigate({
-        to: "/customers/$customerId",
-        params: { customerId: customer.id },
-      });
-    },
-    [navigate],
-  );
-
   const handleEdit = useCallback(
     (customer: Customer): void => {
       void navigate({
@@ -186,6 +190,62 @@ function CustomerListPage(): React.ReactElement {
       action: customer.isActive ? "deactivate" : "activate",
     });
   }, []);
+
+  const handleCellEdit = useCallback(
+    async (
+      customer: Customer,
+      field: EditableCustomerField,
+      value: string,
+    ): Promise<void> => {
+      const nextValue = value.trim();
+      if (
+        (field === "name" || field === "contactPerson" || field === "phone") &&
+        !nextValue
+      ) {
+        const message =
+          field === "name"
+            ? "客戶名稱為必填"
+            : field === "contactPerson"
+              ? "聯絡人為必填"
+              : "電話為必填";
+        setError(message);
+        throw new Error(message);
+      }
+
+      setError(null);
+      const updates: UpdateCustomerInput = {
+        id: customer.id,
+        [field]: nextValue,
+      };
+
+      try {
+        await updateMutation.mutateAsync(updates);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "更新客戶失敗";
+        setError(message);
+        throw err;
+      }
+    },
+    [updateMutation],
+  );
+
+  const handleStatusEdit = useCallback(
+    async (customer: Customer, isActive: boolean): Promise<void> => {
+      if (customer.isActive === isActive) return;
+
+      setError(null);
+      try {
+        if (isActive) {
+          await activateMutation.mutateAsync({ customerId: customer.id });
+        } else {
+          await deactivateMutation.mutateAsync({ customerId: customer.id });
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "更新客戶狀態失敗");
+      }
+    },
+    [activateMutation, deactivateMutation],
+  );
 
   const handleConfirm = async (): Promise<void> => {
     const { customer, action } = confirmDialog;
@@ -261,34 +321,74 @@ function CustomerListPage(): React.ReactElement {
         id: "customerInfo",
         header: "客戶資訊",
         cell: ({ row }) => (
-          <UserInfoCell
-            name={row.original.name}
-            contactPerson={row.original.contactPerson}
-          />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Avatar
+              sx={{
+                bgcolor: getAvatarColor(row.original.name),
+                width: 36,
+                height: 36,
+                fontSize: "0.875rem",
+              }}
+            >
+              {getAvatarLetter(row.original.name)}
+            </Avatar>
+            <Box>
+              <EditableTextCell
+                value={row.original.name}
+                onCommit={(value) =>
+                  handleCellEdit(row.original, "name", value)
+                }
+              />
+              {row.original.contactPerson !== row.original.name && (
+                <EditableTextCell
+                  value={row.original.contactPerson}
+                  onCommit={(value) =>
+                    handleCellEdit(row.original, "contactPerson", value)
+                  }
+                />
+              )}
+            </Box>
+          </Box>
         ),
       }),
       columnHelper.accessor("phone", {
         header: "電話",
+        cell: ({ row, getValue }) => (
+          <EditableTextCell
+            value={getValue<string>()}
+            onCommit={(value) => handleCellEdit(row.original, "phone", value)}
+          />
+        ),
       }),
       columnHelper.accessor("email", {
         header: "Email",
+        cell: ({ row, getValue }) => (
+          <EditableTextCell
+            value={getValue<string>()}
+            onCommit={(value) => handleCellEdit(row.original, "email", value)}
+          />
+        ),
       }),
       columnHelper.accessor("address", {
         header: "地址",
+        cell: ({ row, getValue }) => (
+          <EditableTextCell
+            value={getValue<string>()}
+            onCommit={(value) => handleCellEdit(row.original, "address", value)}
+          />
+        ),
       }),
       columnHelper.display({
         id: "status",
         header: "狀態",
         cell: ({ row }) => (
-          <Typography
-            variant="body2"
-            sx={{
-              color: row.original.isActive ? "success.main" : "error.main",
-              fontWeight: 500,
-            }}
-          >
-            {row.original.isActive ? "啟用中" : "已停用"}
-          </Typography>
+          <EditableStatusCell
+            isActive={row.original.isActive}
+            disabled={
+              activateMutation.isPending || deactivateMutation.isPending
+            }
+            onCommit={(isActive) => handleStatusEdit(row.original, isActive)}
+          />
         ),
       }),
       columnHelper.display({
@@ -297,7 +397,6 @@ function CustomerListPage(): React.ReactElement {
         cell: ({ row }) => (
           <RowActions
             customer={row.original}
-            onView={handleView}
             onEdit={handleEdit}
             onToggleActive={handleToggleActive}
           />
@@ -311,9 +410,12 @@ function CustomerListPage(): React.ReactElement {
       selectedIds,
       handleSelectAll,
       handleSelectRow,
-      handleView,
       handleEdit,
       handleToggleActive,
+      handleCellEdit,
+      handleStatusEdit,
+      activateMutation.isPending,
+      deactivateMutation.isPending,
     ],
   );
 
@@ -355,7 +457,7 @@ function CustomerListPage(): React.ReactElement {
             <CircularProgress />
           </Box>
         ) : (
-          <Table>
+          <Table sx={listTableBodyTextSx}>
             <TableHead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>

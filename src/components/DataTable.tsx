@@ -1,12 +1,12 @@
-import { useState } from "react";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  flexRender,
-  type ColumnDef,
-  type SortingState,
-} from "@tanstack/react-table";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
+import FormControl from "@mui/material/FormControl";
+import IconButton from "@mui/material/IconButton";
+import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -14,16 +14,17 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
-import Paper from "@mui/material/Paper";
-import Box from "@mui/material/Box";
-import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
-import IconButton from "@mui/material/IconButton";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import FormControl from "@mui/material/FormControl";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import {
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
+import { useState } from "react";
+import { listTableBodyTextSx } from "./listTableStyles";
 
 export interface DataTableProps<T> {
   /** TanStack Table 欄位定義 */
@@ -99,7 +100,7 @@ export function DataTable<T>({
   return (
     <Paper sx={{ width: "100%", overflow: "hidden" }}>
       <TableContainer>
-        <Table stickyHeader size="medium">
+        <Table stickyHeader size="medium" sx={listTableBodyTextSx}>
           <TableHead>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -180,14 +181,25 @@ export function DataTable<T>({
                     cursor: onRowClick ? "pointer" : "default",
                   }}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const renderedCell = flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext(),
+                    );
+
+                    return (
+                      <TableCell key={cell.id}>
+                        {typeof renderedCell === "string" ||
+                        typeof renderedCell === "number" ? (
+                          <Typography variant="body2">
+                            {renderedCell}
+                          </Typography>
+                        ) : (
+                          renderedCell
+                        )}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))
             )}

@@ -159,7 +159,7 @@ function RootComponent() {
         >
           <Outlet />
         </Box>
-        <TanStackRouterDevtools />
+        <TanStackRouterDevtools position="top-right" />
       </Box>
     );
   }
@@ -219,7 +219,7 @@ function RootComponent() {
           <Outlet />
         </Stack>
       </Box>
-      <TanStackRouterDevtools />
+      <TanStackRouterDevtools position="top-right" />
     </Box>
   );
 }
@@ -358,7 +358,11 @@ function NavigationPanel({ pathname, onNavigate }: NavigationPanelProps) {
       <Divider />
       <List sx={{ flexGrow: 1, px: 1.5, py: 2 }}>
         {navigationItems.map((item) => (
-          <ListItem key={item.to} disablePadding sx={{ display: "block", mb: 0.5 }}>
+          <ListItem
+            key={item.to}
+            disablePadding
+            sx={{ display: "block", mb: 0.5 }}
+          >
             <ListItemButton
               component={Link}
               to={item.to}

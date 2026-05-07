@@ -1,4 +1,5 @@
 import { CursorPagination } from "@/components/CursorPagination";
+import { listTableBodyTextSx } from "@/components/listTableStyles";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusChip } from "@/components/StatusChip";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
@@ -148,7 +149,7 @@ function OrderListPage(): React.ReactElement {
             <CircularProgress />
           </Box>
         ) : (
-          <Table>
+          <Table sx={listTableBodyTextSx}>
             <TableHead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>

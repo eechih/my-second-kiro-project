@@ -59,6 +59,7 @@ const mockUseCustomerList = vi.fn().mockReturnValue({
 
 const mockDeactivateMutateAsync = vi.fn();
 const mockActivateMutateAsync = vi.fn();
+const mockUpdateMutateAsync = vi.fn();
 
 vi.mock("@/hooks/useCustomers", () => ({
   useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
@@ -67,6 +68,9 @@ vi.mock("@/hooks/useCustomers", () => ({
   }),
   useActivateCustomer: () => ({
     mutateAsync: mockActivateMutateAsync,
+  }),
+  useUpdateCustomer: () => ({
+    mutateAsync: mockUpdateMutateAsync,
   }),
 }));
 
@@ -113,6 +117,9 @@ beforeEach(async () => {
     }),
     useActivateCustomer: () => ({
       mutateAsync: mockActivateMutateAsync,
+    }),
+    useUpdateCustomer: () => ({
+      mutateAsync: mockUpdateMutateAsync,
     }),
   }));
   vi.doMock("@/hooks/useCursorPagination", () => ({
@@ -227,10 +234,8 @@ describe("CustomerListPage", () => {
 
   it("renders row action buttons for each customer", () => {
     renderPage();
-    // Each row should have view, edit, and toggle active buttons
-    const viewButtons = screen.getAllByLabelText("檢視");
+    // Each row should have edit and toggle active buttons
     const editButtons = screen.getAllByLabelText("編輯");
-    expect(viewButtons).toHaveLength(2);
     expect(editButtons).toHaveLength(2);
   });
 
