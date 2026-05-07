@@ -11,8 +11,6 @@ import { useCursorPagination } from "@/hooks/useCursorPagination";
 import { useProductThumbnailUrls } from "@/hooks/useProductImages";
 import type { ProductStatusFilter } from "@/hooks/useProducts";
 import {
-  useActivateProduct,
-  useDeactivateProduct,
   useProduct,
   useProductList,
   useUpdateProduct,
@@ -52,7 +50,8 @@ type EditableProductField =
   | "unitPrice"
   | "defaultCost"
   | "stockQuantity"
-  | "defaultSupplierId";
+  | "defaultSupplierId"
+  | "isActive";
 
 interface SupplierOption {
   id: string;
@@ -104,8 +103,6 @@ function ProductListPage(): React.ReactElement {
     [],
   );
 
-  const deactivateMutation = useDeactivateProduct();
-  const activateMutation = useActivateProduct();
   const updateMutation = useUpdateProduct();
 
   const handleSearchChange = useCallback(
@@ -186,8 +183,10 @@ function ProductListPage(): React.ReactElement {
     async (
       product: Product,
       field: EditableProductField,
-      value: string | number | null,
+      value: string | number | boolean | null,
     ): Promise<void> => {
+      if (field === "isActive" && value === product.isActive) return;
+
       setError(null);
 
       if (field === "name" && typeof value === "string" && !value.trim()) {
@@ -209,24 +208,6 @@ function ProductListPage(): React.ReactElement {
       }
     },
     [updateMutation],
-  );
-
-  const handleStatusEdit = useCallback(
-    async (product: Product, isActive: boolean): Promise<void> => {
-      if (product.isActive === isActive) return;
-
-      setError(null);
-      try {
-        if (isActive) {
-          await activateMutation.mutateAsync({ productId: product.id });
-        } else {
-          await deactivateMutation.mutateAsync({ productId: product.id });
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "更新商品狀態失敗");
-      }
-    },
-    [activateMutation, deactivateMutation],
   );
 
   return (
@@ -295,15 +276,11 @@ function ProductListPage(): React.ReactElement {
                     key={productId}
                     productId={productId}
                     selected={selectedIds.has(productId)}
-                    statusDisabled={
-                      activateMutation.isPending ||
-                      deactivateMutation.isPending
-                    }
+                    statusDisabled={updateMutation.isPending}
                     searchSuppliers={searchSuppliers}
                     onSelect={handleSelectRow}
                     onEdit={handleEdit}
                     onCellEdit={handleCellEdit}
-                    onStatusEdit={handleStatusEdit}
                   />
                 ))
               )}
@@ -335,9 +312,8 @@ interface ProductTableRowProps {
   onCellEdit: (
     product: Product,
     field: EditableProductField,
-    value: string | number | null,
+    value: string | number | boolean | null,
   ) => Promise<void>;
-  onStatusEdit: (product: Product, isActive: boolean) => Promise<void>;
 }
 
 function ProductTableRow({
@@ -348,7 +324,6 @@ function ProductTableRow({
   onSelect,
   onEdit,
   onCellEdit,
-  onStatusEdit,
 }: ProductTableRowProps): React.ReactElement {
   const { data: product, isLoading, error } = useProduct(productId);
   const firstImageKey = product?.imageUrls[0];
@@ -508,7 +483,7 @@ function ProductTableRow({
         <EditableStatusCell
           isActive={product.isActive}
           disabled={statusDisabled}
-          onCommit={(isActive) => onStatusEdit(product, isActive)}
+          onCommit={(isActive) => onCellEdit(product, "isActive", isActive)}
         />
       </TableCell>
       <TableCell>

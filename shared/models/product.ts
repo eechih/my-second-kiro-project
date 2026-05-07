@@ -104,6 +104,8 @@ export interface UpdateProductInput {
   specDimensions?: SpecDimension[];
   /** 商品照片 S3 key 列表 */
   imageUrls?: string[];
+  /** 啟用狀態 */
+  isActive?: boolean;
 }
 
 /** 建立規格組合輸入 */

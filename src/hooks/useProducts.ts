@@ -306,6 +306,7 @@ export function useUpdateProduct(): UseMutationResult<
         updatePayload.specDimensions = JSON.stringify(input.specDimensions);
       if (input.imageUrls !== undefined)
         updatePayload.imageUrls = input.imageUrls;
+      if (input.isActive !== undefined) updatePayload.isActive = input.isActive;
 
       const { data, errors } = await client.models.Product.update(
         updatePayload as Parameters<typeof client.models.Product.update>[0],
@@ -366,6 +367,7 @@ export function useUpdateProduct(): UseMutationResult<
           specDimensions: input.specDimensions,
         }),
         ...(input.imageUrls !== undefined && { imageUrls: input.imageUrls }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
       });
 
       if (previousProduct) {
@@ -384,7 +386,6 @@ export function useUpdateProduct(): UseMutationResult<
           context.previousProduct,
         );
       }
-
     },
     onSuccess: (updatedProduct) => {
       queryClient.setQueryData(
@@ -396,97 +397,6 @@ export function useUpdateProduct(): UseMutationResult<
       void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
       void queryClient.invalidateQueries({
         queryKey: PRODUCT_KEYS.detail(input.id),
-      });
-    },
-  });
-}
-
-/**
- * 停用商品 mutation hook
- *
- * 將商品的 isActive 設為 false（停用）。
- * 停用後的商品不出現在訂單建立的商品選取清單中，
- * 但歷史訂單明細仍可顯示該商品資訊。
- *
- * 需求：3.5（停用/啟用）
- */
-export function useDeactivateProduct(): UseMutationResult<
-  Product,
-  Error,
-  { productId: string }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      productId,
-    }: {
-      productId: string;
-    }): Promise<Product> => {
-      const { data, errors } = await client.models.Product.update({
-        id: productId,
-        isActive: false,
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "停用商品失敗");
-      }
-
-      if (!data) {
-        throw new Error("停用商品失敗：未回傳資料");
-      }
-
-      return mapToProduct(data);
-    },
-    onSuccess: (_, { productId }) => {
-      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.detail(productId),
-      });
-    },
-  });
-}
-
-/**
- * 啟用商品 mutation hook
- *
- * 將已停用的商品重新啟用（isActive 設為 true），
- * 恢復在選取清單中的可見性。
- *
- * 需求：3.5（停用/啟用）
- */
-export function useActivateProduct(): UseMutationResult<
-  Product,
-  Error,
-  { productId: string }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      productId,
-    }: {
-      productId: string;
-    }): Promise<Product> => {
-      const { data, errors } = await client.models.Product.update({
-        id: productId,
-        isActive: true,
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "啟用商品失敗");
-      }
-
-      if (!data) {
-        throw new Error("啟用商品失敗：未回傳資料");
-      }
-
-      return mapToProduct(data);
-    },
-    onSuccess: (_, { productId }) => {
-      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.detail(productId),
       });
     },
   });
