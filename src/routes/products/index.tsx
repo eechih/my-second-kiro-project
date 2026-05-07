@@ -2,44 +2,50 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CursorPagination } from "@/components/CursorPagination";
 import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
+import { useProductThumbnailUrls } from "@/hooks/useProductImages";
 import type { ProductStatusFilter } from "@/hooks/useProducts";
 import {
   useActivateProduct,
   useDeactivateProduct,
   useProductList,
+  useUpdateProduct,
 } from "@/hooks/useProducts";
-import { useProductThumbnailUrls } from "@/hooks/useProductImages";
 import { client } from "@/lib/amplify-client";
+import { requireAuth } from "@/lib/route-guards";
 import BlockIcon from "@mui/icons-material/Block";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EditIcon from "@mui/icons-material/Edit";
 import ImageIcon from "@mui/icons-material/Image";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import type { Product } from "@shared/models";
+import type { Product, UpdateProductInput } from "@shared/models";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/route-guards";
 import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProductToolbar } from "./-components/ProductToolbar";
 
 export const Route = createFileRoute("/products/")({
@@ -48,6 +54,452 @@ export const Route = createFileRoute("/products/")({
 });
 
 const columnHelper = createColumnHelper<Product>();
+
+type EditableProductField =
+  | "name"
+  | "unitPrice"
+  | "defaultCost"
+  | "stockQuantity"
+  | "defaultSupplierId";
+
+interface SupplierOption {
+  id: string;
+  name: string;
+}
+
+interface EditableTextCellProps {
+  value: string;
+  onCommit: (value: string) => Promise<void>;
+}
+
+function EditableTextCell({
+  value,
+  onCommit,
+}: EditableTextCellProps): React.ReactElement {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const commit = async (): Promise<void> => {
+    const nextValue = draft.trim();
+    if (nextValue === value) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onCommit(nextValue);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <TextField
+        value={draft}
+        size="small"
+        variant="outlined"
+        autoFocus
+        fullWidth
+        disabled={isSaving}
+        helperText={isSaving ? "保存中" : undefined}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => void commit()}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+          if (event.key === "Escape") {
+            setDraft(value);
+            setIsEditing(false);
+          }
+        }}
+        slotProps={{
+          input: {
+            endAdornment: isSaving ? (
+              <InputAdornment position="end">
+                <CircularProgress size={16} />
+              </InputAdornment>
+            ) : undefined,
+          },
+        }}
+      />
+    );
+  }
+
+  return (
+    <Typography
+      role="button"
+      tabIndex={0}
+      sx={{ cursor: "text", fontWeight: 600 }}
+      onClick={(event) => {
+        event.stopPropagation();
+        setDraft(value);
+        setIsEditing(true);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          setDraft(value);
+          setIsEditing(true);
+        }
+      }}
+    >
+      {value}
+    </Typography>
+  );
+}
+
+interface EditableNumberCellProps {
+  value: number;
+  format?: (value: number) => string;
+  integer?: boolean;
+  disabled?: boolean;
+  disabledText?: string;
+  onCommit: (value: number) => Promise<void>;
+}
+
+interface EditableStatusCellProps {
+  isActive: boolean;
+  disabled?: boolean;
+  onCommit: (isActive: boolean) => Promise<void>;
+}
+
+function EditableStatusCell({
+  isActive,
+  disabled = false,
+  onCommit,
+}: EditableStatusCellProps): React.ReactElement {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const commit = async (nextIsActive: boolean): Promise<void> => {
+    if (nextIsActive === isActive) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onCommit(nextIsActive);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <Box>
+        <Select
+          value={isActive ? "active" : "inactive"}
+          size="small"
+          variant="outlined"
+          autoFocus
+          open
+          disabled={disabled || isSaving}
+          sx={{
+            minWidth: 88,
+            color: isActive ? "success.main" : "error.main",
+            "& .MuiSelect-select": {
+              fontWeight: 500,
+            },
+          }}
+          onClick={(event) => event.stopPropagation()}
+          onClose={() => setIsEditing(false)}
+          onChange={(event) => {
+            void commit(event.target.value === "active");
+          }}
+        >
+          <MenuItem value="active">啟用中</MenuItem>
+          <MenuItem value="inactive">已停用</MenuItem>
+        </Select>
+        {isSaving && (
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+            保存中
+          </Typography>
+        )}
+      </Box>
+    );
+  }
+
+  return (
+    <Typography
+      role="button"
+      tabIndex={0}
+      variant="body2"
+      sx={{
+        color: isActive ? "success.main" : "error.main",
+        cursor: disabled ? "default" : "text",
+        fontWeight: 500,
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (!disabled) setIsEditing(true);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && !disabled) {
+          event.preventDefault();
+          setIsEditing(true);
+        }
+      }}
+    >
+      {isActive ? "啟用中" : "已停用"}
+    </Typography>
+  );
+}
+
+interface EditableSupplierCellProps {
+  supplierId: string | null;
+  supplierName?: string;
+  searchSuppliers: (query: string) => Promise<SupplierOption[]>;
+  onCommit: (supplierId: string | null) => Promise<void>;
+}
+
+function EditableSupplierCell({
+  supplierId,
+  supplierName,
+  searchSuppliers,
+  onCommit,
+}: EditableSupplierCellProps): React.ReactElement {
+  const [isEditing, setIsEditing] = useState(false);
+  const [options, setOptions] = useState<SupplierOption[]>([]);
+  const [value, setValue] = useState<SupplierOption | null>(null);
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    let active = true;
+    setIsLoading(true);
+    void searchSuppliers(inputValue)
+      .then((results) => {
+        if (!active) return;
+        setOptions(results);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [inputValue, isEditing, searchSuppliers]);
+
+  const currentSupplier = supplierId
+    ? { id: supplierId, name: supplierName ?? "未命名供應商" }
+    : null;
+
+  const openEditor = (): void => {
+    setValue(currentSupplier);
+    setInputValue("");
+    setIsEditing(true);
+  };
+
+  const commit = async (nextValue: SupplierOption | null): Promise<void> => {
+    const nextSupplierId = nextValue?.id ?? null;
+    if (nextSupplierId === supplierId) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onCommit(nextSupplierId);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <Autocomplete
+        open
+        size="small"
+        value={value}
+        options={options}
+        inputValue={inputValue}
+        loading={isLoading}
+        disabled={isSaving}
+        clearOnBlur={false}
+        isOptionEqualToValue={(option, selected) => option.id === selected.id}
+        getOptionLabel={(option) => option.name}
+        noOptionsText="無符合供應商"
+        loadingText="載入中..."
+        onChange={(_event, nextValue) => {
+          setValue(nextValue);
+          void commit(nextValue);
+        }}
+        onClose={() => setIsEditing(false)}
+        onInputChange={(_event, nextInputValue) => {
+          setInputValue(nextInputValue);
+        }}
+        renderInput={(params) => {
+          const { slotProps: paramSlotProps, ...restParams } = params;
+          return (
+            <TextField
+              {...restParams}
+              autoFocus
+              variant="outlined"
+              placeholder="搜尋供應商"
+              helperText={isSaving ? "保存中" : undefined}
+              onClick={(event) => event.stopPropagation()}
+              slotProps={{
+                ...paramSlotProps,
+                input: {
+                  ...paramSlotProps?.input,
+                  endAdornment: (
+                    <>
+                      {isLoading || isSaving ? (
+                        <CircularProgress color="inherit" size={16} />
+                      ) : null}
+                      {paramSlotProps?.input?.endAdornment}
+                    </>
+                  ),
+                },
+              }}
+            />
+          );
+        }}
+        sx={{ minWidth: 180 }}
+      />
+    );
+  }
+
+  return (
+    <Typography
+      role="button"
+      tabIndex={0}
+      variant="body2"
+      color={supplierId ? "text.primary" : "text.secondary"}
+      sx={{ cursor: "text" }}
+      onClick={(event) => {
+        event.stopPropagation();
+        openEditor();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          openEditor();
+        }
+      }}
+    >
+      {supplierName ?? "—"}
+    </Typography>
+  );
+}
+
+function EditableNumberCell({
+  value,
+  format = (nextValue) => String(nextValue),
+  integer = false,
+  disabled = false,
+  disabledText,
+  onCommit,
+}: EditableNumberCellProps): React.ReactElement {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const [isSaving, setIsSaving] = useState(false);
+
+  const commit = async (): Promise<void> => {
+    const parsed = Number(draft);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      setDraft(String(value));
+      setIsEditing(false);
+      return;
+    }
+
+    const nextValue = integer ? Math.trunc(parsed) : parsed;
+    if (nextValue === value) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onCommit(nextValue);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (disabled) {
+    return (
+      <Tooltip title={disabledText ?? ""}>
+        <Typography component="span">{format(value)}</Typography>
+      </Tooltip>
+    );
+  }
+
+  if (isEditing) {
+    return (
+      <TextField
+        value={draft}
+        size="small"
+        variant="outlined"
+        type="number"
+        autoFocus
+        disabled={isSaving}
+        helperText={isSaving ? "保存中" : undefined}
+        slotProps={{
+          htmlInput: { min: 0, step: integer ? 1 : 0.01 },
+          input: {
+            endAdornment: isSaving ? (
+              <InputAdornment position="end">
+                <CircularProgress size={16} />
+              </InputAdornment>
+            ) : undefined,
+          },
+        }}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => void commit()}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+          if (event.key === "Escape") {
+            setDraft(String(value));
+            setIsEditing(false);
+          }
+        }}
+        sx={{ width: 96 }}
+      />
+    );
+  }
+
+  return (
+    <Typography
+      role="button"
+      tabIndex={0}
+      sx={{ cursor: "text" }}
+      onClick={(event) => {
+        event.stopPropagation();
+        setDraft(String(value));
+        setIsEditing(true);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          setDraft(String(value));
+          setIsEditing(true);
+        }
+      }}
+    >
+      {format(value)}
+    </Typography>
+  );
+}
 
 function ProductListPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -132,8 +584,33 @@ function ProductListPage(): React.ReactElement {
     staleTime: 5 * 60 * 1000, // 5 分鐘快取
   });
 
+  const searchSuppliers = useCallback(
+    async (query: string): Promise<SupplierOption[]> => {
+      const filter: Record<string, unknown> = { isActive: { eq: true } };
+      if (query) {
+        filter.or = [
+          { name: { contains: query } },
+          { contactPerson: { contains: query } },
+        ];
+      }
+
+      const { data: suppliers } = await client.models.Supplier.list({
+        filter,
+        limit: 20,
+        selectionSet: ["id", "name"],
+      });
+
+      return (suppliers ?? []).map((supplier) => ({
+        id: String(supplier.id ?? ""),
+        name: String(supplier.name ?? ""),
+      }));
+    },
+    [],
+  );
+
   const deactivateMutation = useDeactivateProduct();
   const activateMutation = useActivateProduct();
+  const updateMutation = useUpdateProduct();
 
   const handleSearchChange = useCallback(
     (value: string): void => {
@@ -217,6 +694,53 @@ function ProductListPage(): React.ReactElement {
     });
   }, []);
 
+  const handleCellEdit = useCallback(
+    async (
+      product: Product,
+      field: EditableProductField,
+      value: string | number | null,
+    ): Promise<void> => {
+      setError(null);
+
+      if (field === "name" && typeof value === "string" && !value.trim()) {
+        setError("商品名稱為必填");
+        throw new Error("商品名稱為必填");
+      }
+
+      const updates: UpdateProductInput = {
+        id: product.id,
+        [field]: value,
+      };
+
+      try {
+        await updateMutation.mutateAsync(updates);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "更新商品失敗";
+        setError(message);
+        throw err;
+      }
+    },
+    [updateMutation],
+  );
+
+  const handleStatusEdit = useCallback(
+    async (product: Product, isActive: boolean): Promise<void> => {
+      if (product.isActive === isActive) return;
+
+      setError(null);
+      try {
+        if (isActive) {
+          await activateMutation.mutateAsync({ productId: product.id });
+        } else {
+          await deactivateMutation.mutateAsync({ productId: product.id });
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "更新商品狀態失敗");
+      }
+    },
+    [activateMutation, deactivateMutation],
+  );
+
   const handleConfirm = async (): Promise<void> => {
     const { product, action } = confirmDialog;
     if (!product) return;
@@ -278,9 +802,10 @@ function ProductListPage(): React.ReactElement {
         header: "商品名稱",
         cell: ({ row }) => (
           <Box>
-            <Typography sx={{ fontWeight: 600 }}>
-              {row.original.name}
-            </Typography>
+            <EditableTextCell
+              value={row.original.name}
+              onCommit={(value) => handleCellEdit(row.original, "name", value)}
+            />
             <Typography variant="body2" color="text.secondary">
               {row.original.sku}
             </Typography>
@@ -289,7 +814,16 @@ function ProductListPage(): React.ReactElement {
       }),
       columnHelper.accessor("unitPrice", {
         header: "單價",
-        cell: ({ getValue }) => `$${getValue<number>()}`,
+        cell: ({ row, getValue }) => (
+          <EditableNumberCell
+            value={getValue<number>()}
+            format={(value) => `$${value}`}
+            integer
+            onCommit={(value) =>
+              handleCellEdit(row.original, "unitPrice", value)
+            }
+          />
+        ),
       }),
       columnHelper.display({
         id: "stock",
@@ -301,9 +835,27 @@ function ProductListPage(): React.ReactElement {
               (sum, variant) => sum + variant.stockQuantity,
               0,
             );
-            return `${totalStock}（${product.variants.length} 規格）`;
+            return (
+              <EditableNumberCell
+                value={totalStock}
+                format={(value) =>
+                  `${value}（${product.variants.length} 規格）`
+                }
+                disabled
+                disabledText="有規格商品請到編輯頁調整各規格庫存"
+                onCommit={async () => undefined}
+              />
+            );
           }
-          return product.stockQuantity;
+          return (
+            <EditableNumberCell
+              value={product.stockQuantity}
+              integer
+              onCommit={(value) =>
+                handleCellEdit(product, "stockQuantity", value)
+              }
+            />
+          );
         },
       }),
       columnHelper.display({
@@ -311,19 +863,32 @@ function ProductListPage(): React.ReactElement {
         header: "供應商",
         cell: ({ row }) => {
           const supplierId = row.original.defaultSupplierId;
-          if (!supplierId)
-            return (
-              <Typography variant="body2" color="text.secondary">
-                —
-              </Typography>
-            );
-          const name = supplierMap?.get(supplierId);
-          return <Typography variant="body2">{name ?? "—"}</Typography>;
+          return (
+            <EditableSupplierCell
+              supplierId={supplierId}
+              supplierName={
+                supplierId ? supplierMap?.get(supplierId) : undefined
+              }
+              searchSuppliers={searchSuppliers}
+              onCommit={(value) =>
+                handleCellEdit(row.original, "defaultSupplierId", value)
+              }
+            />
+          );
         },
       }),
       columnHelper.accessor("defaultCost", {
         header: "進貨成本",
-        cell: ({ getValue }) => `$${getValue<number>()}`,
+        cell: ({ row, getValue }) => (
+          <EditableNumberCell
+            value={getValue<number>()}
+            format={(value) => `$${value}`}
+            integer
+            onCommit={(value) =>
+              handleCellEdit(row.original, "defaultCost", value)
+            }
+          />
+        ),
       }),
       columnHelper.accessor("createdAt", {
         header: "建立日期",
@@ -341,15 +906,13 @@ function ProductListPage(): React.ReactElement {
         id: "status",
         header: "狀態",
         cell: ({ row }) => (
-          <Typography
-            variant="body2"
-            sx={{
-              color: row.original.isActive ? "success.main" : "error.main",
-              fontWeight: 500,
-            }}
-          >
-            {row.original.isActive ? "啟用中" : "已停用"}
-          </Typography>
+          <EditableStatusCell
+            isActive={row.original.isActive}
+            disabled={
+              activateMutation.isPending || deactivateMutation.isPending
+            }
+            onCommit={(isActive) => handleStatusEdit(row.original, isActive)}
+          />
         ),
       }),
       columnHelper.display({
@@ -411,6 +974,11 @@ function ProductListPage(): React.ReactElement {
       handleSelectRow,
       handleEdit,
       handleToggleActive,
+      handleCellEdit,
+      handleStatusEdit,
+      searchSuppliers,
+      activateMutation.isPending,
+      deactivateMutation.isPending,
       thumbnailMap,
       supplierMap,
     ],
