@@ -19,18 +19,12 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { validateMergeOrders } from "@shared/logic/order-merge";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
 import { useCallback, useMemo, useState } from "react";
 
 export const Route = createFileRoute("/orders/merge")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: OrderMergePage,
 });
 

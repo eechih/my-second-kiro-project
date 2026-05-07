@@ -33,18 +33,12 @@ import type {
   UpdateVariantInput,
 } from "@shared/models";
 import { useForm } from "@tanstack/react-form";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
 import { useCallback, useEffect, useState } from "react";
 
 export const Route = createFileRoute("/products/$productId")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: ProductEditPage,
 });
 

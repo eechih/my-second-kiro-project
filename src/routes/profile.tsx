@@ -7,17 +7,11 @@ import {
   Paper,
   Typography,
 } from "@mui/material";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
+import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/profile")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: ProfilePage,
 });
 

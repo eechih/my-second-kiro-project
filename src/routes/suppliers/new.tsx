@@ -9,18 +9,12 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { validateSupplier } from "@shared/logic/validation";
 import { useForm } from "@tanstack/react-form";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
 import { useState } from "react";
 
 export const Route = createFileRoute("/suppliers/new")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: SupplierNewPage,
 });
 

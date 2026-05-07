@@ -28,7 +28,8 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { Product } from "@shared/models";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
 import {
   createColumnHelper,
   flexRender,
@@ -39,14 +40,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ProductToolbar } from "./-components/ProductToolbar";
 
 export const Route = createFileRoute("/products/")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: ProductListPage,
 });
 

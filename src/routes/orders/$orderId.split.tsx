@@ -22,18 +22,12 @@ import Typography from "@mui/material/Typography";
 import { calculateOrderTotal } from "@shared/logic/order-calculations";
 import { validateSplitOrder } from "@shared/logic/order-split";
 import type { LineItem, SplitAllocation } from "@shared/models";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
 import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/orders/$orderId/split")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: OrderSplitPage,
 });
 

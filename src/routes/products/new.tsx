@@ -19,20 +19,12 @@ import Typography from "@mui/material/Typography";
 import { validateProduct } from "@shared/logic/validation";
 import type { SpecDimension, Supplier } from "@shared/models";
 import { useForm } from "@tanstack/react-form";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
 import { useCallback, useState } from "react";
 
 export const Route = createFileRoute("/products/new")({
-  beforeLoad: ({ context }) => {
-    // 等待認證載入完成
-    if (context.auth.isLoading) {
-      return;
-    }
-    // 如果未認證，導向首頁
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: ProductNewPage,
 });
 

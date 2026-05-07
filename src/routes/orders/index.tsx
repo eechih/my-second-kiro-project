@@ -16,7 +16,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { Order } from "@shared/models";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
 import {
   createColumnHelper,
   flexRender,
@@ -27,14 +28,7 @@ import { useCallback, useMemo, useState } from "react";
 import { OrderToolbar } from "./-components/OrderToolbar";
 
 export const Route = createFileRoute("/orders/")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: OrderListPage,
 });
 

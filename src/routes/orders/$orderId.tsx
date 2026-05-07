@@ -57,18 +57,12 @@ import type {
   PurchaseRecord,
   Supplier,
 } from "@shared/models";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
 import { useCallback, useState } from "react";
 
 export const Route = createFileRoute("/orders/$orderId")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: OrderDetailPage,
 });
 

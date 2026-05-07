@@ -28,7 +28,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { Customer } from "@shared/models";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/route-guards";
 import {
   createColumnHelper,
   flexRender,
@@ -41,14 +42,7 @@ import { RowActions } from "./-components/RowActions";
 import { UserInfoCell } from "./-components/UserInfoCell";
 
 export const Route = createFileRoute("/customers/")({
-  beforeLoad: ({ context }) => {
-    if (context.auth.isLoading) {
-      return;
-    }
-    if (!context.auth.isAuthenticated) {
-      throw redirect({ to: "/" });
-    }
-  },
+  beforeLoad: requireAuth,
   component: CustomerListPage,
 });
 
