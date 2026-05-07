@@ -7,11 +7,15 @@ import {
   useDeactivateProduct,
   useProductList,
 } from "@/hooks/useProducts";
+import { useProductThumbnailUrls } from "@/hooks/useProductImages";
 import { getRowNumber } from "@/lib/table-utils";
+import { client } from "@/lib/amplify-client";
 import BlockIcon from "@mui/icons-material/Block";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EditIcon from "@mui/icons-material/Edit";
+import ImageIcon from "@mui/icons-material/Image";
 import Alert from "@mui/material/Alert";
+import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Checkbox from "@mui/material/Checkbox";
@@ -28,6 +32,7 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { Product } from "@shared/models";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { requireAuth } from "@/lib/route-guards";
 import {
@@ -71,6 +76,63 @@ function ProductListPage(): React.ReactElement {
 
   const products = useMemo(() => data?.items ?? [], [data?.items]);
   const nextToken = data?.nextToken;
+
+  // 取得第一張縮圖的預簽名 URL
+  const firstImageKeys = useMemo(
+    () =>
+      products.map((p) => p.imageUrls[0]).filter((key): key is string => !!key),
+    [products],
+  );
+  const { data: thumbnailUrls } = useProductThumbnailUrls(firstImageKeys);
+
+  // 建立 imageKey → thumbnailUrl 的對應表
+  const thumbnailMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (thumbnailUrls) {
+      firstImageKeys.forEach((key, index) => {
+        const url = thumbnailUrls[index];
+        if (url) map.set(key, url);
+      });
+    }
+    return map;
+  }, [firstImageKeys, thumbnailUrls]);
+
+  // 批次查詢供應商名稱
+  const supplierIds = useMemo(
+    () => [
+      ...new Set(
+        products
+          .map((p) => p.defaultSupplierId)
+          .filter((id): id is string => !!id),
+      ),
+    ],
+    [products],
+  );
+
+  const { data: supplierMap } = useQuery({
+    queryKey: ["suppliers", "names", supplierIds],
+    queryFn: async (): Promise<Map<string, string>> => {
+      const map = new Map<string, string>();
+      if (supplierIds.length === 0) return map;
+
+      const results = await Promise.all(
+        supplierIds.map(async (id) => {
+          const { data: supplier } = await client.models.Supplier.get(
+            { id },
+            { selectionSet: ["id", "name"] },
+          );
+          return { id, name: String(supplier?.name ?? "") };
+        }),
+      );
+
+      for (const { id, name } of results) {
+        if (name) map.set(id, name);
+      }
+      return map;
+    },
+    enabled: supplierIds.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 分鐘快取
+  });
 
   const deactivateMutation = useDeactivateProduct();
   const activateMutation = useActivateProduct();
@@ -221,6 +283,20 @@ function ProductListPage(): React.ReactElement {
           ),
         enableSorting: false,
       }),
+      columnHelper.display({
+        id: "thumbnail",
+        header: "圖片",
+        cell: ({ row }) => {
+          const firstKey = row.original.imageUrls[0];
+          const url = firstKey ? thumbnailMap.get(firstKey) : undefined;
+          return (
+            <Avatar variant="rounded" src={url} sx={{ width: 40, height: 40 }}>
+              {!url && <ImageIcon fontSize="small" />}
+            </Avatar>
+          );
+        },
+        enableSorting: false,
+      }),
       columnHelper.accessor("name", {
         header: "商品名稱",
         cell: ({ row }) => (
@@ -255,6 +331,33 @@ function ProductListPage(): React.ReactElement {
             return `${totalStock}（${product.variants.length} 規格）`;
           }
           return product.stockQuantity;
+        },
+      }),
+      columnHelper.display({
+        id: "supplier",
+        header: "供應商",
+        cell: ({ row }) => {
+          const supplierId = row.original.defaultSupplierId;
+          if (!supplierId)
+            return (
+              <Typography variant="body2" color="text.secondary">
+                —
+              </Typography>
+            );
+          const name = supplierMap?.get(supplierId);
+          return <Typography variant="body2">{name ?? "—"}</Typography>;
+        },
+      }),
+      columnHelper.accessor("createdAt", {
+        header: "建立日期",
+        cell: ({ getValue }) => {
+          const value = getValue<string>();
+          if (!value) return "—";
+          return new Date(value).toLocaleDateString("zh-TW", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          });
         },
       }),
       columnHelper.display({
@@ -333,6 +436,8 @@ function ProductListPage(): React.ReactElement {
       handleToggleActive,
       pagination.tokenStack.length,
       pagination.pageSize,
+      thumbnailMap,
+      supplierMap,
     ],
   );
 

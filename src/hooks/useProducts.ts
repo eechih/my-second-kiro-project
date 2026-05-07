@@ -84,6 +84,57 @@ export function useProductList(
         ];
       }
 
+      // 無搜尋條件時使用 GSI 按建立日期降序查詢
+      const useGsi = !search;
+
+      if (useGsi) {
+        const indexFilter: Record<string, unknown> | undefined =
+          isActive !== undefined ? { isActive: { eq: isActive } } : undefined;
+
+        const {
+          data: indexData,
+          errors: indexErrors,
+          nextToken: indexNextToken,
+        } = await client.models.Product.listByCreatedDate(
+          { gsiPartition: "Product" },
+          {
+            sortDirection: "DESC",
+            limit: pageSize,
+            ...(indexFilter && { filter: indexFilter }),
+            ...(nextToken && { nextToken }),
+            selectionSet: [
+              "id",
+              "name",
+              "sku",
+              "unitPrice",
+              "defaultCost",
+              "defaultSupplierId",
+              "stockQuantity",
+              "specDimensions",
+              "imageUrls",
+              "isActive",
+              "version",
+              "createdAt",
+              "createdDate",
+              "updatedAt",
+              "variants.*",
+            ],
+          } as Record<string, unknown>,
+        );
+
+        if (indexErrors && indexErrors.length > 0) {
+          throw new Error(indexErrors[0]?.message ?? "查詢商品列表失敗");
+        }
+
+        const items: Product[] = (indexData ?? []).map(mapToProduct);
+
+        return {
+          items,
+          totalCount: items.length,
+          nextToken: indexNextToken ?? undefined,
+        };
+      }
+
       const listParams: Record<string, unknown> = {
         limit: pageSize,
         selectionSet: [
@@ -99,6 +150,7 @@ export function useProductList(
           "isActive",
           "version",
           "createdAt",
+          "createdDate",
           "updatedAt",
           "variants.*",
         ],
@@ -203,6 +255,8 @@ export function useCreateProduct(): UseMutationResult<
         imageUrls: input.imageUrls ?? [],
         isActive: true,
         version: 1,
+        gsiPartition: "Product",
+        createdDate: new Date().toISOString(),
       });
 
       if (errors && errors.length > 0) {

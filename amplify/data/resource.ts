@@ -68,8 +68,18 @@ const schema = a.schema({
       imageUrls: a.string().array(),
       isActive: a.boolean().required().default(true),
       version: a.integer().required().default(1),
+      /** GSI 分區鍵：固定值 "Product"，用於按建立日期排序查詢全部商品 */
+      gsiPartition: a.string().required().default("Product"),
+      /** 建立時間（ISO 8601），用於 GSI 排序 */
+      createdDate: a.datetime(),
       variants: a.hasMany("ProductVariant", "productId"),
     })
+    .secondaryIndexes((index) => [
+      index("gsiPartition")
+        .sortKeys(["createdDate"])
+        .queryField("listByCreatedDate")
+        .name("byCreatedAt"),
+    ])
     .authorization((allow) => [allow.authenticated()]),
 
   // ---------------------------------------------------------------------------
