@@ -26,12 +26,16 @@ export function EditableTextCell({
   const [draft, setDraft] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
+  const commitSourceRef = useRef<"enter" | "blur" | null>(null);
 
   const commit = async (): Promise<void> => {
-    if (isSavingRef.current) return;
+    // 如果已經在存檔中（由 blur 重複觸發），直接返回
+    if (isSaving) return;
 
     const nextValue = draft.trim();
     if (nextValue === value) {
+      isSavingRef.current = false;
+      commitSourceRef.current = null;
       setIsEditing(false);
       return;
     }
@@ -44,41 +48,50 @@ export function EditableTextCell({
       isSavingRef.current = false;
       setIsSaving(false);
       setIsEditing(false);
+      commitSourceRef.current = null;
     }
   };
+
+  if (isSaving) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <CircularProgress size={16} />
+        <Typography variant="body2" color="text.secondary">
+          保存中
+        </Typography>
+      </Box>
+    );
+  }
 
   if (isEditing) {
     return (
       <TextField
-        value={isSaving ? "保存中" : draft}
+        value={draft}
         size="small"
         variant="outlined"
         autoFocus
         fullWidth
-        disabled={isSaving}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => {
-          if (!isSavingRef.current) void commit();
+          // blur 放棄編輯，除非是 Enter 觸發的存檔
+          if (!isSavingRef.current && commitSourceRef.current !== "enter") {
+            setDraft(value);
+            setIsEditing(false);
+          }
         }}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            (event.target as HTMLElement).blur();
+            // 同步標記，防止後續 blur 干擾
+            commitSourceRef.current = "enter";
+            isSavingRef.current = true;
+            void commit();
           }
           if (event.key === "Escape" && !isSavingRef.current) {
             setDraft(value);
             setIsEditing(false);
           }
-        }}
-        slotProps={{
-          input: {
-            endAdornment: isSaving ? (
-              <InputAdornment position="end">
-                <CircularProgress size={16} />
-              </InputAdornment>
-            ) : undefined,
-          },
         }}
       />
     );
