@@ -53,6 +53,8 @@ export const Route = createFileRoute("/products/")({
 });
 
 const columnHelper = createColumnHelper<Product>();
+const RIGHT_ALIGNED_COLUMNS = new Set(["unitPrice", "stock", "defaultCost"]);
+const CENTER_ALIGNED_COLUMNS = new Set(["supplier"]);
 
 type EditableProductField =
   | "name"
@@ -357,7 +359,7 @@ function ProductListPage(): React.ReactElement {
       }),
       columnHelper.display({
         id: "stock",
-        header: "庫存",
+        header: "庫存數量",
         cell: ({ row }) => {
           const product = row.original;
           if (product.variants.length > 0) {
@@ -396,9 +398,7 @@ function ProductListPage(): React.ReactElement {
           return (
             <EditableAutocompleteCell<SupplierOption>
               valueId={supplierId}
-              valueLabel={
-                supplierId ? supplierMap?.get(supplierId) : undefined
-              }
+              valueLabel={supplierId ? supplierMap?.get(supplierId) : undefined}
               placeholder="搜尋供應商"
               noOptionsText="無符合供應商"
               searchOptions={searchSuppliers}
@@ -523,16 +523,24 @@ function ProductListPage(): React.ReactElement {
             <TableHead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableCell key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableCell>
-                  ))}
+                  {headerGroup.headers.map((header) => {
+                    const align = RIGHT_ALIGNED_COLUMNS.has(header.column.id)
+                      ? "right"
+                      : CENTER_ALIGNED_COLUMNS.has(header.column.id)
+                        ? "center"
+                        : "left";
+
+                    return (
+                      <TableCell key={header.id} align={align}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))}
             </TableHead>
@@ -556,14 +564,22 @@ function ProductListPage(): React.ReactElement {
                     selected={selectedIds.has(row.original.id)}
                     hover
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
+                    {row.getVisibleCells().map((cell) => {
+                      const align = RIGHT_ALIGNED_COLUMNS.has(cell.column.id)
+                        ? "right"
+                        : CENTER_ALIGNED_COLUMNS.has(cell.column.id)
+                          ? "center"
+                          : "left";
+
+                      return (
+                        <TableCell key={cell.id} align={align}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 ))
               )}
@@ -581,7 +597,6 @@ function ProductListPage(): React.ReactElement {
         onPrevPage={handlePrevPage}
         currentCount={products.length}
       />
-
     </Box>
   );
 }
