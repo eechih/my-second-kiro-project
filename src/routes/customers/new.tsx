@@ -1,4 +1,5 @@
 import { FormField } from "@/components/FormField";
+import { PageHeader } from "@/components/PageHeader";
 import { useCreateCustomer } from "@/hooks/useCustomers";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -6,7 +7,6 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import { validateCustomer } from "@shared/logic/validation";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -59,9 +59,7 @@ function CustomerNewPage() {
 
   return (
     <Box sx={{ maxWidth: 600 }}>
-      <Typography variant="h4" gutterBottom>
-        新增客戶
-      </Typography>
+      <PageHeader section="客戶" current="新增" title="新增客戶" />
 
       {submitError && (
         <Alert

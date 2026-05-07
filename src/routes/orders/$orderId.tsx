@@ -1,5 +1,6 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EntitySelect } from "@/components/EntitySelect";
+import { PageHeader } from "@/components/PageHeader";
 import { StatusChip } from "@/components/StatusChip";
 import {
   useConfirmReceived,
@@ -698,29 +699,38 @@ function OrderDetailPage(): React.ReactElement {
 
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-        <IconButton onClick={() => void navigate({ to: "/orders" })}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h4">訂單詳情</Typography>
-        <Chip label={order.orderNumber} variant="outlined" />
-        {(order.status === "pending" || order.status === "confirmed") &&
-          order.lineItems.length >= 2 && (
+      <PageHeader
+        section="訂單"
+        current={order.orderNumber}
+        title="訂單詳情"
+        actions={
+          <>
             <Button
               size="small"
-              variant="outlined"
-              onClick={() =>
-                navigate({
-                  to: "/orders/$orderId/split",
-                  params: { orderId },
-                })
-              }
+              startIcon={<ArrowBackIcon />}
+              onClick={() => void navigate({ to: "/orders" })}
             >
-              分拆訂單
+              返回
             </Button>
-          )}
-      </Box>
+            <Chip label={order.orderNumber} variant="outlined" />
+            {(order.status === "pending" || order.status === "confirmed") &&
+              order.lineItems.length >= 2 && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() =>
+                    navigate({
+                      to: "/orders/$orderId/split",
+                      params: { orderId },
+                    })
+                  }
+                >
+                  分拆訂單
+                </Button>
+              )}
+          </>
+        }
+      />
 
       {statusError && (
         <Alert

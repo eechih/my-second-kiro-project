@@ -2,6 +2,7 @@ import { Box, Container, Link, Paper, Typography } from "@mui/material";
 import OpenInNew from "@mui/icons-material/OpenInNew";
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuth } from "@/lib/route-guards";
+import { PageHeader } from "@/components/PageHeader";
 import {
   buildCognitoUserPoolUrl,
   buildCognitoIdentityPoolUrl,
@@ -62,11 +63,7 @@ function ResourceItem({
 function InfrastructurePage() {
   return (
     <Container maxWidth="md">
-      <Box sx={{ py: 2 }}>
-        <Typography variant="h4" gutterBottom>
-          AWS 資源連結
-        </Typography>
-      </Box>
+      <PageHeader section="基礎設施" current="AWS 資源" title="AWS 資源連結" />
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" gutterBottom>

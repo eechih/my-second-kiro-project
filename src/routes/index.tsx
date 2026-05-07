@@ -12,6 +12,7 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import { useAuth } from "@/auth/AuthProvider";
+import { PageHeader } from "@/components/PageHeader";
 import { useDashboardSummary } from "@/hooks/useDashboard";
 
 export const Route = createFileRoute("/")({
@@ -54,9 +55,7 @@ function Dashboard() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        儀表板
-      </Typography>
+      <PageHeader section="儀表板" current="總覽" title="儀表板" />
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>

@@ -1,5 +1,6 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EntitySelect } from "@/components/EntitySelect";
+import { PageHeader } from "@/components/PageHeader";
 import { StatusChip } from "@/components/StatusChip";
 import { useMergeOrders, useOrderList } from "@/hooks/useOrders";
 import { client } from "@/lib/amplify-client";
@@ -163,16 +164,20 @@ function OrderMergePage() {
 
   return (
     <Box>
-      {/* 頁面標題 */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate({ to: "/orders" })}
-        >
-          返回
-        </Button>
-        <Typography variant="h4">合併訂單</Typography>
-      </Box>
+      <PageHeader
+        section="訂單"
+        current="合併"
+        title="合併訂單"
+        actions={
+          <Button
+            size="small"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate({ to: "/orders" })}
+          >
+            返回
+          </Button>
+        }
+      />
 
       {/* 錯誤訊息 */}
       {error && (

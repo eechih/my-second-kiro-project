@@ -1,4 +1,5 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { PageHeader } from "@/components/PageHeader";
 import { useOrder, useSplitOrder } from "@/hooks/useOrders";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CallSplitIcon from "@mui/icons-material/CallSplit";
@@ -158,22 +159,28 @@ function OrderSplitPage() {
 
   return (
     <Box>
-      {/* 頁面標題 */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() =>
-            navigate({
-              to: "/orders/$orderId" as string,
-              params: { orderId } as Record<string, string>,
-            })
-          }
-        >
-          返回
-        </Button>
-        <Typography variant="h4">分拆訂單</Typography>
-        <Chip label={order.orderNumber} variant="outlined" />
-      </Box>
+      <PageHeader
+        section="訂單"
+        current="分拆"
+        title="分拆訂單"
+        actions={
+          <>
+            <Button
+              size="small"
+              startIcon={<ArrowBackIcon />}
+              onClick={() =>
+                navigate({
+                  to: "/orders/$orderId" as string,
+                  params: { orderId } as Record<string, string>,
+                })
+              }
+            >
+              返回
+            </Button>
+            <Chip label={order.orderNumber} variant="outlined" />
+          </>
+        }
+      />
 
       {/* 錯誤訊息 */}
       {error && (

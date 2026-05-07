@@ -2,6 +2,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EntitySelect } from "@/components/EntitySelect";
 import { FormField } from "@/components/FormField";
 import { ImageUploader } from "@/components/ImageUploader";
+import { PageHeader } from "@/components/PageHeader";
 import { QuickVariantInput } from "@/components/QuickVariantInput";
 import { VariantTable } from "@/components/VariantTable";
 import {
@@ -232,9 +233,7 @@ function ProductEditPage() {
 
   return (
     <Box sx={{ maxWidth: 800 }}>
-      <Typography variant="h4" gutterBottom>
-        編輯商品
-      </Typography>
+      <PageHeader section="商品" current="編輯" title="編輯商品" />
 
       {submitError && (
         <Alert

@@ -1,4 +1,5 @@
 import { FormField } from "@/components/FormField";
+import { PageHeader } from "@/components/PageHeader";
 import { useCreateSupplier } from "@/hooks/useSuppliers";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -6,7 +7,6 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import { validateSupplier } from "@shared/logic/validation";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -59,9 +59,7 @@ function SupplierNewPage() {
 
   return (
     <Box sx={{ maxWidth: 600 }}>
-      <Typography variant="h4" gutterBottom>
-        新增供應商
-      </Typography>
+      <PageHeader section="供應商" current="新增" title="新增供應商" />
 
       {submitError && (
         <Alert

@@ -1,5 +1,6 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CursorPagination } from "@/components/CursorPagination";
+import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import type { ProductStatusFilter } from "@/hooks/useProducts";
 import {
@@ -17,11 +18,9 @@ import ImageIcon from "@mui/icons-material/Image";
 import Alert from "@mui/material/Alert";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
-import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -449,25 +448,7 @@ function ProductListPage(): React.ReactElement {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 1 }}>
-        <Link
-          underline="hover"
-          color="inherit"
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            void navigate({ to: "/" });
-          }}
-        >
-          首頁
-        </Link>
-        <Typography color="text.primary">商品</Typography>
-        <Typography color="text.primary">列表</Typography>
-      </Breadcrumbs>
-
-      <Typography variant="h5" sx={{ mb: 3 }}>
-        列表
-      </Typography>
+      <PageHeader section="商品" current="列表" title="列表" />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>

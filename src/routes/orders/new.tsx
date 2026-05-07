@@ -1,8 +1,10 @@
 import { EntitySelect } from "@/components/EntitySelect";
+import { PageHeader } from "@/components/PageHeader";
 import { VariantSelect } from "@/components/VariantSelect";
 import { useCreateOrder } from "@/hooks/useOrders";
 import { useProduct } from "@/hooks/useProducts";
 import { client } from "@/lib/amplify-client";
+import { requireAuth } from "@/lib/route-guards";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Alert from "@mui/material/Alert";
@@ -25,7 +27,6 @@ import { resolveEffectivePrice } from "@shared/logic/product-variant";
 import type { Customer, Product, ProductVariant } from "@shared/models";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/route-guards";
 import { useCallback, useEffect, useState } from "react";
 
 export const Route = createFileRoute("/orders/new")({
@@ -470,9 +471,7 @@ function OrderNewPage() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        新增訂單
-      </Typography>
+      <PageHeader section="訂單" current="新增" title="新增訂單" />
 
       {submitError && (
         <Alert

@@ -1,5 +1,6 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { FormField } from "@/components/FormField";
+import { PageHeader } from "@/components/PageHeader";
 import { QuickVariantInput } from "@/components/QuickVariantInput";
 import { useCreateProduct } from "@/hooks/useProducts";
 import { client } from "@/lib/amplify-client";
@@ -102,9 +103,7 @@ function ProductNewPage() {
 
   return (
     <Box sx={{ maxWidth: 800 }}>
-      <Typography variant="h4" gutterBottom>
-        新增商品
-      </Typography>
+      <PageHeader section="商品" current="新增" title="新增商品" />
 
       {submitError && (
         <Alert

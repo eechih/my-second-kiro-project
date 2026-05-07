@@ -1,12 +1,11 @@
 import { CursorPagination } from "@/components/CursorPagination";
+import { PageHeader } from "@/components/PageHeader";
 import { StatusChip } from "@/components/StatusChip";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import type { OrderStatusFilter } from "@/hooks/useOrders";
 import { useOrderList, usePrefetchOrder } from "@/hooks/useOrders";
 import Box from "@mui/material/Box";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
 import CircularProgress from "@mui/material/CircularProgress";
-import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -134,25 +133,7 @@ function OrderListPage(): React.ReactElement {
 
   return (
     <Box>
-      <Breadcrumbs sx={{ mb: 1 }}>
-        <Link
-          underline="hover"
-          color="inherit"
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            void navigate({ to: "/" });
-          }}
-        >
-          首頁
-        </Link>
-        <Typography color="text.primary">訂單</Typography>
-        <Typography color="text.primary">列表</Typography>
-      </Breadcrumbs>
-
-      <Typography variant="h5" sx={{ mb: 3 }}>
-        列表
-      </Typography>
+      <PageHeader section="訂單" current="列表" title="列表" />
 
       <OrderToolbar
         search={search}

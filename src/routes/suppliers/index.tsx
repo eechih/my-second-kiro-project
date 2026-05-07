@@ -1,5 +1,6 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CursorPagination } from "@/components/CursorPagination";
+import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
   useActivateSupplier,
@@ -15,10 +16,8 @@ import {
 import { getRowNumber } from "@/lib/table-utils";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
-import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -343,27 +342,7 @@ function SupplierListPage(): React.ReactElement {
 
   return (
     <Box>
-      {/* 麵包屑導覽 - 需求 8.1, 8.2 */}
-      <Breadcrumbs sx={{ mb: 1 }}>
-        <Link
-          underline="hover"
-          color="inherit"
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            void navigate({ to: "/" });
-          }}
-        >
-          首頁
-        </Link>
-        <Typography color="text.primary">供應商</Typography>
-        <Typography color="text.primary">列表</Typography>
-      </Breadcrumbs>
-
-      {/* 頁面標題 - 需求 8.3 */}
-      <Typography variant="h5" sx={{ mb: 3 }}>
-        列表
-      </Typography>
+      <PageHeader section="供應商" current="列表" title="列表" />
 
       {/* 錯誤提示 */}
       {error && (

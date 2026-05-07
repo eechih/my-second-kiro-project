@@ -5,8 +5,8 @@ import {
   ListItem,
   ListItemText,
   Paper,
-  Typography,
 } from "@mui/material";
+import { PageHeader } from "@/components/PageHeader";
 import { requireAuth } from "@/lib/route-guards";
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -21,9 +21,7 @@ function ProfilePage() {
 
   return (
     <Box sx={{ maxWidth: 600 }}>
-      <Typography variant="h4" gutterBottom>
-        個人資料
-      </Typography>
+      <PageHeader section="帳號" current="個人資料" title="個人資料" />
       <Paper elevation={2}>
         <List>
           <ListItem>
