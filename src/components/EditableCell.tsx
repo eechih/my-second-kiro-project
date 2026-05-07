@@ -7,7 +7,7 @@ import Select from "@mui/material/Select";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface EditableTextCellProps {
   value: string;
@@ -25,19 +25,24 @@ export function EditableTextCell({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   const commit = async (): Promise<void> => {
+    if (isSavingRef.current) return;
+
     const nextValue = draft.trim();
     if (nextValue === value) {
       setIsEditing(false);
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
     try {
       await onCommit(nextValue);
       setIsEditing(false);
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -45,20 +50,19 @@ export function EditableTextCell({
   if (isEditing) {
     return (
       <TextField
-        value={draft}
+        value={isSaving ? "保存中" : draft}
         size="small"
         variant="outlined"
         autoFocus
         fullWidth
         disabled={isSaving}
-        helperText={isSaving ? "保存中" : undefined}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => void commit()}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            event.currentTarget.blur();
+            void commit();
           }
           if (event.key === "Escape") {
             setDraft(value);
@@ -107,6 +111,7 @@ interface EditableNumberCellProps {
   integer?: boolean;
   disabled?: boolean;
   disabledText?: string;
+  align?: "left" | "right" | "center";
   onCommit: (value: number) => Promise<void>;
 }
 
@@ -116,13 +121,17 @@ export function EditableNumberCell({
   integer = false,
   disabled = false,
   disabledText,
+  align,
   onCommit,
 }: EditableNumberCellProps): React.ReactElement {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   const commit = async (): Promise<void> => {
+    if (isSavingRef.current) return;
+
     const parsed = Number(draft);
     if (!Number.isFinite(parsed) || parsed < 0) {
       setDraft(String(value));
@@ -136,11 +145,13 @@ export function EditableNumberCell({
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
     try {
       await onCommit(nextValue);
       setIsEditing(false);
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -148,7 +159,9 @@ export function EditableNumberCell({
   if (disabled) {
     return (
       <Tooltip title={disabledText ?? ""}>
-        <Typography component="span">{format(value)}</Typography>
+        <Typography component="span" sx={{ textAlign: align }}>
+          {format(value)}
+        </Typography>
       </Tooltip>
     );
   }
@@ -156,15 +169,14 @@ export function EditableNumberCell({
   if (isEditing) {
     return (
       <TextField
-        value={draft}
+        value={isSaving ? "保存中" : draft}
         size="small"
         variant="outlined"
-        type="number"
+        type={isSaving ? "text" : "number"}
         autoFocus
         disabled={isSaving}
-        helperText={isSaving ? "保存中" : undefined}
         slotProps={{
-          htmlInput: { min: 0, step: integer ? 1 : 0.01 },
+          htmlInput: { min: 0, step: integer ? 1 : 0.01, style: align ? { textAlign: align } : undefined },
           input: {
             endAdornment: isSaving ? (
               <InputAdornment position="end">
@@ -179,7 +191,7 @@ export function EditableNumberCell({
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            event.currentTarget.blur();
+            void commit();
           }
           if (event.key === "Escape") {
             setDraft(String(value));
@@ -195,7 +207,7 @@ export function EditableNumberCell({
     <Typography
       role="button"
       tabIndex={0}
-      sx={{ cursor: "text" }}
+      sx={{ cursor: "text", textAlign: align }}
       onClick={(event) => {
         event.stopPropagation();
         setDraft(String(value));
@@ -227,18 +239,23 @@ export function EditableStatusCell({
 }: EditableStatusCellProps): React.ReactElement {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   const commit = async (nextIsActive: boolean): Promise<void> => {
+    if (isSavingRef.current) return;
+
     if (nextIsActive === isActive) {
       setIsEditing(false);
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
     try {
       await onCommit(nextIsActive);
       setIsEditing(false);
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -253,6 +270,7 @@ export function EditableStatusCell({
           autoFocus
           open
           disabled={disabled || isSaving}
+          renderValue={() => (isSaving ? "保存中" : isActive ? "啟用中" : "已停用")}
           sx={{
             minWidth: 88,
             color: isActive ? "success.main" : "error.main",
@@ -261,7 +279,9 @@ export function EditableStatusCell({
             },
           }}
           onClick={(event) => event.stopPropagation()}
-          onClose={() => setIsEditing(false)}
+          onClose={() => {
+            if (!isSavingRef.current) setIsEditing(false);
+          }}
           onChange={(event) => {
             void commit(event.target.value === "active");
           }}
@@ -269,11 +289,6 @@ export function EditableStatusCell({
           <MenuItem value="active">啟用中</MenuItem>
           <MenuItem value="inactive">已停用</MenuItem>
         </Select>
-        {isSaving && (
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-            保存中
-          </Typography>
-        )}
       </Box>
     );
   }
@@ -334,6 +349,7 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -365,17 +381,21 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
   };
 
   const commit = async (nextValue: T | null): Promise<void> => {
+    if (isSavingRef.current) return;
+
     const nextValueId = nextValue?.id ?? null;
     if (nextValueId === valueId) {
       setIsEditing(false);
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
     try {
       await onCommit(nextValueId);
       setIsEditing(false);
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -387,7 +407,7 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
         size="small"
         value={value}
         options={options}
-        inputValue={inputValue}
+        inputValue={isSaving ? "保存中" : inputValue}
         loading={isLoading}
         disabled={isSaving}
         clearOnBlur={false}
@@ -399,7 +419,9 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
           setValue(nextValue);
           void commit(nextValue);
         }}
-        onClose={() => setIsEditing(false)}
+        onClose={() => {
+          if (!isSavingRef.current) setIsEditing(false);
+        }}
         onInputChange={(_event, nextInputValue) => {
           setInputValue(nextInputValue);
         }}
@@ -411,7 +433,6 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
               autoFocus
               variant="outlined"
               placeholder={placeholder}
-              helperText={isSaving ? "保存中" : undefined}
               onClick={(event) => event.stopPropagation()}
               slotProps={{
                 ...paramSlotProps,

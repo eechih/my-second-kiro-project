@@ -351,6 +351,7 @@ function ProductListPage(): React.ReactElement {
             value={getValue<number>()}
             format={(value) => `$${value}`}
             integer
+            align="right"
             onCommit={(value) =>
               handleCellEdit(row.original, "unitPrice", value)
             }
@@ -375,6 +376,7 @@ function ProductListPage(): React.ReactElement {
                 }
                 disabled
                 disabledText="有規格商品請到編輯頁調整各規格庫存"
+                align="right"
                 onCommit={async () => undefined}
               />
             );
@@ -383,6 +385,7 @@ function ProductListPage(): React.ReactElement {
             <EditableNumberCell
               value={product.stockQuantity}
               integer
+              align="right"
               onCommit={(value) =>
                 handleCellEdit(product, "stockQuantity", value)
               }
@@ -416,6 +419,7 @@ function ProductListPage(): React.ReactElement {
             value={getValue<number>()}
             format={(value) => `$${value}`}
             integer
+            align="right"
             onCommit={(value) =>
               handleCellEdit(row.original, "defaultCost", value)
             }
