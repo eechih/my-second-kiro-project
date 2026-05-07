@@ -40,10 +40,10 @@ export function EditableTextCell({
     setIsSaving(true);
     try {
       await onCommit(nextValue);
-      setIsEditing(false);
     } finally {
       isSavingRef.current = false;
       setIsSaving(false);
+      setIsEditing(false);
     }
   };
 
@@ -57,14 +57,16 @@ export function EditableTextCell({
         fullWidth
         disabled={isSaving}
         onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => void commit()}
+        onBlur={() => {
+          if (!isSavingRef.current) void commit();
+        }}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            void commit();
+            (event.target as HTMLElement).blur();
           }
-          if (event.key === "Escape") {
+          if (event.key === "Escape" && !isSavingRef.current) {
             setDraft(value);
             setIsEditing(false);
           }
@@ -149,10 +151,10 @@ export function EditableNumberCell({
     setIsSaving(true);
     try {
       await onCommit(nextValue);
-      setIsEditing(false);
     } finally {
       isSavingRef.current = false;
       setIsSaving(false);
+      setIsEditing(false);
     }
   };
 
@@ -186,14 +188,16 @@ export function EditableNumberCell({
           },
         }}
         onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => void commit()}
+        onBlur={() => {
+          if (!isSavingRef.current) void commit();
+        }}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            void commit();
+            (event.target as HTMLElement).blur();
           }
-          if (event.key === "Escape") {
+          if (event.key === "Escape" && !isSavingRef.current) {
             setDraft(String(value));
             setIsEditing(false);
           }
