@@ -54,6 +54,7 @@ beforeLoad: ({ context }) => {
 ## 產品慣例
 
 - 所有 UI 文案使用繁體中文，包含按鈕文字、標籤、錯誤訊息、提示文字。
+- 規格文件（`.kiro/specs/` 下的 requirements.md、design.md、tasks.md）統一使用繁體中文撰寫，包含標題、使用者故事、驗收條件、設計說明與任務描述。技術術語（型別名稱、函式名稱、程式碼片段）保留英文。
 - 新頁面以路由檔案形式加入 `src/routes/`；路由樹由 TanStack Router Vite 插件自動產生，不要手動編輯 `routeTree.gen.ts`。
 - 後端資源（auth、data、storage）定義於 `amplify/`，使用 Amplify Gen2 的 `define*` 輔助函式。
 - UI 元件使用 MUI，樣式使用 `sx` prop，不要使用 `styled()` 或外部 CSS 檔案。
