@@ -52,6 +52,8 @@ export interface DataTableProps<T> {
   onRowMouseEnter?: (row: T) => void;
   /** 是否啟用排序（預設 true） */
   enableSorting?: boolean;
+  /** 是否隱藏分頁列 */
+  hidePagination?: boolean;
 }
 
 /**
@@ -78,6 +80,7 @@ export function DataTable<T>({
   onRowClick,
   onRowMouseEnter,
   enableSorting = true,
+  hidePagination = false,
 }: DataTableProps<T>): React.ReactElement {
   const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -191,60 +194,62 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       </TableContainer>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          px: 2,
-          py: 1.5,
-          borderTop: 1,
-          borderColor: "divider",
-          gap: 2,
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      {!hidePagination && (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            px: 2,
+            py: 1.5,
+            borderTop: 1,
+            borderColor: "divider",
+            gap: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              每頁筆數
+            </Typography>
+            <FormControl size="small" variant="outlined">
+              <Select
+                value={pageSize}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                sx={{ minWidth: 70 }}
+              >
+                {[5, 10, 25, 50].map((size) => (
+                  <MenuItem key={size} value={size}>
+                    {size}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
           <Typography variant="body2" color="text.secondary">
-            每頁筆數
+            {data.length === 0
+              ? "0 筆"
+              : `顯示 ${data.length} 筆${totalCount > 0 ? ` / 共 ${totalCount} 筆` : ""}`}
           </Typography>
-          <FormControl size="small" variant="outlined">
-            <Select
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              sx={{ minWidth: 70 }}
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <IconButton
+              size="small"
+              onClick={onPrevPage}
+              disabled={!hasPrevPage}
+              aria-label="上一頁"
             >
-              {[5, 10, 25, 50].map((size) => (
-                <MenuItem key={size} value={size}>
-                  {size}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <ChevronLeftIcon />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={onNextPage}
+              disabled={!hasNextPage}
+              aria-label="下一頁"
+            >
+              <ChevronRightIcon />
+            </IconButton>
+          </Box>
         </Box>
-        <Typography variant="body2" color="text.secondary">
-          {data.length === 0
-            ? "0 筆"
-            : `顯示 ${data.length} 筆${totalCount > 0 ? ` / 共 ${totalCount} 筆` : ""}`}
-        </Typography>
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <IconButton
-            size="small"
-            onClick={onPrevPage}
-            disabled={!hasPrevPage}
-            aria-label="上一頁"
-          >
-            <ChevronLeftIcon />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={onNextPage}
-            disabled={!hasNextPage}
-            aria-label="下一頁"
-          >
-            <ChevronRightIcon />
-          </IconButton>
-        </Box>
-      </Box>
+      )}
     </Paper>
   );
 }

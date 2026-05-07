@@ -3,19 +3,14 @@ import { FormField } from "@/components/FormField";
 import { QuickVariantInput } from "@/components/QuickVariantInput";
 import { useCreateProduct } from "@/hooks/useProducts";
 import { client } from "@/lib/amplify-client";
-import AddIcon from "@mui/icons-material/Add";
-import DeleteIcon from "@mui/icons-material/Delete";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { validateProduct } from "@shared/logic/validation";
 import type { SpecDimension, Supplier } from "@shared/models";
@@ -37,10 +32,6 @@ function ProductNewPage() {
     null,
   );
   const [specDimensions, setSpecDimensions] = useState<SpecDimension[]>([]);
-  const [newDimensionName, setNewDimensionName] = useState("");
-  const [newValueInputs, setNewValueInputs] = useState<Record<number, string>>(
-    {},
-  );
 
   const searchSuppliers = useCallback(async (query: string) => {
     const filter: Record<string, unknown> = {
@@ -108,45 +99,6 @@ function ProductNewPage() {
       }
     },
   });
-
-  // --- Spec Dimensions Management ---
-
-  const handleAddDimension = (): void => {
-    const trimmed = newDimensionName.trim();
-    if (!trimmed) return;
-    if (specDimensions.some((d) => d.name === trimmed)) return;
-    setSpecDimensions([...specDimensions, { name: trimmed, values: [] }]);
-    setNewDimensionName("");
-  };
-
-  const handleRemoveDimension = (index: number): void => {
-    setSpecDimensions(specDimensions.filter((_, i) => i !== index));
-    const newInputs = { ...newValueInputs };
-    delete newInputs[index];
-    setNewValueInputs(newInputs);
-  };
-
-  const handleAddValue = (dimIndex: number): void => {
-    const value = (newValueInputs[dimIndex] ?? "").trim();
-    if (!value) return;
-    const dim = specDimensions[dimIndex];
-    if (!dim || dim.values.includes(value)) return;
-    const updated = [...specDimensions];
-    updated[dimIndex] = { ...dim, values: [...dim.values, value] };
-    setSpecDimensions(updated);
-    setNewValueInputs({ ...newValueInputs, [dimIndex]: "" });
-  };
-
-  const handleRemoveValue = (dimIndex: number, valueIndex: number): void => {
-    const dim = specDimensions[dimIndex];
-    if (!dim) return;
-    const updated = [...specDimensions];
-    updated[dimIndex] = {
-      ...dim,
-      values: dim.values.filter((_, i) => i !== valueIndex),
-    };
-    setSpecDimensions(updated);
-  };
 
   return (
     <Box sx={{ maxWidth: 800 }}>
@@ -284,95 +236,6 @@ function ProductNewPage() {
                 (d) => d.values.length > 0,
               )}
             />
-
-            {specDimensions.map((dim, dimIndex) => (
-              <Paper key={dimIndex} variant="outlined" sx={{ p: 2 }}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    mb: 1,
-                  }}
-                >
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    {dim.name}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleRemoveDimension(dimIndex)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-
-                <Box
-                  sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1 }}
-                >
-                  {dim.values.map((val, valIndex) => (
-                    <Chip
-                      key={valIndex}
-                      label={val}
-                      size="small"
-                      onDelete={() => handleRemoveValue(dimIndex, valIndex)}
-                    />
-                  ))}
-                </Box>
-
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <TextField
-                    size="small"
-                    placeholder="新增選項值"
-                    value={newValueInputs[dimIndex] ?? ""}
-                    onChange={(e) =>
-                      setNewValueInputs({
-                        ...newValueInputs,
-                        [dimIndex]: e.target.value,
-                      })
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddValue(dimIndex);
-                      }
-                    }}
-                    sx={{ flex: 1 }}
-                  />
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => handleAddValue(dimIndex)}
-                  >
-                    新增
-                  </Button>
-                </Box>
-              </Paper>
-            ))}
-
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <TextField
-                size="small"
-                placeholder="維度名稱（如：顏色、尺寸）"
-                value={newDimensionName}
-                onChange={(e) => setNewDimensionName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddDimension();
-                  }
-                }}
-                sx={{ flex: 1 }}
-              />
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={handleAddDimension}
-                disabled={!newDimensionName.trim()}
-              >
-                新增維度
-              </Button>
-            </Box>
 
             <Divider />
 

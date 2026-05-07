@@ -57,8 +57,6 @@ export function VariantTable({
   isLoading = false,
 }: VariantTableProps): React.ReactElement {
   const [editing, setEditing] = useState<EditingState | null>(null);
-  const [pageSize, setPageSize] = useState(10);
-  const [pageIndex, setPageIndex] = useState(0);
 
   const startEditing = useCallback((variant: ProductVariant) => {
     setEditing({
@@ -294,30 +292,20 @@ export function VariantTable({
     ],
   );
 
-  // Paginate variants locally
-  const paginatedVariants = variants.slice(
-    pageIndex * pageSize,
-    (pageIndex + 1) * pageSize,
-  );
-  const hasNextPage = (pageIndex + 1) * pageSize < variants.length;
-  const hasPrevPage = pageIndex > 0;
-
   return (
     <DataTable
       columns={columns}
-      data={paginatedVariants}
+      data={variants}
       totalCount={variants.length}
-      pageSize={pageSize}
-      onPageSizeChange={(newSize) => {
-        setPageSize(newSize);
-        setPageIndex(0);
-      }}
-      hasNextPage={hasNextPage}
-      hasPrevPage={hasPrevPage}
-      onNextPage={() => setPageIndex((prev) => prev + 1)}
-      onPrevPage={() => setPageIndex((prev) => Math.max(0, prev - 1))}
+      pageSize={variants.length || 1}
+      onPageSizeChange={() => {}}
+      hasNextPage={false}
+      hasPrevPage={false}
+      onNextPage={() => {}}
+      onPrevPage={() => {}}
       isLoading={isLoading}
       enableSorting={true}
+      hidePagination
     />
   );
 }

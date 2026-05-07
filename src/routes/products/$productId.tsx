@@ -12,20 +12,14 @@ import {
   useUpdateVariant,
 } from "@/hooks/useProducts";
 import { client } from "@/lib/amplify-client";
-import AddIcon from "@mui/icons-material/Add";
-import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
-import DeleteIcon from "@mui/icons-material/Delete";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { validateProduct } from "@shared/logic/validation";
 import type {
@@ -61,10 +55,6 @@ function ProductEditPage() {
     null,
   );
   const [specDimensions, setSpecDimensions] = useState<SpecDimension[]>([]);
-  const [newDimensionName, setNewDimensionName] = useState("");
-  const [newValueInputs, setNewValueInputs] = useState<Record<number, string>>(
-    {},
-  );
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
     variantId: string | null;
@@ -172,57 +162,6 @@ function ProductEditPage() {
       }
     },
   });
-
-  // --- Spec Dimensions Management ---
-
-  const handleAddDimension = (): void => {
-    const trimmed = newDimensionName.trim();
-    if (!trimmed) return;
-    if (specDimensions.some((d) => d.name === trimmed)) return;
-    setSpecDimensions([...specDimensions, { name: trimmed, values: [] }]);
-    setNewDimensionName("");
-  };
-
-  const handleRemoveDimension = (index: number): void => {
-    setSpecDimensions(specDimensions.filter((_, i) => i !== index));
-    const newInputs = { ...newValueInputs };
-    delete newInputs[index];
-    setNewValueInputs(newInputs);
-  };
-
-  const handleAddValue = (dimIndex: number): void => {
-    const value = (newValueInputs[dimIndex] ?? "").trim();
-    if (!value) return;
-    const dim = specDimensions[dimIndex];
-    if (!dim || dim.values.includes(value)) return;
-    const updated = [...specDimensions];
-    updated[dimIndex] = { ...dim, values: [...dim.values, value] };
-    setSpecDimensions(updated);
-    setNewValueInputs({ ...newValueInputs, [dimIndex]: "" });
-  };
-
-  const handleRemoveValue = (dimIndex: number, valueIndex: number): void => {
-    const dim = specDimensions[dimIndex];
-    if (!dim) return;
-    const updated = [...specDimensions];
-    updated[dimIndex] = {
-      ...dim,
-      values: dim.values.filter((_, i) => i !== valueIndex),
-    };
-    setSpecDimensions(updated);
-  };
-
-  const handleGenerateVariants = async (): Promise<void> => {
-    setSubmitError(null);
-    try {
-      await generateVariantsMutation.mutateAsync({
-        productId,
-        specDimensions,
-      });
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "產生規格組合失敗");
-    }
-  };
 
   const handleUpdateVariant = (
     variantId: string,
@@ -420,7 +359,7 @@ function ProductEditPage() {
             <Divider />
             <Typography variant="h6">規格維度定義</Typography>
             <Typography variant="body2" color="text.secondary">
-              定義商品的規格維度（如顏色、尺寸），變更後點擊「產生規格組合」按鈕自動產生笛卡爾積。
+              定義商品的規格維度（如顏色、尺寸），套用後自動產生笛卡爾積規格組合。
             </Typography>
 
             {/* 快速規格輸入 */}
@@ -432,121 +371,10 @@ function ProductEditPage() {
                   specDimensions: dimensions,
                 });
               }}
-              hasExistingVariants={product.variants.some(
-                (v) =>
-                  v.stockQuantity > 0 ||
-                  v.unitPriceOverride !== null ||
-                  v.defaultCostOverride !== null,
-              )}
+              initialDimensions={product.specDimensions}
+              hasExistingVariants={product.variants.length > 0}
+              loading={generateVariantsMutation.isPending}
             />
-
-            {specDimensions.map((dim, dimIndex) => (
-              <Paper key={dimIndex} variant="outlined" sx={{ p: 2 }}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    mb: 1,
-                  }}
-                >
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    {dim.name}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleRemoveDimension(dimIndex)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-
-                <Box
-                  sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1 }}
-                >
-                  {dim.values.map((val, valIndex) => (
-                    <Chip
-                      key={valIndex}
-                      label={val}
-                      size="small"
-                      onDelete={() => handleRemoveValue(dimIndex, valIndex)}
-                    />
-                  ))}
-                </Box>
-
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <TextField
-                    size="small"
-                    placeholder="新增選項值"
-                    value={newValueInputs[dimIndex] ?? ""}
-                    onChange={(e) =>
-                      setNewValueInputs({
-                        ...newValueInputs,
-                        [dimIndex]: e.target.value,
-                      })
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddValue(dimIndex);
-                      }
-                    }}
-                    sx={{ flex: 1 }}
-                  />
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => handleAddValue(dimIndex)}
-                  >
-                    新增
-                  </Button>
-                </Box>
-              </Paper>
-            ))}
-
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <TextField
-                size="small"
-                placeholder="維度名稱（如：顏色、尺寸）"
-                value={newDimensionName}
-                onChange={(e) => setNewDimensionName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddDimension();
-                  }
-                }}
-                sx={{ flex: 1 }}
-              />
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={handleAddDimension}
-                disabled={!newDimensionName.trim()}
-              >
-                新增維度
-              </Button>
-            </Box>
-
-            {specDimensions.length > 0 &&
-              specDimensions.some((d) => d.values.length > 0) && (
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  startIcon={
-                    generateVariantsMutation.isPending ? (
-                      <CircularProgress size={16} color="inherit" />
-                    ) : (
-                      <AutoFixHighIcon />
-                    )
-                  }
-                  onClick={() => void handleGenerateVariants()}
-                  disabled={generateVariantsMutation.isPending}
-                >
-                  產生規格組合
-                </Button>
-              )}
 
             {/* 規格組合表格 */}
             {product.variants.length > 0 && (

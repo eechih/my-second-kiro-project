@@ -589,44 +589,62 @@ export function useGenerateVariants(): UseMutationResult<
           ).map(mapToVariant) ?? [])
         : [];
 
+      // 檢查是否有未完成的訂單明細引用這些規格組合
+      if (existingVariants.length > 0) {
+        const variantIds = existingVariants.map((v) => v.id);
+        for (const variantId of variantIds) {
+          const { data: lineItems } = await client.models.LineItem.list({
+            filter: {
+              variantId: { eq: variantId },
+              status: { ne: "已出貨" },
+            },
+            limit: 1,
+          });
+          if (lineItems && lineItems.length > 0) {
+            throw new Error(
+              "無法覆蓋規格組合：仍有未完成的訂單明細引用現有規格組合，請先處理相關訂單。",
+            );
+          }
+        }
+      }
+
       // 產生所有應存在的規格組合
       const allCombinations = generateVariants(specDimensions);
 
-      // 找出尚未存在的組合（比對 combination 的 JSON 字串）
-      const existingCombinationKeys = new Set(
-        existingVariants.map((v) => JSON.stringify(v.combination)),
+      // 刪除所有既有規格組合（覆蓋模式，並發執行）
+      await Promise.all(
+        existingVariants.map(async (variant) => {
+          const { errors: deleteErrors } =
+            await client.models.ProductVariant.delete({ id: variant.id });
+          if (deleteErrors && deleteErrors.length > 0) {
+            throw new Error(deleteErrors[0]?.message ?? "刪除規格組合失敗");
+          }
+        }),
       );
 
-      const newCombinations = allCombinations.filter(
-        (combo) =>
-          !existingCombinationKeys.has(JSON.stringify(combo.combination)),
+      // 批次建立新的規格組合（並發執行）
+      const createdVariants: ProductVariant[] = await Promise.all(
+        allCombinations.map(async (combo) => {
+          const sku = generateVariantSku(productSku, combo.combination);
+
+          const { data, errors } = await client.models.ProductVariant.create({
+            productId,
+            combination: JSON.stringify(combo.combination),
+            label: combo.label,
+            sku,
+            stockQuantity: 0,
+            unitPriceOverride: null,
+            defaultCostOverride: null,
+            version: 1,
+          });
+
+          if (errors && errors.length > 0) {
+            throw new Error(errors[0]?.message ?? "建立規格組合失敗");
+          }
+
+          return mapToVariant(data!);
+        }),
       );
-
-      // 批次建立新的規格組合
-      const createdVariants: ProductVariant[] = [];
-
-      for (const combo of newCombinations) {
-        const sku = generateVariantSku(productSku, combo.combination);
-
-        const { data, errors } = await client.models.ProductVariant.create({
-          productId,
-          combination: JSON.stringify(combo.combination),
-          label: combo.label,
-          sku,
-          stockQuantity: 0,
-          unitPriceOverride: null,
-          defaultCostOverride: null,
-          version: 1,
-        });
-
-        if (errors && errors.length > 0) {
-          throw new Error(errors[0]?.message ?? "建立規格組合失敗");
-        }
-
-        if (data) {
-          createdVariants.push(mapToVariant(data));
-        }
-      }
 
       // 同時更新商品的 specDimensions
       await client.models.Product.update({
@@ -634,7 +652,7 @@ export function useGenerateVariants(): UseMutationResult<
         specDimensions: JSON.stringify(specDimensions),
       });
 
-      return [...existingVariants, ...createdVariants];
+      return createdVariants;
     },
     onSuccess: (_, { productId }) => {
       void queryClient.invalidateQueries({
@@ -671,6 +689,22 @@ function mapToProduct(raw: Record<string, unknown>): Product {
   let variants: ProductVariant[] = [];
   if (raw.variants && Array.isArray(raw.variants)) {
     variants = (raw.variants as Record<string, unknown>[]).map(mapToVariant);
+  }
+
+  // 依規格維度定義順序排序 variants
+  if (variants.length > 0 && specDimensions.length > 0) {
+    variants.sort((a, b) => {
+      for (const dim of specDimensions) {
+        const aIndex = dim.values.indexOf(
+          (a.combination as Record<string, string>)[dim.name] ?? "",
+        );
+        const bIndex = dim.values.indexOf(
+          (b.combination as Record<string, string>)[dim.name] ?? "",
+        );
+        if (aIndex !== bIndex) return aIndex - bIndex;
+      }
+      return 0;
+    });
   }
 
   // 計算庫存：有規格組合時顯示各規格組合庫存加總
