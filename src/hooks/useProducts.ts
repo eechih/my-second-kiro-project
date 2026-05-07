@@ -4,7 +4,6 @@ import {
   useQueryClient,
   type UseQueryResult,
   type UseMutationResult,
-  type QueryKey,
 } from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
 import type {
@@ -66,12 +65,12 @@ const PRODUCT_KEYS = {
  */
 export function useProductList(
   params: ProductListParams,
-): UseQueryResult<PaginatedResult<Product>> {
+): UseQueryResult<PaginatedResult<string>> {
   const { pageSize, nextToken, search, isActive } = params;
 
   return useQuery({
     queryKey: PRODUCT_KEYS.list({ pageSize, nextToken, search, isActive }),
-    queryFn: async (): Promise<PaginatedResult<Product>> => {
+    queryFn: async (): Promise<PaginatedResult<string>> => {
       const filter: Record<string, unknown> = {};
 
       if (isActive !== undefined) {
@@ -130,7 +129,7 @@ export function useProductList(
         const items: Product[] = (indexData ?? []).map(mapToProduct);
 
         return {
-          items,
+          items: items.map((product) => product.id),
           totalCount: items.length,
           nextToken: indexNextToken ?? undefined,
         };
@@ -178,7 +177,7 @@ export function useProductList(
       const items: Product[] = (data ?? []).map(mapToProduct);
 
       return {
-        items,
+        items: items.map((product) => product.id),
         totalCount: items.length,
         nextToken: responseNextToken ?? undefined,
       };
@@ -285,10 +284,7 @@ export function useUpdateProduct(): UseMutationResult<
   Product,
   Error,
   UpdateProductInput,
-  {
-    previousProduct?: Product;
-    previousLists: [QueryKey, PaginatedResult<Product> | undefined][];
-  }
+  { previousProduct?: Product }
 > {
   const queryClient = useQueryClient();
 
@@ -347,16 +343,10 @@ export function useUpdateProduct(): UseMutationResult<
       await queryClient.cancelQueries({
         queryKey: PRODUCT_KEYS.detail(input.id),
       });
-      await queryClient.cancelQueries({ queryKey: PRODUCT_KEYS.lists() });
 
       const previousProduct = queryClient.getQueryData<Product>(
         PRODUCT_KEYS.detail(input.id),
       );
-      const previousLists = queryClient.getQueriesData<
-        PaginatedResult<Product>
-      >({
-        queryKey: PRODUCT_KEYS.lists(),
-      });
 
       const applyUpdate = (product: Product): Product => ({
         ...product,
@@ -385,20 +375,7 @@ export function useUpdateProduct(): UseMutationResult<
         );
       }
 
-      queryClient.setQueriesData<PaginatedResult<Product>>(
-        { queryKey: PRODUCT_KEYS.lists() },
-        (current) =>
-          current
-            ? {
-                ...current,
-                items: current.items.map((product) =>
-                  product.id === input.id ? applyUpdate(product) : product,
-                ),
-              }
-            : current,
-      );
-
-      return { previousProduct, previousLists };
+      return { previousProduct };
     },
     onError: (_error, input, context) => {
       if (context?.previousProduct) {
@@ -408,26 +385,11 @@ export function useUpdateProduct(): UseMutationResult<
         );
       }
 
-      context?.previousLists.forEach(([queryKey, data]) => {
-        queryClient.setQueryData(queryKey, data);
-      });
     },
     onSuccess: (updatedProduct) => {
       queryClient.setQueryData(
         PRODUCT_KEYS.detail(updatedProduct.id),
         updatedProduct,
-      );
-      queryClient.setQueriesData<PaginatedResult<Product>>(
-        { queryKey: PRODUCT_KEYS.lists() },
-        (current) =>
-          current
-            ? {
-                ...current,
-                items: current.items.map((product) =>
-                  product.id === updatedProduct.id ? updatedProduct : product,
-                ),
-              }
-            : current,
       );
     },
     onSettled: (_data, _error, input) => {

@@ -13,6 +13,7 @@ import type { ProductStatusFilter } from "@/hooks/useProducts";
 import {
   useActivateProduct,
   useDeactivateProduct,
+  useProduct,
   useProductList,
   useUpdateProduct,
 } from "@/hooks/useProducts";
@@ -38,12 +39,6 @@ import Typography from "@mui/material/Typography";
 import type { Product, UpdateProductInput } from "@shared/models";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
 import { ProductToolbar } from "./-components/ProductToolbar";
 
@@ -51,10 +46,6 @@ export const Route = createFileRoute("/products/")({
   beforeLoad: requireAuth,
   component: ProductListPage,
 });
-
-const columnHelper = createColumnHelper<Product>();
-const RIGHT_ALIGNED_COLUMNS = new Set(["unitPrice", "stock", "defaultCost"]);
-const CENTER_ALIGNED_COLUMNS = new Set(["supplier"]);
 
 type EditableProductField =
   | "name"
@@ -86,65 +77,8 @@ function ProductListPage(): React.ReactElement {
     isActive,
   });
 
-  const products = useMemo(() => data?.items ?? [], [data?.items]);
+  const productIds = useMemo(() => data?.items ?? [], [data?.items]);
   const nextToken = data?.nextToken;
-
-  // 取得第一張縮圖的預簽名 URL
-  const firstImageKeys = useMemo(
-    () =>
-      products.map((p) => p.imageUrls[0]).filter((key): key is string => !!key),
-    [products],
-  );
-  const { data: thumbnailUrls } = useProductThumbnailUrls(firstImageKeys);
-
-  // 建立 imageKey → thumbnailUrl 的對應表
-  const thumbnailMap = useMemo(() => {
-    const map = new Map<string, string>();
-    if (thumbnailUrls) {
-      firstImageKeys.forEach((key, index) => {
-        const url = thumbnailUrls[index];
-        if (url) map.set(key, url);
-      });
-    }
-    return map;
-  }, [firstImageKeys, thumbnailUrls]);
-
-  // 批次查詢供應商名稱
-  const supplierIds = useMemo(
-    () => [
-      ...new Set(
-        products
-          .map((p) => p.defaultSupplierId)
-          .filter((id): id is string => !!id),
-      ),
-    ],
-    [products],
-  );
-
-  const { data: supplierMap } = useQuery({
-    queryKey: ["suppliers", "names", supplierIds],
-    queryFn: async (): Promise<Map<string, string>> => {
-      const map = new Map<string, string>();
-      if (supplierIds.length === 0) return map;
-
-      const results = await Promise.all(
-        supplierIds.map(async (id) => {
-          const { data: supplier } = await client.models.Supplier.get(
-            { id },
-            { selectionSet: ["id", "name"] },
-          );
-          return { id, name: String(supplier?.name ?? "") };
-        }),
-      );
-
-      for (const { id, name } of results) {
-        if (name) map.set(id, name);
-      }
-      return map;
-    },
-    enabled: supplierIds.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 分鐘快取
-  });
 
   const searchSuppliers = useCallback(
     async (query: string): Promise<SupplierOption[]> => {
@@ -213,17 +147,17 @@ function ProductListPage(): React.ReactElement {
   }, [pagination]);
 
   const allSelected =
-    products.length > 0 && selectedIds.size === products.length;
+    productIds.length > 0 && selectedIds.size === productIds.length;
   const someSelected =
-    selectedIds.size > 0 && selectedIds.size < products.length;
+    selectedIds.size > 0 && selectedIds.size < productIds.length;
 
   const handleSelectAll = useCallback((): void => {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(products.map((product) => product.id)));
+      setSelectedIds(new Set(productIds));
     }
-  }, [allSelected, products]);
+  }, [allSelected, productIds]);
 
   const handleSelectRow = useCallback((productId: string): void => {
     setSelectedIds((prev) => {
@@ -295,209 +229,6 @@ function ProductListPage(): React.ReactElement {
     [activateMutation, deactivateMutation],
   );
 
-  const columns = useMemo(
-    () => [
-      columnHelper.display({
-        id: "select",
-        header: () => (
-          <Checkbox
-            checked={allSelected}
-            indeterminate={someSelected}
-            onChange={handleSelectAll}
-            size="small"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={selectedIds.has(row.original.id)}
-            onChange={() => handleSelectRow(row.original.id)}
-            size="small"
-          />
-        ),
-        enableSorting: false,
-      }),
-      columnHelper.display({
-        id: "thumbnail",
-        header: "圖片",
-        cell: ({ row }) => {
-          const firstKey = row.original.imageUrls[0];
-          const url = firstKey ? thumbnailMap.get(firstKey) : undefined;
-          return (
-            <Avatar variant="rounded" src={url} sx={{ width: 40, height: 40 }}>
-              {!url && <ImageIcon fontSize="small" />}
-            </Avatar>
-          );
-        },
-        enableSorting: false,
-      }),
-      columnHelper.accessor("name", {
-        header: "商品名稱",
-        cell: ({ row }) => (
-          <Box>
-            <EditableTextCell
-              value={row.original.name}
-              onCommit={(value) => handleCellEdit(row.original, "name", value)}
-            />
-            <Typography variant="body2" color="text.secondary">
-              {row.original.sku}
-            </Typography>
-          </Box>
-        ),
-      }),
-      columnHelper.accessor("unitPrice", {
-        header: "單價",
-        cell: ({ row, getValue }) => (
-          <EditableNumberCell
-            value={getValue<number>()}
-            format={(value) => `$${value}`}
-            integer
-            align="right"
-            onCommit={(value) =>
-              handleCellEdit(row.original, "unitPrice", value)
-            }
-          />
-        ),
-      }),
-      columnHelper.display({
-        id: "stock",
-        header: "庫存數量",
-        cell: ({ row }) => {
-          const product = row.original;
-          if (product.variants.length > 0) {
-            const totalStock = product.variants.reduce(
-              (sum, variant) => sum + variant.stockQuantity,
-              0,
-            );
-            return (
-              <EditableNumberCell
-                value={totalStock}
-                format={(value) =>
-                  `${value}（${product.variants.length} 規格）`
-                }
-                disabled
-                disabledText="有規格商品請到編輯頁調整各規格庫存"
-                align="right"
-                onCommit={async () => undefined}
-              />
-            );
-          }
-          return (
-            <EditableNumberCell
-              value={product.stockQuantity}
-              integer
-              align="right"
-              onCommit={(value) =>
-                handleCellEdit(product, "stockQuantity", value)
-              }
-            />
-          );
-        },
-      }),
-      columnHelper.display({
-        id: "supplier",
-        header: "供應商",
-        cell: ({ row }) => {
-          const supplierId = row.original.defaultSupplierId;
-          return (
-            <EditableAutocompleteCell<SupplierOption>
-              valueId={supplierId}
-              valueLabel={supplierId ? supplierMap?.get(supplierId) : undefined}
-              placeholder="搜尋供應商"
-              noOptionsText="無符合供應商"
-              searchOptions={searchSuppliers}
-              onCommit={(value) =>
-                handleCellEdit(row.original, "defaultSupplierId", value)
-              }
-            />
-          );
-        },
-      }),
-      columnHelper.accessor("defaultCost", {
-        header: "進貨成本",
-        cell: ({ row, getValue }) => (
-          <EditableNumberCell
-            value={getValue<number>()}
-            format={(value) => `$${value}`}
-            integer
-            align="right"
-            onCommit={(value) =>
-              handleCellEdit(row.original, "defaultCost", value)
-            }
-          />
-        ),
-      }),
-      columnHelper.accessor("createdAt", {
-        header: "建立日期",
-        cell: ({ getValue }) => {
-          const value = getValue<string>();
-          if (!value) return "—";
-          return new Date(value).toLocaleDateString("zh-TW", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          });
-        },
-      }),
-      columnHelper.display({
-        id: "status",
-        header: "狀態",
-        cell: ({ row }) => (
-          <EditableStatusCell
-            isActive={row.original.isActive}
-            disabled={
-              activateMutation.isPending || deactivateMutation.isPending
-            }
-            onCommit={(isActive) => handleStatusEdit(row.original, isActive)}
-          />
-        ),
-      }),
-      columnHelper.display({
-        id: "actions",
-        header: "操作",
-        cell: ({ row }) => {
-          const product = row.original;
-          return (
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Tooltip title="編輯">
-                <IconButton
-                  size="small"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleEdit(product);
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          );
-        },
-        enableSorting: false,
-      }),
-    ],
-    [
-      allSelected,
-      someSelected,
-      selectedIds,
-      handleSelectAll,
-      handleSelectRow,
-      handleEdit,
-      handleCellEdit,
-      handleStatusEdit,
-      searchSuppliers,
-      activateMutation.isPending,
-      deactivateMutation.isPending,
-      thumbnailMap,
-      supplierMap,
-    ],
-  );
-
-  const table = useReactTable({
-    data: products,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   return (
     <Box>
       <PageHeader section="商品" current="列表" title="列表" />
@@ -525,34 +256,31 @@ function ProductListPage(): React.ReactElement {
         ) : (
           <Table sx={listTableBodyTextSx}>
             <TableHead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    const align = RIGHT_ALIGNED_COLUMNS.has(header.column.id)
-                      ? "right"
-                      : CENTER_ALIGNED_COLUMNS.has(header.column.id)
-                        ? "center"
-                        : "left";
-
-                    return (
-                      <TableCell key={header.id} align={align}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
+              <TableRow>
+                <TableCell>
+                  <Checkbox
+                    checked={allSelected}
+                    indeterminate={someSelected}
+                    onChange={handleSelectAll}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell>圖片</TableCell>
+                <TableCell>商品名稱</TableCell>
+                <TableCell align="right">單價</TableCell>
+                <TableCell align="right">庫存數量</TableCell>
+                <TableCell align="center">供應商</TableCell>
+                <TableCell align="right">進貨成本</TableCell>
+                <TableCell>建立日期</TableCell>
+                <TableCell>狀態</TableCell>
+                <TableCell>操作</TableCell>
+              </TableRow>
             </TableHead>
             <TableBody>
-              {table.getRowModel().rows.length === 0 ? (
+              {productIds.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={columns.length}
+                    colSpan={10}
                     align="center"
                     sx={{ py: 4 }}
                   >
@@ -562,29 +290,21 @@ function ProductListPage(): React.ReactElement {
                   </TableCell>
                 </TableRow>
               ) : (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    selected={selectedIds.has(row.original.id)}
-                    hover
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const align = RIGHT_ALIGNED_COLUMNS.has(cell.column.id)
-                        ? "right"
-                        : CENTER_ALIGNED_COLUMNS.has(cell.column.id)
-                          ? "center"
-                          : "left";
-
-                      return (
-                        <TableCell key={cell.id} align={align}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
+                productIds.map((productId) => (
+                  <ProductTableRow
+                    key={productId}
+                    productId={productId}
+                    selected={selectedIds.has(productId)}
+                    statusDisabled={
+                      activateMutation.isPending ||
+                      deactivateMutation.isPending
+                    }
+                    searchSuppliers={searchSuppliers}
+                    onSelect={handleSelectRow}
+                    onEdit={handleEdit}
+                    onCellEdit={handleCellEdit}
+                    onStatusEdit={handleStatusEdit}
+                  />
                 ))
               )}
             </TableBody>
@@ -599,8 +319,213 @@ function ProductListPage(): React.ReactElement {
         hasPrevPage={pagination.tokenStack.length > 0}
         onNextPage={handleNextPage}
         onPrevPage={handlePrevPage}
-        currentCount={products.length}
+        currentCount={productIds.length}
       />
     </Box>
+  );
+}
+
+interface ProductTableRowProps {
+  productId: string;
+  selected: boolean;
+  statusDisabled: boolean;
+  searchSuppliers: (query: string) => Promise<SupplierOption[]>;
+  onSelect: (productId: string) => void;
+  onEdit: (product: Product) => void;
+  onCellEdit: (
+    product: Product,
+    field: EditableProductField,
+    value: string | number | null,
+  ) => Promise<void>;
+  onStatusEdit: (product: Product, isActive: boolean) => Promise<void>;
+}
+
+function ProductTableRow({
+  productId,
+  selected,
+  statusDisabled,
+  searchSuppliers,
+  onSelect,
+  onEdit,
+  onCellEdit,
+  onStatusEdit,
+}: ProductTableRowProps): React.ReactElement {
+  const { data: product, isLoading, error } = useProduct(productId);
+  const firstImageKey = product?.imageUrls[0];
+  const imageKeys = useMemo(
+    () => (firstImageKey ? [firstImageKey] : []),
+    [firstImageKey],
+  );
+  const { data: thumbnailUrls } = useProductThumbnailUrls(imageKeys);
+  const thumbnailUrl = thumbnailUrls?.[0];
+  const supplierId = product?.defaultSupplierId;
+
+  const { data: supplierName } = useQuery({
+    queryKey: ["suppliers", "name", supplierId],
+    queryFn: async (): Promise<string> => {
+      if (!supplierId) return "";
+
+      const { data: supplier } = await client.models.Supplier.get(
+        { id: supplierId },
+        { selectionSet: ["id", "name"] },
+      );
+      return String(supplier?.name ?? "");
+    },
+    enabled: !!supplierId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) {
+    return (
+      <TableRow selected={selected} hover>
+        <TableCell>
+          <Checkbox
+            checked={selected}
+            onChange={() => onSelect(productId)}
+            size="small"
+          />
+        </TableCell>
+        <TableCell colSpan={9}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <CircularProgress size={16} />
+            <Typography color="text.secondary">載入商品資料中...</Typography>
+          </Box>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <TableRow selected={selected} hover>
+        <TableCell>
+          <Checkbox
+            checked={selected}
+            onChange={() => onSelect(productId)}
+            size="small"
+          />
+        </TableCell>
+        <TableCell colSpan={9}>
+          <Alert severity="error">
+            {error instanceof Error ? error.message : "查詢商品失敗"}
+          </Alert>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  const createdDate = product.createdAt
+    ? new Date(product.createdAt).toLocaleDateString("zh-TW", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      })
+    : "—";
+
+  const totalStock = product.variants.reduce(
+    (sum, variant) => sum + variant.stockQuantity,
+    0,
+  );
+
+  return (
+    <TableRow selected={selected} hover>
+      <TableCell>
+        <Checkbox
+          checked={selected}
+          onChange={() => onSelect(product.id)}
+          size="small"
+        />
+      </TableCell>
+      <TableCell>
+        <Avatar
+          variant="rounded"
+          src={thumbnailUrl}
+          sx={{ width: 40, height: 40 }}
+        >
+          {!thumbnailUrl && <ImageIcon fontSize="small" />}
+        </Avatar>
+      </TableCell>
+      <TableCell>
+        <Box>
+          <EditableTextCell
+            value={product.name}
+            onCommit={(value) => onCellEdit(product, "name", value)}
+          />
+          <Typography variant="body2" color="text.secondary">
+            {product.sku}
+          </Typography>
+        </Box>
+      </TableCell>
+      <TableCell align="right">
+        <EditableNumberCell
+          value={product.unitPrice}
+          format={(value) => `$${value}`}
+          integer
+          align="right"
+          onCommit={(value) => onCellEdit(product, "unitPrice", value)}
+        />
+      </TableCell>
+      <TableCell align="right">
+        {product.variants.length > 0 ? (
+          <EditableNumberCell
+            value={totalStock}
+            format={(value) => `${value}（${product.variants.length} 規格）`}
+            disabled
+            disabledText="有規格商品請到編輯頁調整各規格庫存"
+            align="right"
+            onCommit={async () => undefined}
+          />
+        ) : (
+          <EditableNumberCell
+            value={product.stockQuantity}
+            integer
+            align="right"
+            onCommit={(value) => onCellEdit(product, "stockQuantity", value)}
+          />
+        )}
+      </TableCell>
+      <TableCell align="center">
+        <EditableAutocompleteCell<SupplierOption>
+          valueId={supplierId ?? null}
+          valueLabel={supplierId ? supplierName : undefined}
+          placeholder="搜尋供應商"
+          noOptionsText="無符合供應商"
+          searchOptions={searchSuppliers}
+          onCommit={(value) => onCellEdit(product, "defaultSupplierId", value)}
+        />
+      </TableCell>
+      <TableCell align="right">
+        <EditableNumberCell
+          value={product.defaultCost}
+          format={(value) => `$${value}`}
+          integer
+          align="right"
+          onCommit={(value) => onCellEdit(product, "defaultCost", value)}
+        />
+      </TableCell>
+      <TableCell>{createdDate}</TableCell>
+      <TableCell>
+        <EditableStatusCell
+          isActive={product.isActive}
+          disabled={statusDisabled}
+          onCommit={(isActive) => onStatusEdit(product, isActive)}
+        />
+      </TableCell>
+      <TableCell>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Tooltip title="編輯">
+            <IconButton
+              size="small"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(product);
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </TableCell>
+    </TableRow>
   );
 }

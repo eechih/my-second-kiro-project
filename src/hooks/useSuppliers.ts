@@ -4,7 +4,6 @@ import {
   useQueryClient,
   type UseQueryResult,
   type UseMutationResult,
-  type QueryKey,
 } from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
 import type {
@@ -70,7 +69,7 @@ const SUPPLIER_KEYS = {
  */
 export function useSupplierList(
   params: SupplierListParams,
-): UseQueryResult<PaginatedResult<Supplier>> {
+): UseQueryResult<PaginatedResult<string>> {
   const { pageSize, nextToken, search, isActive, sortField } = params;
 
   return useQuery({
@@ -81,7 +80,7 @@ export function useSupplierList(
       isActive,
       sortField,
     }),
-    queryFn: async (): Promise<PaginatedResult<Supplier>> => {
+    queryFn: async (): Promise<PaginatedResult<string>> => {
       const filter: Record<string, unknown> = {};
 
       // 狀態篩選
@@ -122,7 +121,7 @@ export function useSupplierList(
       const sortedItems = sortField ? sortSuppliers(items, sortField) : items;
 
       return {
-        items: sortedItems,
+        items: sortedItems.map((supplier) => supplier.id),
         totalCount: sortedItems.length,
         nextToken: responseNextToken ?? undefined,
       };
@@ -203,10 +202,7 @@ export function useUpdateSupplier(): UseMutationResult<
   Supplier,
   Error,
   UpdateSupplierInput,
-  {
-    previousSupplier?: Supplier;
-    previousLists: [QueryKey, PaginatedResult<Supplier> | undefined][];
-  }
+  { previousSupplier?: Supplier }
 > {
   const queryClient = useQueryClient();
 
@@ -237,16 +233,10 @@ export function useUpdateSupplier(): UseMutationResult<
       await queryClient.cancelQueries({
         queryKey: SUPPLIER_KEYS.detail(input.id),
       });
-      await queryClient.cancelQueries({ queryKey: SUPPLIER_KEYS.lists() });
 
       const previousSupplier = queryClient.getQueryData<Supplier>(
         SUPPLIER_KEYS.detail(input.id),
       );
-      const previousLists = queryClient.getQueriesData<
-        PaginatedResult<Supplier>
-      >({
-        queryKey: SUPPLIER_KEYS.lists(),
-      });
 
       const applyUpdate = (supplier: Supplier): Supplier => ({
         ...supplier,
@@ -266,20 +256,7 @@ export function useUpdateSupplier(): UseMutationResult<
         );
       }
 
-      queryClient.setQueriesData<PaginatedResult<Supplier>>(
-        { queryKey: SUPPLIER_KEYS.lists() },
-        (current) =>
-          current
-            ? {
-                ...current,
-                items: current.items.map((supplier) =>
-                  supplier.id === input.id ? applyUpdate(supplier) : supplier,
-                ),
-              }
-            : current,
-      );
-
-      return { previousSupplier, previousLists };
+      return { previousSupplier };
     },
     onError: (_error, input, context) => {
       if (context?.previousSupplier) {
@@ -289,28 +266,11 @@ export function useUpdateSupplier(): UseMutationResult<
         );
       }
 
-      context?.previousLists.forEach(([queryKey, data]) => {
-        queryClient.setQueryData(queryKey, data);
-      });
     },
     onSuccess: (updatedSupplier) => {
       queryClient.setQueryData(
         SUPPLIER_KEYS.detail(updatedSupplier.id),
         updatedSupplier,
-      );
-      queryClient.setQueriesData<PaginatedResult<Supplier>>(
-        { queryKey: SUPPLIER_KEYS.lists() },
-        (current) =>
-          current
-            ? {
-                ...current,
-                items: current.items.map((supplier) =>
-                  supplier.id === updatedSupplier.id
-                    ? updatedSupplier
-                    : supplier,
-                ),
-              }
-            : current,
       );
     },
     onSettled: (_data, _error, input) => {
