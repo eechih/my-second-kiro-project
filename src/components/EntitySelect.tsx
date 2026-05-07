@@ -94,37 +94,31 @@ export function EntitySelect<T>({
       }
       noOptionsText="無符合項目"
       loadingText="載入中..."
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={required ? `${label} *` : label}
-          error={!!error}
-          helperText={error}
-          slotProps={{
-            input: {
-              ...(((params as unknown as { slotProps?: { input?: unknown } })
-                .slotProps?.input ??
-                (params as unknown as { InputProps?: unknown }).InputProps) as
-                | Record<string, unknown>
-                | undefined),
-              endAdornment: (
-                <>
-                  {loading ? (
-                    <CircularProgress color="inherit" size={20} />
-                  ) : null}
-                  {(
-                    ((params as unknown as { slotProps?: { input?: unknown } })
-                      .slotProps?.input ??
-                      (params as unknown as { InputProps?: unknown }).InputProps) as
-                      | { endAdornment?: React.ReactNode }
-                      | undefined
-                  )?.endAdornment}
-                </>
-              ),
-            },
-          }}
-        />
-      )}
+      renderInput={(params) => {
+        const { slotProps: paramSlotProps, ...restParams } = params;
+        return (
+          <TextField
+            {...restParams}
+            label={required ? `${label} *` : label}
+            error={!!error}
+            helperText={error}
+            slotProps={{
+              ...paramSlotProps,
+              input: {
+                ...paramSlotProps?.input,
+                endAdornment: (
+                  <>
+                    {loading ? (
+                      <CircularProgress color="inherit" size={20} />
+                    ) : null}
+                    {paramSlotProps?.input?.endAdornment}
+                  </>
+                ),
+              },
+            }}
+          />
+        );
+      }}
     />
   );
 }
