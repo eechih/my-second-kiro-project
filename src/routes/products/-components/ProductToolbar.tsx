@@ -1,12 +1,17 @@
-import { SearchBar } from "@/components/SearchBar";
+import {
+  ListToolbar,
+  type ListToolbarOption,
+} from "@/components/ListToolbar";
 import AddIcon from "@mui/icons-material/Add";
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import FormControl from "@mui/material/FormControl";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
 
 export type ProductStatusFilter = "all" | "active" | "inactive";
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "全部狀態" },
+  { value: "active", label: "啟用中" },
+  { value: "inactive", label: "已停用" },
+] as const satisfies readonly ListToolbarOption<ProductStatusFilter>[];
 
 export interface ProductToolbarProps {
   search: string;
@@ -26,36 +31,21 @@ export function ProductToolbar({
   onAddClick,
 }: ProductToolbarProps): React.ReactElement {
   return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        flexWrap: "wrap",
+    <ListToolbar
+      search={search}
+      onSearchChange={onSearchChange}
+      totalCount={totalCount}
+      statusSelect={{
+        value: statusFilter,
+        onChange: onStatusFilterChange,
+        options: STATUS_OPTIONS,
+        ariaLabel: "狀態篩選",
       }}
-    >
-      <SearchBar
-        value={search}
-        onChange={onSearchChange}
-        placeholder={`搜尋 ${totalCount} 筆記錄...`}
-      />
-
-      <FormControl size="small" sx={{ minWidth: 160 }}>
-        <Select
-          value={statusFilter}
-          onChange={(event) =>
-            onStatusFilterChange(event.target.value as ProductStatusFilter)
-          }
-        >
-          <MenuItem value="all">全部狀態</MenuItem>
-          <MenuItem value="active">啟用中</MenuItem>
-          <MenuItem value="inactive">已停用</MenuItem>
-        </Select>
-      </FormControl>
-
-      <Button variant="contained" startIcon={<AddIcon />} onClick={onAddClick}>
-        新增商品
-      </Button>
-    </Box>
+      actions={
+        <Button variant="contained" startIcon={<AddIcon />} onClick={onAddClick}>
+          新增商品
+        </Button>
+      }
+    />
   );
 }
