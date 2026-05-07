@@ -10,7 +10,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import type {
   StatusFilter,
   SupplierSortField,
-} from "@/hooks/useSupplierListCursor";
+} from "@/hooks/useSuppliers";
 
 /**
  * SupplierToolbar 元件 Props

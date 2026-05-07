@@ -52,7 +52,7 @@ const mockData: PaginatedResult<Customer> = {
   nextToken: undefined,
 };
 
-const mockUseCustomerListCursor = vi.fn().mockReturnValue({
+const mockUseCustomerList = vi.fn().mockReturnValue({
   data: mockData,
   isLoading: false,
 });
@@ -60,12 +60,8 @@ const mockUseCustomerListCursor = vi.fn().mockReturnValue({
 const mockDeactivateMutateAsync = vi.fn();
 const mockActivateMutateAsync = vi.fn();
 
-vi.mock("@/hooks/useCustomerListCursor", () => ({
-  useCustomerListCursor: (...args: unknown[]) =>
-    mockUseCustomerListCursor(...args),
-}));
-
 vi.mock("@/hooks/useCustomers", () => ({
+  useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
   useDeactivateCustomer: () => ({
     mutateAsync: mockDeactivateMutateAsync,
   }),
@@ -110,11 +106,8 @@ beforeEach(async () => {
     redirect: vi.fn(),
     useNavigate: () => mockNavigate,
   }));
-  vi.doMock("@/hooks/useCustomerListCursor", () => ({
-    useCustomerListCursor: (...args: unknown[]) =>
-      mockUseCustomerListCursor(...args),
-  }));
   vi.doMock("@/hooks/useCustomers", () => ({
+    useCustomerList: (...args: unknown[]) => mockUseCustomerList(...args),
     useDeactivateCustomer: () => ({
       mutateAsync: mockDeactivateMutateAsync,
     }),
@@ -206,7 +199,7 @@ describe("CustomerListPage", () => {
   });
 
   it("shows loading state when data is loading", () => {
-    mockUseCustomerListCursor.mockReturnValueOnce({
+    mockUseCustomerList.mockReturnValueOnce({
       data: undefined,
       isLoading: true,
     });
@@ -214,9 +207,9 @@ describe("CustomerListPage", () => {
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
   });
 
-  it("calls useCustomerListCursor with correct default params", () => {
+  it("calls useCustomerList with correct default params", () => {
     renderPage();
-    expect(mockUseCustomerListCursor).toHaveBeenCalledWith(
+    expect(mockUseCustomerList).toHaveBeenCalledWith(
       expect.objectContaining({
         pageSize: 10,
         nextToken: undefined,

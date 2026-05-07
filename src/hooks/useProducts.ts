@@ -22,18 +22,28 @@ import {
 } from "@shared/logic/product-variant";
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type ProductStatusFilter = "all" | "active" | "inactive";
+
+export interface ProductListParams {
+  pageSize: number;
+  nextToken?: string;
+  search?: string;
+  /** 啟用狀態篩選（undefined 表示全部） */
+  isActive?: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Query Keys
 // ---------------------------------------------------------------------------
 
 const PRODUCT_KEYS = {
   all: ["products"] as const,
   lists: () => [...PRODUCT_KEYS.all, "list"] as const,
-  list: (params: {
-    pageSize: number;
-    nextToken?: string;
-    search?: string;
-    isActive?: boolean;
-  }) => [...PRODUCT_KEYS.lists(), params] as const,
+  list: (params: ProductListParams) =>
+    [...PRODUCT_KEYS.lists(), params] as const,
   details: () => [...PRODUCT_KEYS.all, "detail"] as const,
   detail: (id: string) => [...PRODUCT_KEYS.details(), id] as const,
   variants: (productId: string) =>
@@ -48,25 +58,24 @@ const PRODUCT_KEYS = {
  * 商品列表查詢 hook
  *
  * 支援游標式分頁、搜尋與啟用/停用狀態篩選。
- * 預設僅查詢啟用中的商品（isActive = true）。
+ * isActive 為 undefined 時查詢全部狀態。
  * 有規格組合的商品顯示各規格組合庫存加總。
  *
  * 需求：3.1, 3.5
  */
-export function useProductList(params: {
-  pageSize: number;
-  nextToken?: string;
-  search?: string;
-  isActive?: boolean;
-}): UseQueryResult<PaginatedResult<Product>> {
-  const { pageSize, nextToken, search, isActive = true } = params;
+export function useProductList(
+  params: ProductListParams,
+): UseQueryResult<PaginatedResult<Product>> {
+  const { pageSize, nextToken, search, isActive } = params;
 
   return useQuery({
     queryKey: PRODUCT_KEYS.list({ pageSize, nextToken, search, isActive }),
     queryFn: async (): Promise<PaginatedResult<Product>> => {
-      const filter: Record<string, unknown> = {
-        isActive: { eq: isActive },
-      };
+      const filter: Record<string, unknown> = {};
+
+      if (isActive !== undefined) {
+        filter.isActive = { eq: isActive };
+      }
 
       if (search) {
         filter.or = [
@@ -76,7 +85,6 @@ export function useProductList(params: {
       }
 
       const listParams: Record<string, unknown> = {
-        filter,
         limit: pageSize,
         selectionSet: [
           "id",
@@ -95,6 +103,10 @@ export function useProductList(params: {
           "variants.*",
         ],
       };
+
+      if (Object.keys(filter).length > 0) {
+        listParams.filter = filter;
+      }
 
       if (nextToken) {
         listParams.nextToken = nextToken;

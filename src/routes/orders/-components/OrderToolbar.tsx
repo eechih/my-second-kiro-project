@@ -6,14 +6,7 @@ import AddIcon from "@mui/icons-material/Add";
 import MergeIcon from "@mui/icons-material/CallMerge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-
-export type OrderStatusFilter =
-  | "all"
-  | "pending"
-  | "confirmed"
-  | "shipping"
-  | "completed"
-  | "cancelled";
+import type { OrderStatusFilter } from "@/hooks/useOrders";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "全部狀態" },

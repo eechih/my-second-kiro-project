@@ -14,18 +14,42 @@ import type {
 } from "@shared/models";
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/** 狀態篩選型別 */
+export type StatusFilter = "all" | "active" | "inactive";
+
+/** 供應商排序欄位 */
+export type SupplierSortField =
+  | "name"
+  | "contactPerson"
+  | "phone"
+  | "createdAt";
+
+/** 游標式供應商列表查詢參數 */
+export interface SupplierListParams {
+  /** 每頁筆數 */
+  pageSize: number;
+  /** 游標 token（首頁為 undefined） */
+  nextToken?: string;
+  /** 搜尋關鍵字（模糊比對 name/contactPerson/phone） */
+  search?: string;
+  /** 啟用狀態篩選（undefined 表示全部） */
+  isActive?: boolean;
+  /** 排序欄位 */
+  sortField?: SupplierSortField;
+}
+
+// ---------------------------------------------------------------------------
 // Query Keys
 // ---------------------------------------------------------------------------
 
 const SUPPLIER_KEYS = {
   all: ["suppliers"] as const,
   lists: () => [...SUPPLIER_KEYS.all, "list"] as const,
-  list: (params: {
-    pageSize: number;
-    nextToken?: string;
-    search?: string;
-    isActive?: boolean;
-  }) => [...SUPPLIER_KEYS.lists(), params] as const,
+  list: (params: SupplierListParams) =>
+    [...SUPPLIER_KEYS.lists(), params] as const,
   details: () => [...SUPPLIER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...SUPPLIER_KEYS.details(), id] as const,
 };
@@ -39,25 +63,30 @@ const SUPPLIER_KEYS = {
  *
  * 使用 TanStack Query 搭配 DynamoDB nextToken 實現游標式分頁。
  * 支援搜尋（name/contactPerson/phone 模糊比對）與 isActive 篩選。
- * 預設僅查詢啟用中的供應商（isActive = true）。
+ * isActive 為 undefined 時查詢全部狀態。
  *
  * 需求：2.1, 2.5, 2.9
  */
-export function useSupplierList(params: {
-  pageSize: number;
-  nextToken?: string;
-  search?: string;
-  isActive?: boolean;
-}): UseQueryResult<PaginatedResult<Supplier>> {
-  const { pageSize, nextToken, search, isActive = true } = params;
+export function useSupplierList(
+  params: SupplierListParams,
+): UseQueryResult<PaginatedResult<Supplier>> {
+  const { pageSize, nextToken, search, isActive, sortField } = params;
 
   return useQuery({
-    queryKey: SUPPLIER_KEYS.list({ pageSize, nextToken, search, isActive }),
+    queryKey: SUPPLIER_KEYS.list({
+      pageSize,
+      nextToken,
+      search,
+      isActive,
+      sortField,
+    }),
     queryFn: async (): Promise<PaginatedResult<Supplier>> => {
       const filter: Record<string, unknown> = {};
 
       // 狀態篩選
-      filter.isActive = { eq: isActive };
+      if (isActive !== undefined) {
+        filter.isActive = { eq: isActive };
+      }
 
       // 搜尋篩選（name/contactPerson/phone 模糊比對）
       if (search) {
@@ -68,13 +97,14 @@ export function useSupplierList(params: {
         ];
       }
 
-      const listParams: Record<string, unknown> = {
-        filter,
-        limit: pageSize,
-      };
+      const listParams: Record<string, unknown> = { limit: pageSize };
 
       if (nextToken) {
         listParams.nextToken = nextToken;
+      }
+
+      if (Object.keys(filter).length > 0) {
+        listParams.filter = filter;
       }
 
       const {
@@ -88,10 +118,11 @@ export function useSupplierList(params: {
       }
 
       const items: Supplier[] = (data ?? []).map(mapToSupplier);
+      const sortedItems = sortField ? sortSuppliers(items, sortField) : items;
 
       return {
-        items,
-        totalCount: items.length,
+        items: sortedItems,
+        totalCount: sortedItems.length,
         nextToken: responseNextToken ?? undefined,
       };
     },
@@ -300,6 +331,20 @@ export function useActivateSupplier(): UseMutationResult<
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * 依指定欄位排序供應商陣列（升序，字串比較）。
+ */
+export function sortSuppliers(
+  suppliers: Supplier[],
+  field: SupplierSortField,
+): Supplier[] {
+  return [...suppliers].sort((a, b) => {
+    const valueA = a[field] ?? "";
+    const valueB = b[field] ?? "";
+    return valueA.localeCompare(valueB);
+  });
+}
 
 /** 將 Amplify Data 回傳的原始資料映射為 Supplier 型別 */
 function mapToSupplier(raw: Record<string, unknown>): Supplier {

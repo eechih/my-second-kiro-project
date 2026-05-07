@@ -4,8 +4,7 @@ import {
 } from "@/components/ListToolbar";
 import AddIcon from "@mui/icons-material/Add";
 import Button from "@mui/material/Button";
-
-export type ProductStatusFilter = "all" | "active" | "inactive";
+import type { ProductStatusFilter } from "@/hooks/useProducts";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "全部狀態" },

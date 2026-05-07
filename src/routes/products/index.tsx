@@ -35,10 +35,8 @@ import {
 } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
 import { CursorPagination } from "@/components/CursorPagination";
-import {
-  ProductToolbar,
-  type ProductStatusFilter,
-} from "./-components/ProductToolbar";
+import { ProductToolbar } from "./-components/ProductToolbar";
+import type { ProductStatusFilter } from "@/hooks/useProducts";
 
 export const Route = createFileRoute("/products/")({
   beforeLoad: ({ context }) => {
@@ -74,7 +72,7 @@ function ProductListPage(): React.ReactElement {
     isActive,
   });
 
-  const products = data?.items ?? [];
+  const products = useMemo(() => data?.items ?? [], [data?.items]);
   const nextToken = data?.nextToken;
 
   const deactivateMutation = useDeactivateProduct();

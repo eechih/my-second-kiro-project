@@ -26,11 +26,11 @@ import { UserInfoCell } from "./-components/UserInfoCell";
 import { CursorPagination } from "@/components/CursorPagination";
 import { RowActions } from "./-components/RowActions";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
-import { useCustomerListCursor } from "@/hooks/useCustomerListCursor";
-import type { StatusFilter } from "@/hooks/useCustomerListCursor";
 import {
+  useCustomerList,
   useDeactivateCustomer,
   useActivateCustomer,
+  type StatusFilter,
 } from "@/hooks/useCustomers";
 import {
   generateCustomerCsv,
@@ -77,7 +77,7 @@ function CustomerListPage(): React.ReactElement {
   // --- 資料查詢 ---
   const isActive =
     statusFilter === "all" ? undefined : statusFilter === "active";
-  const { data, isLoading } = useCustomerListCursor({
+  const { data, isLoading } = useCustomerList({
     pageSize: pagination.pageSize,
     nextToken: pagination.currentToken,
     search: search || undefined,
@@ -85,7 +85,7 @@ function CustomerListPage(): React.ReactElement {
     sortField,
   });
 
-  const customers = data?.items ?? [];
+  const customers = useMemo(() => data?.items ?? [], [data?.items]);
   const nextToken = data?.nextToken;
 
   // --- Mutations ---

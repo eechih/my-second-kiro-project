@@ -26,14 +26,12 @@ import { SupplierInfoCell } from "./-components/SupplierInfoCell";
 import { CursorPagination } from "@/components/CursorPagination";
 import { SupplierRowActions } from "./-components/SupplierRowActions";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
-import { useSupplierListCursor } from "@/hooks/useSupplierListCursor";
-import type {
-  StatusFilter,
-  SupplierSortField,
-} from "@/hooks/useSupplierListCursor";
 import {
+  useSupplierList,
   useDeactivateSupplier,
   useActivateSupplier,
+  type StatusFilter,
+  type SupplierSortField,
 } from "@/hooks/useSuppliers";
 import {
   generateSupplierCsv,
@@ -79,7 +77,7 @@ function SupplierListPage(): React.ReactElement {
   // --- 資料查詢 ---
   const isActive =
     statusFilter === "all" ? undefined : statusFilter === "active";
-  const { data, isLoading } = useSupplierListCursor({
+  const { data, isLoading } = useSupplierList({
     pageSize: pagination.pageSize,
     nextToken: pagination.currentToken,
     search: search || undefined,
@@ -87,7 +85,7 @@ function SupplierListPage(): React.ReactElement {
     sortField,
   });
 
-  const suppliers = data?.items ?? [];
+  const suppliers = useMemo(() => data?.items ?? [], [data?.items]);
   const nextToken = data?.nextToken;
 
   // --- Mutations ---

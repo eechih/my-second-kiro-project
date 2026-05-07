@@ -23,10 +23,8 @@ import {
 } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
 import { CursorPagination } from "@/components/CursorPagination";
-import {
-  OrderToolbar,
-  type OrderStatusFilter,
-} from "./-components/OrderToolbar";
+import { OrderToolbar } from "./-components/OrderToolbar";
+import type { OrderStatusFilter } from "@/hooks/useOrders";
 
 export const Route = createFileRoute("/orders/")({
   beforeLoad: ({ context }) => {
@@ -74,7 +72,7 @@ function OrderListPage(): React.ReactElement {
   });
   const prefetchOrder = usePrefetchOrder();
 
-  const orders = data?.items ?? [];
+  const orders = useMemo(() => data?.items ?? [], [data?.items]);
   const nextToken = data?.nextToken;
 
   const handleRowHover = useCallback(

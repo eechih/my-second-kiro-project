@@ -283,7 +283,6 @@ export function VariantTable({
         },
       }) as ColumnDef<ProductVariant, unknown>,
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       editing,
       defaultUnitPrice,

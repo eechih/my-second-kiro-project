@@ -25,18 +25,27 @@ import {
 } from "@tanstack/react-query";
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type OrderStatusFilter = "all" | OrderStatus;
+
+export interface OrderListParams {
+  pageSize: number;
+  nextToken?: string;
+  search?: string;
+  /** 訂單狀態篩選（undefined 表示全部） */
+  status?: OrderStatus;
+}
+
+// ---------------------------------------------------------------------------
 // Query Keys
 // ---------------------------------------------------------------------------
 
 const ORDER_KEYS = {
   all: ["orders"] as const,
   lists: () => [...ORDER_KEYS.all, "list"] as const,
-  list: (params: {
-    pageSize: number;
-    nextToken?: string;
-    search?: string;
-    status?: string;
-  }) => [...ORDER_KEYS.lists(), params] as const,
+  list: (params: OrderListParams) => [...ORDER_KEYS.lists(), params] as const,
   details: () => [...ORDER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...ORDER_KEYS.details(), id] as const,
 };
@@ -52,16 +61,13 @@ const ORDER_KEYS = {
  *
  * 需求：4.2, 4.15
  */
-export function useOrderList(params: {
-  pageSize: number;
-  nextToken?: string;
-  search?: string;
-  status?: string;
-}): UseQueryResult<PaginatedResult<Order>> {
+export function useOrderList(
+  params: OrderListParams,
+): UseQueryResult<PaginatedResult<Order>> {
   const { pageSize, nextToken, search, status } = params;
 
   return useQuery({
-    queryKey: ORDER_KEYS.list({ pageSize, nextToken, search }),
+    queryKey: ORDER_KEYS.list({ pageSize, nextToken, search, status }),
     queryFn: async (): Promise<PaginatedResult<Order>> => {
       const filter: Record<string, unknown> = {};
 

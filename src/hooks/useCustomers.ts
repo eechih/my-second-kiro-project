@@ -12,6 +12,29 @@ import type {
   UpdateCustomerInput,
   PaginatedResult,
 } from "@shared/models";
+import type { SortField } from "@/lib/table-utils";
+import { sortCustomers } from "@/lib/table-utils";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/** 狀態篩選型別 */
+export type StatusFilter = "all" | "active" | "inactive";
+
+/** 游標式客戶列表查詢參數 */
+export interface CustomerListParams {
+  /** 每頁筆數 */
+  pageSize: number;
+  /** 游標 token（首頁為 undefined） */
+  nextToken?: string;
+  /** 搜尋關鍵字（模糊比對 name/contactPerson/phone） */
+  search?: string;
+  /** 啟用狀態篩選（undefined 表示全部） */
+  isActive?: boolean;
+  /** 排序欄位 */
+  sortField?: SortField;
+}
 
 // ---------------------------------------------------------------------------
 // Query Keys
@@ -20,12 +43,7 @@ import type {
 const CUSTOMER_KEYS = {
   all: ["customers"] as const,
   lists: () => [...CUSTOMER_KEYS.all, "list"] as const,
-  list: (params: {
-    pageSize: number;
-    nextToken?: string;
-    search?: string;
-    isActive?: boolean;
-  }) => [...CUSTOMER_KEYS.lists(), params] as const,
+  list: (params: CustomerListParams) => [...CUSTOMER_KEYS.lists(), params] as const,
   details: () => [...CUSTOMER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...CUSTOMER_KEYS.details(), id] as const,
 };
@@ -39,25 +57,30 @@ const CUSTOMER_KEYS = {
  *
  * 使用 TanStack Query 搭配 DynamoDB nextToken 實現游標式分頁。
  * 支援搜尋（name/contactPerson/phone 模糊比對）與 isActive 篩選。
- * 預設僅查詢啟用中的客戶（isActive = true）。
+ * isActive 為 undefined 時查詢全部狀態。
  *
  * 需求：1.1, 1.5, 1.9
  */
-export function useCustomerList(params: {
-  pageSize: number;
-  nextToken?: string;
-  search?: string;
-  isActive?: boolean;
-}): UseQueryResult<PaginatedResult<Customer>> {
-  const { pageSize, nextToken, search, isActive = true } = params;
+export function useCustomerList(
+  params: CustomerListParams,
+): UseQueryResult<PaginatedResult<Customer>> {
+  const { pageSize, nextToken, search, isActive, sortField } = params;
 
   return useQuery({
-    queryKey: CUSTOMER_KEYS.list({ pageSize, nextToken, search, isActive }),
+    queryKey: CUSTOMER_KEYS.list({
+      pageSize,
+      nextToken,
+      search,
+      isActive,
+      sortField,
+    }),
     queryFn: async (): Promise<PaginatedResult<Customer>> => {
       const filter: Record<string, unknown> = {};
 
       // 狀態篩選
-      filter.isActive = { eq: isActive };
+      if (isActive !== undefined) {
+        filter.isActive = { eq: isActive };
+      }
 
       // 搜尋篩選（name/contactPerson/phone 模糊比對）
       if (search) {
@@ -68,13 +91,14 @@ export function useCustomerList(params: {
         ];
       }
 
-      const listParams: Record<string, unknown> = {
-        filter,
-        limit: pageSize,
-      };
+      const listParams: Record<string, unknown> = { limit: pageSize };
 
       if (nextToken) {
         listParams.nextToken = nextToken;
+      }
+
+      if (Object.keys(filter).length > 0) {
+        listParams.filter = filter;
       }
 
       const {
@@ -88,10 +112,11 @@ export function useCustomerList(params: {
       }
 
       const items: Customer[] = (data ?? []).map(mapToCustomer);
+      const sortedItems = sortField ? sortCustomers(items, sortField) : items;
 
       return {
-        items,
-        totalCount: items.length,
+        items: sortedItems,
+        totalCount: sortedItems.length,
         nextToken: responseNextToken ?? undefined,
       };
     },
