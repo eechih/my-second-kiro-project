@@ -1,4 +1,3 @@
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CursorPagination } from "@/components/CursorPagination";
 import {
   EditableAutocompleteCell,
@@ -19,8 +18,6 @@ import {
 } from "@/hooks/useProducts";
 import { client } from "@/lib/amplify-client";
 import { requireAuth } from "@/lib/route-guards";
-import BlockIcon from "@mui/icons-material/Block";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import EditIcon from "@mui/icons-material/Edit";
 import ImageIcon from "@mui/icons-material/Image";
 import Alert from "@mui/material/Alert";
@@ -75,11 +72,6 @@ function ProductListPage(): React.ReactElement {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    product: Product | null;
-    action: "deactivate" | "activate";
-  }>({ open: false, product: null, action: "deactivate" });
   const [error, setError] = useState<string | null>(null);
 
   const isActive =
@@ -254,14 +246,6 @@ function ProductListPage(): React.ReactElement {
     [navigate],
   );
 
-  const handleToggleActive = useCallback((product: Product): void => {
-    setConfirmDialog({
-      open: true,
-      product,
-      action: product.isActive ? "deactivate" : "activate",
-    });
-  }, []);
-
   const handleCellEdit = useCallback(
     async (
       product: Product,
@@ -308,28 +292,6 @@ function ProductListPage(): React.ReactElement {
     },
     [activateMutation, deactivateMutation],
   );
-
-  const handleConfirm = async (): Promise<void> => {
-    const { product, action } = confirmDialog;
-    if (!product) return;
-
-    setError(null);
-    try {
-      if (action === "deactivate") {
-        await deactivateMutation.mutateAsync({ productId: product.id });
-      } else {
-        await activateMutation.mutateAsync({ productId: product.id });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "操作失敗");
-    } finally {
-      setConfirmDialog({ open: false, product: null, action: "deactivate" });
-    }
-  };
-
-  const handleCancel = (): void => {
-    setConfirmDialog({ open: false, product: null, action: "deactivate" });
-  };
 
   const columns = useMemo(
     () => [
@@ -503,33 +465,6 @@ function ProductListPage(): React.ReactElement {
                   <EditIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              {product.isActive ? (
-                <Tooltip title="停用">
-                  <IconButton
-                    size="small"
-                    color="warning"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleToggleActive(product);
-                    }}
-                  >
-                    <BlockIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              ) : (
-                <Tooltip title="啟用">
-                  <IconButton
-                    size="small"
-                    color="success"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleToggleActive(product);
-                    }}
-                  >
-                    <CheckCircleIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
             </Box>
           );
         },
@@ -543,7 +478,6 @@ function ProductListPage(): React.ReactElement {
       handleSelectAll,
       handleSelectRow,
       handleEdit,
-      handleToggleActive,
       handleCellEdit,
       handleStatusEdit,
       searchSuppliers,
@@ -648,21 +582,6 @@ function ProductListPage(): React.ReactElement {
         currentCount={products.length}
       />
 
-      <ConfirmDialog
-        open={confirmDialog.open}
-        title={confirmDialog.action === "deactivate" ? "停用商品" : "啟用商品"}
-        message={
-          confirmDialog.action === "deactivate"
-            ? `確定要停用商品「${confirmDialog.product?.name ?? ""}」嗎？停用後將不會出現在訂單建立的商品選取清單中。`
-            : `確定要重新啟用商品「${confirmDialog.product?.name ?? ""}」嗎？`
-        }
-        confirmLabel={confirmDialog.action === "deactivate" ? "停用" : "啟用"}
-        confirmColor={
-          confirmDialog.action === "deactivate" ? "warning" : "primary"
-        }
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-      />
     </Box>
   );
 }

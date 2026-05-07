@@ -1,4 +1,3 @@
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CursorPagination } from "@/components/CursorPagination";
 import {
   EditableStatusCell,
@@ -75,12 +74,6 @@ function SupplierListPage(): React.ReactElement {
   // --- 批次選取狀態 ---
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // --- 確認對話框狀態 ---
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    supplier: Supplier | null;
-    action: "deactivate" | "activate";
-  }>({ open: false, supplier: null, action: "deactivate" });
   const [error, setError] = useState<string | null>(null);
 
   // --- 資料查詢 ---
@@ -186,14 +179,6 @@ function SupplierListPage(): React.ReactElement {
     [navigate],
   );
 
-  const handleToggleActive = useCallback((supplier: Supplier): void => {
-    setConfirmDialog({
-      open: true,
-      supplier,
-      action: supplier.isActive ? "deactivate" : "activate",
-    });
-  }, []);
-
   const handleCellEdit = useCallback(
     async (
       supplier: Supplier,
@@ -249,28 +234,6 @@ function SupplierListPage(): React.ReactElement {
     },
     [activateMutation, deactivateMutation],
   );
-
-  const handleConfirm = async (): Promise<void> => {
-    const { supplier, action } = confirmDialog;
-    if (!supplier) return;
-
-    setError(null);
-    try {
-      if (action === "deactivate") {
-        await deactivateMutation.mutateAsync({ supplierId: supplier.id });
-      } else {
-        await activateMutation.mutateAsync({ supplierId: supplier.id });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "操作失敗");
-    } finally {
-      setConfirmDialog({ open: false, supplier: null, action: "deactivate" });
-    }
-  };
-
-  const handleCancel = (): void => {
-    setConfirmDialog({ open: false, supplier: null, action: "deactivate" });
-  };
 
   // --- CSV 匯出 ---
   const handleExport = useCallback((): void => {
@@ -401,7 +364,6 @@ function SupplierListPage(): React.ReactElement {
           <SupplierRowActions
             supplier={row.original}
             onEdit={handleEdit}
-            onToggleActive={handleToggleActive}
           />
         ),
         enableSorting: false,
@@ -414,7 +376,6 @@ function SupplierListPage(): React.ReactElement {
       handleSelectAll,
       handleSelectRow,
       handleEdit,
-      handleToggleActive,
       handleCellEdit,
       handleStatusEdit,
       activateMutation.isPending,
@@ -524,24 +485,6 @@ function SupplierListPage(): React.ReactElement {
         currentCount={suppliers.length}
       />
 
-      {/* 確認對話框 - 需求 4.4, 4.5 */}
-      <ConfirmDialog
-        open={confirmDialog.open}
-        title={
-          confirmDialog.action === "deactivate" ? "停用供應商" : "啟用供應商"
-        }
-        message={
-          confirmDialog.action === "deactivate"
-            ? `確定要停用供應商「${confirmDialog.supplier?.name ?? ""}」嗎？停用後將不會出現在進貨操作的供應商選取清單中。`
-            : `確定要重新啟用供應商「${confirmDialog.supplier?.name ?? ""}」嗎？`
-        }
-        confirmLabel={confirmDialog.action === "deactivate" ? "停用" : "啟用"}
-        confirmColor={
-          confirmDialog.action === "deactivate" ? "warning" : "primary"
-        }
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-      />
     </Box>
   );
 }

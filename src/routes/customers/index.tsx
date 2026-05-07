@@ -1,4 +1,3 @@
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CursorPagination } from "@/components/CursorPagination";
 import {
   EditableStatusCell,
@@ -75,12 +74,6 @@ function CustomerListPage(): React.ReactElement {
   // --- 批次選取狀態 ---
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // --- 確認對話框狀態 ---
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    customer: Customer | null;
-    action: "deactivate" | "activate";
-  }>({ open: false, customer: null, action: "deactivate" });
   const [error, setError] = useState<string | null>(null);
 
   // --- 資料查詢 ---
@@ -183,14 +176,6 @@ function CustomerListPage(): React.ReactElement {
     [navigate],
   );
 
-  const handleToggleActive = useCallback((customer: Customer): void => {
-    setConfirmDialog({
-      open: true,
-      customer,
-      action: customer.isActive ? "deactivate" : "activate",
-    });
-  }, []);
-
   const handleCellEdit = useCallback(
     async (
       customer: Customer,
@@ -246,28 +231,6 @@ function CustomerListPage(): React.ReactElement {
     },
     [activateMutation, deactivateMutation],
   );
-
-  const handleConfirm = async (): Promise<void> => {
-    const { customer, action } = confirmDialog;
-    if (!customer) return;
-
-    setError(null);
-    try {
-      if (action === "deactivate") {
-        await deactivateMutation.mutateAsync({ customerId: customer.id });
-      } else {
-        await activateMutation.mutateAsync({ customerId: customer.id });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "操作失敗");
-    } finally {
-      setConfirmDialog({ open: false, customer: null, action: "deactivate" });
-    }
-  };
-
-  const handleCancel = (): void => {
-    setConfirmDialog({ open: false, customer: null, action: "deactivate" });
-  };
 
   // --- CSV 匯出 ---
   const handleExport = useCallback((): void => {
@@ -398,7 +361,6 @@ function CustomerListPage(): React.ReactElement {
           <RowActions
             customer={row.original}
             onEdit={handleEdit}
-            onToggleActive={handleToggleActive}
           />
         ),
         enableSorting: false,
@@ -411,7 +373,6 @@ function CustomerListPage(): React.ReactElement {
       handleSelectAll,
       handleSelectRow,
       handleEdit,
-      handleToggleActive,
       handleCellEdit,
       handleStatusEdit,
       activateMutation.isPending,
@@ -521,22 +482,6 @@ function CustomerListPage(): React.ReactElement {
         currentCount={customers.length}
       />
 
-      {/* 確認對話框 - 需求 4.4, 4.5 */}
-      <ConfirmDialog
-        open={confirmDialog.open}
-        title={confirmDialog.action === "deactivate" ? "停用客戶" : "啟用客戶"}
-        message={
-          confirmDialog.action === "deactivate"
-            ? `確定要停用客戶「${confirmDialog.customer?.name ?? ""}」嗎？停用後將不會出現在訂單建立的客戶選取清單中。`
-            : `確定要重新啟用客戶「${confirmDialog.customer?.name ?? ""}」嗎？`
-        }
-        confirmLabel={confirmDialog.action === "deactivate" ? "停用" : "啟用"}
-        confirmColor={
-          confirmDialog.action === "deactivate" ? "warning" : "primary"
-        }
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-      />
     </Box>
   );
 }
