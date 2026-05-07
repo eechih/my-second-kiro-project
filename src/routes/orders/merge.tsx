@@ -2,8 +2,9 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusChip } from "@/components/StatusChip";
-import { useMergeOrders, useOrderList } from "@/hooks/useOrders";
+import { useMergeOrders, useOrder, useOrderList } from "@/hooks/useOrders";
 import { client } from "@/lib/amplify-client";
+import { requireAuth } from "@/lib/route-guards";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MergeIcon from "@mui/icons-material/CallMerge";
 import Alert from "@mui/material/Alert";
@@ -20,9 +21,9 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { validateMergeOrders } from "@shared/logic/order-merge";
+import type { Order } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/route-guards";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 export const Route = createFileRoute("/orders/merge")({
   beforeLoad: requireAuth,
@@ -52,24 +53,54 @@ function OrderMergePage() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(
     new Set(),
   );
+  const [loadedOrders, setLoadedOrders] = useState<Map<string, Order>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
 
   // 查詢選定客戶的 pending/confirmed 訂單
-  const { data: ordersData, isLoading: ordersLoading } = useOrderList({
+  const { data: ordersData, isLoading: orderIdsLoading } = useOrderList({
     pageSize: 100,
     search: selectedCustomer?.name,
   });
+  const orderIds = useMemo(() => ordersData?.items ?? [], [ordersData?.items]);
 
   // 篩選出屬於選定客戶且狀態為 pending 或 confirmed 的訂單
   const mergeableOrders = useMemo(() => {
-    if (!selectedCustomer || !ordersData?.items) return [];
-    return ordersData.items.filter(
-      (order) =>
-        order.customerId === selectedCustomer.id &&
-        (order.status === "pending" || order.status === "confirmed"),
-    );
-  }, [selectedCustomer, ordersData]);
+    if (!selectedCustomer) return [];
+    return orderIds
+      .map((orderId) => loadedOrders.get(orderId))
+      .filter((order): order is Order => !!order)
+      .filter(
+        (order) =>
+          order.customerId === selectedCustomer.id &&
+          (order.status === "pending" || order.status === "confirmed"),
+      );
+  }, [selectedCustomer, orderIds, loadedOrders]);
+
+  const ordersLoading =
+    orderIdsLoading ||
+    (orderIds.length > 0 && loadedOrders.size < orderIds.length);
+
+  const handleOrderLoaded = useCallback((order: Order): void => {
+    setLoadedOrders((prev) => {
+      const current = prev.get(order.id);
+      if (
+        current &&
+        current.status === order.status &&
+        current.totalAmount === order.totalAmount &&
+        current.lineItems.length === order.lineItems.length &&
+        current.updatedAt === order.updatedAt
+      ) {
+        return prev;
+      }
+
+      const next = new Map(prev);
+      next.set(order.id, order);
+      return next;
+    });
+  }, []);
 
   // 搜尋客戶函式
   const searchCustomers = useCallback(
@@ -201,6 +232,7 @@ function OrderMergePage() {
             onChange={(customer) => {
               setSelectedCustomer(customer);
               setSelectedOrderIds(new Set());
+              setLoadedOrders(new Map());
               setError(null);
             }}
             searchFn={searchCustomers}
@@ -220,11 +252,12 @@ function OrderMergePage() {
             僅顯示狀態為「待處理」或「已確認」的訂單。至少需選取兩筆訂單。
           </Typography>
 
-          {ordersLoading ? (
+          {orderIdsLoading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <CircularProgress />
             </Box>
-          ) : mergeableOrders.length === 0 ? (
+          ) : orderIds.length === 0 ||
+            (!ordersLoading && mergeableOrders.length === 0) ? (
             <Alert severity="info">
               此客戶目前沒有可合併的訂單（需為待處理或已確認狀態）。
             </Alert>
@@ -247,47 +280,22 @@ function OrderMergePage() {
                       />
                     </TableCell>
                     <TableCell>訂單編號</TableCell>
-                    <TableCell>狀態</TableCell>
+                    <TableCell align="center">狀態</TableCell>
                     <TableCell align="right">總金額</TableCell>
                     <TableCell>明細數量</TableCell>
                     <TableCell>建立日期</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {mergeableOrders.map((order) => (
-                    <TableRow
-                      key={order.id}
-                      hover
-                      onClick={() => toggleOrderSelection(order.id)}
-                      sx={{ cursor: "pointer" }}
-                    >
-                      <TableCell padding="checkbox">
-                        <Checkbox checked={selectedOrderIds.has(order.id)} />
-                      </TableCell>
-                      <TableCell>{order.orderNumber}</TableCell>
-                      <TableCell>
-                        <StatusChip
-                          status={
-                            ORDER_STATUS_LABEL[order.status] ?? order.status
-                          }
-                          colorMap={{
-                            待處理: "warning",
-                            已確認: "info",
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        ${order.totalAmount.toLocaleString()}
-                      </TableCell>
-                      <TableCell>{order.lineItems.length} 項</TableCell>
-                      <TableCell>
-                        {order.createdAt
-                          ? new Date(order.createdAt).toLocaleDateString(
-                              "zh-TW",
-                            )
-                          : ""}
-                      </TableCell>
-                    </TableRow>
+                  {orderIds.map((orderId) => (
+                    <MergeOrderTableRow
+                      key={orderId}
+                      orderId={orderId}
+                      selected={selectedOrderIds.has(orderId)}
+                      selectedCustomerId={selectedCustomer.id}
+                      onToggle={toggleOrderSelection}
+                      onOrderLoaded={handleOrderLoaded}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -356,5 +364,94 @@ function OrderMergePage() {
         onCancel={() => setShowConfirm(false)}
       />
     </Box>
+  );
+}
+
+interface MergeOrderTableRowProps {
+  orderId: string;
+  selected: boolean;
+  selectedCustomerId: string;
+  onToggle: (orderId: string) => void;
+  onOrderLoaded: (order: Order) => void;
+}
+
+function MergeOrderTableRow({
+  orderId,
+  selected,
+  selectedCustomerId,
+  onToggle,
+  onOrderLoaded,
+}: MergeOrderTableRowProps): React.ReactElement | null {
+  const { data: order, isLoading, error } = useOrder(orderId);
+
+  useEffect(() => {
+    if (order) onOrderLoaded(order);
+  }, [order, onOrderLoaded]);
+
+  if (isLoading) {
+    return (
+      <TableRow hover>
+        <TableCell padding="checkbox">
+          <Checkbox checked={selected} disabled />
+        </TableCell>
+        <TableCell colSpan={5}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <CircularProgress size={16} />
+            <Typography color="text.secondary">載入訂單資料中...</Typography>
+          </Box>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <TableRow hover>
+        <TableCell padding="checkbox">
+          <Checkbox checked={selected} disabled />
+        </TableCell>
+        <TableCell colSpan={5}>
+          <Alert severity="error">
+            {error instanceof Error ? error.message : "查詢訂單失敗"}
+          </Alert>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (
+    order.customerId !== selectedCustomerId ||
+    (order.status !== "pending" && order.status !== "confirmed")
+  ) {
+    return null;
+  }
+
+  return (
+    <TableRow
+      hover
+      onClick={() => onToggle(order.id)}
+      sx={{ cursor: "pointer" }}
+    >
+      <TableCell padding="checkbox">
+        <Checkbox checked={selected} />
+      </TableCell>
+      <TableCell>{order.orderNumber}</TableCell>
+      <TableCell align="center">
+        <StatusChip
+          status={ORDER_STATUS_LABEL[order.status] ?? order.status}
+          colorMap={{
+            待處理: "warning",
+            已確認: "info",
+          }}
+        />
+      </TableCell>
+      <TableCell align="right">${order.totalAmount.toLocaleString()}</TableCell>
+      <TableCell>{order.lineItems.length} 項</TableCell>
+      <TableCell>
+        {order.createdAt
+          ? new Date(order.createdAt).toLocaleDateString("zh-TW")
+          : ""}
+      </TableCell>
+    </TableRow>
   );
 }

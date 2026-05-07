@@ -63,12 +63,12 @@ const ORDER_KEYS = {
  */
 export function useOrderList(
   params: OrderListParams,
-): UseQueryResult<PaginatedResult<Order>> {
+): UseQueryResult<PaginatedResult<string>> {
   const { pageSize, nextToken, search, status } = params;
 
   return useQuery({
     queryKey: ORDER_KEYS.list({ pageSize, nextToken, search, status }),
-    queryFn: async (): Promise<PaginatedResult<Order>> => {
+    queryFn: async (): Promise<PaginatedResult<string>> => {
       const filter: Record<string, unknown> = {};
 
       if (search) {
@@ -84,17 +84,7 @@ export function useOrderList(
 
       const listParams: Record<string, unknown> = {
         limit: pageSize,
-        selectionSet: [
-          "customerId",
-          "sortKey",
-          "orderNumber",
-          "customerName",
-          "totalAmount",
-          "status",
-          "statusHistory",
-          "createdAt",
-          "updatedAt",
-        ],
+        selectionSet: ["customerId", "sortKey"],
       };
 
       if (Object.keys(filter).length > 0) {
@@ -115,7 +105,11 @@ export function useOrderList(
         throw new Error(errors[0]?.message ?? "查詢訂單列表失敗");
       }
 
-      const items: Order[] = (data ?? []).map(mapToOrder);
+      const items = (data ?? []).map((order) => {
+        const customerId = String(order.customerId ?? "");
+        const sortKey = String(order.sortKey ?? "");
+        return `${customerId}|${sortKey}`;
+      });
 
       return {
         items,
