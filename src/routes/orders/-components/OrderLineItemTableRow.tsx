@@ -115,11 +115,16 @@ export function OrderLineItemTableRow({
   const updateLineItemStatusFlag = useUpdateLineItemStatusFlag();
 
   return (
-    <TableRow sx={{ "&:last-child td": { borderBottom: 0 } }}>
-      <TableCell>
+    <TableRow
+      sx={{
+        "&:last-child td": { borderBottom: 0 },
+        "& .MuiTableCell-root": { padding: "10px 5px" },
+      }}
+    >
+      <TableCell sx={{ width: 330, minWidth: 330, maxWidth: 330 }}>
         <Typography variant="body2">{item.productName}</Typography>
       </TableCell>
-      <TableCell>
+      <TableCell sx={{ minWidth: 150 }}>
         {item.variantLabel ? (
           <Chip label={item.variantLabel} size="small" variant="outlined" />
         ) : (
@@ -128,8 +133,12 @@ export function OrderLineItemTableRow({
           </Typography>
         )}
       </TableCell>
-      <TableCell align="right">{item.quantity}</TableCell>
-      <TableCell align="right">${item.unitPrice.toLocaleString()}</TableCell>
+      <TableCell align="right" sx={{ width: 50, minWidth: 50, maxWidth: 50 }}>
+        {item.quantity}
+      </TableCell>
+      <TableCell align="right" sx={{ width: 60, minWidth: 60, maxWidth: 60 }}>
+        ${item.unitPrice.toLocaleString()}
+      </TableCell>
       <TableCell align="center">
         <StatusChip status={item.status} colorMap={LINE_ITEM_STATUS_COLOR} />
       </TableCell>

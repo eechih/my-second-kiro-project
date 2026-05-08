@@ -23,7 +23,7 @@ export function OrderMainTableRow({
   onEdit,
 }: OrderMainTableRowProps): React.ReactElement {
   return (
-    <TableRow hover>
+    <TableRow hover sx={{ "& .MuiTableCell-root": { padding: "10px 5px" } }}>
       <TableCell>{order.orderNumber}</TableCell>
       <TableCell>{order.customerName}</TableCell>
       <TableCell>
