@@ -1,31 +1,25 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { useOrder, useSplitOrder } from "@/hooks/useOrders";
+import { requireAuth } from "@/lib/route-guards";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import CallSplitIcon from "@mui/icons-material/CallSplit";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
-import Divider from "@mui/material/Divider";
-import FormControl from "@mui/material/FormControl";
-import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
-import Select from "@mui/material/Select";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Typography from "@mui/material/Typography";
 import { calculateOrderTotal } from "@shared/logic/order-calculations";
 import { validateSplitOrder } from "@shared/logic/order-split";
 import type { LineItem, SplitAllocation } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/route-guards";
 import { useMemo, useState } from "react";
+import { OrderSplitActions } from "./-components/OrderSplitActions";
+import { OrderSplitAllocationTable } from "./-components/OrderSplitAllocationTable";
+import { OrderSplitInfoCard } from "./-components/OrderSplitInfoCard";
+import {
+  OrderSplitPreview,
+  type SplitPreviewGroup,
+} from "./-components/OrderSplitPreview";
 
 export const Route = createFileRoute("/orders/$orderId/split")({
   beforeLoad: requireAuth,
@@ -72,7 +66,7 @@ function OrderSplitPage() {
   }, [allocations]);
 
   // 分拆預覽：依 targetOrderIndex 分組
-  const splitPreview = useMemo(() => {
+  const splitPreview = useMemo<SplitPreviewGroup[]>(() => {
     if (!order) return [];
 
     const groups = new Map<number, LineItem[]>();
@@ -197,190 +191,41 @@ function OrderSplitPage() {
         </Alert>
       )}
 
-      {/* 訂單資訊 */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          訂單資訊
-        </Typography>
-        <Box sx={{ display: "flex", gap: 4 }}>
-          <Box>
-            <Typography variant="body2" color="text.secondary">
-              客戶
-            </Typography>
-            <Typography>{order.customerName}</Typography>
-          </Box>
-          <Box>
-            <Typography variant="body2" color="text.secondary">
-              總金額
-            </Typography>
-            <Typography>${order.totalAmount.toLocaleString()}</Typography>
-          </Box>
-          <Box>
-            <Typography variant="body2" color="text.secondary">
-              明細項目數
-            </Typography>
-            <Typography>{order.lineItems.length} 項</Typography>
-          </Box>
-        </Box>
-      </Paper>
+      <OrderSplitInfoCard order={order} />
 
       {/* 明細分配 */}
       {canSplit && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            明細項目分配
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            為每個明細項目指定要分配到的新訂單。至少需要分配到兩筆不同的新訂單。
-          </Typography>
-
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>商品名稱</TableCell>
-                  <TableCell>規格</TableCell>
-                  <TableCell align="right">數量</TableCell>
-                  <TableCell align="right">單價</TableCell>
-                  <TableCell align="right">小計</TableCell>
-                  <TableCell sx={{ minWidth: 140 }}>分配至</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {order.lineItems.map((lineItem) => (
-                  <TableRow key={lineItem.id}>
-                    <TableCell>{lineItem.productName}</TableCell>
-                    <TableCell>{lineItem.variantLabel ?? "-"}</TableCell>
-                    <TableCell align="right">{lineItem.quantity}</TableCell>
-                    <TableCell align="right">
-                      ${lineItem.unitPrice.toLocaleString()}
-                    </TableCell>
-                    <TableCell align="right">
-                      ${lineItem.subtotal.toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <FormControl size="small" fullWidth>
-                        <Select
-                          value={allocations.get(lineItem.id) ?? ""}
-                          onChange={(e) =>
-                            handleAllocationChange(
-                              lineItem.id,
-                              Number(e.target.value),
-                            )
-                          }
-                          displayEmpty
-                        >
-                          <MenuItem value="" disabled>
-                            選取
-                          </MenuItem>
-                          {Array.from(
-                            {
-                              length: Math.min(
-                                maxNewOrders,
-                                order.lineItems.length,
-                              ),
-                            },
-                            (_, i) => (
-                              <MenuItem key={i} value={i}>
-                                新訂單 {i + 1}
-                              </MenuItem>
-                            ),
-                          )}
-                        </Select>
-                      </FormControl>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+        <OrderSplitAllocationTable
+          order={order}
+          allocations={allocations}
+          maxNewOrders={maxNewOrders}
+          onAllocationChange={handleAllocationChange}
+        />
       )}
 
-      {/* 分拆預覽 */}
-      {canSplit && splitPreview.length >= 2 && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            分拆預覽
-          </Typography>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            將產生 {usedOrderIndices.size} 筆新訂單，原訂單將被取消。
-          </Alert>
-
-          {splitPreview.map((group, idx) => (
-            <Box key={group.index}>
-              {idx > 0 && <Divider sx={{ my: 2 }} />}
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  新訂單 {group.index + 1}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {group.lineItems.length} 項明細，總金額 $
-                  {group.totalAmount.toLocaleString()}
-                </Typography>
-              </Box>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>商品名稱</TableCell>
-                      <TableCell>規格</TableCell>
-                      <TableCell align="right">數量</TableCell>
-                      <TableCell align="right">小計</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {group.lineItems.map((li) => (
-                      <TableRow key={li.id}>
-                        <TableCell>{li.productName}</TableCell>
-                        <TableCell>{li.variantLabel ?? "-"}</TableCell>
-                        <TableCell align="right">{li.quantity}</TableCell>
-                        <TableCell align="right">
-                          ${li.subtotal.toLocaleString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          ))}
-        </Paper>
-      )}
-
-      {/* 操作按鈕 */}
       {canSplit && (
-        <Box sx={{ display: "flex", gap: 2 }}>
-          <Button
-            variant="contained"
-            startIcon={
-              splitOrder.isPending ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : (
-                <CallSplitIcon />
-              )
-            }
-            onClick={handleSplitClick}
-            disabled={
-              splitOrder.isPending ||
-              allocations.size !== order.lineItems.length ||
-              usedOrderIndices.size < 2
-            }
-          >
-            {splitOrder.isPending ? "分拆中..." : "確認分拆"}
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              navigate({
-                to: "/orders/$orderId" as string,
-                params: { orderId } as Record<string, string>,
-              })
-            }
-          >
-            取消
-          </Button>
-        </Box>
+        <OrderSplitPreview
+          groups={splitPreview}
+          newOrderCount={usedOrderIndices.size}
+        />
+      )}
+
+      {canSplit && (
+        <OrderSplitActions
+          isPending={splitOrder.isPending}
+          disabled={
+            splitOrder.isPending ||
+            allocations.size !== order.lineItems.length ||
+            usedOrderIndices.size < 2
+          }
+          onConfirm={handleSplitClick}
+          onCancel={() =>
+            navigate({
+              to: "/orders/$orderId" as string,
+              params: { orderId } as Record<string, string>,
+            })
+          }
+        />
       )}
 
       {/* 確認對話框 */}
