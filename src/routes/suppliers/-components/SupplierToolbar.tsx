@@ -3,10 +3,7 @@ import {
   type ListToolbarOption,
 } from "@/components/ListToolbar";
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
-import CircularProgress from "@mui/material/CircularProgress";
 import AddIcon from "@mui/icons-material/Add";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import type {
   StatusFilter,
   SupplierSortField,
@@ -14,7 +11,7 @@ import type {
 
 /**
  * SupplierToolbar 元件 Props
- * 需求：1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.8
+ * 需求：1.1, 1.2, 1.3, 1.4, 1.5, 1.7
  */
 export interface SupplierToolbarProps {
   search: string;
@@ -25,8 +22,6 @@ export interface SupplierToolbarProps {
   sortField: SupplierSortField;
   onSortFieldChange: (value: SupplierSortField) => void;
   onAddClick: () => void;
-  onExportClick: () => void;
-  isExporting: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -45,8 +40,8 @@ const SORT_OPTIONS = [
 /**
  * 供應商列表工具列元件
  *
- * 水平排列：搜尋輸入框、狀態篩選、排序下拉選單、新增供應商按鈕、CSV 匯出按鈕
- * 需求：1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.8
+ * 水平排列：搜尋輸入框、狀態篩選、排序下拉選單、新增供應商按鈕
+ * 需求：1.1, 1.2, 1.3, 1.4, 1.5, 1.7
  */
 export function SupplierToolbar({
   search,
@@ -57,8 +52,6 @@ export function SupplierToolbar({
   sortField,
   onSortFieldChange,
   onAddClick,
-  onExportClick,
-  isExporting,
 }: SupplierToolbarProps): React.ReactElement {
   return (
     <ListToolbar
@@ -91,19 +84,6 @@ export function SupplierToolbar({
           >
             新增供應商
           </Button>
-
-          {/* CSV 匯出按鈕 - 需求 1.8 */}
-          <IconButton
-            onClick={onExportClick}
-            disabled={isExporting}
-            aria-label="匯出 CSV"
-          >
-            {isExporting ? (
-              <CircularProgress size={24} />
-            ) : (
-              <FileDownloadIcon />
-            )}
-          </IconButton>
         </>
       }
     />
