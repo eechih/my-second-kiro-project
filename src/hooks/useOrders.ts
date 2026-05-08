@@ -125,6 +125,12 @@ type ShipLineItemInput = {
   quantity: number;
 };
 
+type MarkLineItemOrderedInput = {
+  orderId: string;
+  orderSortKey: string;
+  lineItemId: string;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -519,6 +525,27 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
   return data;
 }
 
+async function markLineItemOrdered(
+  input: MarkLineItemOrderedInput,
+): Promise<LineItem> {
+  const now = new Date().toISOString();
+  const { data, errors } = await client.models.LineItem.update({
+    id: input.lineItemId,
+    orderedAt: now,
+    status: "已訂購",
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "更新訂貨狀態失敗");
+  }
+
+  if (!data) {
+    throw new Error("更新訂貨狀態失敗：未回傳資料");
+  }
+
+  return mapToLineItem(data as unknown as Record<string, unknown>);
+}
+
 async function shipLineItem(input: ShipLineItemInput): Promise<unknown> {
   const { data, errors } = await client.mutations.shipLineItem({
     orderId: input.orderId,
@@ -798,6 +825,63 @@ export function useConfirmReceived(): UseMutationResult<
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       // Invalidate product caches for stock update
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+/**
+ * 標記明細已訂貨。
+ *
+ * 用於訂單列表內的快速 checkbox 操作，更新 LineItem 的 orderedAt 與狀態。
+ */
+export function useMarkLineItemOrdered(): UseMutationResult<
+  LineItem,
+  Error,
+  MarkLineItemOrderedInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: markLineItemOrdered,
+    onMutate: async (input) => {
+      const orderKey = ORDER_KEYS.detail(
+        `${input.orderId}|${input.orderSortKey}`,
+      );
+      await queryClient.cancelQueries({ queryKey: orderKey });
+
+      const previousOrder = queryClient.getQueryData<Order>(orderKey);
+      const orderedAt = new Date().toISOString();
+
+      if (previousOrder) {
+        queryClient.setQueryData<Order>(orderKey, {
+          ...previousOrder,
+          lineItems: previousOrder.lineItems.map((lineItem) =>
+            lineItem.id === input.lineItemId
+              ? {
+                  ...lineItem,
+                  orderedAt,
+                  status: "已訂購" as const,
+                }
+              : lineItem,
+          ),
+        });
+      }
+
+      return { previousOrder };
+    },
+    onError: (_error, input, context) => {
+      if (context?.previousOrder) {
+        queryClient.setQueryData(
+          ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+          context.previousOrder,
+        );
+      }
+    },
+    onSettled: (_, __, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+      });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
     },
   });
 }
