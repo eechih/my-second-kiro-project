@@ -51,7 +51,11 @@ export function OrderTable({
               </TableRow>
             ) : (
               orderIds.map((orderId) => (
-                <OrderTableRow key={orderId} orderId={orderId} onEdit={onEdit} />
+                <OrderTableRow
+                  key={orderId}
+                  orderId={orderId}
+                  onEdit={onEdit}
+                />
               ))
             )}
           </TableBody>

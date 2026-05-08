@@ -38,14 +38,39 @@ export const PURCHASE_STATUS_LABEL: Record<string, string> = {
 };
 
 export async function searchSuppliers(query: string): Promise<Supplier[]> {
-  const filter: Record<string, unknown> = { isActive: { eq: true } };
+  const filter: Record<string, unknown> = {};
+  const conditions: Record<string, unknown>[] = [{ isActive: { eq: true } }];
+
   if (query) {
-    filter.or = [
-      { name: { contains: query } },
-      { contactPerson: { contains: query } },
-    ];
+    conditions.push({
+      or: [
+        { name: { contains: query } },
+        { contactPerson: { contains: query } },
+      ],
+    });
   }
-  const { data } = await client.models.Supplier.list({ filter, limit: 20 });
+
+  if (conditions.length === 1) {
+    Object.assign(filter, conditions[0]);
+  } else {
+    filter.and = conditions;
+  }
+
+  const { data } = await client.models.Supplier.list({
+    filter,
+    limit: 20,
+    selectionSet: [
+      "id",
+      "name",
+      "contactPerson",
+      "phone",
+      "email",
+      "address",
+      "isActive",
+      "createdAt",
+      "updatedAt",
+    ],
+  });
   return (data ?? []).map((raw: Record<string, unknown>) => ({
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
