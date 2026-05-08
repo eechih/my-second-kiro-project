@@ -247,11 +247,6 @@ describe("CustomerListPage", () => {
     expect(screen.getByLabelText("下一頁")).toBeInTheDocument();
   });
 
-  it("renders CSV export button", () => {
-    renderPage();
-    expect(screen.getByLabelText("匯出 CSV")).toBeInTheDocument();
-  });
-
   it("renders select-all checkbox in header", () => {
     renderPage();
     const checkboxes = screen.getAllByRole("checkbox");

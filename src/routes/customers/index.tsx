@@ -1,55 +1,28 @@
 import { CursorPagination } from "@/components/CursorPagination";
-import {
-  EditableStatusCell,
-  EditableTextCell,
-} from "@/components/EditableCell";
-import { listTableBodyTextSx } from "@/components/listTableStyles";
 import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
-  useCustomer,
   useCustomerList,
   useUpdateCustomer,
   type StatusFilter,
 } from "@/hooks/useCustomers";
-import { getAvatarColor, getAvatarLetter } from "@/lib/avatar-utils";
-import {
-  generateCustomerCsv,
-  getCustomerCsvFilename,
-} from "@/lib/customer-csv";
 import { requireAuth } from "@/lib/route-guards";
 import type { SortField } from "@/lib/table-utils";
 import Alert from "@mui/material/Alert";
-import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
-import Checkbox from "@mui/material/Checkbox";
-import CircularProgress from "@mui/material/CircularProgress";
-import Paper from "@mui/material/Paper";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Typography from "@mui/material/Typography";
 import type { Customer, UpdateCustomerInput } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import {
+  CustomerTable,
+  type EditableCustomerField,
+} from "./-components/CustomerTable";
 import { CustomerToolbar } from "./-components/CustomerToolbar";
-import { RowActions } from "./-components/RowActions";
 
 export const Route = createFileRoute("/customers/")({
   beforeLoad: requireAuth,
   component: CustomerListPage,
 });
-
-type EditableCustomerField =
-  | "name"
-  | "contactPerson"
-  | "phone"
-  | "email"
-  | "address"
-  | "isActive";
 
 function CustomerListPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -58,16 +31,12 @@ function CustomerListPage(): React.ReactElement {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortField, setSortField] = useState<SortField>("name");
-  const [isExporting, setIsExporting] = useState(false);
 
   // --- 分頁狀態 ---
   const pagination = useCursorPagination(10);
 
   // --- 批次選取狀態 ---
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [loadedCustomers, setLoadedCustomers] = useState<
-    Map<string, Customer>
-  >(new Map());
 
   const [error, setError] = useState<string | null>(null);
 
@@ -209,63 +178,6 @@ function CustomerListPage(): React.ReactElement {
     [updateMutation],
   );
 
-  const handleCustomerLoaded = useCallback((customer: Customer): void => {
-    setLoadedCustomers((prev) => {
-      const current = prev.get(customer.id);
-      if (
-        current &&
-        current.name === customer.name &&
-        current.contactPerson === customer.contactPerson &&
-        current.phone === customer.phone &&
-        current.email === customer.email &&
-        current.address === customer.address &&
-        current.isActive === customer.isActive &&
-        current.updatedAt === customer.updatedAt
-      ) {
-        return prev;
-      }
-
-      const next = new Map(prev);
-      next.set(customer.id, customer);
-      return next;
-    });
-  }, []);
-
-  // --- CSV 匯出 ---
-  const handleExport = useCallback((): void => {
-    if (customerIds.length === 0) {
-      setError("目前無資料可匯出");
-      return;
-    }
-
-    const customers = customerIds
-      .map((customerId) => loadedCustomers.get(customerId))
-      .filter((customer): customer is Customer => !!customer);
-
-    if (customers.length !== customerIds.length) {
-      setError("客戶資料尚未載入完成，請稍後再匯出");
-      return;
-    }
-
-    setIsExporting(true);
-    try {
-      const csv = generateCustomerCsv(customers);
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = getCustomerCsvFilename();
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "匯出失敗");
-    } finally {
-      setIsExporting(false);
-    }
-  }, [customerIds, loadedCustomers]);
-
   return (
     <Box>
       <PageHeader section="客戶" current="列表" title="列表" />
@@ -287,67 +199,20 @@ function CustomerListPage(): React.ReactElement {
         sortField={sortField}
         onSortFieldChange={handleSortFieldChange}
         onAddClick={() => void navigate({ to: "/customers/new" })}
-        onExportClick={handleExport}
-        isExporting={isExporting}
       />
 
-      {/* 表格 - 需求 2.1–2.4, 3.1–3.4, 4.1–4.6, 5.1–5.4 */}
-      <TableContainer component={Paper} sx={{ mt: 2 }}>
-        {isLoading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Table sx={listTableBodyTextSx}>
-            <TableHead>
-              <TableRow>
-                <TableCell>
-                  <Checkbox
-                    checked={allSelected}
-                    indeterminate={someSelected}
-                    onChange={handleSelectAll}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>客戶資訊</TableCell>
-                <TableCell>電話</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>地址</TableCell>
-                <TableCell align="center">狀態</TableCell>
-                <TableCell align="center">操作</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {customerIds.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    align="center"
-                    sx={{ py: 4 }}
-                  >
-                    <Typography color="text.secondary">
-                      目前沒有符合條件的客戶資料
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                customerIds.map((customerId) => (
-                  <CustomerTableRow
-                    key={customerId}
-                    customerId={customerId}
-                    selected={selectedIds.has(customerId)}
-                    statusDisabled={updateMutation.isPending}
-                    onSelect={handleSelectRow}
-                    onEdit={handleEdit}
-                    onCellEdit={handleCellEdit}
-                    onCustomerLoaded={handleCustomerLoaded}
-                  />
-                ))
-              )}
-            </TableBody>
-          </Table>
-        )}
-      </TableContainer>
+      <CustomerTable
+        customerIds={customerIds}
+        selectedIds={selectedIds}
+        allSelected={allSelected}
+        someSelected={someSelected}
+        isLoading={isLoading}
+        statusDisabled={updateMutation.isPending}
+        onSelectAll={handleSelectAll}
+        onSelectRow={handleSelectRow}
+        onEdit={handleEdit}
+        onCellEdit={handleCellEdit}
+      />
 
       {/* 分頁控制 - 需求 6.1–6.7 */}
       <CursorPagination
@@ -361,142 +226,5 @@ function CustomerListPage(): React.ReactElement {
       />
 
     </Box>
-  );
-}
-
-interface CustomerTableRowProps {
-  customerId: string;
-  selected: boolean;
-  statusDisabled: boolean;
-  onSelect: (customerId: string) => void;
-  onEdit: (customer: Customer) => void;
-  onCellEdit: (
-    customer: Customer,
-    field: EditableCustomerField,
-    value: string | boolean,
-  ) => Promise<void>;
-  onCustomerLoaded: (customer: Customer) => void;
-}
-
-function CustomerTableRow({
-  customerId,
-  selected,
-  statusDisabled,
-  onSelect,
-  onEdit,
-  onCellEdit,
-  onCustomerLoaded,
-}: CustomerTableRowProps): React.ReactElement {
-  const { data: customer, isLoading, error } = useCustomer(customerId);
-
-  useEffect(() => {
-    if (customer) onCustomerLoaded(customer);
-  }, [customer, onCustomerLoaded]);
-
-  if (isLoading) {
-    return (
-      <TableRow selected={selected} hover>
-        <TableCell>
-          <Checkbox
-            checked={selected}
-            onChange={() => onSelect(customerId)}
-            size="small"
-          />
-        </TableCell>
-        <TableCell colSpan={6}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <CircularProgress size={16} />
-            <Typography color="text.secondary">載入客戶資料中...</Typography>
-          </Box>
-        </TableCell>
-      </TableRow>
-    );
-  }
-
-  if (error || !customer) {
-    return (
-      <TableRow selected={selected} hover>
-        <TableCell>
-          <Checkbox
-            checked={selected}
-            onChange={() => onSelect(customerId)}
-            size="small"
-          />
-        </TableCell>
-        <TableCell colSpan={6}>
-          <Alert severity="error">
-            {error instanceof Error ? error.message : "查詢客戶失敗"}
-          </Alert>
-        </TableCell>
-      </TableRow>
-    );
-  }
-
-  return (
-    <TableRow selected={selected} hover>
-      <TableCell>
-        <Checkbox
-          checked={selected}
-          onChange={() => onSelect(customer.id)}
-          size="small"
-        />
-      </TableCell>
-      <TableCell>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Avatar
-            sx={{
-              bgcolor: getAvatarColor(customer.name),
-              width: 36,
-              height: 36,
-              fontSize: "0.875rem",
-            }}
-          >
-            {getAvatarLetter(customer.name)}
-          </Avatar>
-          <Box>
-            <EditableTextCell
-              value={customer.name}
-              onCommit={(value) => onCellEdit(customer, "name", value)}
-            />
-            {customer.contactPerson !== customer.name && (
-              <EditableTextCell
-                value={customer.contactPerson}
-                onCommit={(value) =>
-                  onCellEdit(customer, "contactPerson", value)
-                }
-              />
-            )}
-          </Box>
-        </Box>
-      </TableCell>
-      <TableCell>
-        <EditableTextCell
-          value={customer.phone}
-          onCommit={(value) => onCellEdit(customer, "phone", value)}
-        />
-      </TableCell>
-      <TableCell>
-        <EditableTextCell
-          value={customer.email}
-          onCommit={(value) => onCellEdit(customer, "email", value)}
-        />
-      </TableCell>
-      <TableCell>
-        <EditableTextCell
-          value={customer.address}
-          onCommit={(value) => onCellEdit(customer, "address", value)}
-        />
-      </TableCell>
-      <TableCell align="center">
-        <EditableStatusCell
-          isActive={customer.isActive}
-          disabled={statusDisabled}
-          onCommit={(isActive) => onCellEdit(customer, "isActive", isActive)}
-        />
-      </TableCell>
-      <TableCell align="center">
-        <RowActions customer={customer} onEdit={onEdit} />
-      </TableCell>
-    </TableRow>
   );
 }

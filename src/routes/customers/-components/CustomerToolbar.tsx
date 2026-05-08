@@ -3,10 +3,7 @@ import {
   type ListToolbarOption,
 } from "@/components/ListToolbar";
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
-import CircularProgress from "@mui/material/CircularProgress";
 import AddIcon from "@mui/icons-material/Add";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import type { SortField } from "@/lib/table-utils";
 
 /**
@@ -16,7 +13,7 @@ export type StatusFilter = "all" | "active" | "inactive";
 
 /**
  * CustomerToolbar 元件 Props
- * 需求：1.1, 1.2, 1.3, 1.4, 1.6, 1.7
+ * 需求：1.1, 1.2, 1.3, 1.4, 1.6
  */
 export interface CustomerToolbarProps {
   search: string;
@@ -27,8 +24,6 @@ export interface CustomerToolbarProps {
   sortField: SortField;
   onSortFieldChange: (value: SortField) => void;
   onAddClick: () => void;
-  onExportClick: () => void;
-  isExporting: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -47,8 +42,8 @@ const SORT_OPTIONS = [
 /**
  * 客戶列表工具列元件
  *
- * 水平排列：搜尋輸入框、狀態篩選、排序下拉選單、新增客戶按鈕、CSV 匯出按鈕
- * 需求：1.1, 1.2, 1.3, 1.4, 1.6, 1.7
+ * 水平排列：搜尋輸入框、狀態篩選、排序下拉選單、新增客戶按鈕
+ * 需求：1.1, 1.2, 1.3, 1.4, 1.6
  */
 export function CustomerToolbar({
   search,
@@ -59,8 +54,6 @@ export function CustomerToolbar({
   sortField,
   onSortFieldChange,
   onAddClick,
-  onExportClick,
-  isExporting,
 }: CustomerToolbarProps): React.ReactElement {
   return (
     <ListToolbar
@@ -93,19 +86,6 @@ export function CustomerToolbar({
           >
             新增客戶
           </Button>
-
-          {/* CSV 匯出按鈕 - 需求 1.7 */}
-          <IconButton
-            onClick={onExportClick}
-            disabled={isExporting}
-            aria-label="匯出 CSV"
-          >
-            {isExporting ? (
-              <CircularProgress size={24} />
-            ) : (
-              <FileDownloadIcon />
-            )}
-          </IconButton>
         </>
       }
     />
