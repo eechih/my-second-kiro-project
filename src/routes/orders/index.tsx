@@ -78,6 +78,23 @@ function OrderListPage(): React.ReactElement {
     [],
   );
 
+  const handleSelectAllChange = useCallback(
+    (selected: boolean): void => {
+      setSelectedOrderIds((previous) => {
+        const next = new Set(previous);
+        for (const orderId of orderIds) {
+          if (selected) {
+            next.add(orderId);
+          } else {
+            next.delete(orderId);
+          }
+        }
+        return next;
+      });
+    },
+    [orderIds],
+  );
+
   const handleOrderLoaded = useCallback((order: Order): void => {
     setLoadedOrders((previous) => {
       const current = previous.get(order.id);
@@ -189,6 +206,7 @@ function OrderListPage(): React.ReactElement {
         selectedOrderIds={selectedOrderIds}
         onEdit={handleEdit}
         onSelectionChange={handleOrderSelectionChange}
+        onSelectAllChange={handleSelectAllChange}
         onOrderLoaded={handleOrderLoaded}
       />
 

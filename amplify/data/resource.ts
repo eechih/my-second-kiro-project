@@ -140,6 +140,7 @@ const schema = a.schema({
       shippedAt: a.datetime(),
       purchaseRecords: a.hasMany("PurchaseRecord", "lineItemId"),
     })
+    .secondaryIndexes((index) => [index("orderId").name("byOrderId")])
     .authorization((allow) => [allow.authenticated()]),
 
   // ---------------------------------------------------------------------------

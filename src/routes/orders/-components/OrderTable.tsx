@@ -1,5 +1,6 @@
 import { listTableBodyTextSx } from "@/components/listTableStyles";
 import Box from "@mui/material/Box";
+import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
@@ -17,6 +18,7 @@ export interface OrderTableProps {
   selectedOrderIds: ReadonlySet<string>;
   onEdit: (orderId: string) => void;
   onSelectionChange: (orderId: string, selected: boolean) => void;
+  onSelectAllChange: (selected: boolean) => void;
   onOrderLoaded: (order: Order) => void;
 }
 
@@ -26,8 +28,16 @@ export function OrderTable({
   selectedOrderIds,
   onEdit,
   onSelectionChange,
+  onSelectAllChange,
   onOrderLoaded,
 }: OrderTableProps): React.ReactElement {
+  const selectedCurrentPageCount = orderIds.filter((orderId) =>
+    selectedOrderIds.has(orderId),
+  ).length;
+  const allSelected =
+    orderIds.length > 0 && selectedCurrentPageCount === orderIds.length;
+  const someSelected = selectedCurrentPageCount > 0 && !allSelected;
+
   return (
     <Box sx={{ mt: 2 }}>
       {isLoading ? (
@@ -46,7 +56,19 @@ export function OrderTable({
             <Table size="small" sx={listTableBodyTextSx}>
               <TableHead>
                 <TableRow>
-                  <TableCell padding="checkbox">選取</TableCell>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={allSelected}
+                      indeterminate={someSelected}
+                      onChange={(_event, checked) =>
+                        onSelectAllChange(checked)
+                      }
+                      size="small"
+                      slotProps={{
+                        input: { "aria-label": "選取本頁全部訂單" },
+                      }}
+                    />
+                  </TableCell>
                   <TableCell>訂單編號</TableCell>
                   <TableCell>客戶名稱</TableCell>
                   <TableCell>訂購日期</TableCell>
