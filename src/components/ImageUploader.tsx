@@ -264,6 +264,13 @@ export function ImageUploader({
                       objectFit: "cover",
                     }}
                     onClick={() => handleImageClick(index)}
+                    onError={(e) => {
+                      // 縮圖可能尚未產生，改用原始照片 URL
+                      const fullUrl = fullImageUrls?.[index];
+                      if (fullUrl && e.currentTarget.src !== fullUrl) {
+                        e.currentTarget.src = fullUrl;
+                      }
+                    }}
                   />
                 ) : (
                   <Box

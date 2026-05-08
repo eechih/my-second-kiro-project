@@ -260,11 +260,7 @@ function ProductListPage(): React.ReactElement {
             <TableBody>
               {productIds.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    align="center"
-                    sx={{ py: 4 }}
-                  >
+                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">
                       目前沒有符合條件的商品資料
                     </Typography>
@@ -417,7 +413,7 @@ function ProductTableRow({
           src={thumbnailUrl}
           sx={{ width: 40, height: 40 }}
         >
-          {!thumbnailUrl && <ImageIcon fontSize="small" />}
+          <ImageIcon fontSize="small" />
         </Avatar>
       </TableCell>
       <TableCell>

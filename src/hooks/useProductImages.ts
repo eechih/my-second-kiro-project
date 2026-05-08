@@ -253,11 +253,30 @@ export function useProductThumbnailUrls(
         return [];
       }
 
+      // 同時取得縮圖與原始照片的 URL，縮圖載入失敗時可 fallback 至原始照片
       const urls = await Promise.all(
         imageKeys.map(async (key) => {
+          // 先嘗試取得原始照片 URL 作為保底
+          const originalResult = await getUrl({ path: key });
+          const originalUrl = originalResult.url.toString();
+
+          // 嘗試取得縮圖 URL
           const thumbnailKey = getThumbnailKey(key);
-          const result = await getUrl({ path: thumbnailKey });
-          return result.url.toString();
+          try {
+            const thumbnailResult = await getUrl({ path: thumbnailKey });
+            const thumbnailUrl = thumbnailResult.url.toString();
+
+            // 驗證縮圖是否存在（HEAD request）
+            const response = await fetch(thumbnailUrl, { method: "HEAD" });
+            if (response.ok) {
+              return thumbnailUrl;
+            }
+          } catch {
+            // 縮圖不存在或取得失敗
+          }
+
+          // Fallback 至原始照片
+          return originalUrl;
         }),
       );
 
