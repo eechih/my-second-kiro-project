@@ -1,6 +1,7 @@
 import { StatusChip } from "@/components/StatusChip";
 import EditIcon from "@mui/icons-material/Edit";
 import Box from "@mui/material/Box";
+import Checkbox from "@mui/material/Checkbox";
 import IconButton from "@mui/material/IconButton";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
@@ -15,15 +16,29 @@ import {
 
 export interface OrderMainTableRowProps {
   order: Order;
+  selected?: boolean;
   onEdit: (orderId: string) => void;
+  onSelectionChange?: (selected: boolean) => void;
 }
 
 export function OrderMainTableRow({
   order,
+  selected = false,
   onEdit,
+  onSelectionChange,
 }: OrderMainTableRowProps): React.ReactElement {
   return (
     <TableRow hover sx={{ "& .MuiTableCell-root": { padding: "10px 5px" } }}>
+      <TableCell padding="checkbox">
+        <Checkbox
+          checked={selected}
+          onChange={(_event, checked) => onSelectionChange?.(checked)}
+          size="small"
+          slotProps={{
+            input: { "aria-label": `選取訂單 ${order.orderNumber}` },
+          }}
+        />
+      </TableCell>
       <TableCell>{order.orderNumber}</TableCell>
       <TableCell>{order.customerName}</TableCell>
       <TableCell>

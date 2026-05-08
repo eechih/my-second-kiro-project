@@ -8,18 +8,25 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import type { Order } from "@shared/models";
 import { OrderTableRow } from "./OrderTableRow";
 
 export interface OrderTableProps {
   orderIds: string[];
   isLoading: boolean;
+  selectedOrderIds: ReadonlySet<string>;
   onEdit: (orderId: string) => void;
+  onSelectionChange: (orderId: string, selected: boolean) => void;
+  onOrderLoaded: (order: Order) => void;
 }
 
 export function OrderTable({
   orderIds,
   isLoading,
+  selectedOrderIds,
   onEdit,
+  onSelectionChange,
+  onOrderLoaded,
 }: OrderTableProps): React.ReactElement {
   return (
     <Box sx={{ mt: 2 }}>
@@ -39,6 +46,7 @@ export function OrderTable({
             <Table size="small" sx={listTableBodyTextSx}>
               <TableHead>
                 <TableRow>
+                  <TableCell padding="checkbox">選取</TableCell>
                   <TableCell>訂單編號</TableCell>
                   <TableCell>客戶名稱</TableCell>
                   <TableCell>訂購日期</TableCell>
@@ -50,7 +58,16 @@ export function OrderTable({
             </Table>
           </TableContainer>
           {orderIds.map((orderId) => (
-            <OrderTableRow key={orderId} orderId={orderId} onEdit={onEdit} />
+            <OrderTableRow
+              key={orderId}
+              orderId={orderId}
+              selected={selectedOrderIds.has(orderId)}
+              onEdit={onEdit}
+              onSelectionChange={(selected) =>
+                onSelectionChange(orderId, selected)
+              }
+              onOrderLoaded={onOrderLoaded}
+            />
           ))}
         </Box>
       )}

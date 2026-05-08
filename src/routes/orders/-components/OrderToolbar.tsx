@@ -23,6 +23,7 @@ export interface OrderToolbarProps {
   totalCount: number;
   statusFilter: OrderStatusFilter;
   onStatusFilterChange: (value: OrderStatusFilter) => void;
+  mergeDisabled: boolean;
   onMergeClick: () => void;
   onAddClick: () => void;
 }
@@ -33,6 +34,7 @@ export function OrderToolbar({
   totalCount,
   statusFilter,
   onStatusFilterChange,
+  mergeDisabled,
   onMergeClick,
   onAddClick,
 }: OrderToolbarProps): React.ReactElement {
@@ -52,6 +54,7 @@ export function OrderToolbar({
           <Button
             variant="outlined"
             startIcon={<MergeIcon />}
+            disabled={mergeDisabled}
             onClick={onMergeClick}
           >
             合併訂單

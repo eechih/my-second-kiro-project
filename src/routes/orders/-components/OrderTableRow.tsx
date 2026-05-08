@@ -6,19 +6,33 @@ import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableContainer from "@mui/material/TableContainer";
 import Typography from "@mui/material/Typography";
+import type { Order } from "@shared/models";
+import { useEffect } from "react";
 import { OrderLineItemsTable } from "./OrderLineItemsTable";
 import { OrderMainTableRow } from "./OrderMainTableRow";
 
 export interface OrderTableRowProps {
   orderId: string;
+  selected?: boolean;
   onEdit: (orderId: string) => void;
+  onSelectionChange?: (selected: boolean) => void;
+  onOrderLoaded?: (order: Order) => void;
 }
 
 export function OrderTableRow({
   orderId,
+  selected = false,
   onEdit,
+  onSelectionChange,
+  onOrderLoaded,
 }: OrderTableRowProps): React.ReactElement {
   const { data: order, isLoading, error } = useOrder(orderId);
+
+  useEffect(() => {
+    if (order) {
+      onOrderLoaded?.(order);
+    }
+  }, [order, onOrderLoaded]);
 
   if (isLoading) {
     return (
@@ -54,7 +68,12 @@ export function OrderTableRow({
         }}
       >
         <TableBody>
-          <OrderMainTableRow order={order} onEdit={onEdit} />
+          <OrderMainTableRow
+            order={order}
+            selected={selected}
+            onEdit={onEdit}
+            onSelectionChange={onSelectionChange}
+          />
         </TableBody>
       </Table>
       <OrderLineItemsTable
