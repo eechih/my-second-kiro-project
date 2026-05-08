@@ -1,56 +1,21 @@
 import { CursorPagination } from "@/components/CursorPagination";
-import { listTableBodyTextSx } from "@/components/listTableStyles";
 import { PageHeader } from "@/components/PageHeader";
-import { StatusChip } from "@/components/StatusChip";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
-  useOrder,
   useOrderList,
   type OrderStatusFilter,
 } from "@/hooks/useOrders";
 import { requireAuth } from "@/lib/route-guards";
-import EditIcon from "@mui/icons-material/Edit";
 import Box from "@mui/material/Box";
-import CircularProgress from "@mui/material/CircularProgress";
-import IconButton from "@mui/material/IconButton";
-import Paper from "@mui/material/Paper";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Tooltip from "@mui/material/Tooltip";
-import Typography from "@mui/material/Typography";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
+import { OrderTable } from "./-components/OrderTable";
 import { OrderToolbar } from "./-components/OrderToolbar";
 
 export const Route = createFileRoute("/orders/")({
   beforeLoad: requireAuth,
   component: OrderListPage,
 });
-
-/** 訂單狀態顏色對應 */
-const ORDER_STATUS_COLOR_MAP: Record<
-  string,
-  "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"
-> = {
-  pending: "warning",
-  confirmed: "info",
-  shipping: "primary",
-  completed: "success",
-  cancelled: "error",
-};
-
-/** 訂單狀態中文標籤 */
-const ORDER_STATUS_LABEL: Record<string, string> = {
-  pending: "待處理",
-  confirmed: "已確認",
-  shipping: "出貨中",
-  completed: "已完成",
-  cancelled: "已取消",
-};
 
 function OrderListPage(): React.ReactElement {
   const navigate = useNavigate();
@@ -97,45 +62,7 @@ function OrderListPage(): React.ReactElement {
         onAddClick={() => navigate({ to: "/orders/new" })}
       />
 
-      <TableContainer component={Paper} sx={{ mt: 2 }}>
-        {isLoading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Table sx={listTableBodyTextSx}>
-            <TableHead>
-              <TableRow>
-                <TableCell>訂單編號</TableCell>
-                <TableCell>客戶名稱</TableCell>
-                <TableCell>訂購日期</TableCell>
-                <TableCell align="center">狀態</TableCell>
-                <TableCell align="right">總金額</TableCell>
-                <TableCell align="center">操作</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {orderIds.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">
-                      目前沒有符合條件的訂單資料
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                orderIds.map((orderId) => (
-                  <OrderTableRow
-                    key={orderId}
-                    orderId={orderId}
-                    onEdit={handleEdit}
-                  />
-                ))
-              )}
-            </TableBody>
-          </Table>
-        )}
-      </TableContainer>
+      <OrderTable orderIds={orderIds} isLoading={isLoading} onEdit={handleEdit} />
 
       <CursorPagination
         pageSize={pagination.pageSize}
@@ -150,111 +77,4 @@ function OrderListPage(): React.ReactElement {
       />
     </Box>
   );
-}
-
-interface OrderTableRowProps {
-  orderId: string;
-  onEdit: (orderId: string) => void;
-}
-
-function OrderTableRow({
-  orderId,
-  onEdit,
-}: OrderTableRowProps): React.ReactElement {
-  const { data: order, isLoading, error } = useOrder(orderId);
-
-  if (isLoading) {
-    return (
-      <TableRow hover>
-        <TableCell colSpan={6}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <CircularProgress size={16} />
-            <Typography color="text.secondary">載入訂單資料中...</Typography>
-          </Box>
-        </TableCell>
-      </TableRow>
-    );
-  }
-
-  if (error || !order) {
-    return (
-      <TableRow hover>
-        <TableCell colSpan={6}>
-          <Typography color="error">
-            {error instanceof Error ? error.message : "查詢訂單失敗"}
-          </Typography>
-        </TableCell>
-      </TableRow>
-    );
-  }
-
-  return (
-      <TableRow hover>
-        <TableCell>{order.orderNumber}</TableCell>
-        <TableCell>{order.customerName}</TableCell>
-      <TableCell>
-        <Box>
-          <Typography variant="body2">{formatDate(order.createdAt)}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {formatTime(order.createdAt)}
-          </Typography>
-        </Box>
-      </TableCell>
-      <TableCell align="center">
-        <StatusChip
-          status={ORDER_STATUS_LABEL[order.status] ?? order.status}
-          colorMap={{
-            待處理: "warning",
-            已確認: "info",
-            出貨中: "primary",
-            已完成: "success",
-            已取消: "error",
-            ...ORDER_STATUS_COLOR_MAP,
-          }}
-        />
-      </TableCell>
-      <TableCell align="right">
-        ${order.totalAmount.toLocaleString()}
-      </TableCell>
-      <TableCell align="center">
-        <Tooltip title="編輯">
-          <IconButton
-            size="small"
-            onClick={() => {
-              onEdit(order.id);
-            }}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "";
-  try {
-    return new Date(dateStr).toLocaleDateString("zh-TW", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
-function formatTime(dateStr: string): string {
-  if (!dateStr) return "";
-  try {
-    return new Date(dateStr).toLocaleTimeString("zh-TW", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-  } catch {
-    return "";
-  }
 }
