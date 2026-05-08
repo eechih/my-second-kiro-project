@@ -1,24 +1,15 @@
-import { EntitySelect } from "@/components/EntitySelect";
-import { FormField } from "@/components/FormField";
 import { PageHeader } from "@/components/PageHeader";
-import { QuickVariantInput } from "@/components/QuickVariantInput";
 import { useCreateProduct } from "@/hooks/useProducts";
-import { client } from "@/lib/amplify-client";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import { requireAuth } from "@/lib/route-guards";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
-import Divider from "@mui/material/Divider";
-import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import { validateProduct } from "@shared/logic/validation";
-import type { SpecDimension, Supplier } from "@shared/models";
-import { useForm } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/route-guards";
-import { useCallback, useState } from "react";
+import { useState } from "react";
+import {
+  ProductCreateForm,
+  type ProductCreateFormValues,
+} from "./-components/ProductCreateForm";
 
 export const Route = createFileRoute("/products/new")({
   beforeLoad: requireAuth,
@@ -29,77 +20,30 @@ function ProductNewPage() {
   const navigate = useNavigate();
   const createMutation = useCreateProduct();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
-    null,
-  );
-  const [specDimensions, setSpecDimensions] = useState<SpecDimension[]>([]);
 
-  const searchSuppliers = useCallback(async (query: string) => {
-    const filter: Record<string, unknown> = {
-      isActive: { eq: true },
-    };
-    if (query) {
-      filter.or = [
-        { name: { contains: query } },
-        { contactPerson: { contains: query } },
-      ];
+  const handleSubmit = async (
+    values: ProductCreateFormValues,
+  ): Promise<void> => {
+    setSubmitError(null);
+
+    const validation = validateProduct({
+      name: values.name,
+      sku: values.sku,
+      unitPrice: values.unitPrice,
+      defaultCost: values.defaultCost,
+    });
+    if (!validation.valid) {
+      setSubmitError(validation.error ?? "驗證失敗");
+      return;
     }
-    const { data } = await client.models.Supplier.list({ filter, limit: 20 });
-    return (data ?? []).map(
-      (raw: Record<string, unknown>) =>
-        ({
-          id: String(raw.id ?? ""),
-          name: String(raw.name ?? ""),
-          contactPerson: String(raw.contactPerson ?? ""),
-          phone: String(raw.phone ?? ""),
-          email: String(raw.email ?? ""),
-          address: String(raw.address ?? ""),
-          isActive: raw.isActive !== false,
-          createdAt: String(raw.createdAt ?? ""),
-          updatedAt: String(raw.updatedAt ?? ""),
-        }) as Supplier,
-    );
-  }, []);
 
-  const form = useForm({
-    defaultValues: {
-      name: "",
-      sku: "",
-      unitPrice: 0,
-      defaultCost: 0,
-      stockQuantity: 0,
-    },
-    onSubmit: async ({ value }) => {
-      setSubmitError(null);
-
-      const validation = validateProduct({
-        name: value.name,
-        sku: value.sku,
-        unitPrice: value.unitPrice,
-        defaultCost: value.defaultCost,
-      });
-      if (!validation.valid) {
-        setSubmitError(validation.error ?? "驗證失敗");
-        return;
-      }
-
-      try {
-        await createMutation.mutateAsync({
-          name: value.name,
-          sku: value.sku,
-          unitPrice: value.unitPrice,
-          defaultCost: value.defaultCost,
-          defaultSupplierId: selectedSupplier?.id ?? null,
-          stockQuantity: value.stockQuantity,
-          specDimensions:
-            specDimensions.length > 0 ? specDimensions : undefined,
-        });
-        void navigate({ to: "/products" });
-      } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : "建立商品失敗");
-      }
-    },
-  });
+    try {
+      await createMutation.mutateAsync(values);
+      void navigate({ to: "/products" });
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "建立商品失敗");
+    }
+  };
 
   return (
     <Box sx={{ maxWidth: 800 }}>
@@ -115,162 +59,11 @@ function ProductNewPage() {
         </Alert>
       )}
 
-      <Paper sx={{ p: 3 }}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            void form.handleSubmit();
-          }}
-        >
-          <Stack spacing={3}>
-            <form.Field
-              name="name"
-              validators={{
-                onBlur: ({ value }) =>
-                  !value.trim() ? "商品名稱為必填" : undefined,
-              }}
-            >
-              {(field) => <FormField field={field} label="商品名稱" required />}
-            </form.Field>
-
-            <form.Field
-              name="sku"
-              validators={{
-                onBlur: ({ value }) =>
-                  !value.trim() ? "SKU 為必填" : undefined,
-                onBlurAsync: async ({ value }) => {
-                  if (!value.trim()) return undefined;
-                  const { data } = await client.models.Product.list({
-                    filter: { sku: { eq: value.trim() } },
-                    limit: 1,
-                  });
-                  if (data && data.length > 0) {
-                    return "此 SKU 已存在，請使用其他 SKU";
-                  }
-                  return undefined;
-                },
-              }}
-            >
-              {(field) => (
-                <Box sx={{ position: "relative" }}>
-                  <FormField field={field} label="SKU" required />
-                  {field.state.meta.isValidating && (
-                    <CircularProgress
-                      size={20}
-                      sx={{
-                        position: "absolute",
-                        right: 12,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                      }}
-                    />
-                  )}
-                </Box>
-              )}
-            </form.Field>
-
-            <form.Field
-              name="unitPrice"
-              validators={{
-                onBlur: ({ value }) =>
-                  value < 0 ? "單價不可為負數" : undefined,
-              }}
-            >
-              {(field) => (
-                <FormField
-                  field={field}
-                  label="預設單價"
-                  type="number"
-                  required
-                />
-              )}
-            </form.Field>
-
-            <form.Field
-              name="defaultCost"
-              validators={{
-                onBlur: ({ value }) =>
-                  value < 0 ? "進貨成本不可為負數" : undefined,
-              }}
-            >
-              {(field) => (
-                <FormField
-                  field={field}
-                  label="預設進貨成本"
-                  type="number"
-                  required
-                />
-              )}
-            </form.Field>
-
-            <form.Field name="stockQuantity">
-              {(field) => (
-                <FormField field={field} label="初始庫存數量" type="number" />
-              )}
-            </form.Field>
-
-            {/* 供應商選取 */}
-            <EntitySelect<Supplier>
-              label="預設供應商"
-              value={selectedSupplier}
-              onChange={setSelectedSupplier}
-              searchFn={searchSuppliers}
-              getOptionLabel={(s) => s.name}
-            />
-
-            {/* 規格維度定義區塊 */}
-            <Divider />
-            <Typography variant="h6">規格維度定義</Typography>
-            <Typography variant="body2" color="text.secondary">
-              定義商品的規格維度（如顏色、尺寸），建立商品後可產生規格組合。
-            </Typography>
-
-            {/* 快速規格輸入 */}
-            <QuickVariantInput
-              onApply={(dimensions) => {
-                setSpecDimensions(dimensions);
-              }}
-              hasExistingVariants={specDimensions.some(
-                (d) => d.values.length > 0,
-              )}
-            />
-
-            <Divider />
-
-            {/* 商品照片提示 */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <InfoOutlinedIcon color="info" fontSize="small" />
-              <Typography variant="body2" color="text.secondary">
-                商品照片可在建立商品後於編輯頁面上傳。
-              </Typography>
-            </Box>
-
-            <Divider />
-
-            <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
-              <Button
-                variant="outlined"
-                onClick={() => void navigate({ to: "/products" })}
-              >
-                取消
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={createMutation.isPending}
-                startIcon={
-                  createMutation.isPending ? (
-                    <CircularProgress size={16} />
-                  ) : undefined
-                }
-              >
-                建立
-              </Button>
-            </Box>
-          </Stack>
-        </form>
-      </Paper>
+      <ProductCreateForm
+        isSubmitting={createMutation.isPending}
+        onCancel={() => void navigate({ to: "/products" })}
+        onSubmit={handleSubmit}
+      />
     </Box>
   );
 }
