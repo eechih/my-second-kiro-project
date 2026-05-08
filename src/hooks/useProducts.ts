@@ -51,7 +51,240 @@ const PRODUCT_KEYS = {
 };
 
 // ---------------------------------------------------------------------------
-// Product Hooks
+// Helpers
+// ---------------------------------------------------------------------------
+
+const PRODUCT_SELECTION_SET = [
+  "id",
+  "name",
+  "sku",
+  "unitPrice",
+  "defaultCost",
+  "defaultSupplierId",
+  "stockQuantity",
+  "specDimensions",
+  "imageUrls",
+  "isActive",
+  "version",
+  "createdAt",
+  "createdDate",
+  "updatedAt",
+  "variants.*",
+] as const;
+
+function buildProductFilter({
+  search,
+  isActive,
+}: Pick<ProductListParams, "search" | "isActive">): Record<string, unknown> {
+  const filter: Record<string, unknown> = {};
+
+  if (isActive !== undefined) {
+    filter.isActive = { eq: isActive };
+  }
+
+  if (search) {
+    filter.or = [
+      { name: { contains: search } },
+      { sku: { contains: search } },
+    ];
+  }
+
+  return filter;
+}
+
+function buildProductListParams({
+  pageSize,
+  nextToken,
+  search,
+  isActive,
+}: ProductListParams): Record<string, unknown> {
+  const filter = buildProductFilter({ search, isActive });
+  const listParams: Record<string, unknown> = {
+    limit: pageSize,
+    selectionSet: PRODUCT_SELECTION_SET,
+  };
+
+  if (Object.keys(filter).length > 0) {
+    listParams.filter = filter;
+  }
+
+  if (nextToken) {
+    listParams.nextToken = nextToken;
+  }
+
+  return listParams;
+}
+
+function applyProductUpdate(
+  product: Product,
+  input: UpdateProductInput,
+): Product {
+  return {
+    ...product,
+    ...(input.name !== undefined && { name: input.name }),
+    ...(input.sku !== undefined && { sku: input.sku }),
+    ...(input.unitPrice !== undefined && { unitPrice: input.unitPrice }),
+    ...(input.defaultCost !== undefined && {
+      defaultCost: input.defaultCost,
+    }),
+    ...(input.defaultSupplierId !== undefined && {
+      defaultSupplierId: input.defaultSupplierId,
+    }),
+    ...(input.stockQuantity !== undefined && {
+      stockQuantity: input.stockQuantity,
+    }),
+    ...(input.specDimensions !== undefined && {
+      specDimensions: input.specDimensions,
+    }),
+    ...(input.imageUrls !== undefined && { imageUrls: input.imageUrls }),
+    ...(input.isActive !== undefined && { isActive: input.isActive }),
+  };
+}
+
+async function fetchProductList(
+  params: ProductListParams,
+): Promise<PaginatedResult<string>> {
+  const { pageSize, nextToken, search, isActive } = params;
+
+  // 無搜尋條件時使用 GSI 按建立日期降序查詢
+  if (!search) {
+    const indexFilter: Record<string, unknown> | undefined =
+      isActive !== undefined ? { isActive: { eq: isActive } } : undefined;
+
+    const {
+      data,
+      errors,
+      nextToken: responseNextToken,
+    } = await client.models.Product.listByCreatedDate(
+      { gsiPartition: "Product" },
+      {
+        sortDirection: "DESC",
+        limit: pageSize,
+        ...(indexFilter && { filter: indexFilter }),
+        ...(nextToken && { nextToken }),
+        selectionSet: PRODUCT_SELECTION_SET,
+      } as Record<string, unknown>,
+    );
+
+    if (errors && errors.length > 0) {
+      throw new Error(errors[0]?.message ?? "查詢商品列表失敗");
+    }
+
+    const items: Product[] = (data ?? []).map(mapToProduct);
+
+    return {
+      items: items.map((product) => product.id),
+      totalCount: items.length,
+      nextToken: responseNextToken ?? undefined,
+    };
+  }
+
+  const {
+    data,
+    errors,
+    nextToken: responseNextToken,
+  } = await client.models.Product.list(buildProductListParams(params));
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢商品列表失敗");
+  }
+
+  const items: Product[] = (data ?? []).map(mapToProduct);
+
+  return {
+    items: items.map((product) => product.id),
+    totalCount: items.length,
+    nextToken: responseNextToken ?? undefined,
+  };
+}
+
+async function fetchProduct(id: string): Promise<Product> {
+  const { data, errors } = await client.models.Product.get(
+    { id },
+    { selectionSet: PRODUCT_SELECTION_SET },
+  );
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢商品失敗");
+  }
+
+  if (!data) {
+    throw new Error("找不到該商品");
+  }
+
+  return mapToProduct(data);
+}
+
+async function createProduct(input: CreateProductInput): Promise<Product> {
+  const { data, errors } = await client.models.Product.create({
+    name: input.name,
+    sku: input.sku,
+    unitPrice: input.unitPrice,
+    defaultCost: input.defaultCost,
+    defaultSupplierId: input.defaultSupplierId ?? null,
+    stockQuantity: input.stockQuantity ?? 0,
+    specDimensions: JSON.stringify(input.specDimensions ?? []),
+    imageUrls: input.imageUrls ?? [],
+    isActive: true,
+    version: 1,
+    gsiPartition: "Product",
+    createdDate: new Date().toISOString(),
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "建立商品失敗");
+  }
+
+  if (!data) {
+    throw new Error("建立商品失敗：未回傳資料");
+  }
+
+  return mapToProduct({ ...data, variants: [] });
+}
+
+function buildProductUpdatePayload(
+  input: UpdateProductInput,
+): Record<string, unknown> {
+  const updatePayload: Record<string, unknown> = { id: input.id };
+
+  if (input.name !== undefined) updatePayload.name = input.name;
+  if (input.sku !== undefined) updatePayload.sku = input.sku;
+  if (input.unitPrice !== undefined) updatePayload.unitPrice = input.unitPrice;
+  if (input.defaultCost !== undefined)
+    updatePayload.defaultCost = input.defaultCost;
+  if (input.defaultSupplierId !== undefined)
+    updatePayload.defaultSupplierId = input.defaultSupplierId;
+  if (input.stockQuantity !== undefined)
+    updatePayload.stockQuantity = input.stockQuantity;
+  if (input.specDimensions !== undefined)
+    updatePayload.specDimensions = JSON.stringify(input.specDimensions);
+  if (input.imageUrls !== undefined) updatePayload.imageUrls = input.imageUrls;
+  if (input.isActive !== undefined) updatePayload.isActive = input.isActive;
+
+  return updatePayload;
+}
+
+async function updateProduct(input: UpdateProductInput): Promise<Product> {
+  const { data, errors } = await client.models.Product.update(
+    buildProductUpdatePayload(input) as Parameters<
+      typeof client.models.Product.update
+    >[0],
+    { selectionSet: PRODUCT_SELECTION_SET },
+  );
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "更新商品失敗");
+  }
+
+  if (!data) {
+    throw new Error("更新商品失敗：未回傳資料");
+  }
+
+  return mapToProduct(data);
+}
+
+// ---------------------------------------------------------------------------
+// Query Hooks
 // ---------------------------------------------------------------------------
 
 /**
@@ -66,122 +299,9 @@ const PRODUCT_KEYS = {
 export function useProductList(
   params: ProductListParams,
 ): UseQueryResult<PaginatedResult<string>> {
-  const { pageSize, nextToken, search, isActive } = params;
-
   return useQuery({
-    queryKey: PRODUCT_KEYS.list({ pageSize, nextToken, search, isActive }),
-    queryFn: async (): Promise<PaginatedResult<string>> => {
-      const filter: Record<string, unknown> = {};
-
-      if (isActive !== undefined) {
-        filter.isActive = { eq: isActive };
-      }
-
-      if (search) {
-        filter.or = [
-          { name: { contains: search } },
-          { sku: { contains: search } },
-        ];
-      }
-
-      // 無搜尋條件時使用 GSI 按建立日期降序查詢
-      const useGsi = !search;
-
-      if (useGsi) {
-        const indexFilter: Record<string, unknown> | undefined =
-          isActive !== undefined ? { isActive: { eq: isActive } } : undefined;
-
-        const {
-          data: indexData,
-          errors: indexErrors,
-          nextToken: indexNextToken,
-        } = await client.models.Product.listByCreatedDate(
-          { gsiPartition: "Product" },
-          {
-            sortDirection: "DESC",
-            limit: pageSize,
-            ...(indexFilter && { filter: indexFilter }),
-            ...(nextToken && { nextToken }),
-            selectionSet: [
-              "id",
-              "name",
-              "sku",
-              "unitPrice",
-              "defaultCost",
-              "defaultSupplierId",
-              "stockQuantity",
-              "specDimensions",
-              "imageUrls",
-              "isActive",
-              "version",
-              "createdAt",
-              "createdDate",
-              "updatedAt",
-              "variants.*",
-            ],
-          } as Record<string, unknown>,
-        );
-
-        if (indexErrors && indexErrors.length > 0) {
-          throw new Error(indexErrors[0]?.message ?? "查詢商品列表失敗");
-        }
-
-        const items: Product[] = (indexData ?? []).map(mapToProduct);
-
-        return {
-          items: items.map((product) => product.id),
-          totalCount: items.length,
-          nextToken: indexNextToken ?? undefined,
-        };
-      }
-
-      const listParams: Record<string, unknown> = {
-        limit: pageSize,
-        selectionSet: [
-          "id",
-          "name",
-          "sku",
-          "unitPrice",
-          "defaultCost",
-          "defaultSupplierId",
-          "stockQuantity",
-          "specDimensions",
-          "imageUrls",
-          "isActive",
-          "version",
-          "createdAt",
-          "createdDate",
-          "updatedAt",
-          "variants.*",
-        ],
-      };
-
-      if (Object.keys(filter).length > 0) {
-        listParams.filter = filter;
-      }
-
-      if (nextToken) {
-        listParams.nextToken = nextToken;
-      }
-
-      const {
-        data,
-        errors,
-        nextToken: responseNextToken,
-      } = await client.models.Product.list(listParams);
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "查詢商品列表失敗");
-      }
-
-      const items: Product[] = (data ?? []).map(mapToProduct);
-
-      return {
-        items: items.map((product) => product.id),
-        totalCount: items.length,
-        nextToken: responseNextToken ?? undefined,
-      };
-    },
+    queryKey: PRODUCT_KEYS.list(params),
+    queryFn: () => fetchProductList(params),
   });
 }
 
@@ -193,42 +313,14 @@ export function useProductList(
 export function useProduct(id: string): UseQueryResult<Product> {
   return useQuery({
     queryKey: PRODUCT_KEYS.detail(id),
-    queryFn: async (): Promise<Product> => {
-      const { data, errors } = await client.models.Product.get(
-        { id },
-        {
-          selectionSet: [
-            "id",
-            "name",
-            "sku",
-            "unitPrice",
-            "defaultCost",
-            "defaultSupplierId",
-            "stockQuantity",
-            "specDimensions",
-            "imageUrls",
-            "isActive",
-            "version",
-            "createdAt",
-            "updatedAt",
-            "variants.*",
-          ],
-        },
-      );
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "查詢商品失敗");
-      }
-
-      if (!data) {
-        throw new Error("找不到該商品");
-      }
-
-      return mapToProduct(data);
-    },
+    queryFn: () => fetchProduct(id),
     enabled: !!id,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Mutation Hooks
+// ---------------------------------------------------------------------------
 
 /**
  * 建立商品 mutation hook
@@ -243,32 +335,7 @@ export function useCreateProduct(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateProductInput): Promise<Product> => {
-      const { data, errors } = await client.models.Product.create({
-        name: input.name,
-        sku: input.sku,
-        unitPrice: input.unitPrice,
-        defaultCost: input.defaultCost,
-        defaultSupplierId: input.defaultSupplierId ?? null,
-        stockQuantity: input.stockQuantity ?? 0,
-        specDimensions: JSON.stringify(input.specDimensions ?? []),
-        imageUrls: input.imageUrls ?? [],
-        isActive: true,
-        version: 1,
-        gsiPartition: "Product",
-        createdDate: new Date().toISOString(),
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "建立商品失敗");
-      }
-
-      if (!data) {
-        throw new Error("建立商品失敗：未回傳資料");
-      }
-
-      return mapToProduct({ ...data, variants: [] });
-    },
+    mutationFn: createProduct,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
     },
@@ -289,57 +356,7 @@ export function useUpdateProduct(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: UpdateProductInput): Promise<Product> => {
-      const updatePayload: Record<string, unknown> = { id: input.id };
-
-      if (input.name !== undefined) updatePayload.name = input.name;
-      if (input.sku !== undefined) updatePayload.sku = input.sku;
-      if (input.unitPrice !== undefined)
-        updatePayload.unitPrice = input.unitPrice;
-      if (input.defaultCost !== undefined)
-        updatePayload.defaultCost = input.defaultCost;
-      if (input.defaultSupplierId !== undefined)
-        updatePayload.defaultSupplierId = input.defaultSupplierId;
-      if (input.stockQuantity !== undefined)
-        updatePayload.stockQuantity = input.stockQuantity;
-      if (input.specDimensions !== undefined)
-        updatePayload.specDimensions = JSON.stringify(input.specDimensions);
-      if (input.imageUrls !== undefined)
-        updatePayload.imageUrls = input.imageUrls;
-      if (input.isActive !== undefined) updatePayload.isActive = input.isActive;
-
-      const { data, errors } = await client.models.Product.update(
-        updatePayload as Parameters<typeof client.models.Product.update>[0],
-        {
-          selectionSet: [
-            "id",
-            "name",
-            "sku",
-            "unitPrice",
-            "defaultCost",
-            "defaultSupplierId",
-            "stockQuantity",
-            "specDimensions",
-            "imageUrls",
-            "isActive",
-            "version",
-            "createdAt",
-            "updatedAt",
-            "variants.*",
-          ],
-        },
-      );
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "更新商品失敗");
-      }
-
-      if (!data) {
-        throw new Error("更新商品失敗：未回傳資料");
-      }
-
-      return mapToProduct(data);
-    },
+    mutationFn: updateProduct,
     onMutate: async (input) => {
       await queryClient.cancelQueries({
         queryKey: PRODUCT_KEYS.detail(input.id),
@@ -349,31 +366,10 @@ export function useUpdateProduct(): UseMutationResult<
         PRODUCT_KEYS.detail(input.id),
       );
 
-      const applyUpdate = (product: Product): Product => ({
-        ...product,
-        ...(input.name !== undefined && { name: input.name }),
-        ...(input.sku !== undefined && { sku: input.sku }),
-        ...(input.unitPrice !== undefined && { unitPrice: input.unitPrice }),
-        ...(input.defaultCost !== undefined && {
-          defaultCost: input.defaultCost,
-        }),
-        ...(input.defaultSupplierId !== undefined && {
-          defaultSupplierId: input.defaultSupplierId,
-        }),
-        ...(input.stockQuantity !== undefined && {
-          stockQuantity: input.stockQuantity,
-        }),
-        ...(input.specDimensions !== undefined && {
-          specDimensions: input.specDimensions,
-        }),
-        ...(input.imageUrls !== undefined && { imageUrls: input.imageUrls }),
-        ...(input.isActive !== undefined && { isActive: input.isActive }),
-      });
-
       if (previousProduct) {
         queryClient.setQueryData<Product>(
           PRODUCT_KEYS.detail(input.id),
-          applyUpdate(previousProduct),
+          applyProductUpdate(previousProduct, input),
         );
       }
 

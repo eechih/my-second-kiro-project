@@ -51,355 +51,197 @@ const ORDER_KEYS = {
 };
 
 // ---------------------------------------------------------------------------
-// Order Hooks
+// Constants
 // ---------------------------------------------------------------------------
 
-/**
- * 訂單列表查詢 hook
- *
- * 支援游標式分頁與搜尋（依訂單編號或客戶名稱）。
- *
- * 需求：4.2, 4.15
- */
-export function useOrderList(
-  params: OrderListParams,
-): UseQueryResult<PaginatedResult<string>> {
-  const { pageSize, nextToken, search, status } = params;
+const ORDER_LIST_SELECTION_SET = ["customerId", "sortKey"] as const;
 
-  return useQuery({
-    queryKey: ORDER_KEYS.list({ pageSize, nextToken, search, status }),
-    queryFn: async (): Promise<PaginatedResult<string>> => {
-      const filter: Record<string, unknown> = {};
+const ORDER_DETAIL_SELECTION_SET = [
+  "customerId",
+  "sortKey",
+  "orderNumber",
+  "customerName",
+  "totalAmount",
+  "status",
+  "statusHistory",
+  "createdAt",
+  "updatedAt",
+  "lineItems.*",
+  "lineItems.purchaseRecords.*",
+] as const;
 
-      if (search) {
-        filter.or = [
-          { orderNumber: { contains: search } },
-          { customerName: { contains: search } },
-        ];
-      }
+const ORDER_VALIDATION_SELECTION_SET = [
+  "customerId",
+  "sortKey",
+  "orderNumber",
+  "customerName",
+  "totalAmount",
+  "status",
+  "statusHistory",
+  "createdAt",
+  "updatedAt",
+  "lineItems.*",
+] as const;
 
-      if (status) {
-        filter.status = { eq: status };
-      }
+// ---------------------------------------------------------------------------
+// Helper Types
+// ---------------------------------------------------------------------------
 
-      const listParams: Record<string, unknown> = {
-        limit: pageSize,
-        selectionSet: ["customerId", "sortKey"],
-      };
-
-      if (Object.keys(filter).length > 0) {
-        listParams.filter = filter;
-      }
-
-      if (nextToken) {
-        listParams.nextToken = nextToken;
-      }
-
-      const {
-        data,
-        errors,
-        nextToken: responseNextToken,
-      } = await client.models.Order.list(listParams);
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "查詢訂單列表失敗");
-      }
-
-      const items = (data ?? []).map((order) => {
-        const customerId = String(order.customerId ?? "");
-        const sortKey = String(order.sortKey ?? "");
-        return `${customerId}|${sortKey}`;
-      });
-
-      return {
-        items,
-        totalCount: items.length,
-        nextToken: responseNextToken ?? undefined,
-      };
-    },
-  });
+interface OrderKeyParts {
+  customerId: string;
+  sortKey: string;
 }
 
-/**
- * 單一訂單查詢 hook（含 LineItems 與 PurchaseRecords）
- *
- * 需求：4.3, 4.4
- */
-export function useOrder(id: string): UseQueryResult<Order> {
-  return useQuery({
-    queryKey: ORDER_KEYS.detail(id),
-    queryFn: async (): Promise<Order> => {
-      // Parse composite key: id format is "customerId|sortKey"
-      const [customerId, sortKey] = id.split("|");
-      if (!customerId || !sortKey) {
-        throw new Error("無效的訂單 ID 格式");
-      }
+type UpdateOrderStatusInput = {
+  orderId: string;
+  orderSortKey: string;
+  currentStatus: OrderStatus;
+  newStatus: OrderStatus;
+  statusHistory: StatusChange[];
+};
 
-      const { data, errors } = await client.models.Order.get(
-        { customerId, sortKey },
-        {
-          selectionSet: [
-            "customerId",
-            "sortKey",
-            "orderNumber",
-            "customerName",
-            "totalAmount",
-            "status",
-            "statusHistory",
-            "createdAt",
-            "updatedAt",
-            "lineItems.*",
-            "lineItems.purchaseRecords.*",
-          ],
-        },
-      );
+type CreatePurchaseRecordInput = {
+  lineItemId: string;
+  supplierId: string;
+  supplierName: string;
+  quantity: number;
+  unitCost: number;
+  orderId: string;
+  orderSortKey: string;
+};
 
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "查詢訂單失敗");
-      }
+type ConfirmReceivedInput = {
+  purchaseRecordId: string;
+  purchaseRecordSortKey: string;
+  lineItemId: string;
+  orderId: string;
+  orderSortKey: string;
+};
 
-      if (!data) {
-        throw new Error("找不到該訂單");
-      }
-
-      return mapToOrder(data);
-    },
-    enabled: !!id,
-  });
-}
-
-/**
- * 建立訂單 mutation hook
- *
- * 建立訂單時自動計算明細小計與總金額。
- * 新明細項目初始狀態為「待處理」。
- *
- * 需求：4.1, 4.11
- */
-export function useCreateOrder(): UseMutationResult<
-  Order,
-  Error,
-  CreateOrderInput
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: CreateOrderInput): Promise<Order> => {
-      // 計算明細小計與總金額
-      const lineItemsWithSubtotal = input.lineItems.map((item) => ({
-        ...item,
-        subtotal: calculateLineItemSubtotal(item.quantity, item.unitPrice),
-      }));
-
-      const totalAmount = calculateOrderTotal(
-        lineItemsWithSubtotal.map((item) => ({
-          ...item,
-          id: "",
-          status: "待處理" as const,
-          purchasedQuantity: 0,
-          shippedQuantity: 0,
-          purchaseRecords: [],
-          orderedAt: null,
-          receivedAt: null,
-          shippedAt: null,
-          variantId: item.variantId ?? null,
-          variantLabel: item.variantLabel ?? null,
-        })),
-      );
-
-      // 產生訂單編號
-      const orderNumber = generateOrderNumber();
-      const now = new Date().toISOString();
-      const sortKey = `ORDER#${now}`;
-
-      // 建立訂單
-      const { data: orderData, errors: orderErrors } =
-        await client.models.Order.create({
-          customerId: input.customerId,
-          sortKey,
-          orderNumber,
-          customerName: input.customerName,
-          totalAmount,
-          status: "pending",
-          statusHistory: JSON.stringify([]),
-        });
-
-      if (orderErrors && orderErrors.length > 0) {
-        throw new Error(orderErrors[0]?.message ?? "建立訂單失敗");
-      }
-
-      if (!orderData) {
-        throw new Error("建立訂單失敗：未回傳資料");
-      }
-
-      // 建立明細項目
-      const createdLineItems: LineItem[] = [];
-      for (const item of lineItemsWithSubtotal) {
-        const { data: lineItemData, errors: lineItemErrors } =
-          await client.models.LineItem.create({
-            orderId: input.customerId,
-            orderSortKey: sortKey,
-            productId: item.productId,
-            productName: item.productName,
-            variantId: item.variantId ?? null,
-            variantLabel: item.variantLabel ?? null,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            subtotal: item.subtotal,
-            status: "待處理",
-            purchasedQuantity: 0,
-            shippedQuantity: 0,
-          });
-
-        if (lineItemErrors && lineItemErrors.length > 0) {
-          throw new Error(lineItemErrors[0]?.message ?? "建立明細項目失敗");
-        }
-
-        if (lineItemData) {
-          createdLineItems.push(mapToLineItem(lineItemData));
-        }
-      }
-
-      return {
-        id: `${input.customerId}|${sortKey}`,
-        orderNumber,
-        customerId: input.customerId,
-        customerName: input.customerName,
-        lineItems: createdLineItems,
-        totalAmount,
-        status: "pending",
-        statusHistory: [],
-        createdAt: now,
-        updatedAt: now,
-      };
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
-    },
-  });
-}
-
-/**
- * 更新訂單狀態 mutation hook
- *
- * 驗證狀態轉換合法性，記錄狀態歷史。
- *
- * 需求：5.2
- */
-export function useUpdateOrderStatus(): UseMutationResult<
-  Order,
-  Error,
-  {
-    orderId: string;
-    orderSortKey: string;
-    currentStatus: OrderStatus;
-    newStatus: OrderStatus;
-    statusHistory: StatusChange[];
-  }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input): Promise<Order> => {
-      const { orderId, orderSortKey, currentStatus, newStatus, statusHistory } =
-        input;
-
-      // 驗證狀態轉換合法性
-      if (!isValidOrderStatusTransition(currentStatus, newStatus)) {
-        throw new Error(
-          `無法將訂單狀態從「${currentStatus}」變更為「${newStatus}」`,
-        );
-      }
-
-      const now = new Date().toISOString();
-      const newHistory: StatusChange[] = [
-        ...statusHistory,
-        { fromStatus: currentStatus, toStatus: newStatus, changedAt: now },
-      ];
-
-      const { data, errors } = await client.models.Order.update({
-        customerId: orderId,
-        sortKey: orderSortKey,
-        status: newStatus,
-        statusHistory: JSON.stringify(newHistory),
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "更新訂單狀態失敗");
-      }
-
-      if (!data) {
-        throw new Error("更新訂單狀態失敗：未回傳資料");
-      }
-
-      return mapToOrder(data);
-    },
-    onSuccess: (_, { orderId, orderSortKey }) => {
-      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(`${orderId}|${orderSortKey}`),
-      });
-    },
-  });
-}
-
-/**
- * 預取訂單詳情 hook
- *
- * 供列表頁面在游標懸停時預取訂單詳情（含 LineItems、PurchaseRecords），
- * 使用 queryClient.prefetchQuery 提升進入詳情頁的流暢感。
- *
- * 需求：4.15
- */
-export function usePrefetchOrder(): (orderId: string) => void {
-  const queryClient = useQueryClient();
-
-  return (orderId: string) => {
-    void queryClient.prefetchQuery({
-      queryKey: ORDER_KEYS.detail(orderId),
-      queryFn: async (): Promise<Order> => {
-        const [customerId, sortKey] = orderId.split("|");
-        if (!customerId || !sortKey) {
-          throw new Error("無效的訂單 ID 格式");
-        }
-
-        const { data, errors } = await client.models.Order.get(
-          { customerId, sortKey },
-          {
-            selectionSet: [
-              "customerId",
-              "sortKey",
-              "orderNumber",
-              "customerName",
-              "totalAmount",
-              "status",
-              "statusHistory",
-              "createdAt",
-              "updatedAt",
-              "lineItems.*",
-              "lineItems.purchaseRecords.*",
-            ],
-          },
-        );
-
-        if (errors && errors.length > 0) {
-          throw new Error(errors[0]?.message ?? "查詢訂單失敗");
-        }
-
-        if (!data) {
-          throw new Error("找不到該訂單");
-        }
-
-        return mapToOrder(data);
-      },
-      staleTime: 30_000, // 30 秒內不重複預取
-    });
-  };
-}
+type ShipLineItemInput = {
+  orderId: string;
+  orderSortKey: string;
+  lineItemId: string;
+  quantity: number;
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function parseOrderId(id: string): OrderKeyParts {
+  const [customerId, sortKey] = id.split("|");
+  if (!customerId || !sortKey) {
+    throw new Error("無效的訂單 ID 格式");
+  }
+
+  return { customerId, sortKey };
+}
+
+function buildOrderFilter({
+  search,
+  status,
+}: Pick<OrderListParams, "search" | "status">): Record<string, unknown> {
+  const filter: Record<string, unknown> = {};
+
+  if (search) {
+    filter.or = [
+      { orderNumber: { contains: search } },
+      { customerName: { contains: search } },
+    ];
+  }
+
+  if (status) {
+    filter.status = { eq: status };
+  }
+
+  return filter;
+}
+
+function buildOrderListParams({
+  pageSize,
+  nextToken,
+  search,
+  status,
+}: OrderListParams): Record<string, unknown> {
+  const filter = buildOrderFilter({ search, status });
+  const listParams: Record<string, unknown> = {
+    limit: pageSize,
+    selectionSet: ORDER_LIST_SELECTION_SET,
+  };
+
+  if (Object.keys(filter).length > 0) {
+    listParams.filter = filter;
+  }
+
+  if (nextToken) {
+    listParams.nextToken = nextToken;
+  }
+
+  return listParams;
+}
+
+async function fetchOrderList(
+  params: OrderListParams,
+): Promise<PaginatedResult<string>> {
+  const {
+    data,
+    errors,
+    nextToken: responseNextToken,
+  } = await client.models.Order.list(buildOrderListParams(params));
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢訂單列表失敗");
+  }
+
+  const items = (data ?? []).map((order) => {
+    const customerId = String(order.customerId ?? "");
+    const sortKey = String(order.sortKey ?? "");
+    return `${customerId}|${sortKey}`;
+  });
+
+  return {
+    items,
+    totalCount: items.length,
+    nextToken: responseNextToken ?? undefined,
+  };
+}
+
+async function fetchOrder(id: string): Promise<Order> {
+  const { customerId, sortKey } = parseOrderId(id);
+  const { data, errors } = await client.models.Order.get(
+    { customerId, sortKey },
+    { selectionSet: ORDER_DETAIL_SELECTION_SET },
+  );
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢訂單失敗");
+  }
+
+  if (!data) {
+    throw new Error("找不到該訂單");
+  }
+
+  return mapToOrder(data);
+}
+
+async function fetchOrderForValidation(id: string): Promise<Order> {
+  const { customerId, sortKey } = parseOrderId(id);
+  const { data, errors } = await client.models.Order.get(
+    { customerId, sortKey },
+    { selectionSet: ORDER_VALIDATION_SELECTION_SET },
+  );
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢訂單失敗");
+  }
+
+  if (!data) {
+    throw new Error(`找不到訂單：${id}`);
+  }
+
+  return mapToOrder(data);
+}
 
 /** 產生訂單編號（格式：ORD-YYYYMMDD-XXXX） */
 function generateOrderNumber(): string {
@@ -501,9 +343,359 @@ function mapToPurchaseRecord(raw: Record<string, unknown>): PurchaseRecord {
   };
 }
 
+async function createOrder(input: CreateOrderInput): Promise<Order> {
+  const lineItemsWithSubtotal = input.lineItems.map((item) => ({
+    ...item,
+    subtotal: calculateLineItemSubtotal(item.quantity, item.unitPrice),
+  }));
+
+  const totalAmount = calculateOrderTotal(
+    lineItemsWithSubtotal.map((item) => ({
+      ...item,
+      id: "",
+      status: "待處理" as const,
+      purchasedQuantity: 0,
+      shippedQuantity: 0,
+      purchaseRecords: [],
+      orderedAt: null,
+      receivedAt: null,
+      shippedAt: null,
+      variantId: item.variantId ?? null,
+      variantLabel: item.variantLabel ?? null,
+    })),
+  );
+
+  const orderNumber = generateOrderNumber();
+  const now = new Date().toISOString();
+  const sortKey = `ORDER#${now}`;
+
+  const { data: orderData, errors: orderErrors } =
+    await client.models.Order.create({
+      customerId: input.customerId,
+      sortKey,
+      orderNumber,
+      customerName: input.customerName,
+      totalAmount,
+      status: "pending",
+      statusHistory: JSON.stringify([]),
+    });
+
+  if (orderErrors && orderErrors.length > 0) {
+    throw new Error(orderErrors[0]?.message ?? "建立訂單失敗");
+  }
+
+  if (!orderData) {
+    throw new Error("建立訂單失敗：未回傳資料");
+  }
+
+  const createdLineItems: LineItem[] = [];
+  for (const item of lineItemsWithSubtotal) {
+    const { data: lineItemData, errors: lineItemErrors } =
+      await client.models.LineItem.create({
+        orderId: input.customerId,
+        orderSortKey: sortKey,
+        productId: item.productId,
+        productName: item.productName,
+        variantId: item.variantId ?? null,
+        variantLabel: item.variantLabel ?? null,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+        status: "待處理",
+        purchasedQuantity: 0,
+        shippedQuantity: 0,
+      });
+
+    if (lineItemErrors && lineItemErrors.length > 0) {
+      throw new Error(lineItemErrors[0]?.message ?? "建立明細項目失敗");
+    }
+
+    if (lineItemData) {
+      createdLineItems.push(mapToLineItem(lineItemData));
+    }
+  }
+
+  return {
+    id: `${input.customerId}|${sortKey}`,
+    orderNumber,
+    customerId: input.customerId,
+    customerName: input.customerName,
+    lineItems: createdLineItems,
+    totalAmount,
+    status: "pending",
+    statusHistory: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+async function updateOrderStatus(
+  input: UpdateOrderStatusInput,
+): Promise<Order> {
+  const { orderId, orderSortKey, currentStatus, newStatus, statusHistory } =
+    input;
+
+  if (!isValidOrderStatusTransition(currentStatus, newStatus)) {
+    throw new Error(
+      `無法將訂單狀態從「${currentStatus}」變更為「${newStatus}」`,
+    );
+  }
+
+  const now = new Date().toISOString();
+  const newHistory: StatusChange[] = [
+    ...statusHistory,
+    { fromStatus: currentStatus, toStatus: newStatus, changedAt: now },
+  ];
+
+  const { data, errors } = await client.models.Order.update({
+    customerId: orderId,
+    sortKey: orderSortKey,
+    status: newStatus,
+    statusHistory: JSON.stringify(newHistory),
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "更新訂單狀態失敗");
+  }
+
+  if (!data) {
+    throw new Error("更新訂單狀態失敗：未回傳資料");
+  }
+
+  return mapToOrder(data);
+}
+
+async function createPurchaseRecord(
+  input: CreatePurchaseRecordInput,
+): Promise<PurchaseRecord> {
+  const now = new Date().toISOString();
+  const { data, errors } = await client.models.PurchaseRecord.create({
+    lineItemId: input.lineItemId,
+    purchasedAt: now,
+    supplierId: input.supplierId,
+    supplierName: input.supplierName,
+    quantity: input.quantity,
+    unitCost: input.unitCost,
+    status: "pending",
+    statusHistory: JSON.stringify([]),
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "建立採購記錄失敗");
+  }
+
+  if (!data) {
+    throw new Error("建立採購記錄失敗：未回傳資料");
+  }
+
+  const { data: lineItemData } = await client.models.LineItem.get({
+    id: input.lineItemId,
+  });
+
+  if (lineItemData) {
+    const currentPurchasedQty = Number(lineItemData.purchasedQuantity ?? 0);
+    await client.models.LineItem.update({
+      id: input.lineItemId,
+      purchasedQuantity: currentPurchasedQty + input.quantity,
+      status: "已訂購",
+      orderedAt: now,
+    });
+  }
+
+  return mapToPurchaseRecord(data as unknown as Record<string, unknown>);
+}
+
+async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
+  const { data, errors } = await client.mutations.confirmReceived({
+    purchaseRecordId: input.purchaseRecordId,
+    purchaseRecordSortKey: input.purchaseRecordSortKey,
+    lineItemId: input.lineItemId,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "入庫確認失敗");
+  }
+
+  return data;
+}
+
+async function shipLineItem(input: ShipLineItemInput): Promise<unknown> {
+  const { data, errors } = await client.mutations.shipLineItem({
+    orderId: input.orderId,
+    orderSortKey: input.orderSortKey,
+    lineItemId: input.lineItemId,
+    quantity: input.quantity,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "出貨操作失敗");
+  }
+
+  return data;
+}
+
+async function mergeOrders(input: { orderIds: string[] }): Promise<Order> {
+  const orders = await Promise.all(input.orderIds.map(fetchOrderForValidation));
+  const validation = validateMergeOrders(orders);
+  if (!validation.valid) {
+    throw new Error(validation.error ?? "合併驗證失敗");
+  }
+
+  const { data, errors } = await client.mutations.mergeOrders({
+    orderIds: JSON.stringify(input.orderIds.map(parseOrderId)),
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "合併訂單失敗");
+  }
+
+  if (!data) {
+    throw new Error("合併訂單失敗：未回傳資料");
+  }
+
+  const result = typeof data === "string" ? JSON.parse(data) : (data as unknown);
+  return mapToOrder(result as Record<string, unknown>);
+}
+
+async function splitOrder(input: {
+  orderId: string;
+  allocations: SplitAllocation[];
+}): Promise<Order[]> {
+  const { customerId, sortKey } = parseOrderId(input.orderId);
+  const order = await fetchOrderForValidation(input.orderId);
+  const validation = validateSplitOrder(order, input.allocations);
+  if (!validation.valid) {
+    throw new Error(validation.error ?? "分拆驗證失敗");
+  }
+
+  const { data, errors } = await client.mutations.splitOrder({
+    orderId: customerId,
+    orderSortKey: sortKey,
+    allocations: JSON.stringify(input.allocations),
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "分拆訂單失敗");
+  }
+
+  if (!data) {
+    throw new Error("分拆訂單失敗：未回傳資料");
+  }
+
+  const result = typeof data === "string" ? JSON.parse(data) : (data as unknown);
+  if (Array.isArray(result)) {
+    return result.map((item: unknown) =>
+      mapToOrder(item as Record<string, unknown>),
+    );
+  }
+
+  return [mapToOrder(result as Record<string, unknown>)];
+}
+
 // ---------------------------------------------------------------------------
-// Purchase Record Hooks
+// Query Hooks
 // ---------------------------------------------------------------------------
+
+/**
+ * 訂單列表查詢 hook
+ *
+ * 支援游標式分頁與搜尋（依訂單編號或客戶名稱）。
+ *
+ * 需求：4.2, 4.15
+ */
+export function useOrderList(
+  params: OrderListParams,
+): UseQueryResult<PaginatedResult<string>> {
+  return useQuery({
+    queryKey: ORDER_KEYS.list(params),
+    queryFn: () => fetchOrderList(params),
+  });
+}
+
+/**
+ * 單一訂單查詢 hook（含 LineItems 與 PurchaseRecords）
+ *
+ * 需求：4.3, 4.4
+ */
+export function useOrder(id: string): UseQueryResult<Order> {
+  return useQuery({
+    queryKey: ORDER_KEYS.detail(id),
+    queryFn: () => fetchOrder(id),
+    enabled: !!id,
+  });
+}
+
+/**
+ * 預取訂單詳情 hook
+ *
+ * 供列表頁面在游標懸停時預取訂單詳情（含 LineItems、PurchaseRecords），
+ * 使用 queryClient.prefetchQuery 提升進入詳情頁的流暢感。
+ *
+ * 需求：4.15
+ */
+export function usePrefetchOrder(): (orderId: string) => void {
+  const queryClient = useQueryClient();
+
+  return (orderId: string) => {
+    void queryClient.prefetchQuery({
+      queryKey: ORDER_KEYS.detail(orderId),
+      queryFn: () => fetchOrder(orderId),
+      staleTime: 30_000, // 30 秒內不重複預取
+    });
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mutation Hooks
+// ---------------------------------------------------------------------------
+
+/**
+ * 建立訂單 mutation hook
+ *
+ * 建立訂單時自動計算明細小計與總金額。
+ * 新明細項目初始狀態為「待處理」。
+ *
+ * 需求：4.1, 4.11
+ */
+export function useCreateOrder(): UseMutationResult<
+  Order,
+  Error,
+  CreateOrderInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createOrder,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+    },
+  });
+}
+
+/**
+ * 更新訂單狀態 mutation hook
+ *
+ * 驗證狀態轉換合法性，記錄狀態歷史。
+ *
+ * 需求：5.2
+ */
+export function useUpdateOrderStatus(): UseMutationResult<
+  Order,
+  Error,
+  UpdateOrderStatusInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateOrderStatus,
+    onSuccess: (_, { orderId, orderSortKey }) => {
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(`${orderId}|${orderSortKey}`),
+      });
+    },
+  });
+}
 
 /**
  * 建立採購記錄 mutation hook
@@ -516,60 +708,12 @@ function mapToPurchaseRecord(raw: Record<string, unknown>): PurchaseRecord {
 export function useCreatePurchaseRecord(): UseMutationResult<
   PurchaseRecord,
   Error,
-  {
-    lineItemId: string;
-    supplierId: string;
-    supplierName: string;
-    quantity: number;
-    unitCost: number;
-    orderId: string;
-    orderSortKey: string;
-  }
+  CreatePurchaseRecordInput
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input): Promise<PurchaseRecord> => {
-      const now = new Date().toISOString();
-
-      // Create purchase record
-      const { data, errors } = await client.models.PurchaseRecord.create({
-        lineItemId: input.lineItemId,
-        purchasedAt: now,
-        supplierId: input.supplierId,
-        supplierName: input.supplierName,
-        quantity: input.quantity,
-        unitCost: input.unitCost,
-        status: "pending",
-        statusHistory: JSON.stringify([]),
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "建立採購記錄失敗");
-      }
-
-      if (!data) {
-        throw new Error("建立採購記錄失敗：未回傳資料");
-      }
-
-      // Update line item: increment purchasedQuantity and set status to 已訂購
-      // First get current line item data
-      const { data: lineItemData } = await client.models.LineItem.get({
-        id: input.lineItemId,
-      });
-
-      if (lineItemData) {
-        const currentPurchasedQty = Number(lineItemData.purchasedQuantity ?? 0);
-        await client.models.LineItem.update({
-          id: input.lineItemId,
-          purchasedQuantity: currentPurchasedQty + input.quantity,
-          status: "已訂購",
-          orderedAt: now,
-        });
-      }
-
-      return mapToPurchaseRecord(data as unknown as Record<string, unknown>);
-    },
+    mutationFn: createPurchaseRecord,
     onSuccess: (_, input) => {
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       void queryClient.invalidateQueries({
@@ -590,30 +734,12 @@ export function useCreatePurchaseRecord(): UseMutationResult<
 export function useConfirmReceived(): UseMutationResult<
   unknown,
   Error,
-  {
-    purchaseRecordId: string;
-    purchaseRecordSortKey: string;
-    lineItemId: string;
-    orderId: string;
-    orderSortKey: string;
-  }
+  ConfirmReceivedInput
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input) => {
-      const { data, errors } = await client.mutations.confirmReceived({
-        purchaseRecordId: input.purchaseRecordId,
-        purchaseRecordSortKey: input.purchaseRecordSortKey,
-        lineItemId: input.lineItemId,
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "入庫確認失敗");
-      }
-
-      return data;
-    },
+    mutationFn: confirmReceived,
     onMutate: async (input) => {
       // Cancel outgoing refetches
       const orderKey = ORDER_KEYS.detail(
@@ -687,30 +813,12 @@ export function useConfirmReceived(): UseMutationResult<
 export function useShipLineItem(): UseMutationResult<
   unknown,
   Error,
-  {
-    orderId: string;
-    orderSortKey: string;
-    lineItemId: string;
-    quantity: number;
-  }
+  ShipLineItemInput
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input) => {
-      const { data, errors } = await client.mutations.shipLineItem({
-        orderId: input.orderId,
-        orderSortKey: input.orderSortKey,
-        lineItemId: input.lineItemId,
-        quantity: input.quantity,
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "出貨操作失敗");
-      }
-
-      return data;
-    },
+    mutationFn: shipLineItem,
     onMutate: async (input) => {
       // Cancel outgoing refetches
       const orderKey = ORDER_KEYS.detail(
@@ -799,72 +907,7 @@ export function useMergeOrders(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { orderIds: string[] }): Promise<Order> => {
-      // 取得所有來源訂單的完整資料以進行前端驗證
-      const orders: Order[] = [];
-      for (const orderId of input.orderIds) {
-        const [customerId, sortKey] = orderId.split("|");
-        if (!customerId || !sortKey) {
-          throw new Error(`無效的訂單 ID 格式：${orderId}`);
-        }
-
-        const { data, errors } = await client.models.Order.get(
-          { customerId, sortKey },
-          {
-            selectionSet: [
-              "customerId",
-              "sortKey",
-              "orderNumber",
-              "customerName",
-              "totalAmount",
-              "status",
-              "statusHistory",
-              "createdAt",
-              "updatedAt",
-              "lineItems.*",
-            ],
-          },
-        );
-
-        if (errors && errors.length > 0) {
-          throw new Error(errors[0]?.message ?? "查詢訂單失敗");
-        }
-        if (!data) {
-          throw new Error(`找不到訂單：${orderId}`);
-        }
-
-        orders.push(mapToOrder(data));
-      }
-
-      // 前端驗證
-      const validation = validateMergeOrders(orders);
-      if (!validation.valid) {
-        throw new Error(validation.error ?? "合併驗證失敗");
-      }
-
-      // 呼叫 custom mutation
-      const { data, errors } = await client.mutations.mergeOrders({
-        orderIds: JSON.stringify(
-          input.orderIds.map((id) => {
-            const [customerId, sortKey] = id.split("|");
-            return { customerId, sortKey };
-          }),
-        ),
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "合併訂單失敗");
-      }
-
-      if (!data) {
-        throw new Error("合併訂單失敗：未回傳資料");
-      }
-
-      // Parse the response
-      const result =
-        typeof data === "string" ? JSON.parse(data) : (data as unknown);
-      return mapToOrder(result as Record<string, unknown>);
-    },
+    mutationFn: mergeOrders,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.details() });
@@ -896,75 +939,7 @@ export function useSplitOrder(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: {
-      orderId: string;
-      allocations: SplitAllocation[];
-    }): Promise<Order[]> => {
-      const [customerId, sortKey] = input.orderId.split("|");
-      if (!customerId || !sortKey) {
-        throw new Error("無效的訂單 ID 格式");
-      }
-
-      // 取得原訂單完整資料以進行前端驗證
-      const { data: orderData, errors: orderErrors } =
-        await client.models.Order.get(
-          { customerId, sortKey },
-          {
-            selectionSet: [
-              "customerId",
-              "sortKey",
-              "orderNumber",
-              "customerName",
-              "totalAmount",
-              "status",
-              "statusHistory",
-              "createdAt",
-              "updatedAt",
-              "lineItems.*",
-            ],
-          },
-        );
-
-      if (orderErrors && orderErrors.length > 0) {
-        throw new Error(orderErrors[0]?.message ?? "查詢訂單失敗");
-      }
-      if (!orderData) {
-        throw new Error("找不到該訂單");
-      }
-
-      const order = mapToOrder(orderData);
-
-      // 前端驗證
-      const validation = validateSplitOrder(order, input.allocations);
-      if (!validation.valid) {
-        throw new Error(validation.error ?? "分拆驗證失敗");
-      }
-
-      // 呼叫 custom mutation
-      const { data, errors } = await client.mutations.splitOrder({
-        orderId: customerId,
-        orderSortKey: sortKey,
-        allocations: JSON.stringify(input.allocations),
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "分拆訂單失敗");
-      }
-
-      if (!data) {
-        throw new Error("分拆訂單失敗：未回傳資料");
-      }
-
-      // Parse the response
-      const result =
-        typeof data === "string" ? JSON.parse(data) : (data as unknown);
-      if (Array.isArray(result)) {
-        return result.map((item: unknown) =>
-          mapToOrder(item as Record<string, unknown>),
-        );
-      }
-      return [mapToOrder(result as Record<string, unknown>)];
-    },
+    mutationFn: splitOrder,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.details() });
