@@ -8,7 +8,7 @@ import {
 import { listTableBodyTextSx } from "@/components/listTableStyles";
 import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
-import { useProductThumbnailUrls } from "@/hooks/useProductImages";
+import { useProductThumbnailUrl } from "@/hooks/useProductImages";
 import type { ProductStatusFilter } from "@/hooks/useProducts";
 import {
   useProduct,
@@ -323,12 +323,7 @@ function ProductTableRow({
 }: ProductTableRowProps): React.ReactElement {
   const { data: product, isLoading, error } = useProduct(productId);
   const firstImageKey = product?.imageUrls[0];
-  const imageKeys = useMemo(
-    () => (firstImageKey ? [firstImageKey] : []),
-    [firstImageKey],
-  );
-  const { data: thumbnailUrls } = useProductThumbnailUrls(imageKeys);
-  const thumbnailUrl = thumbnailUrls?.[0];
+  const { data: thumbnailUrl } = useProductThumbnailUrl(firstImageKey);
   const supplierId = product?.defaultSupplierId;
 
   const { data: supplierName } = useQuery({
