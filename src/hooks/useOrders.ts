@@ -9,6 +9,7 @@ import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 import type {
   CreateOrderInput,
   LineItem,
+  LineItemStatus,
   Order,
   OrderStatus,
   PaginatedResult,
@@ -125,10 +126,33 @@ type ShipLineItemInput = {
   quantity: number;
 };
 
-type MarkLineItemOrderedInput = {
+type LineItemStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
+
+type UpdateLineItemStatusFlagInput = {
   orderId: string;
   orderSortKey: string;
   lineItemId: string;
+  flag: LineItemStatusFlag;
+  checked: boolean;
+};
+
+const NON_CANCELABLE_ORDERED_STATUSES = new Set<LineItemStatus>([
+  "已收到",
+  "已出貨",
+  "缺貨",
+]);
+
+const NON_CANCELABLE_RECEIVED_STATUSES = new Set<LineItemStatus>([
+  "已出貨",
+  "缺貨",
+]);
+
+type LineItemStatusFlagUpdate = {
+  orderedAt?: string | null;
+  receivedAt?: string | null;
+  shippedAt?: string | null;
+  shippedQuantity?: number;
+  status: LineItemStatus;
 };
 
 // ---------------------------------------------------------------------------
@@ -525,22 +549,122 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
   return data;
 }
 
-async function markLineItemOrdered(
-  input: MarkLineItemOrderedInput,
+function buildLineItemStatusFlagUpdate(
+  lineItem: Pick<
+    LineItem,
+    "orderedAt" | "quantity" | "status" | "shippedQuantity"
+  >,
+  flag: LineItemStatusFlag,
+  checked: boolean,
+  now: string,
+): LineItemStatusFlagUpdate {
+  if (flag === "ordered") {
+    if (!checked && NON_CANCELABLE_ORDERED_STATUSES.has(lineItem.status)) {
+      throw new Error(`明細項目目前狀態為「${lineItem.status}」，不可取消訂貨`);
+    }
+
+    if (checked && lineItem.status === "缺貨") {
+      throw new Error("缺貨明細不可標記訂貨");
+    }
+
+    return {
+      orderedAt: checked ? now : null,
+      status: checked ? "已訂購" : "待處理",
+    };
+  }
+
+  if (flag === "received") {
+    if (!checked && NON_CANCELABLE_RECEIVED_STATUSES.has(lineItem.status)) {
+      throw new Error(`明細項目目前狀態為「${lineItem.status}」，不可取消到貨`);
+    }
+
+    if (checked && lineItem.status !== "已訂購") {
+      throw new Error("請先標記訂貨，才能標記到貨");
+    }
+
+    return {
+      receivedAt: checked ? now : null,
+      status: checked ? "已收到" : "已訂購",
+    };
+  }
+
+  if (flag === "outOfStock") {
+    if (checked) {
+      if (lineItem.status !== "待處理" && lineItem.status !== "已訂購") {
+        throw new Error("僅待處理或已訂購明細可標記斷貨");
+      }
+
+      return {
+        status: "缺貨",
+      };
+    }
+
+    if (lineItem.status !== "缺貨") {
+      throw new Error("僅缺貨明細可取消斷貨");
+    }
+
+    return {
+      status: lineItem.orderedAt ? "已訂購" : "待處理",
+    };
+  }
+
+  if (checked && lineItem.status !== "已收到") {
+    throw new Error("請先標記到貨，才能標記出貨");
+  }
+
+  if (!checked && lineItem.status === "缺貨") {
+    throw new Error("缺貨明細不可取消出貨");
+  }
+
+  return {
+    shippedAt: checked ? now : null,
+    shippedQuantity: checked ? lineItem.quantity : 0,
+    status: checked ? "已出貨" : "已收到",
+  };
+}
+
+async function updateLineItemStatusFlag(
+  input: UpdateLineItemStatusFlagInput,
 ): Promise<LineItem> {
   const now = new Date().toISOString();
+  const { data: currentLineItem, errors: getErrors } =
+    await client.models.LineItem.get({
+      id: input.lineItemId,
+    });
+
+  if (getErrors && getErrors.length > 0) {
+    throw new Error(getErrors[0]?.message ?? "查詢明細狀態失敗");
+  }
+
+  if (!currentLineItem) {
+    throw new Error("更新明細狀態失敗：找不到明細項目");
+  }
+
+  const update = buildLineItemStatusFlagUpdate(
+    {
+      orderedAt: currentLineItem.orderedAt
+        ? String(currentLineItem.orderedAt)
+        : null,
+      quantity: Number(currentLineItem.quantity ?? 0),
+      shippedQuantity: Number(currentLineItem.shippedQuantity ?? 0),
+      status: (currentLineItem.status as LineItemStatus) ?? "待處理",
+    },
+    input.flag,
+    input.checked,
+    now,
+  );
+
   const { data, errors } = await client.models.LineItem.update({
     id: input.lineItemId,
-    orderedAt: now,
-    status: "已訂購",
+    ...update,
   });
 
   if (errors && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "更新訂貨狀態失敗");
+    throw new Error(errors[0]?.message ?? "更新明細狀態失敗");
   }
 
   if (!data) {
-    throw new Error("更新訂貨狀態失敗：未回傳資料");
+    throw new Error("更新明細狀態失敗：未回傳資料");
   }
 
   return mapToLineItem(data as unknown as Record<string, unknown>);
@@ -830,19 +954,19 @@ export function useConfirmReceived(): UseMutationResult<
 }
 
 /**
- * 標記明細已訂貨。
+ * 更新明細快速狀態旗標。
  *
- * 用於訂單列表內的快速 checkbox 操作，更新 LineItem 的 orderedAt 與狀態。
+ * 用於訂單列表內的快速 checkbox 操作，更新 LineItem 的日期與狀態。
  */
-export function useMarkLineItemOrdered(): UseMutationResult<
+export function useUpdateLineItemStatusFlag(): UseMutationResult<
   LineItem,
   Error,
-  MarkLineItemOrderedInput
+  UpdateLineItemStatusFlagInput
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: markLineItemOrdered,
+    mutationFn: updateLineItemStatusFlag,
     onMutate: async (input) => {
       const orderKey = ORDER_KEYS.detail(
         `${input.orderId}|${input.orderSortKey}`,
@@ -850,21 +974,33 @@ export function useMarkLineItemOrdered(): UseMutationResult<
       await queryClient.cancelQueries({ queryKey: orderKey });
 
       const previousOrder = queryClient.getQueryData<Order>(orderKey);
-      const orderedAt = new Date().toISOString();
+      const now = new Date().toISOString();
 
       if (previousOrder) {
-        queryClient.setQueryData<Order>(orderKey, {
-          ...previousOrder,
-          lineItems: previousOrder.lineItems.map((lineItem) =>
-            lineItem.id === input.lineItemId
-              ? {
-                  ...lineItem,
-                  orderedAt,
-                  status: "已訂購" as const,
-                }
-              : lineItem,
-          ),
-        });
+        const targetLineItem = previousOrder.lineItems.find(
+          (lineItem) => lineItem.id === input.lineItemId,
+        );
+
+        if (targetLineItem) {
+          const update = buildLineItemStatusFlagUpdate(
+            targetLineItem,
+            input.flag,
+            input.checked,
+            now,
+          );
+
+          queryClient.setQueryData<Order>(orderKey, {
+            ...previousOrder,
+            lineItems: previousOrder.lineItems.map((lineItem) =>
+              lineItem.id === input.lineItemId
+                ? {
+                    ...lineItem,
+                    ...update,
+                  }
+                : lineItem,
+            ),
+          });
+        }
       }
 
       return { previousOrder };

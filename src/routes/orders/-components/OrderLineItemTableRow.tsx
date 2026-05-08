@@ -1,4 +1,5 @@
-import { useMarkLineItemOrdered } from "@/hooks/useOrders";
+import { StatusChip } from "@/components/StatusChip";
+import { useUpdateLineItemStatusFlag } from "@/hooks/useOrders";
 import Chip from "@mui/material/Chip";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -6,9 +7,19 @@ import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { LineItem } from "@shared/models";
-import { formatOrderDate } from "./orderTableUtils";
+import { LINE_ITEM_STATUS_COLOR } from "./orderTableUtils";
 
-const LINE_ITEM_STATUS_FLAGS = [
+type EditableStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
+
+type LineItemStatusFlagConfig = {
+  key: EditableStatusFlag;
+  getLabel: (checked: boolean) => string;
+  isChecked: (item: LineItem) => boolean;
+  checkedColor: string;
+  uncheckedColor?: string;
+};
+
+const LINE_ITEM_STATUS_FLAGS: LineItemStatusFlagConfig[] = [
   {
     key: "ordered",
     getLabel: (checked: boolean) => (checked ? "訂貨" : "未訂貨"),
@@ -17,16 +28,14 @@ const LINE_ITEM_STATUS_FLAGS = [
   },
   {
     key: "received",
-    getLabel: (checked: boolean, item: LineItem) =>
-      checked && item.receivedAt ? formatOrderDate(item.receivedAt) : "未到貨",
+    getLabel: (checked: boolean) => (checked ? "到貨" : "未到貨"),
     isChecked: (item: LineItem) => Boolean(item.receivedAt),
     checkedColor: "info.main",
     uncheckedColor: "text.secondary",
   },
   {
     key: "shipped",
-    getLabel: (checked: boolean, item: LineItem) =>
-      checked && item.shippedAt ? formatOrderDate(item.shippedAt) : "未出貨",
+    getLabel: (checked: boolean) => (checked ? "出貨" : "未出貨"),
     isChecked: (item: LineItem) => Boolean(item.shippedAt),
     checkedColor: "success.main",
     uncheckedColor: "text.secondary",
@@ -34,11 +43,63 @@ const LINE_ITEM_STATUS_FLAGS = [
   {
     key: "outOfStock",
     getLabel: (checked: boolean) => (checked ? "斷貨" : "未斷貨"),
-    isChecked: () => false,
+    isChecked: (item: LineItem) => item.status === "缺貨",
     checkedColor: "error.main",
     uncheckedColor: "text.secondary",
   },
 ];
+
+const NON_CANCELABLE_ORDERED_STATUSES = new Set<LineItem["status"]>([
+  "已收到",
+  "已出貨",
+  "缺貨",
+]);
+
+const NON_CANCELABLE_RECEIVED_STATUSES = new Set<LineItem["status"]>([
+  "已出貨",
+  "缺貨",
+]);
+
+function isEditableStatusFlag(key: string): key is EditableStatusFlag {
+  return (
+    key === "ordered" ||
+    key === "received" ||
+    key === "shipped" ||
+    key === "outOfStock"
+  );
+}
+
+function isStatusFlagDisabled(
+  flag: EditableStatusFlag,
+  item: LineItem,
+  checked: boolean,
+): boolean {
+  if (flag === "ordered") {
+    if (checked) {
+      return NON_CANCELABLE_ORDERED_STATUSES.has(item.status);
+    }
+    return item.status === "缺貨";
+  }
+
+  if (flag === "received") {
+    if (checked) {
+      return NON_CANCELABLE_RECEIVED_STATUSES.has(item.status);
+    }
+    return item.status !== "已訂購";
+  }
+
+  if (flag === "shipped") {
+    if (checked) {
+      return item.status === "缺貨";
+    }
+    return item.status !== "已收到";
+  }
+
+  if (checked) {
+    return item.status !== "缺貨";
+  }
+  return item.status !== "待處理" && item.status !== "已訂購";
+}
 
 export interface OrderLineItemTableRowProps {
   item: LineItem;
@@ -51,7 +112,7 @@ export function OrderLineItemTableRow({
   orderId,
   orderSortKey,
 }: OrderLineItemTableRowProps): React.ReactElement {
-  const markLineItemOrdered = useMarkLineItemOrdered();
+  const updateLineItemStatusFlag = useUpdateLineItemStatusFlag();
 
   return (
     <TableRow sx={{ "&:last-child td": { borderBottom: 0 } }}>
@@ -69,11 +130,18 @@ export function OrderLineItemTableRow({
       </TableCell>
       <TableCell align="right">{item.quantity}</TableCell>
       <TableCell align="right">${item.unitPrice.toLocaleString()}</TableCell>
+      <TableCell align="center">
+        <StatusChip status={item.status} colorMap={LINE_ITEM_STATUS_COLOR} />
+      </TableCell>
       {LINE_ITEM_STATUS_FLAGS.map((flag) => {
         const checked = flag.isChecked(item);
-        const label = flag.getLabel(checked, item);
+        const label = flag.getLabel(checked);
         const color = checked ? flag.checkedColor : flag.uncheckedColor;
-        const isOrderedFlag = flag.key === "ordered";
+        const editableFlag = isEditableStatusFlag(flag.key) ? flag.key : null;
+        const disabled =
+          editableFlag === null ||
+          isStatusFlagDisabled(editableFlag, item, checked) ||
+          updateLineItemStatusFlag.isPending;
 
         return (
           <TableCell key={flag.key} align="center">
@@ -81,20 +149,17 @@ export function OrderLineItemTableRow({
               control={
                 <Checkbox
                   checked={checked}
-                  readOnly={!isOrderedFlag}
-                  disabled={
-                    isOrderedFlag
-                      ? checked || markLineItemOrdered.isPending
-                      : undefined
-                  }
+                  readOnly={editableFlag === null}
+                  disabled={disabled}
                   onChange={
-                    isOrderedFlag
+                    editableFlag !== null
                       ? (_event, nextChecked) => {
-                          if (!nextChecked) return;
-                          markLineItemOrdered.mutate({
+                          updateLineItemStatusFlag.mutate({
                             orderId,
                             orderSortKey,
                             lineItemId: item.id,
+                            flag: editableFlag,
+                            checked: nextChecked,
                           });
                         }
                       : undefined
@@ -117,7 +182,7 @@ export function OrderLineItemTableRow({
               sx={{
                 m: 0,
                 "& .MuiFormControlLabel-label": {
-                  color,
+                  color: disabled ? "text.disabled" : color,
                   fontSize: 14,
                 },
               }}
