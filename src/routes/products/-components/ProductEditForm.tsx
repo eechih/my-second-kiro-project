@@ -3,14 +3,18 @@ import { FormField } from "@/components/FormField";
 import { ImageUploader } from "@/components/ImageUploader";
 import { VariantTable } from "@/components/VariantTable";
 import { client } from "@/lib/amplify-client";
+import { parseVariantLabels } from "@shared/logic/variant-labels";
 import AddIcon from "@mui/icons-material/Add";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import type {
   CreateVariantInput,
@@ -78,6 +82,11 @@ export function ProductEditForm({
     price: "",
     cost: "",
   });
+  const [variantMode, setVariantMode] = useState<"quick" | "standard">(
+    "quick",
+  );
+  const [variantInput, setVariantInput] = useState("");
+  const variantLabels = parseVariantLabels(variantInput);
 
   const searchSuppliers = useCallback(async (query: string) => {
     const filter: Record<string, unknown> = { isActive: { eq: true } };
@@ -145,6 +154,20 @@ export function ProductEditForm({
       price: "",
       cost: "",
     });
+  };
+
+  const handleCreateQuickVariants = (): void => {
+    const existingLabels = new Set(product.variants.map((variant) => variant.label));
+    for (const label of variantLabels) {
+      if (existingLabels.has(label)) continue;
+      onCreateVariant({
+        label,
+        stockQuantity: 0,
+        price: product.unitPrice,
+        cost: product.defaultCost,
+      });
+    }
+    setVariantInput("");
   };
 
   return (
@@ -254,85 +277,148 @@ export function ProductEditForm({
           />
 
           <Divider />
-          <Typography variant="h6">規格選項</Typography>
-          <Typography variant="body2" color="text.secondary">
-            每個規格以單一標籤管理，例如「黑色」或「XL」。
-          </Typography>
+          <Stack spacing={1.5}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+              <Box>
+                <Typography variant="h6">規格選項</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  每個規格以單一標籤管理，例如「黑色」或「XL」。
+                </Typography>
+              </Box>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={variantMode}
+                onChange={(_event, value: "quick" | "standard" | null) => {
+                  if (value) setVariantMode(value);
+                }}
+              >
+                <ToggleButton value="quick">快速</ToggleButton>
+                <ToggleButton value="standard">標準</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
 
-          <Box
-            sx={{
-              display: "grid",
-              gap: 2,
-              gridTemplateColumns: {
-                xs: "1fr",
-                md: "2fr 1.4fr 1fr 1fr 1fr auto",
-              },
-            }}
-          >
-            <TextField
-              label="規格標籤"
-              size="small"
-              value={newVariant.label}
-              onChange={(event) =>
-                setNewVariant({ ...newVariant, label: event.target.value })
-              }
-              required
-            />
-            <TextField
-              label="SKU"
-              size="small"
-              value={newVariant.sku}
-              onChange={(event) =>
-                setNewVariant({ ...newVariant, sku: event.target.value })
-              }
-              placeholder="留空自動產生"
-            />
-            <TextField
-              label="庫存"
-              size="small"
-              type="number"
-              value={newVariant.stockQuantity}
-              onChange={(event) =>
-                setNewVariant({
-                  ...newVariant,
-                  stockQuantity: event.target.value,
-                })
-              }
-              slotProps={{ htmlInput: { min: 0 } }}
-            />
-            <TextField
-              label="單價"
-              size="small"
-              type="number"
-              value={newVariant.price}
-              onChange={(event) =>
-                setNewVariant({ ...newVariant, price: event.target.value })
-              }
-              placeholder={String(product.unitPrice)}
-              slotProps={{ htmlInput: { min: 0, step: "any" } }}
-            />
-            <TextField
-              label="成本"
-              size="small"
-              type="number"
-              value={newVariant.cost}
-              onChange={(event) =>
-                setNewVariant({ ...newVariant, cost: event.target.value })
-              }
-              placeholder={String(product.defaultCost)}
-              slotProps={{ htmlInput: { min: 0, step: "any" } }}
-            />
-            <Button
-              type="button"
-              variant="outlined"
-              startIcon={<AddIcon />}
-              disabled={isVariantMutating || !newVariant.label.trim()}
-              onClick={handleCreateVariant}
-              sx={{ minWidth: 96 }}
-            >
-              新增
-            </Button>
-          </Box>
+            {variantMode === "quick" ? (
+              <>
+                <TextField
+                  label="規格選項"
+                  value={variantInput}
+                  onChange={(event) => setVariantInput(event.target.value)}
+                  placeholder="[黑，白，藍/M，L，XL，2L，3L]"
+                  multiline
+                  minRows={2}
+                  helperText="快速模式會帶入產品預設單價與預設成本；已存在的規格標籤會略過。"
+                />
+                {variantLabels.length > 0 && (
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                    {variantLabels.map((label) => (
+                      <Chip
+                        key={label}
+                        label={label}
+                        size="small"
+                        color={
+                          product.variants.some((variant) => variant.label === label)
+                            ? "default"
+                            : "primary"
+                        }
+                        variant={
+                          product.variants.some((variant) => variant.label === label)
+                            ? "outlined"
+                            : "filled"
+                        }
+                      />
+                    ))}
+                  </Box>
+                )}
+                <Box>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    disabled={isVariantMutating || variantLabels.length === 0}
+                    onClick={handleCreateQuickVariants}
+                  >
+                    批次新增
+                  </Button>
+                </Box>
+              </>
+            ) : (
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 2,
+                  gridTemplateColumns: {
+                    xs: "1fr",
+                    md: "2fr 1.4fr 1fr 1fr 1fr auto",
+                  },
+                }}
+              >
+                <TextField
+                  label="規格標籤"
+                  size="small"
+                  value={newVariant.label}
+                  onChange={(event) =>
+                    setNewVariant({ ...newVariant, label: event.target.value })
+                  }
+                  required
+                />
+                <TextField
+                  label="SKU"
+                  size="small"
+                  value={newVariant.sku}
+                  onChange={(event) =>
+                    setNewVariant({ ...newVariant, sku: event.target.value })
+                  }
+                  placeholder="留空自動產生"
+                />
+                <TextField
+                  label="庫存"
+                  size="small"
+                  type="number"
+                  value={newVariant.stockQuantity}
+                  onChange={(event) =>
+                    setNewVariant({
+                      ...newVariant,
+                      stockQuantity: event.target.value,
+                    })
+                  }
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+                <TextField
+                  label="單價"
+                  size="small"
+                  type="number"
+                  value={newVariant.price}
+                  onChange={(event) =>
+                    setNewVariant({ ...newVariant, price: event.target.value })
+                  }
+                  placeholder={String(product.unitPrice)}
+                  slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                />
+                <TextField
+                  label="成本"
+                  size="small"
+                  type="number"
+                  value={newVariant.cost}
+                  onChange={(event) =>
+                    setNewVariant({ ...newVariant, cost: event.target.value })
+                  }
+                  placeholder={String(product.defaultCost)}
+                  slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                />
+                <Button
+                  type="button"
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  disabled={isVariantMutating || !newVariant.label.trim()}
+                  onClick={handleCreateVariant}
+                  sx={{ minWidth: 96 }}
+                >
+                  新增
+                </Button>
+              </Box>
+            )}
+          </Stack>
 
           <VariantTable
             productId={productId}

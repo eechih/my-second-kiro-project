@@ -74,7 +74,7 @@ const schema = a.schema({
     .secondaryIndexes((index) => [
       index("gsiPartition")
         .sortKeys(["createdAtForSort"])
-        .queryField("listByCreatedDate")
+        .queryField("listProductsByCreatedDate")
         .name("byCreatedAt"),
     ])
     .authorization((allow) => [allow.authenticated()]),
@@ -116,7 +116,7 @@ const schema = a.schema({
     .secondaryIndexes((index) => [
       index("gsiPartition")
         .sortKeys(["createdAtForSort"])
-        .queryField("listByCreatedDate")
+        .queryField("listOrdersByCreatedDate")
         .name("byOrderCreatedAt"),
     ])
     .authorization((allow) => [allow.authenticated()]),

@@ -146,7 +146,7 @@ async function fetchProductList(
       data,
       errors,
       nextToken: responseNextToken,
-    } = await client.models.Product.listByCreatedDate(
+    } = await client.models.Product.listProductsByCreatedDate(
       { gsiPartition: "Product" },
       {
         sortDirection: "DESC",

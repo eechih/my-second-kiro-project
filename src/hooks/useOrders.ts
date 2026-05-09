@@ -204,7 +204,7 @@ async function fetchOrderList(
     data,
     errors,
     nextToken: responseNextToken,
-  } = await client.models.Order.listByCreatedDate(
+  } = await client.models.Order.listOrdersByCreatedDate(
     { gsiPartition: "Order" },
     {
       ...listParams,
