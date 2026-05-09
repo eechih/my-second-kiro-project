@@ -114,23 +114,12 @@ function createSampleOrder(): Order {
         status: "待處理",
         purchasedQuantity: 0,
         shippedQuantity: 0,
-        purchaseRecords: [
-          {
-            id: "pr-001",
-            lineItemId: "li-001",
-            supplierId: "sup-001",
-            supplierName: "測試供應商",
-            quantity: 5,
-            unitCost: 50,
-            status: "pending",
-            statusHistory: [],
-            purchasedAt: "2025-01-02T00:00:00.000Z",
-            receivedAt: null,
-          },
-        ],
-        orderedAt: null,
+        purchasedAt: null,
         receivedAt: null,
         shippedAt: null,
+        supplierId: "sup-001",
+        supplierName: "測試供應商",
+        unitCost: 50,
       },
       {
         id: "li-002",
@@ -144,10 +133,12 @@ function createSampleOrder(): Order {
         status: "已訂購",
         purchasedQuantity: 5,
         shippedQuantity: 0,
-        purchaseRecords: [],
-        orderedAt: "2025-01-02T00:00:00.000Z",
+        purchasedAt: "2025-01-02T00:00:00.000Z",
         receivedAt: null,
         shippedAt: null,
+        supplierId: null,
+        supplierName: null,
+        unitCost: null,
       },
     ],
     totalAmount: 2000,
@@ -275,7 +266,7 @@ describe("serializeProduct / deserializeProduct", () => {
 // ---------------------------------------------------------------------------
 
 describe("serializeOrder / deserializeOrder", () => {
-  it("往返序列化應產生深度相等的物件（含明細、採購記錄）", () => {
+  it("往返序列化應產生深度相等的物件（含明細）", () => {
     const original = createSampleOrder();
     const json = serializeOrder(original);
     const restored = deserializeOrder(json);
@@ -292,8 +283,8 @@ describe("serializeOrder / deserializeOrder", () => {
     expect(restored.lineItems[1]!.variantId).toBeNull();
     expect(restored.lineItems[1]!.variantLabel).toBeNull();
 
-    // 採購記錄的 receivedAt 為 null
-    expect(restored.lineItems[0]!.purchaseRecords[0]!.receivedAt).toBeNull();
+    // 第二筆明細的 unitCost 為 null
+    expect(restored.lineItems[1]!.unitCost).toBeNull();
   });
 
   it("空明細項目的訂單往返序列化應正確", () => {

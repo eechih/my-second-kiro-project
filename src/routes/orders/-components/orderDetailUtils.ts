@@ -31,12 +31,6 @@ export const LINE_ITEM_STATUS_COLOR_MAP: Record<
   缺貨: "error",
 };
 
-export const PURCHASE_STATUS_LABEL: Record<string, string> = {
-  pending: "待入庫",
-  received: "已入庫",
-  cancelled: "已取消",
-};
-
 export async function searchSuppliers(query: string): Promise<Supplier[]> {
   const filter: Record<string, unknown> = {};
   const conditions: Record<string, unknown>[] = [{ isActive: { eq: true } }];

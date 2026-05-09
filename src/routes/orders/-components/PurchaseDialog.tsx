@@ -1,6 +1,5 @@
 import { EntitySelect } from "@/components/EntitySelect";
-import { useCreatePurchaseRecord } from "@/hooks/useOrders";
-import { useProduct } from "@/hooks/useProducts";
+import { client } from "@/lib/amplify-client";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -11,11 +10,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { resolveEffectiveCost } from "@shared/logic/product-variant";
-import {
-  calculateRemainingPurchaseQuantity,
-  validatePurchaseQuantity,
-} from "@shared/logic/purchase-record";
+import { validateProcurementOrder } from "@shared/logic/procurement";
 import type { LineItem, Order, Supplier } from "@shared/models";
 import { useEffect, useState } from "react";
 import { searchSuppliers } from "./orderDetailUtils";
@@ -34,78 +29,67 @@ export function PurchaseDialog({
   order,
 }: PurchaseDialogProps): React.ReactElement {
   const [supplier, setSupplier] = useState<Supplier | null>(null);
-  const [quantity, setQuantity] = useState(1);
   const [unitCost, setUnitCost] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const createPurchaseRecord = useCreatePurchaseRecord();
-  const { data: product } = useProduct(lineItem.productId);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    if (product) {
-      if (lineItem.variantId && product.variants.length > 0) {
-        const variant = product.variants.find((v) => v.id === lineItem.variantId);
-        setUnitCost(variant ? resolveEffectiveCost(variant, product) : product.defaultCost);
-      } else {
-        setUnitCost(product.defaultCost);
-      }
-    }
-    const remaining = calculateRemainingPurchaseQuantity(
-      lineItem.quantity,
-      lineItem.purchasedQuantity,
-    );
-    setQuantity(Math.max(1, remaining));
+    setSupplier(null);
+    setUnitCost(0);
     setError(null);
-  }, [open, product, lineItem]);
+  }, [open]);
 
   const handleSubmit = async (): Promise<void> => {
     setError(null);
-    const remaining = calculateRemainingPurchaseQuantity(
-      lineItem.quantity,
-      lineItem.purchasedQuantity,
-    );
-    const validation = validatePurchaseQuantity(quantity, remaining);
-    if (!validation.valid) {
-      setError(validation.error ?? "驗證失敗");
-      return;
-    }
+
     if (!supplier) {
       setError("請選取供應商");
       return;
     }
 
+    const validation = validateProcurementOrder(
+      lineItem,
+      supplier.id,
+      unitCost,
+    );
+    if (!validation.valid) {
+      setError(validation.error ?? "驗證失敗");
+      return;
+    }
+
     try {
-      await createPurchaseRecord.mutateAsync({
-        lineItemId: lineItem.id,
+      setIsPending(true);
+      const now = new Date().toISOString();
+      await client.models.LineItem.update({
+        id: lineItem.id,
+        status: "已訂購",
         supplierId: supplier.id,
         supplierName: supplier.name,
-        quantity,
         unitCost,
-        orderId: order.customerId,
-        orderSortKey: order.id.split("|")[1] ?? "",
+        purchasedQuantity: lineItem.quantity,
+        purchasedAt: now,
       });
+      void order;
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "建立採購記錄失敗");
+      setError(err instanceof Error ? err.message : "標記採購失敗");
+    } finally {
+      setIsPending(false);
     }
   };
-
-  const remaining = calculateRemainingPurchaseQuantity(
-    lineItem.quantity,
-    lineItem.purchasedQuantity,
-  );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        進貨採購 — {lineItem.productName}
+        標記採購 — {lineItem.productName}
         {lineItem.variantLabel ? ` (${lineItem.variantLabel})` : ""}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Typography variant="body2" color="text.secondary">
-            訂購數量：{lineItem.quantity} 已採購：{lineItem.purchasedQuantity} 未採購餘額：{remaining}
+            訂購數量：{lineItem.quantity}（全量採購）
           </Typography>
           <EntitySelect<Supplier>
             label="供應商"
@@ -113,17 +97,6 @@ export function PurchaseDialog({
             onChange={setSupplier}
             searchFn={searchSuppliers}
             getOptionLabel={(s) => `${s.name}（${s.contactPerson}）`}
-            required
-          />
-          <TextField
-            label="採購數量"
-            type="number"
-            value={quantity}
-            onChange={(e) =>
-              setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))
-            }
-            slotProps={{ htmlInput: { min: 1, max: remaining } }}
-            fullWidth
             required
           />
           <TextField
@@ -146,14 +119,12 @@ export function PurchaseDialog({
         <Button
           onClick={() => void handleSubmit()}
           variant="contained"
-          disabled={createPurchaseRecord.isPending}
+          disabled={isPending}
           startIcon={
-            createPurchaseRecord.isPending ? (
-              <CircularProgress size={16} />
-            ) : undefined
+            isPending ? <CircularProgress size={16} /> : undefined
           }
         >
-          建立採購記錄
+          確認採購
         </Button>
       </DialogActions>
     </Dialog>

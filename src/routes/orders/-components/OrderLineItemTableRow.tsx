@@ -23,7 +23,7 @@ const LINE_ITEM_STATUS_FLAGS: LineItemStatusFlagConfig[] = [
   {
     key: "ordered",
     getLabel: (checked: boolean) => (checked ? "訂貨" : "未訂貨"),
-    isChecked: (item: LineItem) => Boolean(item.orderedAt),
+    isChecked: (item: LineItem) => Boolean(item.purchasedAt),
     checkedColor: "warning.main",
   },
   {

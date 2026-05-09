@@ -1,5 +1,5 @@
 /**
- * 訂單（Order）、明細項目（LineItem）、採購記錄（PurchaseRecord）及共用型別
+ * 訂單（Order）、明細項目（LineItem）及共用型別
  *
  * 需求：4.1, 4.3, 4.4, 4.12, 4.13, 5.1, 6.1, 6.9
  */
@@ -19,8 +19,7 @@ export type OrderStatus =
 /** 明細項目狀態 */
 export type LineItemStatus = "待處理" | "已訂購" | "已收到" | "已出貨" | "缺貨";
 
-/** 採購記錄狀態 */
-export type PurchaseRecordStatus = "pending" | "received" | "cancelled";
+
 
 // ---------------------------------------------------------------------------
 // 共用型別
@@ -62,33 +61,7 @@ export interface SplitAllocation {
   targetOrderIndex: number;
 }
 
-// ---------------------------------------------------------------------------
-// 採購記錄（PurchaseRecord）
-// ---------------------------------------------------------------------------
 
-/** 採購記錄 */
-export interface PurchaseRecord {
-  /** 唯一識別碼 */
-  id: string;
-  /** 所屬明細項目 ID */
-  lineItemId: string;
-  /** 供應商 ID */
-  supplierId: string;
-  /** 供應商名稱（反正規化） */
-  supplierName: string;
-  /** 採購數量（> 0） */
-  quantity: number;
-  /** 單位成本（>= 0） */
-  unitCost: number;
-  /** 採購記錄狀態 */
-  status: PurchaseRecordStatus;
-  /** 狀態變更歷史 */
-  statusHistory: StatusChange[];
-  /** ISO 8601 採購日期 */
-  purchasedAt: string;
-  /** ISO 8601 入庫日期（尚未入庫時為 null） */
-  receivedAt: string | null;
-}
 
 // ---------------------------------------------------------------------------
 // 明細項目（LineItem）
@@ -118,14 +91,20 @@ export interface LineItem {
   purchasedQuantity: number;
   /** 累計已出貨數量 */
   shippedQuantity: number;
-  /** 採購記錄列表 */
-  purchaseRecords: PurchaseRecord[];
-  /** ISO 8601 訂購日期時間（尚未訂購時為 null） */
-  orderedAt: string | null;
+  /** ISO 8601 採購日期時間（尚未採購時為 null） */
+  purchasedAt: string | null;
   /** ISO 8601 收到日期時間（尚未收到時為 null） */
   receivedAt: string | null;
   /** ISO 8601 出貨日期時間（尚未出貨時為 null） */
   shippedAt: string | null;
+
+  // --- 採購核心數據 ---
+  /** 供應商 ID（尚未採購時為 null） */
+  supplierId: string | null;
+  /** 供應商名稱（反正規化，尚未採購時為 null） */
+  supplierName: string | null;
+  /** 採購單位成本（尚未採購時為 null） */
+  unitCost: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,19 +165,7 @@ export interface CreateOrderInput {
   lineItems: CreateLineItemInput[];
 }
 
-/** 建立採購記錄輸入 */
-export interface CreatePurchaseRecordInput {
-  /** 所屬明細項目 ID（必填） */
-  lineItemId: string;
-  /** 供應商 ID（必填） */
-  supplierId: string;
-  /** 供應商名稱（必填，反正規化） */
-  supplierName: string;
-  /** 採購數量（必填，> 0） */
-  quantity: number;
-  /** 單位成本（必填，>= 0） */
-  unitCost: number;
-}
+
 
 /** 出貨操作輸入 */
 export interface ShipLineItemInput {

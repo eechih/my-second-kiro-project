@@ -108,7 +108,7 @@ function Dashboard() {
                   <Skeleton variant="text" width={60} height={48} />
                 ) : (
                   <Typography variant="h3" color="warning.main">
-                    {data?.pendingPurchaseRecordsCount ?? 0}
+                    {data?.pendingProcurementCount ?? 0}
                   </Typography>
                 )}
               </CardContent>

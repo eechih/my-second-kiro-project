@@ -13,7 +13,6 @@ import type {
   Order,
   OrderStatus,
   PaginatedResult,
-  PurchaseRecord,
   SplitAllocation,
   StatusChange,
 } from "@shared/models";
@@ -68,7 +67,6 @@ const ORDER_DETAIL_SELECTION_SET = [
   "createdAt",
   "updatedAt",
   "lineItems.*",
-  "lineItems.purchaseRecords.*",
 ] as const;
 
 const ORDER_VALIDATION_SELECTION_SET = [
@@ -101,19 +99,23 @@ type UpdateOrderStatusInput = {
   statusHistory: StatusChange[];
 };
 
-type CreatePurchaseRecordInput = {
+type ConfirmReceivedInput = {
   lineItemId: string;
-  supplierId: string;
-  supplierName: string;
-  quantity: number;
-  unitCost: number;
   orderId: string;
   orderSortKey: string;
 };
 
-type ConfirmReceivedInput = {
-  purchaseRecordId: string;
-  purchaseRecordSortKey: string;
+type MarkProcurementInput = {
+  lineItemId: string;
+  orderId: string;
+  orderSortKey: string;
+  supplierId: string;
+  supplierName: string;
+  unitCost: number;
+  quantity: number;
+};
+
+type CancelProcurementInput = {
   lineItemId: string;
   orderId: string;
   orderSortKey: string;
@@ -148,7 +150,7 @@ const NON_CANCELABLE_RECEIVED_STATUSES = new Set<LineItemStatus>([
 ]);
 
 type LineItemStatusFlagUpdate = {
-  orderedAt?: string | null;
+  purchasedAt?: string | null;
   receivedAt?: string | null;
   shippedAt?: string | null;
   shippedQuantity?: number;
@@ -319,13 +321,6 @@ function mapToOrder(raw: Record<string, unknown>): Order {
 
 /** 將 Amplify Data 回傳的原始資料映射為 LineItem 型別 */
 function mapToLineItem(raw: Record<string, unknown>): LineItem {
-  let purchaseRecords: PurchaseRecord[] = [];
-  if (raw.purchaseRecords && Array.isArray(raw.purchaseRecords)) {
-    purchaseRecords = (raw.purchaseRecords as Record<string, unknown>[]).map(
-      mapToPurchaseRecord,
-    );
-  }
-
   return {
     id: String(raw.id ?? ""),
     productId: String(raw.productId ?? ""),
@@ -338,38 +333,12 @@ function mapToLineItem(raw: Record<string, unknown>): LineItem {
     status: (raw.status as LineItem["status"]) ?? "待處理",
     purchasedQuantity: Number(raw.purchasedQuantity ?? 0),
     shippedQuantity: Number(raw.shippedQuantity ?? 0),
-    purchaseRecords,
-    orderedAt: raw.orderedAt ? String(raw.orderedAt) : null,
+    purchasedAt: raw.purchasedAt ? String(raw.purchasedAt) : null,
     receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
     shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
-  };
-}
-
-/** 將 Amplify Data 回傳的原始資料映射為 PurchaseRecord 型別 */
-function mapToPurchaseRecord(raw: Record<string, unknown>): PurchaseRecord {
-  let statusHistory: StatusChange[] = [];
-  if (raw.statusHistory) {
-    try {
-      statusHistory =
-        typeof raw.statusHistory === "string"
-          ? JSON.parse(raw.statusHistory)
-          : (raw.statusHistory as StatusChange[]);
-    } catch {
-      statusHistory = [];
-    }
-  }
-
-  return {
-    id: String(raw.id ?? raw.lineItemId ?? ""),
-    lineItemId: String(raw.lineItemId ?? ""),
-    supplierId: String(raw.supplierId ?? ""),
-    supplierName: String(raw.supplierName ?? ""),
-    quantity: Number(raw.quantity ?? 0),
-    unitCost: Number(raw.unitCost ?? 0),
-    status: (raw.status as PurchaseRecord["status"]) ?? "pending",
-    statusHistory,
-    purchasedAt: String(raw.purchasedAt ?? ""),
-    receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
+    supplierId: raw.supplierId ? String(raw.supplierId) : null,
+    supplierName: raw.supplierName ? String(raw.supplierName) : null,
+    unitCost: raw.unitCost != null ? Number(raw.unitCost) : null,
   };
 }
 
@@ -386,12 +355,14 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       status: "待處理" as const,
       purchasedQuantity: 0,
       shippedQuantity: 0,
-      purchaseRecords: [],
-      orderedAt: null,
+      purchasedAt: null,
       receivedAt: null,
       shippedAt: null,
       variantId: item.variantId ?? null,
       variantLabel: item.variantLabel ?? null,
+      supplierId: null,
+      supplierName: null,
+      unitCost: null,
     })),
   );
 
@@ -495,51 +466,11 @@ async function updateOrderStatus(
   return mapToOrder(data);
 }
 
-async function createPurchaseRecord(
-  input: CreatePurchaseRecordInput,
-): Promise<PurchaseRecord> {
-  const now = new Date().toISOString();
-  const { data, errors } = await client.models.PurchaseRecord.create({
-    lineItemId: input.lineItemId,
-    purchasedAt: now,
-    supplierId: input.supplierId,
-    supplierName: input.supplierName,
-    quantity: input.quantity,
-    unitCost: input.unitCost,
-    status: "pending",
-    statusHistory: JSON.stringify([]),
-  });
-
-  if (errors && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "建立採購記錄失敗");
-  }
-
-  if (!data) {
-    throw new Error("建立採購記錄失敗：未回傳資料");
-  }
-
-  const { data: lineItemData } = await client.models.LineItem.get({
-    id: input.lineItemId,
-  });
-
-  if (lineItemData) {
-    const currentPurchasedQty = Number(lineItemData.purchasedQuantity ?? 0);
-    await client.models.LineItem.update({
-      id: input.lineItemId,
-      purchasedQuantity: currentPurchasedQty + input.quantity,
-      status: "已訂購",
-      orderedAt: now,
-    });
-  }
-
-  return mapToPurchaseRecord(data as unknown as Record<string, unknown>);
-}
-
 async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
   const { data, errors } = await client.mutations.confirmReceived({
-    purchaseRecordId: input.purchaseRecordId,
-    purchaseRecordSortKey: input.purchaseRecordSortKey,
     lineItemId: input.lineItemId,
+    orderId: input.orderId,
+    orderSortKey: input.orderSortKey,
   });
 
   if (errors && errors.length > 0) {
@@ -549,10 +480,50 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
   return data;
 }
 
+async function markProcurement(input: MarkProcurementInput): Promise<LineItem> {
+  const { data, errors } = await client.models.LineItem.update({
+    id: input.lineItemId,
+    status: "已訂購",
+    supplierId: input.supplierId,
+    supplierName: input.supplierName,
+    unitCost: input.unitCost,
+    purchasedQuantity: input.quantity,
+    purchasedAt: new Date().toISOString(),
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "採購下單失敗");
+  }
+
+  if (!data) {
+    throw new Error("採購下單失敗：未回傳資料");
+  }
+
+  return mapToLineItem(data as unknown as Record<string, unknown>);
+}
+
+async function cancelProcurement(input: CancelProcurementInput): Promise<LineItem> {
+  const { data, errors } = await client.models.LineItem.update({
+    id: input.lineItemId,
+    status: "缺貨",
+    purchasedQuantity: 0,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "取消採購失敗");
+  }
+
+  if (!data) {
+    throw new Error("取消採購失敗：未回傳資料");
+  }
+
+  return mapToLineItem(data as unknown as Record<string, unknown>);
+}
+
 function buildLineItemStatusFlagUpdate(
   lineItem: Pick<
     LineItem,
-    "orderedAt" | "quantity" | "status" | "shippedQuantity"
+    "purchasedAt" | "quantity" | "status" | "shippedQuantity"
   >,
   flag: LineItemStatusFlag,
   checked: boolean,
@@ -568,7 +539,7 @@ function buildLineItemStatusFlagUpdate(
     }
 
     return {
-      orderedAt: checked ? now : null,
+      purchasedAt: checked ? now : null,
       status: checked ? "已訂購" : "待處理",
     };
   }
@@ -604,7 +575,7 @@ function buildLineItemStatusFlagUpdate(
     }
 
     return {
-      status: lineItem.orderedAt ? "已訂購" : "待處理",
+      status: lineItem.purchasedAt ? "已訂購" : "待處理",
     };
   }
 
@@ -642,8 +613,8 @@ async function updateLineItemStatusFlag(
 
   const update = buildLineItemStatusFlagUpdate(
     {
-      orderedAt: currentLineItem.orderedAt
-        ? String(currentLineItem.orderedAt)
+      purchasedAt: currentLineItem.purchasedAt
+        ? String(currentLineItem.purchasedAt)
         : null,
       quantity: Number(currentLineItem.quantity ?? 0),
       shippedQuantity: Number(currentLineItem.shippedQuantity ?? 0),
@@ -764,7 +735,7 @@ export function useOrderList(
 }
 
 /**
- * 單一訂單查詢 hook（含 LineItems 與 PurchaseRecords）
+ * 單一訂單查詢 hook（含 LineItems）
  *
  * 需求：4.3, 4.4
  */
@@ -779,7 +750,7 @@ export function useOrder(id: string): UseQueryResult<Order> {
 /**
  * 預取訂單詳情 hook
  *
- * 供列表頁面在游標懸停時預取訂單詳情（含 LineItems、PurchaseRecords），
+ * 供列表頁面在游標懸停時預取訂單詳情（含 LineItems），
  * 使用 queryClient.prefetchQuery 提升進入詳情頁的流暢感。
  *
  * 需求：4.15
@@ -849,36 +820,10 @@ export function useUpdateOrderStatus(): UseMutationResult<
 }
 
 /**
- * 建立採購記錄 mutation hook
- *
- * 使用標準 Amplify mutation 建立採購記錄。
- * 建立後更新明細狀態為「已訂購」。
- *
- * 需求：6.1, 6.2, 6.3, 6.4
- */
-export function useCreatePurchaseRecord(): UseMutationResult<
-  PurchaseRecord,
-  Error,
-  CreatePurchaseRecordInput
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: createPurchaseRecord,
-    onSuccess: (_, input) => {
-      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
-      });
-    },
-  });
-}
-
-/**
  * 入庫確認 mutation hook
  *
  * 呼叫 confirmReceived custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems）。
- * 實作樂觀更新：立即更新快取中的 PurchaseRecord 狀態為 received、LineItem 狀態為「已收到」。
+ * 實作樂觀更新：立即更新快取中的 LineItem 狀態為「已收到」。
  *
  * 需求：4.7, 6.5, 6.6, 6.8, 6.10
  */
@@ -906,24 +851,10 @@ export function useConfirmReceived(): UseMutationResult<
         const updatedOrder = { ...previousOrder };
         updatedOrder.lineItems = updatedOrder.lineItems.map((li) => {
           if (li.id === input.lineItemId) {
-            const updatedRecords = li.purchaseRecords.map((pr) => {
-              if (
-                pr.lineItemId === input.purchaseRecordId &&
-                pr.purchasedAt === input.purchaseRecordSortKey
-              ) {
-                return {
-                  ...pr,
-                  status: "received" as const,
-                  receivedAt: new Date().toISOString(),
-                };
-              }
-              return pr;
-            });
             return {
               ...li,
               status: "已收到" as const,
               receivedAt: new Date().toISOString(),
-              purchaseRecords: updatedRecords,
             };
           }
           return li;
@@ -949,6 +880,56 @@ export function useConfirmReceived(): UseMutationResult<
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       // Invalidate product caches for stock update
       void queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+/**
+ * 採購下單 mutation hook
+ *
+ * 將「待處理」狀態的明細項目標記為已採購，設定供應商與成本資訊。
+ *
+ * 需求：3.1, 3.4, 3.5, 3.6, 3.7
+ */
+export function useMarkProcurement(): UseMutationResult<
+  LineItem,
+  Error,
+  MarkProcurementInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: markProcurement,
+    onSuccess: (_, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+      });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+    },
+  });
+}
+
+/**
+ * 採購取消 mutation hook
+ *
+ * 將「待處理」或「已訂購」狀態的明細項目標記為缺貨，並將 purchasedQuantity 歸零。
+ *
+ * 需求：5.1, 5.3, 5.4
+ */
+export function useCancelProcurement(): UseMutationResult<
+  LineItem,
+  Error,
+  CancelProcurementInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: cancelProcurement,
+    onSuccess: (_, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+      });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
     },
   });
 }

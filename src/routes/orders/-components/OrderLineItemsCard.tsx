@@ -32,6 +32,8 @@ export function OrderLineItemsCard({
               <TableCell align="right">數量</TableCell>
               <TableCell align="right">單價</TableCell>
               <TableCell align="right">小計</TableCell>
+              <TableCell>供應商</TableCell>
+              <TableCell align="right">採購成本</TableCell>
               <TableCell align="center">狀態</TableCell>
               <TableCell align="center">操作</TableCell>
             </TableRow>

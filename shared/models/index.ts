@@ -27,17 +27,14 @@ export type {
 export type {
   OrderStatus,
   LineItemStatus,
-  PurchaseRecordStatus,
   StatusChange,
   ValidationResult,
   PaginatedResult,
   SplitAllocation,
-  PurchaseRecord,
   LineItem,
   Order,
   CreateLineItemInput,
   CreateOrderInput,
-  CreatePurchaseRecordInput,
   ShipLineItemInput,
   SplitOrderInput,
 } from "./order";

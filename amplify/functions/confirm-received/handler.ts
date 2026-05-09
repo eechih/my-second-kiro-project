@@ -5,45 +5,38 @@ import {
   GetItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { isValidPurchaseStatusTransition } from "../../../shared/logic/purchase-record";
-import { isValidLineItemStatusTransition } from "../../../shared/logic/line-item-status";
-import type {
-  LineItemStatus,
-  PurchaseRecordStatus,
-} from "../../../shared/models/order";
+import { validateProcurementReceive } from "../../../shared/logic/procurement";
+import type { LineItemStatus } from "../../../shared/models/order";
 
 const ddb = new DynamoDBClient({});
 
 /**
- * 入庫確認操作 Lambda 函式
+ * 入庫確認操作 Lambda 函式（簡化版）
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
- * - 增加 ProductVariant（或 Product）的 stockQuantity
- * - 更新 PurchaseRecord 狀態為 received 並記錄 receivedAt
  * - 更新 LineItem 狀態為「已收到」並記錄 receivedAt
+ * - 增加 ProductVariant（或 Product）的 stockQuantity
+ *
+ * 不再查詢 PurchaseRecord 表，直接從 LineItem 讀取 status 與 purchasedQuantity。
  *
  * 包含驗證邏輯：
- * - PurchaseRecord 狀態必須為 pending（已入庫記錄不可重複確認）
- * - 庫存更新使用 ConditionExpression 檢查 version 值一致
+ * - LineItem status 必須為「已訂購」（使用 validateProcurementReceive 共用驗證）
+ * - 庫存更新使用 ConditionExpression 檢查 version 值一致（樂觀併發控制）
  * - 庫存更新成功後自動遞增 version 欄位
+ *
+ * 需求：4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
  */
 export const handler: Schema["confirmReceived"]["functionHandler"] = async (
   event,
 ) => {
-  const { purchaseRecordId, purchaseRecordSortKey, lineItemId } =
+  const { lineItemId, orderId: _orderId, orderSortKey: _orderSortKey } =
     event.arguments;
 
-  const purchaseRecordTable = process.env["PURCHASERECORD_TABLE_NAME"];
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
   const productVariantTable = process.env["PRODUCTVARIANT_TABLE_NAME"];
 
-  if (
-    !purchaseRecordTable ||
-    !lineItemTable ||
-    !productTable ||
-    !productVariantTable
-  ) {
+  if (!lineItemTable || !productTable || !productVariantTable) {
     return JSON.stringify({
       success: false,
       message: "缺少必要的環境變數設定",
@@ -51,39 +44,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 PurchaseRecord 資料
-    // PurchaseRecord 使用複合主鍵：lineItemId (PK) + purchasedAt (SK)
-    const prResult = await ddb.send(
-      new GetItemCommand({
-        TableName: purchaseRecordTable,
-        Key: marshall({
-          lineItemId: purchaseRecordId,
-          purchasedAt: purchaseRecordSortKey,
-        }),
-      }),
-    );
-
-    if (!prResult.Item) {
-      return JSON.stringify({
-        success: false,
-        message: "找不到指定的採購記錄",
-      });
-    }
-
-    const purchaseRecord = unmarshall(prResult.Item);
-
-    // 2. 驗證採購記錄狀態——必須為 pending
-    const prStatus = purchaseRecord["status"] as PurchaseRecordStatus;
-    if (!isValidPurchaseStatusTransition(prStatus, "received")) {
-      return JSON.stringify({
-        success: false,
-        message: `採購記錄目前狀態為「${prStatus}」，無法確認入庫`,
-      });
-    }
-
-    const purchaseQuantity = purchaseRecord["quantity"] as number;
-
-    // 3. 取得 LineItem 資料
+    // 1. 取得 LineItem 資料
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
@@ -99,11 +60,21 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     }
 
     const lineItem = unmarshall(lineItemResult.Item);
-    const lineItemStatus = lineItem["status"] as LineItemStatus;
+    const status = lineItem["status"] as LineItemStatus;
+    const purchasedQuantity = lineItem["purchasedQuantity"] as number;
+
+    // 2. 使用共用驗證函式檢查前置條件
+    const validation = validateProcurementReceive({ status, purchasedQuantity });
+    if (!validation.valid) {
+      return JSON.stringify({
+        success: false,
+        message: validation.error,
+      });
+    }
+
+    // 3. 取得庫存資訊（規格組合或商品層級）
     const variantId = (lineItem["variantId"] as string | null) ?? null;
     const productId = lineItem["productId"] as string;
-
-    // 4. 取得庫存資訊（規格組合或商品層級）
     let stockVersion: number;
     let stockTableName: string;
     let stockKey: Record<string, string>;
@@ -146,12 +117,29 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
 
     const now = new Date().toISOString();
 
-    // 5. 建立交易項目
+    // 4. 建立交易項目（僅 2 個操作：LineItem 更新 + 庫存更新）
     const transactItems: NonNullable<
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]
     >["TransactItems"] = [];
 
-    // 5a. 增加庫存（含版本檢查）
+    // 4a. 更新 LineItem：status → "已收到"、receivedAt
+    transactItems.push({
+      Update: {
+        TableName: lineItemTable,
+        Key: marshall({ id: lineItemId }),
+        UpdateExpression:
+          "SET #st = :newStatus, receivedAt = :now, updatedAt = :now",
+        ConditionExpression: "#st = :expectedStatus",
+        ExpressionAttributeNames: { "#st": "status" },
+        ExpressionAttributeValues: marshall({
+          ":newStatus": "已收到",
+          ":expectedStatus": "已訂購",
+          ":now": now,
+        }),
+      },
+    });
+
+    // 4b. 增加庫存（含版本檢查）
     transactItems.push({
       Update: {
         TableName: stockTableName,
@@ -161,7 +149,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
         ConditionExpression: "#ver = :expectedVersion",
         ExpressionAttributeNames: { "#ver": "version" },
         ExpressionAttributeValues: marshall({
-          ":qty": purchaseQuantity,
+          ":qty": purchasedQuantity,
           ":one": 1,
           ":expectedVersion": stockVersion,
           ":now": now,
@@ -169,63 +157,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       },
     });
 
-    // 5b. 更新 PurchaseRecord 狀態為 received
-    const existingPrHistory =
-      (purchaseRecord["statusHistory"] as Record<string, unknown>[]) ?? [];
-    const newPrHistoryEntry = {
-      fromStatus: prStatus,
-      toStatus: "received",
-      changedAt: now,
-    };
-    const updatedPrHistory = [...existingPrHistory, newPrHistoryEntry];
-
-    transactItems.push({
-      Update: {
-        TableName: purchaseRecordTable,
-        Key: marshall({
-          lineItemId: purchaseRecordId,
-          purchasedAt: purchaseRecordSortKey,
-        }),
-        UpdateExpression:
-          "SET #st = :newStatus, receivedAt = :now, statusHistory = :history, updatedAt = :now",
-        ConditionExpression: "#st = :expectedStatus",
-        ExpressionAttributeNames: { "#st": "status" },
-        ExpressionAttributeValues: marshall({
-          ":newStatus": "received",
-          ":expectedStatus": "pending",
-          ":now": now,
-          ":history": updatedPrHistory,
-        }),
-      },
-    });
-
-    // 5c. 更新 LineItem 狀態為「已收到」（若狀態轉換合法）
-    const targetLineItemStatus: LineItemStatus = "已收到";
-    const canTransition = isValidLineItemStatusTransition(
-      lineItemStatus,
-      targetLineItemStatus,
-    );
-    const finalLineItemStatus = canTransition
-      ? targetLineItemStatus
-      : lineItemStatus;
-
-    if (canTransition) {
-      transactItems.push({
-        Update: {
-          TableName: lineItemTable,
-          Key: marshall({ id: lineItemId }),
-          UpdateExpression:
-            "SET #st = :newStatus, receivedAt = :now, updatedAt = :now",
-          ExpressionAttributeNames: { "#st": "status" },
-          ExpressionAttributeValues: marshall({
-            ":newStatus": targetLineItemStatus,
-            ":now": now,
-          }),
-        },
-      });
-    }
-
-    // 6. 執行交易
+    // 5. 執行交易
     await ddb.send(
       new TransactWriteItemsCommand({ TransactItems: transactItems }),
     );
@@ -234,10 +166,9 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       success: true,
       message: "入庫確認成功",
       data: {
-        purchaseRecordId,
         lineItemId,
-        quantity: purchaseQuantity,
-        lineItemStatus: finalLineItemStatus,
+        quantity: purchasedQuantity,
+        lineItemStatus: "已收到",
       },
     });
   } catch (error: unknown) {
@@ -246,7 +177,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       return JSON.stringify({
         success: false,
         message:
-          "入庫確認失敗：庫存版本衝突或採購記錄狀態已變更，請重新取得最新資料後重試",
+          "庫存版本衝突，請重新取得最新資料後重試",
       });
     }
     console.error("confirmReceived error:", error);

@@ -33,17 +33,15 @@ const orderTable = tables["Order"];
 const lineItemTable = tables["LineItem"];
 const productTable = tables["Product"];
 const productVariantTable = tables["ProductVariant"];
-const purchaseRecordTable = tables["PurchaseRecord"];
 
 if (
   !orderTable ||
   !lineItemTable ||
   !productTable ||
-  !productVariantTable ||
-  !purchaseRecordTable
+  !productVariantTable
 ) {
   throw new Error(
-    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、LineItem、Product、ProductVariant、PurchaseRecord 模型。",
+    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、LineItem、Product、ProductVariant 模型。",
   );
 }
 
@@ -81,15 +79,10 @@ for (const fn of transactionalFunctions) {
     "PRODUCTVARIANT_TABLE_NAME",
     productVariantTable.tableName,
   );
-  lambdaFn.addEnvironment(
-    "PURCHASERECORD_TABLE_NAME",
-    purchaseRecordTable.tableName,
-  );
 
   // 授予 DynamoDB 讀寫權限
   orderTable.grantReadWriteData(lambdaFn);
   lineItemTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
   productVariantTable.grantReadWriteData(lambdaFn);
-  purchaseRecordTable.grantReadWriteData(lambdaFn);
 }

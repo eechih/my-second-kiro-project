@@ -13,8 +13,7 @@ import { splitOrder } from "../functions/split-order/resource";
  * - Product：商品基本資料（含規格維度、照片、樂觀併發控制）
  * - ProductVariant：商品規格組合（獨立庫存、樂觀併發控制）
  * - Order：訂單（複合主鍵：CUSTOMER#{customerId} + ORDER#{createdAt}）
- * - LineItem：訂單明細項目（含規格組合關聯）
- * - PurchaseRecord：採購記錄（複合主鍵：LINEITEM#{lineItemId} + PURCHASE#{purchasedAt}）
+ * - LineItem：訂單明細項目（含規格組合關聯、採購數據內嵌）
  *
  * Custom Mutations（Lambda 函式）：
  * - shipLineItem：出貨操作（庫存扣減 + 狀態更新，TransactWriteItems）
@@ -135,32 +134,14 @@ const schema = a.schema({
       status: a.string().required().default("待處理"),
       purchasedQuantity: a.integer().required().default(0),
       shippedQuantity: a.integer().required().default(0),
-      orderedAt: a.datetime(),
+      purchasedAt: a.datetime(),
       receivedAt: a.datetime(),
       shippedAt: a.datetime(),
-      purchaseRecords: a.hasMany("PurchaseRecord", "lineItemId"),
+      supplierId: a.string(),
+      supplierName: a.string(),
+      unitCost: a.float(),
     })
     .secondaryIndexes((index) => [index("orderId").name("byOrderId")])
-    .authorization((allow) => [allow.authenticated()]),
-
-  // ---------------------------------------------------------------------------
-  // PurchaseRecord（採購記錄）
-  // 複合主鍵：PK = lineItemId, SK = purchasedAt
-  // ---------------------------------------------------------------------------
-  PurchaseRecord: a
-    .model({
-      lineItemId: a.string().required(),
-      purchasedAt: a.datetime().required(),
-      lineItem: a.belongsTo("LineItem", "lineItemId"),
-      supplierId: a.string().required(),
-      supplierName: a.string().required(),
-      quantity: a.integer().required(),
-      unitCost: a.float().required(),
-      status: a.string().required().default("pending"),
-      statusHistory: a.json(),
-      receivedAt: a.datetime(),
-    })
-    .identifier(["lineItemId", "purchasedAt"])
     .authorization((allow) => [allow.authenticated()]),
 
   // ---------------------------------------------------------------------------
@@ -180,13 +161,13 @@ const schema = a.schema({
     .authorization((allow) => [allow.authenticated()])
     .handler(a.handler.function(shipLineItem)),
 
-  /** 入庫確認：增加庫存 + 更新採購記錄狀態 + 更新明細狀態 */
+  /** 入庫確認：增加庫存 + 更新明細狀態 */
   confirmReceived: a
     .mutation()
     .arguments({
-      purchaseRecordId: a.string().required(),
-      purchaseRecordSortKey: a.string().required(),
       lineItemId: a.string().required(),
+      orderId: a.string().required(),
+      orderSortKey: a.string().required(),
     })
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])

@@ -8,8 +8,8 @@ import { client } from "@/lib/amplify-client";
 export interface DashboardSummary {
   /** 待處理訂單數量（status = "pending"） */
   pendingOrdersCount: number;
-  /** 待入庫採購記錄數量（status = "pending"） */
-  pendingPurchaseRecordsCount: number;
+  /** 待入庫明細數量（status = "已訂購"） */
+  pendingProcurementCount: number;
   /** 待出貨明細數量（status = "已收到"） */
   readyToShipLineItemsCount: number;
 }
@@ -39,16 +39,16 @@ export function useDashboardSummary(): UseQueryResult<DashboardSummary> {
     queryKey: DASHBOARD_KEYS.summary(),
     queryFn: async (): Promise<DashboardSummary> => {
       // 並行查詢三個摘要數量
-      const [ordersResult, purchaseRecordsResult, lineItemsResult] =
+      const [ordersResult, pendingProcurementResult, lineItemsResult] =
         await Promise.all([
           // 待處理訂單（status = "pending"）
           client.models.Order.list({
             filter: { status: { eq: "pending" } },
             limit: 1000,
           }),
-          // 待入庫採購記錄（status = "pending"）
-          client.models.PurchaseRecord.list({
-            filter: { status: { eq: "pending" } },
+          // 待入庫明細（status = "已訂購"）
+          client.models.LineItem.list({
+            filter: { status: { eq: "已訂購" } },
             limit: 1000,
           }),
           // 待出貨明細（status = "已收到"）
@@ -60,7 +60,7 @@ export function useDashboardSummary(): UseQueryResult<DashboardSummary> {
 
       return {
         pendingOrdersCount: ordersResult.data?.length ?? 0,
-        pendingPurchaseRecordsCount: purchaseRecordsResult.data?.length ?? 0,
+        pendingProcurementCount: pendingProcurementResult.data?.length ?? 0,
         readyToShipLineItemsCount: lineItemsResult.data?.length ?? 0,
       };
     },
