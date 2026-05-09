@@ -1,9 +1,10 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
-import { shipLineItem } from "../functions/ship-line-item/resource";
+import { LINE_ITEM_STATUSES, ORDER_STATUSES } from "@shared/models/order";
+import { cancelReceived } from "../functions/cancel-received/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
+import { shipLineItem } from "../functions/ship-line-item/resource";
 import { splitOrder } from "../functions/split-order/resource";
-import { LINE_ITEM_STATUSES, ORDER_STATUSES } from "@shared/models/order";
 
 /**
  * 電子商務訂單管理系統 — Amplify Gen2 Data Schema
@@ -19,6 +20,7 @@ import { LINE_ITEM_STATUSES, ORDER_STATUSES } from "@shared/models/order";
  * Custom Mutations（Lambda 函式）：
  * - shipLineItem：出貨操作（庫存扣減 + 狀態更新，TransactWriteItems）
  * - confirmReceived：入庫確認（庫存增加 + 狀態更新，TransactWriteItems）
+ * - cancelReceived：取消入庫（庫存扣回 + 狀態更新，TransactWriteItems）
  * - mergeOrders：訂單合併（建立新訂單 + 搬移明細 + 取消來源，TransactWriteItems）
  * - splitOrder：訂單分拆（建立多筆新訂單 + 分配明細 + 取消原訂單，TransactWriteItems）
  *
@@ -94,7 +96,7 @@ const schema = a.schema({
   // ---------------------------------------------------------------------------
   ProductVariant: a
     .model({
-      productId: a.string().required(),
+      productId: a.id().required(),
       product: a.belongsTo("Product", "productId"),
       label: a.string().required(),
       priceOffset: a.float(),
@@ -182,6 +184,16 @@ const schema = a.schema({
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
     .handler(a.handler.function(confirmReceived)),
+
+  /** 取消入庫：扣回庫存 + 更新明細狀態 */
+  cancelReceived: a
+    .mutation()
+    .arguments({
+      lineItemId: a.string().required(),
+    })
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(cancelReceived)),
 
   /** 訂單合併：建立新訂單 + 搬移明細 + 取消來源訂單 */
   mergeOrders: a

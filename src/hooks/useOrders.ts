@@ -462,6 +462,52 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
   return data;
 }
 
+function assertCustomMutationSuccess(
+  result: unknown,
+  fallbackMessage: string,
+): void {
+  if (typeof result !== "string") {
+    return;
+  }
+
+  let parsed: { success?: boolean; message?: string };
+  try {
+    parsed = JSON.parse(result) as { success?: boolean; message?: string };
+  } catch {
+    return;
+  }
+
+  if (parsed.success === false) {
+    throw new Error(parsed.message ?? fallbackMessage);
+  }
+}
+
+async function cancelReceived(input: ConfirmReceivedInput): Promise<LineItem> {
+  const { data: result, errors } = await client.mutations.cancelReceived({
+    lineItemId: input.lineItemId,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "取消到貨失敗");
+  }
+
+  assertCustomMutationSuccess(result, "取消到貨失敗");
+
+  const { data, errors: getErrors } = await client.models.LineItem.get({
+    id: input.lineItemId,
+  });
+
+  if (getErrors && getErrors.length > 0) {
+    throw new Error(getErrors[0]?.message ?? "查詢明細狀態失敗");
+  }
+
+  if (!data) {
+    throw new Error("取消到貨失敗：找不到明細項目");
+  }
+
+  return mapToLineItem(data as unknown as Record<string, unknown>);
+}
+
 async function markProcurement(input: MarkProcurementInput): Promise<LineItem> {
   const { data, errors } = await client.models.LineItem.update({
     id: input.lineItemId,
@@ -579,6 +625,10 @@ function buildLineItemStatusFlagUpdate(
 async function updateLineItemStatusFlag(
   input: UpdateLineItemStatusFlagInput,
 ): Promise<LineItem> {
+  if (input.flag === "received" && !input.checked) {
+    return cancelReceived(input);
+  }
+
   const now = new Date().toISOString();
   const { data: currentLineItem, errors: getErrors } =
     await client.models.LineItem.get({
@@ -1000,6 +1050,9 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      if (input.flag === "received") {
+        void queryClient.invalidateQueries({ queryKey: ["products"] });
+      }
     },
   });
 }
