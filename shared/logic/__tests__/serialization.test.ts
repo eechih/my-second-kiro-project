@@ -61,10 +61,6 @@ function createSampleProduct(): Product {
     defaultCost: 50,
     defaultSupplierId: "sup-001",
     stockQuantity: 200,
-    specDimensions: [
-      { name: "顏色", values: ["紅", "黑"] },
-      { name: "尺寸", values: ["L", "M"] },
-    ],
     variants: [
       {
         id: "var-001",
@@ -226,7 +222,6 @@ describe("serializeProduct / deserializeProduct", () => {
   it("無規格組合的商品往返序列化應正確", () => {
     const original: Product = {
       ...createSampleProduct(),
-      specDimensions: [],
       variants: [],
       defaultSupplierId: null,
     };

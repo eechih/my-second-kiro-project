@@ -1,37 +1,23 @@
 /**
- * 商品（Product）、規格維度（SpecDimension）、規格組合（ProductVariant）資料模型
+ * 商品（Product）、規格選項（ProductVariant）資料模型
  *
  * 需求：3.1, 3.2, 3.3, 3.9, 3.10, 3.12, 3.13, 3.14, 3.15
  */
 
-/** 規格維度（如「顏色」、「尺寸」） */
-export interface SpecDimension {
-  /** 維度名稱（如「顏色」、「尺寸」） */
-  name: string;
-  /** 選項值列表（如 ["紅", "黑", "白"]） */
-  values: string[];
-}
-
-/** 商品規格組合（如「黑 L」、「白 XL」） */
+/** 商品規格選項（如「黑」、「L」、「黑 L」） */
 export interface ProductVariant {
   /** 唯一識別碼 */
   id: string;
-  /** 組合顯示標籤（如「黑 L」） */
+  /** 規格顯示標籤（如「黑」、「L」、「黑 L」） */
   label: string;
-  /** 規格組合 SKU（唯一，可自訂或系統自動產生） */
+  /** 規格 SKU（唯一，可自訂或系統自動產生） */
   sku: string;
-  /** 規格組合庫存數量（>= 0） */
+  /** 規格庫存數量（>= 0） */
   stockQuantity: number;
   /** 規格單價（null 表示沿用商品預設單價） */
   price: number | null;
   /** 規格成本（null 表示沿用商品預設成本） */
   cost: number | null;
-}
-
-/** 產生規格組合時使用的暫時資料，不直接存入資料庫 */
-export interface GeneratedProductVariant extends Omit<ProductVariant, "id"> {
-  /** 規格組合（如 { "顏色": "黑", "尺寸": "L" }），僅用於產生 SKU 與排序 */
-  combination: Record<string, string>;
 }
 
 /** 商品基本資料 */
@@ -50,9 +36,7 @@ export interface Product {
   defaultSupplierId: string | null;
   /** 庫存數量（>= 0，無規格組合時使用此欄位追蹤庫存） */
   stockQuantity: number;
-  /** 規格維度定義（如顏色、尺寸） */
-  specDimensions: SpecDimension[];
-  /** 規格組合列表（由 specDimensions 笛卡爾積產生） */
+  /** 規格選項列表 */
   variants: ProductVariant[];
   /** 商品照片 S3 key 列表（存放於 product-images/{productId}/ 路徑下） */
   imageUrls: string[];
@@ -80,8 +64,6 @@ export interface CreateProductInput {
   defaultSupplierId?: string | null;
   /** 初始庫存數量（選填，預設 0） */
   stockQuantity?: number;
-  /** 規格維度定義（選填） */
-  specDimensions?: SpecDimension[];
   /** 商品照片 S3 key 列表（選填） */
   imageUrls?: string[];
 }
@@ -102,8 +84,6 @@ export interface UpdateProductInput {
   defaultSupplierId?: string | null;
   /** 庫存數量 */
   stockQuantity?: number;
-  /** 規格維度定義 */
-  specDimensions?: SpecDimension[];
   /** 商品照片 S3 key 列表 */
   imageUrls?: string[];
   /** 啟用狀態 */
@@ -112,9 +92,9 @@ export interface UpdateProductInput {
 
 /** 建立規格組合輸入 */
 export interface CreateVariantInput {
-  /** 組合顯示標籤（如「黑 L」） */
+  /** 規格顯示標籤（如「黑」、「L」、「黑 L」） */
   label: string;
-  /** 規格組合 SKU（選填，未提供時系統自動產生） */
+  /** 規格 SKU（選填，未提供時系統自動產生） */
   sku?: string;
   /** 初始庫存數量（選填，預設 0） */
   stockQuantity?: number;

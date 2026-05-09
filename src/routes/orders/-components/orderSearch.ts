@@ -45,7 +45,6 @@ export async function searchProducts(query: string): Promise<Product[]> {
       "defaultCost",
       "defaultSupplierId",
       "stockQuantity",
-      "specDimensions",
       "imageUrls",
       "isActive",
       "version",
@@ -59,18 +58,6 @@ export async function searchProducts(query: string): Promise<Product[]> {
 }
 
 function mapProduct(raw: Record<string, unknown>): Product {
-  let specDimensions: Product["specDimensions"] = [];
-  if (raw.specDimensions) {
-    try {
-      specDimensions =
-        typeof raw.specDimensions === "string"
-          ? JSON.parse(raw.specDimensions)
-          : (raw.specDimensions as Product["specDimensions"]);
-    } catch {
-      specDimensions = [];
-    }
-  }
-
   let variants: ProductVariant[] = [];
   if (raw.variants && Array.isArray(raw.variants)) {
     variants = (raw.variants as Record<string, unknown>[]).map(mapVariant);
@@ -87,7 +74,6 @@ function mapProduct(raw: Record<string, unknown>): Product {
       variants.length > 0
         ? variants.reduce((sum, variant) => sum + variant.stockQuantity, 0)
         : Number(raw.stockQuantity ?? 0),
-    specDimensions,
     variants,
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)

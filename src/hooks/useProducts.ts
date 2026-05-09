@@ -13,13 +13,9 @@ import type {
   UpdateProductInput,
   CreateVariantInput,
   UpdateVariantInput,
-  SpecDimension,
   PaginatedResult,
 } from "@shared/models";
-import {
-  generateVariants,
-  generateVariantSku,
-} from "@shared/logic/product-variant";
+import { generateVariantSku } from "@shared/logic/product-variant";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,7 +58,6 @@ const PRODUCT_SELECTION_SET = [
   "defaultCost",
   "defaultSupplierId",
   "stockQuantity",
-  "specDimensions",
   "imageUrls",
   "isActive",
   "version",
@@ -132,9 +127,6 @@ function applyProductUpdate(
     }),
     ...(input.stockQuantity !== undefined && {
       stockQuantity: input.stockQuantity,
-    }),
-    ...(input.specDimensions !== undefined && {
-      specDimensions: input.specDimensions,
     }),
     ...(input.imageUrls !== undefined && { imageUrls: input.imageUrls }),
     ...(input.isActive !== undefined && { isActive: input.isActive }),
@@ -223,7 +215,6 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
     defaultCost: input.defaultCost,
     defaultSupplierId: input.defaultSupplierId ?? null,
     stockQuantity: input.stockQuantity ?? 0,
-    specDimensions: JSON.stringify(input.specDimensions ?? []),
     imageUrls: input.imageUrls ?? [],
     isActive: true,
     version: 1,
@@ -256,8 +247,6 @@ function buildProductUpdatePayload(
     updatePayload.defaultSupplierId = input.defaultSupplierId;
   if (input.stockQuantity !== undefined)
     updatePayload.stockQuantity = input.stockQuantity;
-  if (input.specDimensions !== undefined)
-    updatePayload.specDimensions = JSON.stringify(input.specDimensions);
   if (input.imageUrls !== undefined) updatePayload.imageUrls = input.imageUrls;
   if (input.isActive !== undefined) updatePayload.isActive = input.isActive;
 
@@ -431,12 +420,12 @@ export function useCreateVariant(): UseMutationResult<
           id: productId,
         });
         const productSku = String(productData?.sku ?? "");
-        sku = `${productSku}-${variant.label.replace(/\s+/g, "-")}`;
+        sku = generateVariantSku(productSku, variant.label);
       }
 
       const { data, errors } = await client.models.ProductVariant.create({
         productId,
-        label: variant.label,
+        label: variant.label.trim(),
         sku,
         stockQuantity: variant.stockQuantity ?? 0,
         price: variant.price ?? null,
@@ -567,152 +556,12 @@ export function useDeleteVariant(): UseMutationResult<
   });
 }
 
-/**
- * 自動產生規格組合 mutation hook
- *
- * 根據規格維度自動產生所有規格組合（笛卡爾積），
- * 已存在的組合保留不變，僅新增缺少的組合。
- *
- * 需求：3.13, 3.14
- */
-export function useGenerateVariants(): UseMutationResult<
-  ProductVariant[],
-  Error,
-  { productId: string; specDimensions: SpecDimension[] }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      productId,
-      specDimensions,
-    }: {
-      productId: string;
-      specDimensions: SpecDimension[];
-    }): Promise<ProductVariant[]> => {
-      // 取得商品資訊（SKU 用於自動產生規格組合 SKU）
-      const { data: productData, errors: productErrors } =
-        await client.models.Product.get(
-          { id: productId },
-          { selectionSet: ["id", "sku", "variants.*"] },
-        );
-
-      if (productErrors && productErrors.length > 0) {
-        throw new Error(productErrors[0]?.message ?? "查詢商品失敗");
-      }
-
-      if (!productData) {
-        throw new Error("找不到該商品");
-      }
-
-      const productSku = String(productData.sku ?? "");
-
-      // 取得目前已存在的規格組合
-      const existingVariants: ProductVariant[] = ((
-        productData as Record<string, unknown>
-      ).variants as Record<string, unknown>[] | undefined)
-        ? ((
-            (productData as Record<string, unknown>).variants as Record<
-              string,
-              unknown
-            >[]
-          ).map(mapToVariant) ?? [])
-        : [];
-
-      // 檢查是否有未完成的訂單明細引用這些規格組合
-      if (existingVariants.length > 0) {
-        const variantIds = existingVariants.map((v) => v.id);
-        for (const variantId of variantIds) {
-          const { data: lineItems } = await client.models.LineItem.list({
-            filter: {
-              variantId: { eq: variantId },
-              status: { ne: "已出貨" },
-            },
-            limit: 1,
-          });
-          if (lineItems && lineItems.length > 0) {
-            throw new Error(
-              "無法覆蓋規格組合：仍有未完成的訂單明細引用現有規格組合，請先處理相關訂單。",
-            );
-          }
-        }
-      }
-
-      // 產生所有應存在的規格組合
-      const allCombinations = generateVariants(specDimensions);
-
-      // 刪除所有既有規格組合（覆蓋模式，並發執行）
-      await Promise.all(
-        existingVariants.map(async (variant) => {
-          const { errors: deleteErrors } =
-            await client.models.ProductVariant.delete({ id: variant.id });
-          if (deleteErrors && deleteErrors.length > 0) {
-            throw new Error(deleteErrors[0]?.message ?? "刪除規格組合失敗");
-          }
-        }),
-      );
-
-      // 批次建立新的規格組合（並發執行）
-      const createdVariants: ProductVariant[] = await Promise.all(
-        allCombinations.map(async (combo) => {
-          const sku = generateVariantSku(productSku, combo.combination);
-
-          const { data, errors } = await client.models.ProductVariant.create({
-            productId,
-            label: combo.label,
-            sku,
-            stockQuantity: 0,
-            price: null,
-            cost: null,
-          });
-
-          if (errors && errors.length > 0) {
-            throw new Error(errors[0]?.message ?? "建立規格組合失敗");
-          }
-
-          return mapToVariant(data!);
-        }),
-      );
-
-      // 同時更新商品的 specDimensions
-      await client.models.Product.update({
-        id: productId,
-        specDimensions: JSON.stringify(specDimensions),
-      });
-
-      return createdVariants;
-    },
-    onSuccess: (_, { productId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.detail(productId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.variants(productId),
-      });
-      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
-    },
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /** 將 Amplify Data 回傳的原始資料映射為 Product 型別 */
 function mapToProduct(raw: Record<string, unknown>): Product {
-  // 解析 specDimensions（JSON 字串或已解析的物件）
-  let specDimensions: SpecDimension[] = [];
-  if (raw.specDimensions) {
-    try {
-      specDimensions =
-        typeof raw.specDimensions === "string"
-          ? JSON.parse(raw.specDimensions)
-          : (raw.specDimensions as SpecDimension[]);
-    } catch {
-      specDimensions = [];
-    }
-  }
-
   // 解析 variants（hasMany 關聯回傳的陣列）
   let variants: ProductVariant[] = [];
   if (raw.variants && Array.isArray(raw.variants)) {
@@ -737,7 +586,6 @@ function mapToProduct(raw: Record<string, unknown>): Product {
       ? String(raw.defaultSupplierId)
       : null,
     stockQuantity,
-    specDimensions,
     variants,
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)

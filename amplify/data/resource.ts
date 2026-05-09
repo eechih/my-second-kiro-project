@@ -63,7 +63,6 @@ const schema = a.schema({
       defaultCost: a.float().required(),
       defaultSupplierId: a.string(),
       stockQuantity: a.integer().required().default(0),
-      specDimensions: a.json(),
       imageUrls: a.string().array(),
       isActive: a.boolean().required().default(true),
       version: a.integer().required().default(1),

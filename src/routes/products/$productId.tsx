@@ -1,8 +1,8 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageHeader } from "@/components/PageHeader";
 import {
+  useCreateVariant,
   useDeleteVariant,
-  useGenerateVariants,
   useProduct,
   useUpdateProduct,
   useUpdateVariant,
@@ -16,7 +16,7 @@ import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import { validateProduct } from "@shared/logic/validation";
 import type {
-  SpecDimension,
+  CreateVariantInput,
   Supplier,
   UpdateVariantInput,
 } from "@shared/models";
@@ -41,7 +41,7 @@ function ProductEditPage() {
     error: loadError,
   } = useProduct(productId);
   const updateMutation = useUpdateProduct();
-  const generateVariantsMutation = useGenerateVariants();
+  const createVariantMutation = useCreateVariant();
   const updateVariantMutation = useUpdateVariant();
   const deleteVariantMutation = useDeleteVariant();
 
@@ -49,7 +49,6 @@ function ProductEditPage() {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
     null,
   );
-  const [specDimensions, setSpecDimensions] = useState<SpecDimension[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
     variantId: string | null;
@@ -84,13 +83,6 @@ function ProductEditPage() {
     }
   }, [product?.defaultSupplierId]);
 
-  // Load spec dimensions from product
-  useEffect(() => {
-    if (product?.specDimensions) {
-      setSpecDimensions(product.specDimensions);
-    }
-  }, [product?.specDimensions]);
-
   const handleSubmit = async (values: ProductEditFormValues): Promise<void> => {
     setSubmitError(null);
 
@@ -114,12 +106,24 @@ function ProductEditPage() {
         defaultCost: values.defaultCost,
         defaultSupplierId: values.defaultSupplierId,
         stockQuantity: values.stockQuantity,
-        specDimensions: values.specDimensions,
       });
       void navigate({ to: "/products" });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "更新商品失敗");
     }
+  };
+
+  const handleCreateVariant = (variant: CreateVariantInput): void => {
+    void createVariantMutation
+      .mutateAsync({
+        productId,
+        variant,
+      })
+      .catch((err: unknown) => {
+        setSubmitError(
+          err instanceof Error ? err.message : "新增規格選項失敗",
+        );
+      });
   };
 
   const handleUpdateVariant = (
@@ -207,22 +211,16 @@ function ProductEditPage() {
         product={product}
         productId={productId}
         selectedSupplier={selectedSupplier}
-        specDimensions={specDimensions}
         isSubmitting={updateMutation.isPending}
-        isGeneratingVariants={generateVariantsMutation.isPending}
         isVariantMutating={
-          updateVariantMutation.isPending || deleteVariantMutation.isPending
+          createVariantMutation.isPending ||
+          updateVariantMutation.isPending ||
+          deleteVariantMutation.isPending
         }
         onCancel={() => void navigate({ to: "/products" })}
         onSubmit={handleSubmit}
         onSupplierChange={setSelectedSupplier}
-        onSpecDimensionsChange={setSpecDimensions}
-        onGenerateVariants={(dimensions) => {
-          void generateVariantsMutation.mutateAsync({
-            productId,
-            specDimensions: dimensions,
-          });
-        }}
+        onCreateVariant={handleCreateVariant}
         onUpdateVariant={handleUpdateVariant}
         onDeleteVariant={handleDeleteVariantClick}
       />

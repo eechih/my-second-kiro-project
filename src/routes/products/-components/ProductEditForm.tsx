@@ -1,24 +1,25 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { FormField } from "@/components/FormField";
 import { ImageUploader } from "@/components/ImageUploader";
-import { QuickVariantInput } from "@/components/QuickVariantInput";
 import { VariantTable } from "@/components/VariantTable";
 import { client } from "@/lib/amplify-client";
+import AddIcon from "@mui/icons-material/Add";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type {
+  CreateVariantInput,
   Product,
-  SpecDimension,
   Supplier,
   UpdateVariantInput,
 } from "@shared/models";
 import { useForm } from "@tanstack/react-form";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export interface ProductEditFormValues {
   name: string;
@@ -27,22 +28,18 @@ export interface ProductEditFormValues {
   defaultCost: number;
   stockQuantity: number;
   defaultSupplierId: string | null;
-  specDimensions: SpecDimension[];
 }
 
 export interface ProductEditFormProps {
   product: Product;
   productId: string;
   selectedSupplier: Supplier | null;
-  specDimensions: SpecDimension[];
   isSubmitting: boolean;
-  isGeneratingVariants: boolean;
   isVariantMutating: boolean;
   onCancel: () => void;
   onSubmit: (values: ProductEditFormValues) => Promise<void>;
   onSupplierChange: (supplier: Supplier | null) => void;
-  onSpecDimensionsChange: (dimensions: SpecDimension[]) => void;
-  onGenerateVariants: (dimensions: SpecDimension[]) => void;
+  onCreateVariant: (variant: CreateVariantInput) => void;
   onUpdateVariant: (variantId: string, updates: UpdateVariantInput) => void;
   onDeleteVariant: (variantId: string) => void;
 }
@@ -65,18 +62,23 @@ export function ProductEditForm({
   product,
   productId,
   selectedSupplier,
-  specDimensions,
   isSubmitting,
-  isGeneratingVariants,
   isVariantMutating,
   onCancel,
   onSubmit,
   onSupplierChange,
-  onSpecDimensionsChange,
-  onGenerateVariants,
+  onCreateVariant,
   onUpdateVariant,
   onDeleteVariant,
 }: ProductEditFormProps): React.ReactElement {
+  const [newVariant, setNewVariant] = useState({
+    label: "",
+    sku: "",
+    stockQuantity: "0",
+    price: "",
+    cost: "",
+  });
+
   const searchSuppliers = useCallback(async (query: string) => {
     const filter: Record<string, unknown> = { isActive: { eq: true } };
     if (query) {
@@ -107,7 +109,6 @@ export function ProductEditForm({
         defaultCost: value.defaultCost,
         stockQuantity: value.stockQuantity,
         defaultSupplierId: selectedSupplier?.id ?? null,
-        specDimensions,
       });
     },
   });
@@ -121,6 +122,30 @@ export function ProductEditForm({
       stockQuantity: product.stockQuantity,
     });
   }, [form, product]);
+
+  const handleCreateVariant = (): void => {
+    const label = newVariant.label.trim();
+    if (!label) return;
+
+    const stockQuantity = Number(newVariant.stockQuantity);
+    const price = newVariant.price === "" ? null : Number(newVariant.price);
+    const cost = newVariant.cost === "" ? null : Number(newVariant.cost);
+
+    onCreateVariant({
+      label,
+      sku: newVariant.sku.trim() || undefined,
+      stockQuantity: Number.isFinite(stockQuantity) ? stockQuantity : 0,
+      price: price !== null && Number.isFinite(price) ? price : null,
+      cost: cost !== null && Number.isFinite(cost) ? cost : null,
+    });
+    setNewVariant({
+      label: "",
+      sku: "",
+      stockQuantity: "0",
+      price: "",
+      cost: "",
+    });
+  };
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -229,36 +254,95 @@ export function ProductEditForm({
           />
 
           <Divider />
-          <Typography variant="h6">規格維度定義</Typography>
+          <Typography variant="h6">規格選項</Typography>
           <Typography variant="body2" color="text.secondary">
-            定義商品的規格維度（如顏色、尺寸），套用後自動產生笛卡爾積規格組合。
+            每個規格以單一標籤管理，例如「黑色」或「XL」。
           </Typography>
 
-          <QuickVariantInput
-            onApply={(dimensions) => {
-              onSpecDimensionsChange(dimensions);
-              onGenerateVariants(dimensions);
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: {
+                xs: "1fr",
+                md: "2fr 1.4fr 1fr 1fr 1fr auto",
+              },
             }}
-            initialDimensions={product.specDimensions}
-            hasExistingVariants={product.variants.length > 0}
-            loading={isGeneratingVariants}
-          />
+          >
+            <TextField
+              label="規格標籤"
+              size="small"
+              value={newVariant.label}
+              onChange={(event) =>
+                setNewVariant({ ...newVariant, label: event.target.value })
+              }
+              required
+            />
+            <TextField
+              label="SKU"
+              size="small"
+              value={newVariant.sku}
+              onChange={(event) =>
+                setNewVariant({ ...newVariant, sku: event.target.value })
+              }
+              placeholder="留空自動產生"
+            />
+            <TextField
+              label="庫存"
+              size="small"
+              type="number"
+              value={newVariant.stockQuantity}
+              onChange={(event) =>
+                setNewVariant({
+                  ...newVariant,
+                  stockQuantity: event.target.value,
+                })
+              }
+              slotProps={{ htmlInput: { min: 0 } }}
+            />
+            <TextField
+              label="單價"
+              size="small"
+              type="number"
+              value={newVariant.price}
+              onChange={(event) =>
+                setNewVariant({ ...newVariant, price: event.target.value })
+              }
+              placeholder={String(product.unitPrice)}
+              slotProps={{ htmlInput: { min: 0, step: "any" } }}
+            />
+            <TextField
+              label="成本"
+              size="small"
+              type="number"
+              value={newVariant.cost}
+              onChange={(event) =>
+                setNewVariant({ ...newVariant, cost: event.target.value })
+              }
+              placeholder={String(product.defaultCost)}
+              slotProps={{ htmlInput: { min: 0, step: "any" } }}
+            />
+            <Button
+              type="button"
+              variant="outlined"
+              startIcon={<AddIcon />}
+              disabled={isVariantMutating || !newVariant.label.trim()}
+              onClick={handleCreateVariant}
+              sx={{ minWidth: 96 }}
+            >
+              新增
+            </Button>
+          </Box>
 
-          {product.variants.length > 0 && (
-            <>
-              <Divider />
-              <Typography variant="h6">規格組合</Typography>
-              <VariantTable
-                productId={productId}
-                variants={product.variants}
-                defaultUnitPrice={product.unitPrice}
-                defaultCost={product.defaultCost}
-                onUpdateVariant={onUpdateVariant}
-                onDeleteVariant={onDeleteVariant}
-                isLoading={isVariantMutating}
-              />
-            </>
-          )}
+          <VariantTable
+            productId={productId}
+            variants={product.variants}
+            defaultUnitPrice={product.unitPrice}
+            defaultCost={product.defaultCost}
+            onUpdateVariant={onUpdateVariant}
+            onDeleteVariant={onDeleteVariant}
+            isLoading={isVariantMutating}
+          />
 
           <Divider />
           <Typography variant="h6">商品照片</Typography>

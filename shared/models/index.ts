@@ -15,7 +15,6 @@ export type {
 } from "./supplier";
 
 export type {
-  SpecDimension,
   ProductVariant,
   Product,
   CreateProductInput,

@@ -1,6 +1,5 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { FormField } from "@/components/FormField";
-import { QuickVariantInput } from "@/components/QuickVariantInput";
 import { client } from "@/lib/amplify-client";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Box from "@mui/material/Box";
@@ -10,7 +9,7 @@ import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import type { SpecDimension, Supplier } from "@shared/models";
+import type { Supplier } from "@shared/models";
 import { useForm } from "@tanstack/react-form";
 import { useCallback, useState } from "react";
 
@@ -21,7 +20,6 @@ export interface ProductCreateFormValues {
   defaultCost: number;
   stockQuantity: number;
   defaultSupplierId: string | null;
-  specDimensions?: SpecDimension[];
 }
 
 export interface ProductCreateFormProps {
@@ -52,7 +50,6 @@ export function ProductCreateForm({
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
     null,
   );
-  const [specDimensions, setSpecDimensions] = useState<SpecDimension[]>([]);
 
   const searchSuppliers = useCallback(async (query: string) => {
     const filter: Record<string, unknown> = { isActive: { eq: true } };
@@ -84,7 +81,6 @@ export function ProductCreateForm({
         defaultCost: value.defaultCost,
         stockQuantity: value.stockQuantity,
         defaultSupplierId: selectedSupplier?.id ?? null,
-        specDimensions: specDimensions.length > 0 ? specDimensions : undefined,
       });
     },
   });
@@ -193,24 +189,11 @@ export function ProductCreateForm({
           />
 
           <Divider />
-          <Typography variant="h6">規格維度定義</Typography>
-          <Typography variant="body2" color="text.secondary">
-            定義商品的規格維度（如顏色、尺寸），建立商品後可產生規格組合。
-          </Typography>
-
-          <QuickVariantInput
-            onApply={setSpecDimensions}
-            hasExistingVariants={specDimensions.some(
-              (dimension) => dimension.values.length > 0,
-            )}
-          />
-
-          <Divider />
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <InfoOutlinedIcon color="info" fontSize="small" />
             <Typography variant="body2" color="text.secondary">
-              商品照片可在建立商品後於編輯頁面上傳。
+              商品照片與規格選項可在建立商品後於編輯頁面管理。
             </Typography>
           </Box>
 
