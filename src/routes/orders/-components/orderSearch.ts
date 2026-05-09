@@ -100,32 +100,18 @@ function mapProduct(raw: Record<string, unknown>): Product {
 }
 
 function mapVariant(raw: Record<string, unknown>): ProductVariant {
-  let combination: Record<string, string> = {};
-  if (raw.combination) {
-    try {
-      combination =
-        typeof raw.combination === "string"
-          ? JSON.parse(raw.combination)
-          : (raw.combination as Record<string, string>);
-    } catch {
-      combination = {};
-    }
-  }
-
   return {
     id: String(raw.id ?? ""),
-    combination,
     label: String(raw.label ?? ""),
     sku: String(raw.sku ?? ""),
     stockQuantity: Number(raw.stockQuantity ?? 0),
-    unitPriceOverride:
-      raw.unitPriceOverride !== null && raw.unitPriceOverride !== undefined
-        ? Number(raw.unitPriceOverride)
+    price:
+      raw.price !== null && raw.price !== undefined
+        ? Number(raw.price)
         : null,
-    defaultCostOverride:
-      raw.defaultCostOverride !== null && raw.defaultCostOverride !== undefined
-        ? Number(raw.defaultCostOverride)
+    cost:
+      raw.cost !== null && raw.cost !== undefined
+        ? Number(raw.cost)
         : null,
-    version: Number(raw.version ?? 1),
   };
 }

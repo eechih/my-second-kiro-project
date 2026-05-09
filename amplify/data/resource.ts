@@ -11,7 +11,7 @@ import { splitOrder } from "../functions/split-order/resource";
  * - Customer：客戶基本資料（含軟刪除 isActive 欄位）
  * - Supplier：供應商基本資料（含軟刪除 isActive 欄位）
  * - Product：商品基本資料（含規格維度、照片、樂觀併發控制）
- * - ProductVariant：商品規格組合（獨立庫存、樂觀併發控制）
+ * - ProductVariant：商品規格組合（獨立庫存）
  * - Order：訂單（單一 id 主鍵，透過 GSI 依建立日期排序）
  * - LineItem：訂單明細項目（含規格組合關聯、採購數據內嵌）
  *
@@ -88,13 +88,11 @@ const schema = a.schema({
     .model({
       productId: a.id().required(),
       product: a.belongsTo("Product", "productId"),
-      combination: a.json().required(),
       label: a.string().required(),
       sku: a.string().required(),
       stockQuantity: a.integer().required().default(0),
-      unitPriceOverride: a.float(),
-      defaultCostOverride: a.float(),
-      version: a.integer().required().default(1),
+      price: a.float(),
+      cost: a.float(),
     })
     .authorization((allow) => [allow.authenticated()]),
 
@@ -129,7 +127,7 @@ const schema = a.schema({
   // ---------------------------------------------------------------------------
   LineItem: a
     .model({
-      orderId: a.id().required(),
+      orderId: a.string().required(),
       order: a.belongsTo("Order", "orderId"),
       productId: a.string().required(),
       productName: a.string().required(),

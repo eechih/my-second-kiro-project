@@ -8,7 +8,12 @@
  */
 
 import type { ValidationResult } from "../models/order";
-import type { Product, ProductVariant, SpecDimension } from "../models/product";
+import type {
+  GeneratedProductVariant,
+  Product,
+  ProductVariant,
+  SpecDimension,
+} from "../models/product";
 
 /**
  * 根據規格維度產生所有規格組合（笛卡爾積）。
@@ -26,7 +31,7 @@ import type { Product, ProductVariant, SpecDimension } from "../models/product";
  */
 export function generateVariants(
   specDimensions: SpecDimension[],
-): Omit<ProductVariant, "id">[] {
+): GeneratedProductVariant[] {
   if (specDimensions.length === 0) {
     return [];
   }
@@ -47,9 +52,8 @@ export function generateVariants(
       label,
       sku: "", // SKU 由呼叫端透過 generateVariantSku 產生或自訂
       stockQuantity: 0,
-      unitPriceOverride: null,
-      defaultCostOverride: null,
-      version: 1,
+      price: null,
+      cost: null,
     };
   });
 }
@@ -104,7 +108,7 @@ export function generateVariantSku(
 /**
  * 解析規格組合的有效單價。
  *
- * 若 variant.unitPriceOverride 不為 null，回傳覆寫值；
+ * 若 variant.price 不為 null，回傳覆寫值；
  * 否則回傳 product.unitPrice。
  *
  * @param variant - 規格組合
@@ -115,15 +119,15 @@ export function resolveEffectivePrice(
   variant: ProductVariant,
   product: Product,
 ): number {
-  return variant.unitPriceOverride !== null
-    ? variant.unitPriceOverride
+  return variant.price !== null
+    ? variant.price
     : product.unitPrice;
 }
 
 /**
  * 解析規格組合的有效進貨成本。
  *
- * 若 variant.defaultCostOverride 不為 null，回傳覆寫值；
+ * 若 variant.cost 不為 null，回傳覆寫值；
  * 否則回傳 product.defaultCost。
  *
  * @param variant - 規格組合
@@ -134,8 +138,8 @@ export function resolveEffectiveCost(
   variant: ProductVariant,
   product: Product,
 ): number {
-  return variant.defaultCostOverride !== null
-    ? variant.defaultCostOverride
+  return variant.cost !== null
+    ? variant.cost
     : product.defaultCost;
 }
 

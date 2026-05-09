@@ -68,28 +68,24 @@ function createSampleProduct(): Product {
     variants: [
       {
         id: "var-001",
-        combination: { 顏色: "紅", 尺寸: "L" },
         label: "紅 L",
         sku: "TEST-001-紅-L",
         stockQuantity: 50,
-        unitPriceOverride: null,
-        defaultCostOverride: null,
-        version: 1,
+        price: null,
+        cost: null,
       },
       {
         id: "var-002",
-        combination: { 顏色: "黑", 尺寸: "M" },
         label: "黑 M",
         sku: "TEST-001-黑-M",
         stockQuantity: 30,
-        unitPriceOverride: 120,
-        defaultCostOverride: 60,
-        version: 1,
+        price: 120,
+        cost: 60,
       },
     ],
     imageUrls: ["product-images/prod-001/photo1.jpg"],
     isActive: true,
-    version: 1,
+            version: 1,
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2025-01-01T00:00:00.000Z",
   };
@@ -245,10 +241,10 @@ describe("serializeProduct / deserializeProduct", () => {
     const original = createSampleProduct();
     const json = serializeProduct(original);
     const restored = deserializeProduct(json);
-    expect(restored.variants[0]!.unitPriceOverride).toBeNull();
-    expect(restored.variants[0]!.defaultCostOverride).toBeNull();
-    expect(restored.variants[1]!.unitPriceOverride).toBe(120);
-    expect(restored.variants[1]!.defaultCostOverride).toBe(60);
+    expect(restored.variants[0]!.price).toBeNull();
+    expect(restored.variants[0]!.cost).toBeNull();
+    expect(restored.variants[1]!.price).toBe(120);
+    expect(restored.variants[1]!.cost).toBe(60);
   });
 
   it("反序列化無效 JSON 應拋出錯誤", () => {

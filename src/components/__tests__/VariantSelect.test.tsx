@@ -6,23 +6,19 @@ import type { ProductVariant } from "../../../shared/models/product";
 const mockVariants: ProductVariant[] = [
   {
     id: "v1",
-    combination: { 顏色: "黑", 尺寸: "L" },
     label: "黑 L",
     sku: "SHIRT-001-黑-L",
     stockQuantity: 10,
-    unitPriceOverride: null,
-    defaultCostOverride: null,
-    version: 1,
+    price: null,
+    cost: null,
   },
   {
     id: "v2",
-    combination: { 顏色: "紅", 尺寸: "M" },
     label: "紅 M",
     sku: "SHIRT-001-紅-M",
     stockQuantity: 5,
-    unitPriceOverride: null,
-    defaultCostOverride: null,
-    version: 1,
+    price: null,
+    cost: null,
   },
 ];
 

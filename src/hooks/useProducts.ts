@@ -431,18 +431,16 @@ export function useCreateVariant(): UseMutationResult<
           id: productId,
         });
         const productSku = String(productData?.sku ?? "");
-        sku = generateVariantSku(productSku, variant.combination);
+        sku = `${productSku}-${variant.label.replace(/\s+/g, "-")}`;
       }
 
       const { data, errors } = await client.models.ProductVariant.create({
         productId,
-        combination: JSON.stringify(variant.combination),
         label: variant.label,
         sku,
         stockQuantity: variant.stockQuantity ?? 0,
-        unitPriceOverride: variant.unitPriceOverride ?? null,
-        defaultCostOverride: variant.defaultCostOverride ?? null,
-        version: 1,
+        price: variant.price ?? null,
+        cost: variant.cost ?? null,
       });
 
       if (errors && errors.length > 0) {
@@ -495,10 +493,10 @@ export function useUpdateVariant(): UseMutationResult<
       if (updates.sku !== undefined) updatePayload.sku = updates.sku;
       if (updates.stockQuantity !== undefined)
         updatePayload.stockQuantity = updates.stockQuantity;
-      if (updates.unitPriceOverride !== undefined)
-        updatePayload.unitPriceOverride = updates.unitPriceOverride;
-      if (updates.defaultCostOverride !== undefined)
-        updatePayload.defaultCostOverride = updates.defaultCostOverride;
+      if (updates.price !== undefined)
+        updatePayload.price = updates.price;
+      if (updates.cost !== undefined)
+        updatePayload.cost = updates.cost;
 
       const { data, errors } = await client.models.ProductVariant.update(
         updatePayload as Parameters<
@@ -661,13 +659,11 @@ export function useGenerateVariants(): UseMutationResult<
 
           const { data, errors } = await client.models.ProductVariant.create({
             productId,
-            combination: JSON.stringify(combo.combination),
             label: combo.label,
             sku,
             stockQuantity: 0,
-            unitPriceOverride: null,
-            defaultCostOverride: null,
-            version: 1,
+            price: null,
+            cost: null,
           });
 
           if (errors && errors.length > 0) {
@@ -723,21 +719,7 @@ function mapToProduct(raw: Record<string, unknown>): Product {
     variants = (raw.variants as Record<string, unknown>[]).map(mapToVariant);
   }
 
-  // 依規格維度定義順序排序 variants
-  if (variants.length > 0 && specDimensions.length > 0) {
-    variants.sort((a, b) => {
-      for (const dim of specDimensions) {
-        const aIndex = dim.values.indexOf(
-          (a.combination as Record<string, string>)[dim.name] ?? "",
-        );
-        const bIndex = dim.values.indexOf(
-          (b.combination as Record<string, string>)[dim.name] ?? "",
-        );
-        if (aIndex !== bIndex) return aIndex - bIndex;
-      }
-      return 0;
-    });
-  }
+  variants.sort((a, b) => a.label.localeCompare(b.label, "zh-TW"));
 
   // 計算庫存：有規格組合時顯示各規格組合庫存加總
   const stockQuantity =
@@ -769,33 +751,19 @@ function mapToProduct(raw: Record<string, unknown>): Product {
 
 /** 將 Amplify Data 回傳的原始資料映射為 ProductVariant 型別 */
 function mapToVariant(raw: Record<string, unknown>): ProductVariant {
-  let combination: Record<string, string> = {};
-  if (raw.combination) {
-    try {
-      combination =
-        typeof raw.combination === "string"
-          ? JSON.parse(raw.combination)
-          : (raw.combination as Record<string, string>);
-    } catch {
-      combination = {};
-    }
-  }
-
   return {
     id: String(raw.id ?? ""),
-    combination,
     label: String(raw.label ?? ""),
     sku: String(raw.sku ?? ""),
     stockQuantity: Number(raw.stockQuantity ?? 0),
-    unitPriceOverride:
-      raw.unitPriceOverride !== null && raw.unitPriceOverride !== undefined
-        ? Number(raw.unitPriceOverride)
+    price:
+      raw.price !== null && raw.price !== undefined
+        ? Number(raw.price)
         : null,
-    defaultCostOverride:
-      raw.defaultCostOverride !== null && raw.defaultCostOverride !== undefined
-        ? Number(raw.defaultCostOverride)
+    cost:
+      raw.cost !== null && raw.cost !== undefined
+        ? Number(raw.cost)
         : null,
-    version: Number(raw.version ?? 1),
   };
 }
 

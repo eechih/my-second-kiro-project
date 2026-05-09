@@ -32,8 +32,8 @@ export interface VariantTableProps {
 interface EditingState {
   variantId: string;
   sku: string;
-  unitPriceOverride: string;
-  defaultCostOverride: string;
+  price: string;
+  cost: string;
 }
 
 const columnHelper = createColumnHelper<ProductVariant>();
@@ -62,13 +62,13 @@ export function VariantTable({
     setEditing({
       variantId: variant.id,
       sku: variant.sku,
-      unitPriceOverride:
-        variant.unitPriceOverride !== null
-          ? String(variant.unitPriceOverride)
+      price:
+        variant.price !== null
+          ? String(variant.price)
           : "",
-      defaultCostOverride:
-        variant.defaultCostOverride !== null
-          ? String(variant.defaultCostOverride)
+      cost:
+        variant.cost !== null
+          ? String(variant.cost)
           : "",
     });
   }, []);
@@ -89,22 +89,22 @@ export function VariantTable({
     }
 
     // Unit price override
-    if (editing.unitPriceOverride === "") {
-      updates.unitPriceOverride = null;
+    if (editing.price === "") {
+      updates.price = null;
     } else {
-      const parsed = Number(editing.unitPriceOverride);
+      const parsed = Number(editing.price);
       if (!isNaN(parsed) && parsed >= 0) {
-        updates.unitPriceOverride = parsed;
+        updates.price = parsed;
       }
     }
 
     // Default cost override
-    if (editing.defaultCostOverride === "") {
-      updates.defaultCostOverride = null;
+    if (editing.cost === "") {
+      updates.cost = null;
     } else {
-      const parsed = Number(editing.defaultCostOverride);
+      const parsed = Number(editing.cost);
       if (!isNaN(parsed) && parsed >= 0) {
-        updates.defaultCostOverride = parsed;
+        updates.cost = parsed;
       }
     }
 
@@ -149,11 +149,11 @@ export function VariantTable({
               <TextField
                 size="small"
                 type="number"
-                value={editing.unitPriceOverride}
+                value={editing.price}
                 onChange={(e) =>
                   setEditing({
                     ...editing,
-                    unitPriceOverride: e.target.value,
+                    price: e.target.value,
                   })
                 }
                 placeholder={String(defaultUnitPrice)}
@@ -165,10 +165,10 @@ export function VariantTable({
             );
           }
           const effectivePrice =
-            variant.unitPriceOverride !== null
-              ? variant.unitPriceOverride
+            variant.price !== null
+              ? variant.price
               : defaultUnitPrice;
-          const isOverridden = variant.unitPriceOverride !== null;
+          const isOverridden = variant.price !== null;
           return (
             <Box
               component="span"
@@ -190,11 +190,11 @@ export function VariantTable({
               <TextField
                 size="small"
                 type="number"
-                value={editing.defaultCostOverride}
+                value={editing.cost}
                 onChange={(e) =>
                   setEditing({
                     ...editing,
-                    defaultCostOverride: e.target.value,
+                    cost: e.target.value,
                   })
                 }
                 placeholder={String(defaultCost)}
@@ -206,10 +206,10 @@ export function VariantTable({
             );
           }
           const effectiveCost =
-            variant.defaultCostOverride !== null
-              ? variant.defaultCostOverride
+            variant.cost !== null
+              ? variant.cost
               : defaultCost;
-          const isOverridden = variant.defaultCostOverride !== null;
+          const isOverridden = variant.cost !== null;
           return (
             <Box
               component="span"

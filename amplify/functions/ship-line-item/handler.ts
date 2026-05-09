@@ -28,8 +28,7 @@ const ddb = new DynamoDBClient({});
  * 包含驗證邏輯：
  * - 明細狀態必須為「已收到」才可出貨
  * - 出貨數量不超過未出貨餘額
- * - 庫存數量充足（使用 ConditionExpression 檢查庫存充足且 version 值一致）
- * - 庫存更新成功後自動遞增 version 欄位
+ * - 庫存數量充足
  */
 export const handler: Schema["shipLineItem"]["functionHandler"] = async (
   event,
@@ -87,9 +86,10 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     const variantId = (lineItem["variantId"] as string | null) ?? null;
     const productId = lineItem["productId"] as string;
     let stockQuantity: number;
-    let stockVersion: number;
+    let stockVersion: number | null = null;
     let stockTableName: string;
     let stockKey: Record<string, string>;
+    let useVersionCheck = false;
 
     if (variantId) {
       // 規格組合層級庫存
@@ -107,7 +107,6 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       }
       const variant = unmarshall(variantResult.Item);
       stockQuantity = variant["stockQuantity"] as number;
-      stockVersion = variant["version"] as number;
       stockTableName = productVariantTable;
       stockKey = { id: variantId };
     } else {
@@ -129,6 +128,7 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       stockVersion = product["version"] as number;
       stockTableName = productTable;
       stockKey = { id: productId };
+      useVersionCheck = true;
     }
 
     // 5. 使用共用驗證函式檢查出貨數量與庫存
@@ -195,22 +195,34 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]
     >["TransactItems"] = [];
 
-    // 8a. 扣減庫存（含版本檢查）
+    // 8a. 扣減庫存
     transactItems.push({
       Update: {
         TableName: stockTableName,
         Key: marshall(stockKey),
-        UpdateExpression:
-          "SET stockQuantity = stockQuantity - :qty, #ver = #ver + :one, updatedAt = :now",
-        ConditionExpression:
-          "#ver = :expectedVersion AND stockQuantity >= :qty",
-        ExpressionAttributeNames: { "#ver": "version" },
-        ExpressionAttributeValues: marshall({
-          ":qty": quantity,
-          ":one": 1,
-          ":expectedVersion": stockVersion,
-          ":now": now,
-        }),
+        ...(useVersionCheck
+          ? {
+              UpdateExpression:
+                "SET stockQuantity = stockQuantity - :qty, #ver = #ver + :one, updatedAt = :now",
+              ConditionExpression:
+                "#ver = :expectedVersion AND stockQuantity >= :qty",
+              ExpressionAttributeNames: { "#ver": "version" },
+              ExpressionAttributeValues: marshall({
+                ":qty": quantity,
+                ":one": 1,
+                ":expectedVersion": stockVersion,
+                ":now": now,
+              }),
+            }
+          : {
+              UpdateExpression:
+                "SET stockQuantity = stockQuantity - :qty, updatedAt = :now",
+              ConditionExpression: "stockQuantity >= :qty",
+              ExpressionAttributeValues: marshall({
+                ":qty": quantity,
+                ":now": now,
+              }),
+            }),
       },
     });
 

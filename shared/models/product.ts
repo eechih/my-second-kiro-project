@@ -16,20 +16,22 @@ export interface SpecDimension {
 export interface ProductVariant {
   /** 唯一識別碼 */
   id: string;
-  /** 規格組合（如 { "顏色": "黑", "尺寸": "L" }） */
-  combination: Record<string, string>;
-  /** 組合顯示標籤（如「黑 L」，由 combination 值以空格串接） */
+  /** 組合顯示標籤（如「黑 L」） */
   label: string;
   /** 規格組合 SKU（唯一，可自訂或系統自動產生） */
   sku: string;
   /** 規格組合庫存數量（>= 0） */
   stockQuantity: number;
-  /** 單價覆寫（null 表示沿用商品預設單價） */
-  unitPriceOverride: number | null;
-  /** 進貨成本覆寫（null 表示沿用商品預設成本） */
-  defaultCostOverride: number | null;
-  /** 樂觀併發控制版本號（每次庫存更新時遞增） */
-  version: number;
+  /** 規格單價（null 表示沿用商品預設單價） */
+  price: number | null;
+  /** 規格成本（null 表示沿用商品預設成本） */
+  cost: number | null;
+}
+
+/** 產生規格組合時使用的暫時資料，不直接存入資料庫 */
+export interface GeneratedProductVariant extends Omit<ProductVariant, "id"> {
+  /** 規格組合（如 { "顏色": "黑", "尺寸": "L" }），僅用於產生 SKU 與排序 */
+  combination: Record<string, string>;
 }
 
 /** 商品基本資料 */
@@ -110,18 +112,16 @@ export interface UpdateProductInput {
 
 /** 建立規格組合輸入 */
 export interface CreateVariantInput {
-  /** 規格組合（如 { "顏色": "黑", "尺寸": "L" }） */
-  combination: Record<string, string>;
   /** 組合顯示標籤（如「黑 L」） */
   label: string;
   /** 規格組合 SKU（選填，未提供時系統自動產生） */
   sku?: string;
   /** 初始庫存數量（選填，預設 0） */
   stockQuantity?: number;
-  /** 單價覆寫（選填，null 表示沿用商品預設單價） */
-  unitPriceOverride?: number | null;
-  /** 進貨成本覆寫（選填，null 表示沿用商品預設成本） */
-  defaultCostOverride?: number | null;
+  /** 規格單價（選填，null 表示沿用商品預設單價） */
+  price?: number | null;
+  /** 規格成本（選填，null 表示沿用商品預設成本） */
+  cost?: number | null;
 }
 
 /** 更新規格組合輸入 */
@@ -130,8 +130,8 @@ export interface UpdateVariantInput {
   sku?: string;
   /** 庫存數量 */
   stockQuantity?: number;
-  /** 單價覆寫（null 表示沿用商品預設單價） */
-  unitPriceOverride?: number | null;
-  /** 進貨成本覆寫（null 表示沿用商品預設成本） */
-  defaultCostOverride?: number | null;
+  /** 規格單價（null 表示沿用商品預設單價） */
+  price?: number | null;
+  /** 規格成本（null 表示沿用商品預設成本） */
+  cost?: number | null;
 }
