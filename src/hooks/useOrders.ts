@@ -643,7 +643,7 @@ async function mergeOrders(input: { orderIds: string[] }): Promise<Order> {
   }
 
   const { data, errors } = await client.mutations.mergeOrders({
-    orderIds: JSON.stringify(input.orderIds),
+    orderIds: input.orderIds,
   });
 
   if (errors && errors.length > 0) {

@@ -9,18 +9,11 @@ import {
 import { requireAuth } from "@/lib/route-guards";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
-import Divider from "@mui/material/Divider";
-import Typography from "@mui/material/Typography";
 import { validateMergeOrders } from "@shared/logic/order-merge";
 import type { Order } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { OrderMergeDialog } from "./-components/OrderMergeDialog";
 import { OrderTable } from "./-components/OrderTable";
 import { OrderToolbar } from "./-components/OrderToolbar";
 
@@ -222,101 +215,22 @@ function OrderListPage(): React.ReactElement {
         currentCount={orderIds.length}
       />
 
-      <Dialog
+      <OrderMergeDialog
         open={mergeDialogOpen}
+        orders={selectedOrders}
+        totalAmount={selectedOrderTotalAmount}
+        lineItemCount={selectedOrderLineItemCount}
+        error={mergeError}
+        isPending={mergeOrders.isPending}
         onClose={() => {
           if (!mergeOrders.isPending) {
             setMergeDialogOpen(false);
             setMergeError(null);
           }
         }}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>合併訂單</DialogTitle>
-        <DialogContent>
-          {mergeError && (
-            <Alert
-              severity="error"
-              sx={{ mb: 2 }}
-              onClose={() => setMergeError(null)}
-            >
-              {mergeError}
-            </Alert>
-          )}
-
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            已選取合併的訂單
-          </Typography>
-          <Box sx={{ display: "grid", gap: 1, mb: 2 }}>
-            {selectedOrders.map((order) => (
-              <Box
-                key={order.id}
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 2,
-                }}
-              >
-                <Box>
-                  <Typography variant="body2">{order.orderNumber}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {order.customerName}
-                  </Typography>
-                </Box>
-                <Typography variant="body2">
-                  ${order.totalAmount.toLocaleString()}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-
-          <Divider sx={{ my: 2 }} />
-
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            合併預覽資訊
-          </Typography>
-          <Box sx={{ display: "grid", gap: 1 }}>
-            <Typography variant="body2">
-              選取訂單數：{selectedOrders.length} 筆
-            </Typography>
-            <Typography variant="body2">
-              合併後明細項目數：{selectedOrderLineItemCount} 項
-            </Typography>
-            <Typography variant="body2">
-              合併後總金額：${selectedOrderTotalAmount.toLocaleString()}
-            </Typography>
-          </Box>
-
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            合併後，來源訂單將被取消，並建立一筆包含所有明細項目的新訂單。
-          </Alert>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            color="inherit"
-            disabled={mergeOrders.isPending}
-            onClick={() => {
-              setMergeDialogOpen(false);
-              setMergeError(null);
-            }}
-          >
-            取消
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => void handleConfirmMerge()}
-            disabled={mergeOrders.isPending}
-            startIcon={
-              mergeOrders.isPending ? (
-                <CircularProgress size={18} color="inherit" />
-              ) : undefined
-            }
-          >
-            {mergeOrders.isPending ? "合併中..." : "確認合併"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onClearError={() => setMergeError(null)}
+        onConfirm={() => void handleConfirmMerge()}
+      />
     </Box>
   );
 }
