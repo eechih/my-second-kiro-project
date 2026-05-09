@@ -65,7 +65,6 @@ const schema = a.schema({
       stockQuantity: a.integer().required().default(0),
       imageUrls: a.string().array(),
       isActive: a.boolean().required().default(true),
-      version: a.integer().required().default(1),
       /** GSI 分區鍵：固定值 "Product"，用於按建立日期排序查詢全部商品 */
       gsiPartition: a.string().required().default("Product"),
       /** 建立時間（ISO 8601），用於 GSI 排序，避免與 Amplify 內建 createdAt 混淆 */

@@ -65,7 +65,6 @@ export function deserializeProduct(json: string): Product {
   assertNumberField(product, "unitPrice", "Product");
   assertNumberField(product, "defaultCost", "Product");
   assertNumberField(product, "stockQuantity", "Product");
-  assertNumberField(product, "version", "Product");
   assertBooleanField(product, "isActive", "Product");
   assertStringField(product, "createdAt", "Product");
   assertStringField(product, "updatedAt", "Product");

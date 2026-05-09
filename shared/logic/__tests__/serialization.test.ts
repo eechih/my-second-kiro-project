@@ -81,7 +81,6 @@ function createSampleProduct(): Product {
     ],
     imageUrls: ["product-images/prod-001/photo1.jpg"],
     isActive: true,
-            version: 1,
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2025-01-01T00:00:00.000Z",
   };

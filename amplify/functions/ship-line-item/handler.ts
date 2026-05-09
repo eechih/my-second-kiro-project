@@ -86,10 +86,8 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     const variantId = (lineItem["variantId"] as string | null) ?? null;
     const productId = lineItem["productId"] as string;
     let stockQuantity: number;
-    let stockVersion: number | null = null;
     let stockTableName: string;
     let stockKey: Record<string, string>;
-    let useVersionCheck = false;
 
     if (variantId) {
       // 規格組合層級庫存
@@ -125,10 +123,8 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       }
       const product = unmarshall(productResult.Item);
       stockQuantity = product["stockQuantity"] as number;
-      stockVersion = product["version"] as number;
       stockTableName = productTable;
       stockKey = { id: productId };
-      useVersionCheck = true;
     }
 
     // 5. 使用共用驗證函式檢查出貨數量與庫存
@@ -200,29 +196,13 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       Update: {
         TableName: stockTableName,
         Key: marshall(stockKey),
-        ...(useVersionCheck
-          ? {
-              UpdateExpression:
-                "SET stockQuantity = stockQuantity - :qty, #ver = #ver + :one, updatedAt = :now",
-              ConditionExpression:
-                "#ver = :expectedVersion AND stockQuantity >= :qty",
-              ExpressionAttributeNames: { "#ver": "version" },
-              ExpressionAttributeValues: marshall({
-                ":qty": quantity,
-                ":one": 1,
-                ":expectedVersion": stockVersion,
-                ":now": now,
-              }),
-            }
-          : {
-              UpdateExpression:
-                "SET stockQuantity = stockQuantity - :qty, updatedAt = :now",
-              ConditionExpression: "stockQuantity >= :qty",
-              ExpressionAttributeValues: marshall({
-                ":qty": quantity,
-                ":now": now,
-              }),
-            }),
+        UpdateExpression:
+          "SET stockQuantity = stockQuantity - :qty, updatedAt = :now",
+        ConditionExpression: "attribute_exists(id) AND stockQuantity >= :qty",
+        ExpressionAttributeValues: marshall({
+          ":qty": quantity,
+          ":now": now,
+        }),
       },
     });
 
@@ -296,7 +276,7 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       return JSON.stringify({
         success: false,
         message:
-          "出貨操作失敗：庫存版本衝突或庫存不足，請重新取得最新資料後重試",
+          "出貨操作失敗：庫存不足或資料已變更，請重新取得最新資料後重試",
       });
     }
     console.error("shipLineItem error:", error);

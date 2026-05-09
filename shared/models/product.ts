@@ -42,8 +42,6 @@ export interface Product {
   imageUrls: string[];
   /** 啟用狀態（預設 true，false 表示已停用） */
   isActive: boolean;
-  /** 樂觀併發控制版本號（無規格組合時，庫存更新時遞增） */
-  version: number;
   /** ISO 8601 建立時間 */
   createdAt: string;
   /** ISO 8601 更新時間 */

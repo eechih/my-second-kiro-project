@@ -60,7 +60,6 @@ const PRODUCT_SELECTION_SET = [
   "stockQuantity",
   "imageUrls",
   "isActive",
-  "version",
   "createdAt",
   "createdAtForSort",
   "updatedAt",
@@ -217,7 +216,6 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
     stockQuantity: input.stockQuantity ?? 0,
     imageUrls: input.imageUrls ?? [],
     isActive: true,
-    version: 1,
     gsiPartition: "Product",
     createdAtForSort: new Date().toISOString(),
   });
@@ -591,7 +589,6 @@ function mapToProduct(raw: Record<string, unknown>): Product {
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],
     isActive: raw.isActive !== false,
-    version: Number(raw.version ?? 1),
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };

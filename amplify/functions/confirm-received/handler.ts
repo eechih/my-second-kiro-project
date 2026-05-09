@@ -21,7 +21,7 @@ const ddb = new DynamoDBClient({});
  *
  * 包含驗證邏輯：
  * - LineItem status 必須為「已訂購」（使用 validateProcurementReceive 共用驗證）
- * - 商品層級庫存更新使用 version 做樂觀併發控制；規格組合以 AppSync updatedAt 追蹤
+ * - 庫存更新使用 DynamoDB 原子操作，避免前端維護版本欄位
  *
  * 需求：4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
  */
@@ -73,10 +73,8 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     // 3. 取得庫存資訊（規格組合或商品層級）
     const variantId = (lineItem["variantId"] as string | null) ?? null;
     const productId = lineItem["productId"] as string;
-    let stockVersion: number | null = null;
     let stockTableName: string;
     let stockKey: Record<string, string>;
-    let useVersionCheck = false;
 
     if (variantId) {
       const variantResult = await ddb.send(
@@ -106,11 +104,8 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
           message: "找不到指定的商品",
         });
       }
-      const product = unmarshall(productResult.Item);
-      stockVersion = product["version"] as number;
       stockTableName = productTable;
       stockKey = { id: productId };
-      useVersionCheck = true;
     }
 
     const now = new Date().toISOString();
@@ -142,27 +137,13 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       Update: {
         TableName: stockTableName,
         Key: marshall(stockKey),
-        ...(useVersionCheck
-          ? {
-              UpdateExpression:
-                "SET stockQuantity = stockQuantity + :qty, #ver = #ver + :one, updatedAt = :now",
-              ConditionExpression: "#ver = :expectedVersion",
-              ExpressionAttributeNames: { "#ver": "version" },
-              ExpressionAttributeValues: marshall({
-                ":qty": purchasedQuantity,
-                ":one": 1,
-                ":expectedVersion": stockVersion,
-                ":now": now,
-              }),
-            }
-          : {
-              UpdateExpression:
-                "SET stockQuantity = stockQuantity + :qty, updatedAt = :now",
-              ExpressionAttributeValues: marshall({
-                ":qty": purchasedQuantity,
-                ":now": now,
-              }),
-            }),
+        UpdateExpression:
+          "SET stockQuantity = stockQuantity + :qty, updatedAt = :now",
+        ConditionExpression: "attribute_exists(id)",
+        ExpressionAttributeValues: marshall({
+          ":qty": purchasedQuantity,
+          ":now": now,
+        }),
       },
     });
 
@@ -185,8 +166,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     if (err.name === "TransactionCanceledException") {
       return JSON.stringify({
         success: false,
-        message:
-          "庫存版本衝突，請重新取得最新資料後重試",
+        message: "入庫確認失敗，請重新取得最新資料後重試",
       });
     }
     console.error("confirmReceived error:", error);

@@ -50,7 +50,6 @@ function createProduct(overrides: Partial<Product> = {}): Product {
     variants: [],
     imageUrls: [],
     isActive: true,
-    version: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...overrides,

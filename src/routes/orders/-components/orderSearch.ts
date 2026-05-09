@@ -47,7 +47,6 @@ export async function searchProducts(query: string): Promise<Product[]> {
       "stockQuantity",
       "imageUrls",
       "isActive",
-      "version",
       "createdAt",
       "updatedAt",
       "variants.*",
@@ -79,7 +78,6 @@ function mapProduct(raw: Record<string, unknown>): Product {
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],
     isActive: true,
-    version: Number(raw.version ?? 1),
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };
