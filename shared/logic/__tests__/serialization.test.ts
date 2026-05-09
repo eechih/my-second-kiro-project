@@ -65,14 +65,12 @@ function createSampleProduct(): Product {
       {
         id: "var-001",
         label: "紅 L",
-        stockQuantity: 50,
         price: null,
         cost: null,
       },
       {
         id: "var-002",
         label: "黑 M",
-        stockQuantity: 30,
         price: 120,
         cost: 60,
       },

@@ -89,7 +89,6 @@ export function ProductCreateForm({
         defaultSupplierId: selectedSupplier?.id ?? null,
         variants: variantLabels.map((label) => ({
           label,
-          stockQuantity: 0,
           price: value.unitPrice,
           cost: value.defaultCost,
         })),

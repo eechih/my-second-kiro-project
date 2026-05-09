@@ -38,9 +38,7 @@ export function VariantSelect({
       value={value}
       onChange={(_event, newValue) => onChange(newValue)}
       options={variants}
-      getOptionLabel={(option) =>
-        `${option.label}（庫存：${option.stockQuantity}）`
-      }
+      getOptionLabel={(option) => option.label}
       isOptionEqualToValue={(option, val) => option.id === val.id}
       disabled={disabled}
       noOptionsText="無可選規格組合"
@@ -55,7 +53,7 @@ export function VariantSelect({
       )}
       renderOption={(props, option) => (
         <li {...props} key={option.id}>
-          {option.label}（庫存：{option.stockQuantity}）
+          {option.label}
         </li>
       )}
     />

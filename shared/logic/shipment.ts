@@ -63,24 +63,17 @@ export function validateShipment(
 }
 
 /**
- * 解析庫存數量：依據 variantId 決定回傳規格組合層級或商品層級的庫存。
+ * 解析庫存數量：庫存統一在商品層級管理。
  *
- * - 若 variantId 不為 null，在商品的 variants 中尋找對應的規格組合，回傳其 stockQuantity。
- * - 若 variantId 為 null，回傳商品的 stockQuantity。
- * - 若 variantId 不為 null 但找不到對應的規格組合，回傳 0（防禦性處理）。
+ * 規格組合僅作為註記，不分開控管庫存，因此一律回傳商品的 stockQuantity。
  *
- * @param product - 商品物件（含 variants 列表）
- * @param variantId - 規格組合 ID（無規格組合時為 null）
- * @returns 對應層級的庫存數量
+ * @param product - 商品物件
+ * @param _variantId - 規格組合 ID（不影響庫存解析）
+ * @returns 商品層級的庫存數量
  */
 export function resolveStockQuantity(
   product: Product,
-  variantId: string | null,
+  _variantId: string | null,
 ): number {
-  if (variantId === null) {
-    return product.stockQuantity;
-  }
-
-  const variant = product.variants.find((v) => v.id === variantId);
-  return variant?.stockQuantity ?? 0;
+  return product.stockQuantity;
 }

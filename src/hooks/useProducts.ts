@@ -413,7 +413,6 @@ export function useCreateVariant(): UseMutationResult<
       const { data, errors } = await client.models.ProductVariant.create({
         productId,
         label: variant.label.trim(),
-        stockQuantity: variant.stockQuantity ?? 0,
         price: variant.price ?? null,
         cost: variant.cost ?? null,
       });
@@ -465,8 +464,6 @@ export function useUpdateVariant(): UseMutationResult<
     }): Promise<ProductVariant> => {
       const updatePayload: Record<string, unknown> = { id: variantId };
 
-      if (updates.stockQuantity !== undefined)
-        updatePayload.stockQuantity = updates.stockQuantity;
       if (updates.price !== undefined)
         updatePayload.price = updates.price;
       if (updates.cost !== undefined)
@@ -555,11 +552,8 @@ function mapToProduct(raw: Record<string, unknown>): Product {
 
   variants.sort((a, b) => a.label.localeCompare(b.label, "zh-TW"));
 
-  // 計算庫存：有規格組合時顯示各規格組合庫存加總
-  const stockQuantity =
-    variants.length > 0
-      ? variants.reduce((sum, v) => sum + v.stockQuantity, 0)
-      : Number(raw.stockQuantity ?? 0);
+  // 庫存統一在商品層級管理
+  const stockQuantity = Number(raw.stockQuantity ?? 0);
 
   return {
     id: String(raw.id ?? ""),
@@ -586,7 +580,6 @@ function mapToVariant(raw: Record<string, unknown>): ProductVariant {
   return {
     id: String(raw.id ?? ""),
     label: String(raw.label ?? ""),
-    stockQuantity: Number(raw.stockQuantity ?? 0),
     price:
       raw.price !== null && raw.price !== undefined
         ? Number(raw.price)

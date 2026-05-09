@@ -7,14 +7,12 @@ const mockVariants: ProductVariant[] = [
   {
     id: "v1",
     label: "黑 L",
-    stockQuantity: 10,
     price: null,
     cost: null,
   },
   {
     id: "v2",
     label: "紅 M",
-    stockQuantity: 5,
     price: null,
     cost: null,
   },
@@ -61,7 +59,7 @@ describe("VariantSelect", () => {
     expect(screen.getByText("請選取規格組合")).toBeInTheDocument();
   });
 
-  it("displays selected variant label with stock quantity", () => {
+  it("displays selected variant label", () => {
     render(
       <VariantSelect
         productId="p1"
@@ -72,7 +70,7 @@ describe("VariantSelect", () => {
     );
 
     const input = screen.getByRole("combobox") as HTMLInputElement;
-    expect(input.value).toBe("黑 L（庫存：10）");
+    expect(input.value).toBe("黑 L");
   });
 
   it("is disabled when disabled prop is true", () => {

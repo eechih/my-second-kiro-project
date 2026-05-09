@@ -45,7 +45,6 @@ function createVariant(overrides: Partial<ProductVariant> = {}): ProductVariant 
   return {
     id: "var-1",
     label: "黑色",
-    stockQuantity: 10,
     price: null,
     cost: null,
     ...overrides,

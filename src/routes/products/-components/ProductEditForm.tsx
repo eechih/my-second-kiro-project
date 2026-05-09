@@ -73,7 +73,6 @@ export function ProductEditForm({
 }: ProductEditFormProps): React.ReactElement {
   const [newVariant, setNewVariant] = useState({
     label: "",
-    stockQuantity: "0",
     price: "",
     cost: "",
   });
@@ -125,19 +124,16 @@ export function ProductEditForm({
     const label = newVariant.label.trim();
     if (!label) return;
 
-    const stockQuantity = Number(newVariant.stockQuantity);
     const price = newVariant.price === "" ? null : Number(newVariant.price);
     const cost = newVariant.cost === "" ? null : Number(newVariant.cost);
 
     onCreateVariant({
       label,
-      stockQuantity: Number.isFinite(stockQuantity) ? stockQuantity : 0,
       price: price !== null && Number.isFinite(price) ? price : null,
       cost: cost !== null && Number.isFinite(cost) ? cost : null,
     });
     setNewVariant({
       label: "",
-      stockQuantity: "0",
       price: "",
       cost: "",
     });
@@ -233,13 +229,11 @@ export function ProductEditForm({
             )}
           </form.Field>
 
-          {product.variants.length === 0 && (
-            <form.Field name="stockQuantity">
-              {(field) => (
-                <FormField field={field} label="庫存數量" type="number" />
-              )}
-            </form.Field>
-          )}
+          <form.Field name="stockQuantity">
+            {(field) => (
+              <FormField field={field} label="庫存數量" type="number" />
+            )}
+          </form.Field>
 
           <EntitySelect<Supplier>
             label="預設供應商"
@@ -264,7 +258,7 @@ export function ProductEditForm({
                 gap: 2,
                 gridTemplateColumns: {
                   xs: "1fr",
-                  md: "2fr 1fr 1fr 1fr auto",
+                  md: "2fr 1fr 1fr auto",
                 },
               }}
             >
@@ -276,19 +270,6 @@ export function ProductEditForm({
                   setNewVariant({ ...newVariant, label: event.target.value })
                 }
                 required
-              />
-              <TextField
-                label="庫存"
-                size="small"
-                type="number"
-                value={newVariant.stockQuantity}
-                onChange={(event) =>
-                  setNewVariant({
-                    ...newVariant,
-                    stockQuantity: event.target.value,
-                  })
-                }
-                slotProps={{ htmlInput: { min: 0 } }}
               />
               <TextField
                 label="單價"

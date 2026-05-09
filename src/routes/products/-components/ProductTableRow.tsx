@@ -125,11 +125,6 @@ export function ProductTableRow({
       })
     : "—";
 
-  const totalStock = product.variants.reduce(
-    (sum, variant) => sum + variant.stockQuantity,
-    0,
-  );
-
   return (
     <TableRow selected={selected} hover>
       <TableCell>
@@ -169,23 +164,12 @@ export function ProductTableRow({
         />
       </TableCell>
       <TableCell align="right">
-        {product.variants.length > 0 ? (
-          <EditableNumberCell
-            value={totalStock}
-            format={(value) => `${value}（${product.variants.length} 規格）`}
-            disabled
-            disabledText="有規格商品請到編輯頁調整各規格庫存"
-            align="right"
-            onCommit={async () => undefined}
-          />
-        ) : (
-          <EditableNumberCell
-            value={product.stockQuantity}
-            integer
-            align="right"
-            onCommit={(value) => onCellEdit(product, "stockQuantity", value)}
-          />
-        )}
+        <EditableNumberCell
+          value={product.stockQuantity}
+          integer
+          align="right"
+          onCommit={(value) => onCellEdit(product, "stockQuantity", value)}
+        />
       </TableCell>
       <TableCell align="center">
         <EditableAutocompleteCell<SupplierOption>

@@ -25,7 +25,7 @@ const ddb = new DynamoDBClient({});
  * 出貨操作 Lambda 函式
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
- * - 扣減 ProductVariant（或 Product）的 stockQuantity
+ * - 扣減 Product 的 stockQuantity（庫存統一在商品層級管理）
  * - 更新 LineItem 的 shippedQuantity 與狀態為「已出貨」
  * - 條件性更新 Order 狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
  *
@@ -42,9 +42,8 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
-  const productVariantTable = process.env["PRODUCTVARIANT_TABLE_NAME"];
 
-  if (!lineItemTable || !orderTable || !productTable || !productVariantTable) {
+  if (!lineItemTable || !orderTable || !productTable) {
     return JSON.stringify({
       success: false,
       message: "缺少必要的環境變數設定",
@@ -86,50 +85,23 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       shippedQuantity,
     );
 
-    // 4. 取得庫存資訊（規格組合或商品層級）
-    const variantId = (lineItem["variantId"] as string | null) ?? null;
+    // 4. 取得庫存資訊（統一在商品層級管理）
     const productId = lineItem["productId"] as string;
-    let stockQuantity: number;
-    let stockTableName: string;
-    let stockKey: Record<string, string>;
 
-    if (variantId) {
-      // 規格組合層級庫存
-      const variantResult = await ddb.send(
-        new GetItemCommand({
-          TableName: productVariantTable,
-          Key: marshall({ id: variantId }),
-        }),
-      );
-      if (!variantResult.Item) {
-        return JSON.stringify({
-          success: false,
-          message: "找不到指定的規格組合",
-        });
-      }
-      const variant = unmarshall(variantResult.Item);
-      stockQuantity = variant["stockQuantity"] as number;
-      stockTableName = productVariantTable;
-      stockKey = { id: variantId };
-    } else {
-      // 商品層級庫存
-      const productResult = await ddb.send(
-        new GetItemCommand({
-          TableName: productTable,
-          Key: marshall({ id: productId }),
-        }),
-      );
-      if (!productResult.Item) {
-        return JSON.stringify({
-          success: false,
-          message: "找不到指定的商品",
-        });
-      }
-      const product = unmarshall(productResult.Item);
-      stockQuantity = product["stockQuantity"] as number;
-      stockTableName = productTable;
-      stockKey = { id: productId };
+    const productResult = await ddb.send(
+      new GetItemCommand({
+        TableName: productTable,
+        Key: marshall({ id: productId }),
+      }),
+    );
+    if (!productResult.Item) {
+      return JSON.stringify({
+        success: false,
+        message: "找不到指定的商品",
+      });
     }
+    const product = unmarshall(productResult.Item);
+    const stockQuantity = product["stockQuantity"] as number;
 
     // 5. 使用共用驗證函式檢查出貨數量與庫存
     const shipmentValidation = validateShipment(
@@ -195,11 +167,11 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]
     >["TransactItems"] = [];
 
-    // 8a. 扣減庫存
+    // 8a. 扣減庫存（商品層級）
     transactItems.push({
       Update: {
-        TableName: stockTableName,
-        Key: marshall(stockKey),
+        TableName: productTable,
+        Key: marshall({ id: productId }),
         UpdateExpression:
           "SET stockQuantity = stockQuantity - :qty, updatedAt = :now",
         ConditionExpression: "attribute_exists(id) AND stockQuantity >= :qty",

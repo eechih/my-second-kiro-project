@@ -87,7 +87,6 @@ const schema = a.schema({
       productId: a.id().required(),
       product: a.belongsTo("Product", "productId"),
       label: a.string().required(),
-      stockQuantity: a.integer().required().default(0),
       price: a.float(),
       cost: a.float(),
       lineItems: a.hasMany("LineItem", "variantId"),

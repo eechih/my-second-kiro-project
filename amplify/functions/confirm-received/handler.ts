@@ -15,7 +15,7 @@ const ddb = new DynamoDBClient({});
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
  * - 更新 LineItem 狀態為「已收到」並記錄 receivedAt
- * - 增加 ProductVariant（或 Product）的 stockQuantity
+ * - 增加 Product 的 stockQuantity（庫存統一在商品層級管理）
  *
  * 不再查詢 PurchaseRecord 表，直接從 LineItem 讀取 status 與 purchasedQuantity。
  *
@@ -32,9 +32,8 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
-  const productVariantTable = process.env["PRODUCTVARIANT_TABLE_NAME"];
 
-  if (!lineItemTable || !productTable || !productVariantTable) {
+  if (!lineItemTable || !productTable) {
     return JSON.stringify({
       success: false,
       message: "缺少必要的環境變數設定",
@@ -70,42 +69,20 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       });
     }
 
-    // 3. 取得庫存資訊（規格組合或商品層級）
-    const variantId = (lineItem["variantId"] as string | null) ?? null;
+    // 3. 取得庫存資訊（統一在商品層級管理）
     const productId = lineItem["productId"] as string;
-    let stockTableName: string;
-    let stockKey: Record<string, string>;
 
-    if (variantId) {
-      const variantResult = await ddb.send(
-        new GetItemCommand({
-          TableName: productVariantTable,
-          Key: marshall({ id: variantId }),
-        }),
-      );
-      if (!variantResult.Item) {
-        return JSON.stringify({
-          success: false,
-          message: "找不到指定的規格組合",
-        });
-      }
-      stockTableName = productVariantTable;
-      stockKey = { id: variantId };
-    } else {
-      const productResult = await ddb.send(
-        new GetItemCommand({
-          TableName: productTable,
-          Key: marshall({ id: productId }),
-        }),
-      );
-      if (!productResult.Item) {
-        return JSON.stringify({
-          success: false,
-          message: "找不到指定的商品",
-        });
-      }
-      stockTableName = productTable;
-      stockKey = { id: productId };
+    const productResult = await ddb.send(
+      new GetItemCommand({
+        TableName: productTable,
+        Key: marshall({ id: productId }),
+      }),
+    );
+    if (!productResult.Item) {
+      return JSON.stringify({
+        success: false,
+        message: "找不到指定的商品",
+      });
     }
 
     const now = new Date().toISOString();
@@ -133,11 +110,11 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       },
     });
 
-    // 4b. 增加庫存
+    // 4b. 增加庫存（商品層級）
     transactItems.push({
       Update: {
-        TableName: stockTableName,
-        Key: marshall(stockKey),
+        TableName: productTable,
+        Key: marshall({ id: productId }),
         UpdateExpression:
           "SET stockQuantity = stockQuantity + :qty, updatedAt = :now",
         ConditionExpression: "attribute_exists(id)",

@@ -10,8 +10,6 @@ export interface ProductVariant {
   id: string;
   /** 規格顯示標籤（如「黑」、「L」、「黑 L」） */
   label: string;
-  /** 規格庫存數量（>= 0） */
-  stockQuantity: number;
   /** 規格單價（null 表示沿用商品預設單價） */
   price: number | null;
   /** 規格成本（null 表示沿用商品預設成本） */
@@ -90,8 +88,6 @@ export interface UpdateProductInput {
 export interface CreateVariantInput {
   /** 規格顯示標籤（如「黑」、「L」、「黑 L」） */
   label: string;
-  /** 初始庫存數量（選填，預設 0） */
-  stockQuantity?: number;
   /** 規格單價（選填，null 表示沿用商品預設單價） */
   price?: number | null;
   /** 規格成本（選填，null 表示沿用商品預設成本） */
@@ -100,8 +96,6 @@ export interface CreateVariantInput {
 
 /** 更新規格組合輸入 */
 export interface UpdateVariantInput {
-  /** 庫存數量 */
-  stockQuantity?: number;
   /** 規格單價（null 表示沿用商品預設單價） */
   price?: number | null;
   /** 規格成本（null 表示沿用商品預設成本） */

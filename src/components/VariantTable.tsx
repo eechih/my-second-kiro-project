@@ -193,11 +193,6 @@ export function VariantTable({
           );
         },
       }) as ColumnDef<ProductVariant, unknown>,
-      columnHelper.accessor("stockQuantity", {
-        header: "庫存數量",
-        cell: (info) => info.getValue(),
-        enableSorting: true,
-      }) as ColumnDef<ProductVariant, unknown>,
       columnHelper.display({
         id: "actions",
         header: "操作",

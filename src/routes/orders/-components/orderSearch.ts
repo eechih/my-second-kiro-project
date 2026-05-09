@@ -69,10 +69,7 @@ function mapProduct(raw: Record<string, unknown>): Product {
     unitPrice: Number(raw.unitPrice ?? 0),
     defaultCost: Number(raw.defaultCost ?? 0),
     defaultSupplierId: raw.defaultSupplierId ? String(raw.defaultSupplierId) : null,
-    stockQuantity:
-      variants.length > 0
-        ? variants.reduce((sum, variant) => sum + variant.stockQuantity, 0)
-        : Number(raw.stockQuantity ?? 0),
+    stockQuantity: Number(raw.stockQuantity ?? 0),
     variants,
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
@@ -87,7 +84,6 @@ function mapVariant(raw: Record<string, unknown>): ProductVariant {
   return {
     id: String(raw.id ?? ""),
     label: String(raw.label ?? ""),
-    stockQuantity: Number(raw.stockQuantity ?? 0),
     price:
       raw.price !== null && raw.price !== undefined
         ? Number(raw.price)
