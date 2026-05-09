@@ -13,7 +13,7 @@ import Typography from "@mui/material/Typography";
 import { validateProcurementOrder } from "@shared/logic/procurement";
 import type { LineItem, Order, Supplier } from "@shared/models";
 import { useEffect, useState } from "react";
-import { searchSuppliers } from "./orderDetailUtils";
+import { searchSuppliers } from "../detail/detailUtils";
 
 export interface PurchaseDialogProps {
   open: boolean;

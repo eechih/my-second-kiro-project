@@ -12,8 +12,8 @@ import { getNextAllowedOrderStatuses } from "@shared/logic/order-status";
 import type { OrderStatus } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import { OrderInfoCard } from "./-components/OrderInfoCard";
-import { OrderLineItemsCard } from "./-components/OrderLineItemsCard";
+import { InfoCard } from "./-components/detail/InfoCard";
+import { LineItemsCard } from "./-components/detail/LineItemsCard";
 
 export const Route = createFileRoute("/orders/$orderId")({
   beforeLoad: requireAuth,
@@ -112,13 +112,13 @@ function OrderDetailPage(): React.ReactElement {
       )}
 
       <Stack spacing={3}>
-        <OrderInfoCard
+        <InfoCard
           order={order}
           allowedStatuses={allowedStatuses}
           statusPending={updateStatus.isPending}
           onStatusChange={(status) => void handleStatusChange(status)}
         />
-        <OrderLineItemsCard order={order} />
+        <LineItemsCard order={order} />
       </Stack>
     </Box>
   );

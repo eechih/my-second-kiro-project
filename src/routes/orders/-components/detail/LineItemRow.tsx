@@ -24,19 +24,19 @@ import { useState } from "react";
 import {
   formatDate,
   LINE_ITEM_STATUS_COLOR_MAP,
-} from "./orderDetailUtils";
-import { PurchaseDialog } from "./PurchaseDialog";
-import { ShipDialog } from "./ShipDialog";
+} from "./detailUtils";
+import { PurchaseDialog } from "../dialogs/PurchaseDialog";
+import { ShipDialog } from "../dialogs/ShipDialog";
 
-export interface OrderLineItemDetailRowProps {
+export interface LineItemRowProps {
   lineItem: LineItem;
   order: Order;
 }
 
-export function OrderLineItemDetailRow({
+export function LineItemRow({
   lineItem,
   order,
-}: OrderLineItemDetailRowProps): React.ReactElement {
+}: LineItemRowProps): React.ReactElement {
   const [expanded, setExpanded] = useState(false);
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [shipDialogOpen, setShipDialogOpen] = useState(false);

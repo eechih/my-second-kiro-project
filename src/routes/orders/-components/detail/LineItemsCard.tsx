@@ -8,15 +8,15 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { Order } from "@shared/models";
-import { OrderLineItemDetailRow } from "./OrderLineItemDetailRow";
+import { LineItemRow } from "./LineItemRow";
 
-export interface OrderLineItemsCardProps {
+export interface LineItemsCardProps {
   order: Order;
 }
 
-export function OrderLineItemsCard({
+export function LineItemsCard({
   order,
-}: OrderLineItemsCardProps): React.ReactElement {
+}: LineItemsCardProps): React.ReactElement {
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
@@ -40,7 +40,7 @@ export function OrderLineItemsCard({
           </TableHead>
           <TableBody>
             {order.lineItems.map((lineItem) => (
-              <OrderLineItemDetailRow
+              <LineItemRow
                 key={lineItem.id}
                 lineItem={lineItem}
                 order={order}

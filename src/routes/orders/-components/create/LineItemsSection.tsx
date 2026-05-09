@@ -9,10 +9,10 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import type { LineItemFormData } from "./orderFormTypes";
-import { OrderLineItemRow } from "./OrderLineItemRow";
+import type { LineItemFormData } from "./formTypes";
+import { LineItemRow } from "./LineItemRow";
 
-export interface OrderLineItemsSectionProps {
+export interface LineItemsSectionProps {
   lineItems: LineItemFormData[];
   totalAmount: number;
   onAddLineItem: () => void;
@@ -23,13 +23,13 @@ export interface OrderLineItemsSectionProps {
   ) => void;
 }
 
-export function OrderLineItemsSection({
+export function LineItemsSection({
   lineItems,
   totalAmount,
   onAddLineItem,
   onRemoveLineItem,
   onUpdateLineItem,
-}: OrderLineItemsSectionProps): React.ReactElement {
+}: LineItemsSectionProps): React.ReactElement {
   return (
     <Paper sx={{ p: 3 }}>
       <Box
@@ -75,7 +75,7 @@ export function OrderLineItemsSection({
             </TableHead>
             <TableBody>
               {lineItems.map((item, index) => (
-                <OrderLineItemRow
+                <LineItemRow
                   key={item.tempId}
                   item={item}
                   index={index}

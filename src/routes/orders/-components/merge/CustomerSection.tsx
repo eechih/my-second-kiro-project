@@ -9,7 +9,7 @@ export interface CustomerOption {
   name: string;
 }
 
-export interface OrderMergeCustomerSectionProps {
+export interface MergeCustomerSectionProps {
   selectedCustomer: CustomerOption | null;
   onCustomerChange: (customer: CustomerOption | null) => void;
 }
@@ -34,10 +34,10 @@ async function searchCustomers(query: string): Promise<CustomerOption[]> {
   }));
 }
 
-export function OrderMergeCustomerSection({
+export function MergeCustomerSection({
   selectedCustomer,
   onCustomerChange,
-}: OrderMergeCustomerSectionProps): React.ReactElement {
+}: MergeCustomerSectionProps): React.ReactElement {
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" sx={{ mb: 2 }}>

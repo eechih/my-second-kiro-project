@@ -17,7 +17,7 @@ const STATUS_OPTIONS = [
   })),
 ] as const satisfies readonly ListToolbarOption<OrderStatusFilter>[];
 
-export interface OrderToolbarProps {
+export interface ToolbarProps {
   search: string;
   onSearchChange: (value: string) => void;
   totalCount: number;
@@ -28,7 +28,7 @@ export interface OrderToolbarProps {
   onAddClick: () => void;
 }
 
-export function OrderToolbar({
+export function Toolbar({
   search,
   onSearchChange,
   totalCount,
@@ -37,7 +37,7 @@ export function OrderToolbar({
   mergeDisabled,
   onMergeClick,
   onAddClick,
-}: OrderToolbarProps): React.ReactElement {
+}: ToolbarProps): React.ReactElement {
   return (
     <ListToolbar
       search={search}

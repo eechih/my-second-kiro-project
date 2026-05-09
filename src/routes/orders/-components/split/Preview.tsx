@@ -17,15 +17,15 @@ export interface SplitPreviewGroup {
   totalAmount: number;
 }
 
-export interface OrderSplitPreviewProps {
+export interface SplitPreviewProps {
   groups: SplitPreviewGroup[];
   newOrderCount: number;
 }
 
-export function OrderSplitPreview({
+export function SplitPreview({
   groups,
   newOrderCount,
-}: OrderSplitPreviewProps): React.ReactElement | null {
+}: SplitPreviewProps): React.ReactElement | null {
   if (groups.length < 2) return null;
 
   return (

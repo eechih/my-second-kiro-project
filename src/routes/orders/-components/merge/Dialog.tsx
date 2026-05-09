@@ -10,7 +10,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 
-export interface OrderMergeDialogProps {
+export interface MergeDialogProps {
   open: boolean;
   orders: Order[];
   totalAmount: number;
@@ -22,7 +22,7 @@ export interface OrderMergeDialogProps {
   onConfirm: () => void;
 }
 
-export function OrderMergeDialog({
+export function MergeDialog({
   open,
   orders,
   totalAmount,
@@ -32,7 +32,7 @@ export function OrderMergeDialog({
   onClose,
   onClearError,
   onConfirm,
-}: OrderMergeDialogProps): React.ReactElement {
+}: MergeDialogProps): React.ReactElement {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>合併訂單</DialogTitle>

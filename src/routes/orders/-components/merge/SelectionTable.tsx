@@ -11,9 +11,9 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { Order } from "@shared/models";
-import { MergeOrderTableRow } from "./MergeOrderTableRow";
+import { SelectionTableRow } from "./SelectionTableRow";
 
-export interface OrderMergeSelectionTableProps {
+export interface MergeSelectionTableProps {
   orderIds: string[];
   selectedOrderIds: Set<string>;
   selectedCustomerId: string;
@@ -25,7 +25,7 @@ export interface OrderMergeSelectionTableProps {
   onOrderLoaded: (order: Order) => void;
 }
 
-export function OrderMergeSelectionTable({
+export function MergeSelectionTable({
   orderIds,
   selectedOrderIds,
   selectedCustomerId,
@@ -35,7 +35,7 @@ export function OrderMergeSelectionTable({
   onToggleOrder,
   onToggleSelectAll,
   onOrderLoaded,
-}: OrderMergeSelectionTableProps): React.ReactElement {
+}: MergeSelectionTableProps): React.ReactElement {
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" sx={{ mb: 2 }}>
@@ -80,7 +80,7 @@ export function OrderMergeSelectionTable({
             </TableHead>
             <TableBody>
               {orderIds.map((orderId) => (
-                <MergeOrderTableRow
+                <SelectionTableRow
                   key={orderId}
                   orderId={orderId}
                   selected={selectedOrderIds.has(orderId)}

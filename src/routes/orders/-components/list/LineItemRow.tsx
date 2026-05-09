@@ -7,7 +7,7 @@ import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { LINE_ITEM_STATUS_LABEL, type LineItem } from "@shared/models";
-import { LINE_ITEM_STATUS_COLOR } from "./orderTableUtils";
+import { LINE_ITEM_STATUS_COLOR } from "./tableUtils";
 
 type EditableStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
@@ -105,15 +105,15 @@ function isStatusFlagDisabled(
   );
 }
 
-export interface OrderLineItemTableRowProps {
+export interface LineItemRowProps {
   item: LineItem;
   orderId: string;
 }
 
-export function OrderLineItemTableRow({
+export function LineItemRow({
   item,
   orderId,
-}: OrderLineItemTableRowProps): React.ReactElement {
+}: LineItemRowProps): React.ReactElement {
   const updateLineItemStatusFlag = useUpdateLineItemStatusFlag();
 
   return (

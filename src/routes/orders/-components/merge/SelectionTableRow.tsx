@@ -16,7 +16,7 @@ const MERGEABLE_ORDER_STATUS_COLOR: Record<string, "warning" | "info"> = {
   confirmed: "info",
 };
 
-export interface MergeOrderTableRowProps {
+export interface SelectionTableRowProps {
   orderId: string;
   selected: boolean;
   selectedCustomerId: string;
@@ -24,13 +24,13 @@ export interface MergeOrderTableRowProps {
   onOrderLoaded: (order: Order) => void;
 }
 
-export function MergeOrderTableRow({
+export function SelectionTableRow({
   orderId,
   selected,
   selectedCustomerId,
   onToggle,
   onOrderLoaded,
-}: MergeOrderTableRowProps): React.ReactElement | null {
+}: SelectionTableRowProps): React.ReactElement | null {
   const { data: order, isLoading, error } = useOrder(orderId);
 
   useEffect(() => {

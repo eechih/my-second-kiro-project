@@ -2,19 +2,19 @@ import { EntitySelect } from "@/components/EntitySelect";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import type { Customer } from "@shared/models";
-import { searchCustomers } from "./orderSearch";
+import { searchCustomers } from "./search";
 
-export interface OrderCustomerSectionProps {
+export interface CustomerSectionProps {
   selectedCustomer: Customer | null;
   showError: boolean;
   onCustomerChange: (customer: Customer | null) => void;
 }
 
-export function OrderCustomerSection({
+export function CustomerSection({
   selectedCustomer,
   showError,
   onCustomerChange,
-}: OrderCustomerSectionProps): React.ReactElement {
+}: CustomerSectionProps): React.ReactElement {
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>

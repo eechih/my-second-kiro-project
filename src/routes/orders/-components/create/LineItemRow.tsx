@@ -11,22 +11,22 @@ import { calculateLineItemSubtotal } from "@shared/logic/order-calculations";
 import { resolveEffectivePrice } from "@shared/logic/product-variant";
 import type { Product, ProductVariant } from "@shared/models";
 import { useCallback, useEffect, useState } from "react";
-import type { LineItemFormData } from "./orderFormTypes";
-import { searchProducts } from "./orderSearch";
+import type { LineItemFormData } from "./formTypes";
+import { searchProducts } from "./search";
 
-export interface OrderLineItemRowProps {
+export interface LineItemRowProps {
   item: LineItemFormData;
   index: number;
   onRemove: () => void;
   onUpdate: (updates: Partial<LineItemFormData>) => void;
 }
 
-export function OrderLineItemRow({
+export function LineItemRow({
   item,
   index,
   onRemove,
   onUpdate,
-}: OrderLineItemRowProps): React.ReactElement {
+}: LineItemRowProps): React.ReactElement {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     null,

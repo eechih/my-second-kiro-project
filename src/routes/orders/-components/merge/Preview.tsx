@@ -6,7 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 
-export interface OrderMergePreviewProps {
+export interface MergePreviewProps {
   selectedOrderCount: number;
   totalAmount: number;
   lineItemCount: number;
@@ -14,13 +14,13 @@ export interface OrderMergePreviewProps {
   onMerge: () => void;
 }
 
-export function OrderMergePreview({
+export function MergePreview({
   selectedOrderCount,
   totalAmount,
   lineItemCount,
   isPending,
   onMerge,
-}: OrderMergePreviewProps): React.ReactElement | null {
+}: MergePreviewProps): React.ReactElement | null {
   if (selectedOrderCount < 2) return null;
 
   return (

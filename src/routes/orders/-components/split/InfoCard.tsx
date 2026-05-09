@@ -3,13 +3,13 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import type { Order } from "@shared/models";
 
-export interface OrderSplitInfoCardProps {
+export interface SplitInfoCardProps {
   order: Order;
 }
 
-export function OrderSplitInfoCard({
+export function SplitInfoCard({
   order,
-}: OrderSplitInfoCardProps): React.ReactElement {
+}: SplitInfoCardProps): React.ReactElement {
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" sx={{ mb: 1 }}>

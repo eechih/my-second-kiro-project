@@ -3,19 +3,19 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 
-export interface OrderSplitActionsProps {
+export interface SplitActionsProps {
   isPending: boolean;
   disabled: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function OrderSplitActions({
+export function SplitActions({
   isPending,
   disabled,
   onConfirm,
   onCancel,
-}: OrderSplitActionsProps): React.ReactElement {
+}: SplitActionsProps): React.ReactElement {
   return (
     <Box sx={{ display: "flex", gap: 2 }}>
       <Button

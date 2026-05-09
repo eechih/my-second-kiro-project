@@ -9,13 +9,13 @@ import type { Customer } from "@shared/models";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import { OrderCustomerSection } from "./-components/OrderCustomerSection";
-import { OrderFormActions } from "./-components/OrderFormActions";
-import { OrderLineItemsSection } from "./-components/OrderLineItemsSection";
+import { CustomerSection } from "./-components/create/CustomerSection";
+import { FormActions } from "./-components/create/FormActions";
+import { LineItemsSection } from "./-components/create/LineItemsSection";
 import {
   generateTempId,
   type LineItemFormData,
-} from "./-components/orderFormTypes";
+} from "./-components/create/formTypes";
 
 export const Route = createFileRoute("/orders/new")({
   beforeLoad: requireAuth,
@@ -156,13 +156,13 @@ function OrderNewPage() {
         }}
       >
         <Stack spacing={3}>
-          <OrderCustomerSection
+          <CustomerSection
             selectedCustomer={selectedCustomer}
             showError={form.state.isSubmitted && !selectedCustomer}
             onCustomerChange={handleCustomerChange}
           />
 
-          <OrderLineItemsSection
+          <LineItemsSection
             lineItems={lineItems}
             totalAmount={totalAmount}
             onAddLineItem={handleAddLineItem}
@@ -170,7 +170,7 @@ function OrderNewPage() {
             onUpdateLineItem={handleUpdateLineItem}
           />
 
-          <OrderFormActions
+          <FormActions
             isSubmitting={createMutation.isPending}
             onCancel={() => void navigate({ to: "/orders" })}
           />

@@ -12,21 +12,21 @@ import {
   formatOrderDate,
   formatOrderTime,
   ORDER_STATUS_LABEL,
-} from "./orderTableUtils";
+} from "./tableUtils";
 
-export interface OrderMainTableRowProps {
+export interface MainRowProps {
   order: Order;
   selected?: boolean;
   onEdit: (orderId: string) => void;
   onSelectionChange?: (selected: boolean) => void;
 }
 
-export function OrderMainTableRow({
+export function MainRow({
   order,
   selected = false,
   onEdit,
   onSelectionChange,
-}: OrderMainTableRowProps): React.ReactElement {
+}: MainRowProps): React.ReactElement {
   return (
     <TableRow hover sx={{ "& .MuiTableCell-root": { padding: "10px 5px" } }}>
       <TableCell padding="checkbox">

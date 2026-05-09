@@ -8,8 +8,8 @@ import TableContainer from "@mui/material/TableContainer";
 import Typography from "@mui/material/Typography";
 import type { Order } from "@shared/models";
 import { useEffect } from "react";
-import { OrderLineItemsTable } from "./OrderLineItemsTable";
-import { OrderMainTableRow } from "./OrderMainTableRow";
+import { LineItemsTable } from "./LineItemsTable";
+import { MainRow } from "./MainRow";
 
 export interface OrderTableRowProps {
   orderId: string;
@@ -68,7 +68,7 @@ export function OrderTableRow({
         }}
       >
         <TableBody>
-          <OrderMainTableRow
+          <MainRow
             order={order}
             selected={selected}
             onEdit={onEdit}
@@ -76,7 +76,7 @@ export function OrderTableRow({
           />
         </TableBody>
       </Table>
-      <OrderLineItemsTable
+      <LineItemsTable
         lineItems={order.lineItems}
         orderId={order.id}
       />

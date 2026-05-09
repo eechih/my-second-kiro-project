@@ -13,13 +13,13 @@ import { validateSplitOrder } from "@shared/logic/order-split";
 import type { LineItem, SplitAllocation } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { OrderSplitActions } from "./-components/OrderSplitActions";
-import { OrderSplitAllocationTable } from "./-components/OrderSplitAllocationTable";
-import { OrderSplitInfoCard } from "./-components/OrderSplitInfoCard";
+import { SplitActions } from "./-components/split/Actions";
+import { SplitAllocationTable } from "./-components/split/AllocationTable";
+import { SplitInfoCard } from "./-components/split/InfoCard";
 import {
-  OrderSplitPreview,
+  SplitPreview,
   type SplitPreviewGroup,
-} from "./-components/OrderSplitPreview";
+} from "./-components/split/Preview";
 
 export const Route = createFileRoute("/orders/$orderId/split")({
   beforeLoad: requireAuth,
@@ -191,11 +191,11 @@ function OrderSplitPage() {
         </Alert>
       )}
 
-      <OrderSplitInfoCard order={order} />
+      <SplitInfoCard order={order} />
 
       {/* 明細分配 */}
       {canSplit && (
-        <OrderSplitAllocationTable
+        <SplitAllocationTable
           order={order}
           allocations={allocations}
           maxNewOrders={maxNewOrders}
@@ -204,14 +204,14 @@ function OrderSplitPage() {
       )}
 
       {canSplit && (
-        <OrderSplitPreview
+        <SplitPreview
           groups={splitPreview}
           newOrderCount={usedOrderIndices.size}
         />
       )}
 
       {canSplit && (
-        <OrderSplitActions
+        <SplitActions
           isPending={splitOrder.isPending}
           disabled={
             splitOrder.isPending ||

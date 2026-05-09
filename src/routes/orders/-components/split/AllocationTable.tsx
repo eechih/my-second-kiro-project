@@ -11,19 +11,19 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { Order } from "@shared/models";
 
-export interface OrderSplitAllocationTableProps {
+export interface SplitAllocationTableProps {
   order: Order;
   allocations: Map<string, number>;
   maxNewOrders: number;
   onAllocationChange: (lineItemId: string, targetIndex: number) => void;
 }
 
-export function OrderSplitAllocationTable({
+export function SplitAllocationTable({
   order,
   allocations,
   maxNewOrders,
   onAllocationChange,
-}: OrderSplitAllocationTableProps): React.ReactElement {
+}: SplitAllocationTableProps): React.ReactElement {
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" sx={{ mb: 2 }}>

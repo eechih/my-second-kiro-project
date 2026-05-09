@@ -11,11 +11,11 @@ import type { Order } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import {
-  OrderMergeCustomerSection,
+  MergeCustomerSection,
   type CustomerOption,
-} from "./-components/OrderMergeCustomerSection";
-import { OrderMergePreview } from "./-components/OrderMergePreview";
-import { OrderMergeSelectionTable } from "./-components/OrderMergeSelectionTable";
+} from "./-components/merge/CustomerSection";
+import { MergePreview } from "./-components/merge/Preview";
+import { MergeSelectionTable } from "./-components/merge/SelectionTable";
 
 export const Route = createFileRoute("/orders/merge")({
   beforeLoad: requireAuth,
@@ -173,7 +173,7 @@ function OrderMergePage() {
         </Alert>
       )}
 
-      <OrderMergeCustomerSection
+      <MergeCustomerSection
         selectedCustomer={selectedCustomer}
         onCustomerChange={(customer) => {
           setSelectedCustomer(customer);
@@ -184,7 +184,7 @@ function OrderMergePage() {
       />
 
       {selectedCustomer && (
-        <OrderMergeSelectionTable
+        <MergeSelectionTable
           orderIds={orderIds}
           selectedOrderIds={selectedOrderIds}
           selectedCustomerId={selectedCustomer.id}
@@ -197,7 +197,7 @@ function OrderMergePage() {
         />
       )}
 
-      <OrderMergePreview
+      <MergePreview
         selectedOrderCount={selectedOrderIds.size}
         totalAmount={totalMergedAmount}
         lineItemCount={totalLineItemCount}

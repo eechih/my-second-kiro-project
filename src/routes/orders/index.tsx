@@ -13,9 +13,9 @@ import { validateMergeOrders } from "@shared/logic/order-merge";
 import type { Order } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { OrderMergeDialog } from "./-components/OrderMergeDialog";
-import { OrderTable } from "./-components/OrderTable";
-import { OrderToolbar } from "./-components/OrderToolbar";
+import { MergeDialog } from "./-components/merge/Dialog";
+import { OrderTable } from "./-components/list/OrderTable";
+import { Toolbar } from "./-components/list/Toolbar";
 
 export const Route = createFileRoute("/orders/")({
   beforeLoad: requireAuth,
@@ -176,7 +176,7 @@ function OrderListPage(): React.ReactElement {
         </Alert>
       )}
 
-      <OrderToolbar
+      <Toolbar
         search={search}
         onSearchChange={(value) => {
           setSearch(value);
@@ -215,7 +215,7 @@ function OrderListPage(): React.ReactElement {
         currentCount={orderIds.length}
       />
 
-      <OrderMergeDialog
+      <MergeDialog
         open={mergeDialogOpen}
         orders={selectedOrders}
         totalAmount={selectedOrderTotalAmount}

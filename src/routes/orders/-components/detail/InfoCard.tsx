@@ -11,25 +11,25 @@ import {
   formatDate,
   ORDER_STATUS_COLOR_MAP,
   ORDER_STATUS_LABEL,
-} from "./orderDetailUtils";
+} from "./detailUtils";
 
 function formatOrderStatus(status: string): string {
   return isOrderStatus(status) ? ORDER_STATUS_LABEL[status] : status;
 }
 
-export interface OrderInfoCardProps {
+export interface InfoCardProps {
   order: Order;
   allowedStatuses: OrderStatus[];
   statusPending: boolean;
   onStatusChange: (status: OrderStatus) => void;
 }
 
-export function OrderInfoCard({
+export function InfoCard({
   order,
   allowedStatuses,
   statusPending,
   onStatusChange,
-}: OrderInfoCardProps): React.ReactElement {
+}: InfoCardProps): React.ReactElement {
   return (
     <Paper sx={{ p: 3 }}>
       <Box
