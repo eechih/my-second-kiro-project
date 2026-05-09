@@ -9,20 +9,34 @@
 // ---------------------------------------------------------------------------
 
 /** 訂單狀態 */
-export type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "shipping"
-  | "completed"
-  | "cancelled";
+export const ORDER_STATUSES = [
+  "pending",
+  "confirmed",
+  "shipping",
+  "completed",
+  "cancelled",
+] as const;
+
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 /** 明細項目狀態 */
-export type LineItemStatus =
-  | "pending"
-  | "ordered"
-  | "received"
-  | "shipped"
-  | "out_of_stock";
+export const LINE_ITEM_STATUSES = [
+  "pending",
+  "ordered",
+  "received",
+  "shipped",
+  "out_of_stock",
+] as const;
+
+export type LineItemStatus = (typeof LINE_ITEM_STATUSES)[number];
+
+export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+  pending: "待處理",
+  confirmed: "已確認",
+  shipping: "出貨中",
+  completed: "已完成",
+  cancelled: "已取消",
+};
 
 export const LINE_ITEM_STATUS_LABEL: Record<LineItemStatus, string> = {
   pending: "待處理",
@@ -40,9 +54,30 @@ const LEGACY_LINE_ITEM_STATUS_MAP: Record<string, LineItemStatus> = {
   缺貨: "out_of_stock",
 };
 
+export function isOrderStatus(value: unknown): value is OrderStatus {
+  return (
+    typeof value === "string" &&
+    (ORDER_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+export function normalizeOrderStatus(value: unknown): OrderStatus {
+  return isOrderStatus(value) ? value : "pending";
+}
+
+export function isLineItemStatus(value: unknown): value is LineItemStatus {
+  return (
+    typeof value === "string" &&
+    (LINE_ITEM_STATUSES as readonly string[]).includes(value)
+  );
+}
+
 export function normalizeLineItemStatus(value: unknown): LineItemStatus {
+  if (isLineItemStatus(value)) {
+    return value;
+  }
+
   if (typeof value === "string") {
-    if (value in LINE_ITEM_STATUS_LABEL) return value as LineItemStatus;
     if (value in LEGACY_LINE_ITEM_STATUS_MAP) {
       return LEGACY_LINE_ITEM_STATUS_MAP[value]!;
     }

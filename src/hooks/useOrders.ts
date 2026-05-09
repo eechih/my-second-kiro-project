@@ -8,6 +8,7 @@ import { validateSplitOrder } from "@shared/logic/order-split";
 import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 import {
   normalizeLineItemStatus,
+  normalizeOrderStatus,
   type CreateOrderInput,
   type LineItem,
   type LineItemStatus,
@@ -293,7 +294,7 @@ function mapToOrder(raw: Record<string, unknown>): Order {
     customerName: String(raw.customerName ?? ""),
     lineItems,
     totalAmount: Number(raw.totalAmount ?? 0),
-    status: (raw.status as OrderStatus) ?? "pending",
+    status: normalizeOrderStatus(raw.status),
     statusHistory,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),

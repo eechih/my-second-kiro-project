@@ -7,15 +7,13 @@ import CircularProgress from "@mui/material/CircularProgress";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import { ORDER_STATUS_LABEL } from "@shared/models";
 import type { Order } from "@shared/models";
 import { useEffect } from "react";
 
-const ORDER_STATUS_LABEL: Record<string, string> = {
-  pending: "待處理",
-  confirmed: "已確認",
-  shipping: "出貨中",
-  completed: "已完成",
-  cancelled: "已取消",
+const MERGEABLE_ORDER_STATUS_COLOR: Record<string, "warning" | "info"> = {
+  pending: "warning",
+  confirmed: "info",
 };
 
 export interface MergeOrderTableRowProps {
@@ -89,11 +87,9 @@ export function MergeOrderTableRow({
       <TableCell>{order.orderNumber}</TableCell>
       <TableCell align="center">
         <StatusChip
-          status={ORDER_STATUS_LABEL[order.status] ?? order.status}
-          colorMap={{
-            待處理: "warning",
-            已確認: "info",
-          }}
+          status={order.status}
+          label={ORDER_STATUS_LABEL[order.status]}
+          colorMap={MERGEABLE_ORDER_STATUS_COLOR}
         />
       </TableCell>
       <TableCell align="right">${order.totalAmount.toLocaleString()}</TableCell>

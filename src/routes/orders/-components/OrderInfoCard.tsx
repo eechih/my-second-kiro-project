@@ -5,12 +5,17 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import { isOrderStatus } from "@shared/models";
 import type { Order, OrderStatus } from "@shared/models";
 import {
   formatDate,
   ORDER_STATUS_COLOR_MAP,
   ORDER_STATUS_LABEL,
 } from "./orderDetailUtils";
+
+function formatOrderStatus(status: string): string {
+  return isOrderStatus(status) ? ORDER_STATUS_LABEL[status] : status;
+}
 
 export interface OrderInfoCardProps {
   order: Order;
@@ -55,14 +60,9 @@ export function OrderInfoCard({
           }}
         >
           <StatusChip
-            status={ORDER_STATUS_LABEL[order.status] ?? order.status}
-            colorMap={{
-              待處理: "warning",
-              已確認: "info",
-              出貨中: "primary",
-              已完成: "success",
-              已取消: "error",
-            }}
+            status={order.status}
+            label={ORDER_STATUS_LABEL[order.status]}
+            colorMap={ORDER_STATUS_COLOR_MAP}
           />
           {allowedStatuses.length > 0 && (
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -70,12 +70,12 @@ export function OrderInfoCard({
                 <Button
                   key={status}
                   size="small"
-                  variant="outlined"
-                  color={ORDER_STATUS_COLOR_MAP[status] ?? "inherit"}
+                variant="outlined"
+                color={ORDER_STATUS_COLOR_MAP[status] ?? "inherit"}
                   onClick={() => onStatusChange(status)}
                   disabled={statusPending}
                 >
-                  變更為「{ORDER_STATUS_LABEL[status] ?? status}」
+                  變更為「{ORDER_STATUS_LABEL[status]}」
                 </Button>
               ))}
             </Box>
@@ -95,7 +95,7 @@ export function OrderInfoCard({
                 key={index}
                 size="small"
                 variant="outlined"
-                label={`${ORDER_STATUS_LABEL[change.fromStatus] ?? change.fromStatus} → ${ORDER_STATUS_LABEL[change.toStatus] ?? change.toStatus}（${formatDate(change.changedAt)}）`}
+                label={`${formatOrderStatus(change.fromStatus)} → ${formatOrderStatus(change.toStatus)}（${formatDate(change.changedAt)}）`}
               />
             ))}
           </Box>

@@ -7,7 +7,10 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { isValidOrderStatusTransition } from "../../../shared/logic/order-status";
-import type { OrderStatus } from "../../../shared/models/order";
+import {
+  normalizeOrderStatus,
+  type OrderStatus,
+} from "../../../shared/models/order";
 
 const ddb = new DynamoDBClient({});
 
@@ -68,7 +71,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     }
 
     const order = unmarshall(orderResult.Item);
-    const currentStatus = order["status"] as OrderStatus;
+    const currentStatus = normalizeOrderStatus(order["status"]);
 
     // 2. 驗證訂單狀態——僅 pending 或 confirmed 可分拆
     const splittableStatuses = new Set<string>(["pending", "confirmed"]);

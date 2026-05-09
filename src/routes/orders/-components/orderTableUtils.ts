@@ -1,10 +1,6 @@
-export const ORDER_STATUS_LABEL: Record<string, string> = {
-  pending: "待處理",
-  confirmed: "已確認",
-  shipping: "出貨中",
-  completed: "已完成",
-  cancelled: "已取消",
-};
+import { ORDER_STATUS_LABEL } from "@shared/models";
+
+export { ORDER_STATUS_LABEL };
 
 export const LINE_ITEM_STATUS_COLOR: Record<
   string,

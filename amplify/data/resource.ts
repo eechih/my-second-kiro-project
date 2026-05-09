@@ -3,6 +3,7 @@ import { shipLineItem } from "../functions/ship-line-item/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
 import { splitOrder } from "../functions/split-order/resource";
+import { LINE_ITEM_STATUSES, ORDER_STATUSES } from "../../shared/models/order";
 
 /**
  * 電子商務訂單管理系統 — Amplify Gen2 Data Schema
@@ -10,8 +11,8 @@ import { splitOrder } from "../functions/split-order/resource";
  * 模型：
  * - Customer：客戶基本資料（含軟刪除 isActive 欄位）
  * - Supplier：供應商基本資料（含軟刪除 isActive 欄位）
- * - Product：商品基本資料（含規格維度、照片、樂觀併發控制）
- * - ProductVariant：商品規格組合（獨立庫存）
+ * - Product：商品基本資料（含照片、商品層級庫存、預設售價與成本）
+ * - ProductVariant：商品規格選項（只保存顯示標籤與價格/成本偏移）
  * - Order：訂單（單一 id 主鍵，透過 GSI 依建立日期排序）
  * - LineItem：訂單明細項目（含規格組合關聯、採購數據內嵌）
  *
@@ -23,7 +24,16 @@ import { splitOrder } from "../functions/split-order/resource";
  *
  * 授權規則：僅已驗證使用者可存取
  */
+const PRODUCT_SORT_PARTITION = "Product";
+const ORDER_SORT_PARTITION = "Order";
+
 const schema = a.schema({
+  // ---------------------------------------------------------------------------
+  // Enums
+  // ---------------------------------------------------------------------------
+  OrderStatus: a.enum(ORDER_STATUSES),
+  LineItemStatus: a.enum(LINE_ITEM_STATUSES),
+
   // ---------------------------------------------------------------------------
   // Customer（客戶）
   // ---------------------------------------------------------------------------
@@ -66,7 +76,7 @@ const schema = a.schema({
       imageUrls: a.string().array(),
       isActive: a.boolean().required().default(true),
       /** GSI 分區鍵：固定值 "Product"，用於按建立日期排序查詢全部商品 */
-      gsiPartition: a.string().required().default("Product"),
+      gsiPartition: a.string().required().default(PRODUCT_SORT_PARTITION),
       /** 建立時間（ISO 8601），用於 GSI 排序，避免與 Amplify 內建 createdAt 混淆 */
       createdAtForSort: a.datetime(),
       variants: a.hasMany("ProductVariant", "productId"),
@@ -80,11 +90,11 @@ const schema = a.schema({
     .authorization((allow) => [allow.authenticated()]),
 
   // ---------------------------------------------------------------------------
-  // ProductVariant（商品規格組合）
+  // ProductVariant（商品規格選項）
   // ---------------------------------------------------------------------------
   ProductVariant: a
     .model({
-      productId: a.id().required(),
+      productId: a.string().required(),
       product: a.belongsTo("Product", "productId"),
       label: a.string().required(),
       priceOffset: a.float(),
@@ -103,10 +113,10 @@ const schema = a.schema({
       orderNumber: a.string().required(),
       customerName: a.string().required(),
       totalAmount: a.float().required(),
-      status: a.string().required().default("pending"),
+      status: a.ref("OrderStatus").required(),
       statusHistory: a.json(),
       /** GSI 分區鍵：固定值 "Order"，用於按建立日期排序查詢全部訂單 */
-      gsiPartition: a.string().required().default("Order"),
+      gsiPartition: a.string().required().default(ORDER_SORT_PARTITION),
       /** 建立時間（ISO 8601），用於 GSI 排序，避免與 Amplify 內建 createdAt 混淆 */
       createdAtForSort: a.datetime(),
       lineItems: a.hasMany("LineItem", "orderId"),
@@ -134,7 +144,7 @@ const schema = a.schema({
       quantity: a.integer().required(),
       unitPrice: a.float().required(),
       subtotal: a.float().required(),
-      status: a.string().required().default("pending"),
+      status: a.ref("LineItemStatus").required(),
       purchasedQuantity: a.integer().required().default(0),
       shippedQuantity: a.integer().required().default(0),
       purchasedAt: a.datetime(),

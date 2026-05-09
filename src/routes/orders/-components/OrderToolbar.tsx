@@ -7,14 +7,14 @@ import MergeIcon from "@mui/icons-material/CallMerge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import type { OrderStatusFilter } from "@/hooks/useOrders";
+import { ORDER_STATUSES, ORDER_STATUS_LABEL } from "@shared/models";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "全部狀態" },
-  { value: "pending", label: "待處理" },
-  { value: "confirmed", label: "已確認" },
-  { value: "shipping", label: "出貨中" },
-  { value: "completed", label: "已完成" },
-  { value: "cancelled", label: "已取消" },
+  ...ORDER_STATUSES.map((status) => ({
+    value: status,
+    label: ORDER_STATUS_LABEL[status],
+  })),
 ] as const satisfies readonly ListToolbarOption<OrderStatusFilter>[];
 
 export interface OrderToolbarProps {

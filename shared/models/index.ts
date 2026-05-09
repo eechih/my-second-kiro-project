@@ -38,4 +38,13 @@ export type {
   SplitOrderInput,
 } from "./order";
 
-export { LINE_ITEM_STATUS_LABEL, normalizeLineItemStatus } from "./order";
+export {
+  LINE_ITEM_STATUSES,
+  LINE_ITEM_STATUS_LABEL,
+  ORDER_STATUSES,
+  ORDER_STATUS_LABEL,
+  isLineItemStatus,
+  isOrderStatus,
+  normalizeLineItemStatus,
+  normalizeOrderStatus,
+} from "./order";

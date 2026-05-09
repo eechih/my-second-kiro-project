@@ -9,9 +9,9 @@ import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { validateMergeOrders } from "../../../shared/logic/order-merge";
 import {
   normalizeLineItemStatus,
+  normalizeOrderStatus,
   type LineItem,
   type Order,
-  type OrderStatus,
 } from "../../../shared/models/order";
 
 const ddb = new DynamoDBClient({});
@@ -78,7 +78,7 @@ function mapOrder(raw: DdbRecord, lineItems: LineItem[]): Order {
     customerName: String(raw["customerName"] ?? ""),
     lineItems,
     totalAmount: Number(raw["totalAmount"] ?? 0),
-    status: raw["status"] as OrderStatus,
+    status: normalizeOrderStatus(raw["status"]),
     statusHistory: Array.isArray(raw["statusHistory"])
       ? (raw["statusHistory"] as Order["statusHistory"])
       : [],
@@ -245,7 +245,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 
     // 3c. 將所有來源 Orders 狀態變更為 cancelled
     for (const order of orderRecords) {
-      const currentStatus = order["status"] as OrderStatus;
+      const currentStatus = normalizeOrderStatus(order["status"]);
       const existingHistory =
         (order["statusHistory"] as Record<string, unknown>[]) ?? [];
       const newHistoryEntry = {

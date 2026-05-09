@@ -1,9 +1,10 @@
 import { client } from "@/lib/amplify-client";
-import type { Supplier } from "@shared/models";
+import { ORDER_STATUS_LABEL } from "@shared/models";
+import type { OrderStatus, Supplier } from "@shared/models";
 
 export const ORDER_STATUS_COLOR_MAP: Record<
-  string,
-  "primary" | "secondary" | "error" | "info" | "success" | "warning" | "inherit"
+  OrderStatus,
+  "primary" | "secondary" | "error" | "info" | "success" | "warning"
 > = {
   pending: "warning",
   confirmed: "info",
@@ -12,13 +13,7 @@ export const ORDER_STATUS_COLOR_MAP: Record<
   cancelled: "error",
 };
 
-export const ORDER_STATUS_LABEL: Record<string, string> = {
-  pending: "待處理",
-  confirmed: "已確認",
-  shipping: "出貨中",
-  completed: "已完成",
-  cancelled: "已取消",
-};
+export { ORDER_STATUS_LABEL };
 
 export const LINE_ITEM_STATUS_COLOR_MAP: Record<
   string,

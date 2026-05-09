@@ -15,8 +15,8 @@ import {
 } from "../../../shared/logic/shipment";
 import {
   normalizeLineItemStatus,
+  normalizeOrderStatus,
   type LineItemStatus,
-  type OrderStatus,
 } from "../../../shared/models/order";
 
 const ddb = new DynamoDBClient({});
@@ -159,7 +159,7 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     }
 
     const order = unmarshall(orderResult.Item);
-    const currentOrderStatus = order["status"] as OrderStatus;
+    const currentOrderStatus = normalizeOrderStatus(order["status"]);
     const now = new Date().toISOString();
 
     // 8. 建立交易項目
