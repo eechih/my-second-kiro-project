@@ -40,8 +40,7 @@ function generateOrderNumber(): string {
 export const handler: Schema["splitOrder"]["functionHandler"] = async (
   event,
 ) => {
-  const { orderId, orderSortKey, allocations: allocationsRaw } =
-    event.arguments;
+  const { orderId, allocations: allocationsRaw } = event.arguments;
 
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
@@ -60,7 +59,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     const orderResult = await ddb.send(
       new GetItemCommand({
         TableName: orderTable,
-        Key: marshall({ customerId: orderId, sortKey: orderSortKey }),
+        Key: marshall({ id: orderId }),
       }),
     );
 
@@ -99,11 +98,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     );
 
     const allLineItems = (lineItemsResult.Items ?? [])
-      .map((rawItem) => unmarshall(rawItem))
-      .filter(
-        (item) =>
-          item["orderSortKey"] === orderSortKey,
-      );
+      .map((rawItem) => unmarshall(rawItem));
 
     const lineItemMap = new Map<string, Record<string, unknown>>();
     for (const li of allLineItems) {
@@ -168,8 +163,15 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]
     >["TransactItems"] = [];
     const newOrders: {
+      id: string;
       orderNumber: string;
-      sortKey: string;
+      customerId: string;
+      customerName: string;
+      status: OrderStatus;
+      statusHistory: Record<string, unknown>[];
+      lineItems: Record<string, unknown>[];
+      createdAt: string;
+      updatedAt: string;
       totalAmount: number;
       lineItemCount: number;
     }[] = [];
@@ -179,7 +181,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     for (const index of sortedIndices) {
       const lineItems = groupedLineItems.get(index)!;
       const newOrderNumber = generateOrderNumber();
-      const newSortKey = `ORDER#${now}-${String(index)}`;
+      const newOrderId = crypto.randomUUID();
 
       // 計算新訂單總金額
       let totalAmount = 0;
@@ -193,12 +195,14 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
         Put: {
           TableName: orderTable,
           Item: marshall({
+            id: newOrderId,
             customerId,
-            sortKey: newSortKey,
             orderNumber: newOrderNumber,
             customerName,
             totalAmount,
             status: "pending",
+            gsiPartition: "Order",
+            createdAtForSort: now,
             statusHistory: [
               {
                 fromStatus: "created",
@@ -213,8 +217,15 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       });
 
       newOrders.push({
+        id: newOrderId,
         orderNumber: newOrderNumber,
-        sortKey: newSortKey,
+        customerId,
+        customerName,
+        status: "pending",
+        statusHistory: [],
+        lineItems: [],
+        createdAt: now,
+        updatedAt: now,
         totalAmount,
         lineItemCount: lineItems.length,
       });
@@ -225,11 +236,9 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
           Update: {
             TableName: lineItemTable,
             Key: marshall({ id: li["id"] as string }),
-            UpdateExpression:
-              "SET orderId = :newOrderId, orderSortKey = :newSortKey, updatedAt = :now",
+            UpdateExpression: "SET orderId = :newOrderId, updatedAt = :now",
             ExpressionAttributeValues: marshall({
-              ":newOrderId": customerId,
-              ":newSortKey": newSortKey,
+              ":newOrderId": newOrderId,
               ":now": now,
             }),
           },
@@ -251,7 +260,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       transactItems.push({
         Update: {
           TableName: orderTable,
-          Key: marshall({ customerId: orderId, sortKey: orderSortKey }),
+          Key: marshall({ id: orderId }),
           UpdateExpression:
             "SET #st = :cancelled, statusHistory = :history, updatedAt = :now",
           ExpressionAttributeNames: { "#st": "status" },
@@ -282,7 +291,6 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       message: "訂單分拆成功",
       data: {
         originalOrderId: orderId,
-        originalOrderSortKey: orderSortKey,
         newOrders,
       },
     });

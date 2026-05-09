@@ -29,8 +29,7 @@ const ddb = new DynamoDBClient({});
 export const handler: Schema["confirmReceived"]["functionHandler"] = async (
   event,
 ) => {
-  const { lineItemId, orderId: _orderId, orderSortKey: _orderSortKey } =
-    event.arguments;
+  const { lineItemId } = event.arguments;
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];

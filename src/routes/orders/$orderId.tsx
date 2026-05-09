@@ -31,11 +31,9 @@ function OrderDetailPage(): React.ReactElement {
     async (newStatus: OrderStatus) => {
       if (!order) return;
       setStatusError(null);
-      const [customerId, sortKey] = order.id.split("|");
       try {
         await updateStatus.mutateAsync({
-          orderId: customerId ?? "",
-          orderSortKey: sortKey ?? "",
+          orderId: order.id,
           currentStatus: order.status,
           newStatus,
           statusHistory: order.statusHistory,

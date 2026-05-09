@@ -7,13 +7,11 @@ import { OrderLineItemTableRow } from "./OrderLineItemTableRow";
 export interface OrderLineItemsTableProps {
   lineItems: LineItem[];
   orderId: string;
-  orderSortKey: string;
 }
 
 export function OrderLineItemsTable({
   lineItems,
   orderId,
-  orderSortKey,
 }: OrderLineItemsTableProps): React.ReactElement {
   return (
     <Box>
@@ -24,7 +22,6 @@ export function OrderLineItemsTable({
               key={item.id}
               item={item}
               orderId={orderId}
-              orderSortKey={orderSortKey}
             />
           ))}
         </TableBody>

@@ -54,8 +54,7 @@ export function OrderLineItemDetailRow({
     try {
       await confirmReceived.mutateAsync({
         lineItemId: lineItem.id,
-        orderId: order.customerId,
-        orderSortKey: order.id.split("|")[1] ?? "",
+        orderId: order.id,
       });
     } catch (err) {
       setConfirmError(err instanceof Error ? err.message : "入庫確認失敗");

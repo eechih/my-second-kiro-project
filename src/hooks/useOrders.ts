@@ -54,11 +54,11 @@ const ORDER_KEYS = {
 // Constants
 // ---------------------------------------------------------------------------
 
-const ORDER_LIST_SELECTION_SET = ["customerId", "sortKey"] as const;
+const ORDER_LIST_SELECTION_SET = ["id"] as const;
 
 const ORDER_DETAIL_SELECTION_SET = [
+  "id",
   "customerId",
-  "sortKey",
   "orderNumber",
   "customerName",
   "totalAmount",
@@ -66,12 +66,13 @@ const ORDER_DETAIL_SELECTION_SET = [
   "statusHistory",
   "createdAt",
   "updatedAt",
+  "createdAtForSort",
   "lineItems.*",
 ] as const;
 
 const ORDER_VALIDATION_SELECTION_SET = [
+  "id",
   "customerId",
-  "sortKey",
   "orderNumber",
   "customerName",
   "totalAmount",
@@ -79,6 +80,7 @@ const ORDER_VALIDATION_SELECTION_SET = [
   "statusHistory",
   "createdAt",
   "updatedAt",
+  "createdAtForSort",
   "lineItems.*",
 ] as const;
 
@@ -86,14 +88,8 @@ const ORDER_VALIDATION_SELECTION_SET = [
 // Helper Types
 // ---------------------------------------------------------------------------
 
-interface OrderKeyParts {
-  customerId: string;
-  sortKey: string;
-}
-
 type UpdateOrderStatusInput = {
   orderId: string;
-  orderSortKey: string;
   currentStatus: OrderStatus;
   newStatus: OrderStatus;
   statusHistory: StatusChange[];
@@ -102,13 +98,11 @@ type UpdateOrderStatusInput = {
 type ConfirmReceivedInput = {
   lineItemId: string;
   orderId: string;
-  orderSortKey: string;
 };
 
 type MarkProcurementInput = {
   lineItemId: string;
   orderId: string;
-  orderSortKey: string;
   supplierId: string;
   supplierName: string;
   unitCost: number;
@@ -118,12 +112,10 @@ type MarkProcurementInput = {
 type CancelProcurementInput = {
   lineItemId: string;
   orderId: string;
-  orderSortKey: string;
 };
 
 type ShipLineItemInput = {
   orderId: string;
-  orderSortKey: string;
   lineItemId: string;
   quantity: number;
 };
@@ -132,7 +124,6 @@ type LineItemStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
 type UpdateLineItemStatusFlagInput = {
   orderId: string;
-  orderSortKey: string;
   lineItemId: string;
   flag: LineItemStatusFlag;
   checked: boolean;
@@ -160,15 +151,6 @@ type LineItemStatusFlagUpdate = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function parseOrderId(id: string): OrderKeyParts {
-  const [customerId, sortKey] = id.split("|");
-  if (!customerId || !sortKey) {
-    throw new Error("無效的訂單 ID 格式");
-  }
-
-  return { customerId, sortKey };
-}
 
 function buildOrderFilter({
   search,
@@ -216,21 +198,24 @@ function buildOrderListParams({
 async function fetchOrderList(
   params: OrderListParams,
 ): Promise<PaginatedResult<string>> {
+  const listParams = buildOrderListParams(params);
   const {
     data,
     errors,
     nextToken: responseNextToken,
-  } = await client.models.Order.list(buildOrderListParams(params));
+  } = await client.models.Order.listByCreatedDate(
+    { gsiPartition: "Order" },
+    {
+      ...listParams,
+      sortDirection: "DESC",
+    } as Record<string, unknown>,
+  );
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "查詢訂單列表失敗");
   }
 
-  const items = (data ?? []).map((order) => {
-    const customerId = String(order.customerId ?? "");
-    const sortKey = String(order.sortKey ?? "");
-    return `${customerId}|${sortKey}`;
-  });
+  const items = (data ?? []).map((order) => String(order.id ?? ""));
 
   return {
     items,
@@ -240,9 +225,8 @@ async function fetchOrderList(
 }
 
 async function fetchOrder(id: string): Promise<Order> {
-  const { customerId, sortKey } = parseOrderId(id);
   const { data, errors } = await client.models.Order.get(
-    { customerId, sortKey },
+    { id },
     { selectionSet: ORDER_DETAIL_SELECTION_SET },
   );
 
@@ -258,9 +242,8 @@ async function fetchOrder(id: string): Promise<Order> {
 }
 
 async function fetchOrderForValidation(id: string): Promise<Order> {
-  const { customerId, sortKey } = parseOrderId(id);
   const { data, errors } = await client.models.Order.get(
-    { customerId, sortKey },
+    { id },
     { selectionSet: ORDER_VALIDATION_SELECTION_SET },
   );
 
@@ -302,13 +285,10 @@ function mapToOrder(raw: Record<string, unknown>): Order {
     lineItems = (raw.lineItems as Record<string, unknown>[]).map(mapToLineItem);
   }
 
-  const customerId = String(raw.customerId ?? "");
-  const sortKey = String(raw.sortKey ?? "");
-
   return {
-    id: `${customerId}|${sortKey}`,
+    id: String(raw.id ?? ""),
     orderNumber: String(raw.orderNumber ?? ""),
-    customerId,
+    customerId: String(raw.customerId ?? ""),
     customerName: String(raw.customerName ?? ""),
     lineItems,
     totalAmount: Number(raw.totalAmount ?? 0),
@@ -368,17 +348,17 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
 
   const orderNumber = generateOrderNumber();
   const now = new Date().toISOString();
-  const sortKey = `ORDER#${now}`;
 
   const { data: orderData, errors: orderErrors } =
     await client.models.Order.create({
       customerId: input.customerId,
-      sortKey,
       orderNumber,
       customerName: input.customerName,
       totalAmount,
       status: "pending",
       statusHistory: JSON.stringify([]),
+      gsiPartition: "Order",
+      createdAtForSort: now,
     });
 
   if (orderErrors && orderErrors.length > 0) {
@@ -389,12 +369,16 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     throw new Error("建立訂單失敗：未回傳資料");
   }
 
+  const orderId = String(orderData.id ?? "");
+  if (!orderId) {
+    throw new Error("建立訂單失敗：未回傳訂單 ID");
+  }
+
   const createdLineItems: LineItem[] = [];
   for (const item of lineItemsWithSubtotal) {
     const { data: lineItemData, errors: lineItemErrors } =
       await client.models.LineItem.create({
-        orderId: input.customerId,
-        orderSortKey: sortKey,
+        orderId,
         productId: item.productId,
         productName: item.productName,
         variantId: item.variantId ?? null,
@@ -417,7 +401,7 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
   }
 
   return {
-    id: `${input.customerId}|${sortKey}`,
+    id: orderId,
     orderNumber,
     customerId: input.customerId,
     customerName: input.customerName,
@@ -433,8 +417,7 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
 async function updateOrderStatus(
   input: UpdateOrderStatusInput,
 ): Promise<Order> {
-  const { orderId, orderSortKey, currentStatus, newStatus, statusHistory } =
-    input;
+  const { orderId, currentStatus, newStatus, statusHistory } = input;
 
   if (!isValidOrderStatusTransition(currentStatus, newStatus)) {
     throw new Error(
@@ -449,8 +432,7 @@ async function updateOrderStatus(
   ];
 
   const { data, errors } = await client.models.Order.update({
-    customerId: orderId,
-    sortKey: orderSortKey,
+    id: orderId,
     status: newStatus,
     statusHistory: JSON.stringify(newHistory),
   });
@@ -470,7 +452,6 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
   const { data, errors } = await client.mutations.confirmReceived({
     lineItemId: input.lineItemId,
     orderId: input.orderId,
-    orderSortKey: input.orderSortKey,
   });
 
   if (errors && errors.length > 0) {
@@ -644,7 +625,6 @@ async function updateLineItemStatusFlag(
 async function shipLineItem(input: ShipLineItemInput): Promise<unknown> {
   const { data, errors } = await client.mutations.shipLineItem({
     orderId: input.orderId,
-    orderSortKey: input.orderSortKey,
     lineItemId: input.lineItemId,
     quantity: input.quantity,
   });
@@ -664,7 +644,7 @@ async function mergeOrders(input: { orderIds: string[] }): Promise<Order> {
   }
 
   const { data, errors } = await client.mutations.mergeOrders({
-    orderIds: JSON.stringify(input.orderIds.map(parseOrderId)),
+    orderIds: JSON.stringify(input.orderIds),
   });
 
   if (errors && errors.length > 0) {
@@ -676,14 +656,21 @@ async function mergeOrders(input: { orderIds: string[] }): Promise<Order> {
   }
 
   const result = typeof data === "string" ? JSON.parse(data) : (data as unknown);
-  return mapToOrder(result as Record<string, unknown>);
+  const resultRecord = result as Record<string, unknown>;
+  const orderData =
+    resultRecord.data && typeof resultRecord.data === "object"
+      ? (resultRecord.data as Record<string, unknown>)
+      : resultRecord;
+  if (resultRecord.success === false) {
+    throw new Error(String(resultRecord.message ?? "合併訂單失敗"));
+  }
+  return mapToOrder(orderData);
 }
 
 async function splitOrder(input: {
   orderId: string;
   allocations: SplitAllocation[];
 }): Promise<Order[]> {
-  const { customerId, sortKey } = parseOrderId(input.orderId);
   const order = await fetchOrderForValidation(input.orderId);
   const validation = validateSplitOrder(order, input.allocations);
   if (!validation.valid) {
@@ -691,8 +678,7 @@ async function splitOrder(input: {
   }
 
   const { data, errors } = await client.mutations.splitOrder({
-    orderId: customerId,
-    orderSortKey: sortKey,
+    orderId: input.orderId,
     allocations: JSON.stringify(input.allocations),
   });
 
@@ -705,6 +691,20 @@ async function splitOrder(input: {
   }
 
   const result = typeof data === "string" ? JSON.parse(data) : (data as unknown);
+  const resultRecord = result as Record<string, unknown>;
+  if (resultRecord.success === false) {
+    throw new Error(String(resultRecord.message ?? "分拆訂單失敗"));
+  }
+  const splitData = resultRecord.data ?? result;
+  if (
+    splitData &&
+    typeof splitData === "object" &&
+    Array.isArray((splitData as Record<string, unknown>).newOrders)
+  ) {
+    return ((splitData as Record<string, unknown>).newOrders as unknown[]).map(
+      (item: unknown) => mapToOrder(item as Record<string, unknown>),
+    );
+  }
   if (Array.isArray(result)) {
     return result.map((item: unknown) =>
       mapToOrder(item as Record<string, unknown>),
@@ -810,10 +810,10 @@ export function useUpdateOrderStatus(): UseMutationResult<
 
   return useMutation({
     mutationFn: updateOrderStatus,
-    onSuccess: (_, { orderId, orderSortKey }) => {
+    onSuccess: (_, { orderId }) => {
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(`${orderId}|${orderSortKey}`),
+        queryKey: ORDER_KEYS.detail(orderId),
       });
     },
   });
@@ -839,7 +839,7 @@ export function useConfirmReceived(): UseMutationResult<
     onMutate: async (input) => {
       // Cancel outgoing refetches
       const orderKey = ORDER_KEYS.detail(
-        `${input.orderId}|${input.orderSortKey}`,
+        input.orderId,
       );
       await queryClient.cancelQueries({ queryKey: orderKey });
 
@@ -868,14 +868,14 @@ export function useConfirmReceived(): UseMutationResult<
       // Rollback
       if (context?.previousOrder) {
         const orderKey = ORDER_KEYS.detail(
-          `${input.orderId}|${input.orderSortKey}`,
+          input.orderId,
         );
         queryClient.setQueryData(orderKey, context.previousOrder);
       }
     },
     onSettled: (_, __, input) => {
       void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+        queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       // Invalidate product caches for stock update
@@ -902,7 +902,7 @@ export function useMarkProcurement(): UseMutationResult<
     mutationFn: markProcurement,
     onSuccess: (_, input) => {
       void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+        queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
     },
@@ -927,7 +927,7 @@ export function useCancelProcurement(): UseMutationResult<
     mutationFn: cancelProcurement,
     onSuccess: (_, input) => {
       void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+        queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
     },
@@ -950,7 +950,7 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
     mutationFn: updateLineItemStatusFlag,
     onMutate: async (input) => {
       const orderKey = ORDER_KEYS.detail(
-        `${input.orderId}|${input.orderSortKey}`,
+        input.orderId,
       );
       await queryClient.cancelQueries({ queryKey: orderKey });
 
@@ -989,14 +989,14 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
     onError: (_error, input, context) => {
       if (context?.previousOrder) {
         queryClient.setQueryData(
-          ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+          ORDER_KEYS.detail(input.orderId),
           context.previousOrder,
         );
       }
     },
     onSettled: (_, __, input) => {
       void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+        queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
     },
@@ -1023,7 +1023,7 @@ export function useShipLineItem(): UseMutationResult<
     onMutate: async (input) => {
       // Cancel outgoing refetches
       const orderKey = ORDER_KEYS.detail(
-        `${input.orderId}|${input.orderSortKey}`,
+        input.orderId,
       );
       await queryClient.cancelQueries({ queryKey: orderKey });
 
@@ -1068,14 +1068,14 @@ export function useShipLineItem(): UseMutationResult<
       // Rollback
       if (context?.previousOrder) {
         const orderKey = ORDER_KEYS.detail(
-          `${input.orderId}|${input.orderSortKey}`,
+          input.orderId,
         );
         queryClient.setQueryData(orderKey, context.previousOrder);
       }
     },
     onSettled: (_, __, input) => {
       void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(`${input.orderId}|${input.orderSortKey}`),
+        queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       // Invalidate product caches for stock update

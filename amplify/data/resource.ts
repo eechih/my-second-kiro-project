@@ -12,7 +12,7 @@ import { splitOrder } from "../functions/split-order/resource";
  * - Supplier：供應商基本資料（含軟刪除 isActive 欄位）
  * - Product：商品基本資料（含規格維度、照片、樂觀併發控制）
  * - ProductVariant：商品規格組合（獨立庫存、樂觀併發控制）
- * - Order：訂單（複合主鍵：CUSTOMER#{customerId} + ORDER#{createdAt}）
+ * - Order：訂單（單一 id 主鍵，透過 GSI 依建立日期排序）
  * - LineItem：訂單明細項目（含規格組合關聯、採購數據內嵌）
  *
  * Custom Mutations（Lambda 函式）：
@@ -69,13 +69,13 @@ const schema = a.schema({
       version: a.integer().required().default(1),
       /** GSI 分區鍵：固定值 "Product"，用於按建立日期排序查詢全部商品 */
       gsiPartition: a.string().required().default("Product"),
-      /** 建立時間（ISO 8601），用於 GSI 排序 */
-      createdDate: a.datetime(),
+      /** 建立時間（ISO 8601），用於 GSI 排序，避免與 Amplify 內建 createdAt 混淆 */
+      createdAtForSort: a.datetime(),
       variants: a.hasMany("ProductVariant", "productId"),
     })
     .secondaryIndexes((index) => [
       index("gsiPartition")
-        .sortKeys(["createdDate"])
+        .sortKeys(["createdAtForSort"])
         .queryField("listByCreatedDate")
         .name("byCreatedAt"),
     ])
@@ -100,20 +100,28 @@ const schema = a.schema({
 
   // ---------------------------------------------------------------------------
   // Order（訂單）
-  // 複合主鍵：PK = CUSTOMER#{customerId}, SK = ORDER#{createdAt}
+  // 單一主鍵：id；列表透過 GSI 依建立日期排序
   // ---------------------------------------------------------------------------
   Order: a
     .model({
       customerId: a.string().required(),
-      sortKey: a.string().required(),
       orderNumber: a.string().required(),
       customerName: a.string().required(),
       totalAmount: a.float().required(),
       status: a.string().required().default("pending"),
       statusHistory: a.json(),
-      lineItems: a.hasMany("LineItem", ["orderId", "orderSortKey"]),
+      /** GSI 分區鍵：固定值 "Order"，用於按建立日期排序查詢全部訂單 */
+      gsiPartition: a.string().required().default("Order"),
+      /** 建立時間（ISO 8601），用於 GSI 排序，避免與 Amplify 內建 createdAt 混淆 */
+      createdAtForSort: a.datetime(),
+      lineItems: a.hasMany("LineItem", "orderId"),
     })
-    .identifier(["customerId", "sortKey"])
+    .secondaryIndexes((index) => [
+      index("gsiPartition")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listByCreatedDate")
+        .name("byOrderCreatedAt"),
+    ])
     .authorization((allow) => [allow.authenticated()]),
 
   // ---------------------------------------------------------------------------
@@ -121,9 +129,8 @@ const schema = a.schema({
   // ---------------------------------------------------------------------------
   LineItem: a
     .model({
-      orderId: a.string().required(),
-      orderSortKey: a.string().required(),
-      order: a.belongsTo("Order", ["orderId", "orderSortKey"]),
+      orderId: a.id().required(),
+      order: a.belongsTo("Order", "orderId"),
       productId: a.string().required(),
       productName: a.string().required(),
       variantId: a.string(),
@@ -153,7 +160,6 @@ const schema = a.schema({
     .mutation()
     .arguments({
       orderId: a.string().required(),
-      orderSortKey: a.string().required(),
       lineItemId: a.string().required(),
       quantity: a.integer().required(),
     })
@@ -167,7 +173,6 @@ const schema = a.schema({
     .arguments({
       lineItemId: a.string().required(),
       orderId: a.string().required(),
-      orderSortKey: a.string().required(),
     })
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
@@ -188,7 +193,6 @@ const schema = a.schema({
     .mutation()
     .arguments({
       orderId: a.string().required(),
-      orderSortKey: a.string().required(),
       allocations: a.json().required(),
     })
     .returns(a.json())

@@ -53,11 +53,9 @@ export function ShipDialog({
       return;
     }
 
-    const [customerId, sortKey] = order.id.split("|");
     try {
       await shipLineItem.mutateAsync({
-        orderId: customerId ?? "",
-        orderSortKey: sortKey ?? "",
+        orderId: order.id,
         lineItemId: lineItem.id,
         quantity,
       });

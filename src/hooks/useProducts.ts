@@ -67,7 +67,7 @@ const PRODUCT_SELECTION_SET = [
   "isActive",
   "version",
   "createdAt",
-  "createdDate",
+  "createdAtForSort",
   "updatedAt",
   "variants.*",
 ] as const;
@@ -228,7 +228,7 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
     isActive: true,
     version: 1,
     gsiPartition: "Product",
-    createdDate: new Date().toISOString(),
+    createdAtForSort: new Date().toISOString(),
   });
 
   if (errors && errors.length > 0) {

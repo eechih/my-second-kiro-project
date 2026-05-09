@@ -18,12 +18,6 @@ function generateOrderNumber(): string {
   return `ORD-${timestamp}-${random}`;
 }
 
-/** 前端傳入的訂單識別結構 */
-interface OrderIdInput {
-  customerId: string;
-  sortKey: string;
-}
-
 /**
  * 訂單合併操作 Lambda 函式
  *
@@ -40,7 +34,7 @@ interface OrderIdInput {
 export const handler: Schema["mergeOrders"]["functionHandler"] = async (
   event,
 ) => {
-  const orderIds = event.arguments.orderIds as unknown as OrderIdInput[];
+  const orderIds = event.arguments.orderIds as unknown as string[];
 
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
@@ -67,16 +61,13 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       const result = await ddb.send(
         new GetItemCommand({
           TableName: orderTable,
-          Key: marshall({
-            customerId: oid.customerId,
-            sortKey: oid.sortKey,
-          }),
+          Key: marshall({ id: oid }),
         }),
       );
       if (!result.Item) {
         return JSON.stringify({
           success: false,
-          message: `找不到訂單：${oid.customerId}/${oid.sortKey}`,
+          message: `找不到訂單：${oid}`,
         });
       }
       orders.push(unmarshall(result.Item));
@@ -109,23 +100,20 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
     // 5. 取得所有來源訂單的明細項目
     const allLineItems: Record<string, unknown>[] = [];
     for (const order of orders) {
-      const customerId = order["customerId"] as string;
-      const sortKey = order["sortKey"] as string;
+      const orderId = order["id"] as string;
 
       const lineItemsResult = await ddb.send(
         new QueryCommand({
           TableName: lineItemTable,
           IndexName: "byOrderId",
           KeyConditionExpression: "orderId = :orderId",
-          ExpressionAttributeValues: marshall({ ":orderId": customerId }),
+          ExpressionAttributeValues: marshall({ ":orderId": orderId }),
         }),
       );
 
-      const items = (lineItemsResult.Items ?? [])
-        .map((rawItem) => unmarshall(rawItem))
-        .filter(
-          (item) => item["orderSortKey"] === sortKey,
-        );
+      const items = (lineItemsResult.Items ?? []).map((rawItem) =>
+        unmarshall(rawItem),
+      );
       allLineItems.push(...items);
     }
 
@@ -137,7 +125,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 
     const now = new Date().toISOString();
     const newOrderNumber = generateOrderNumber();
-    const newSortKey = `ORDER#${now}`;
+    const newOrderId = crypto.randomUUID();
     const customerName = orders[0]!["customerName"] as string;
 
     // 7. 建立交易項目（DynamoDB TransactWriteItems 最多 100 個項目）
@@ -150,12 +138,14 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       Put: {
         TableName: orderTable,
         Item: marshall({
+          id: newOrderId,
           customerId: firstCustomerId,
-          sortKey: newSortKey,
           orderNumber: newOrderNumber,
           customerName,
           totalAmount,
           status: "pending",
+          gsiPartition: "Order",
+          createdAtForSort: now,
           statusHistory: [
             {
               fromStatus: "created",
@@ -175,11 +165,9 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
         Update: {
           TableName: lineItemTable,
           Key: marshall({ id: lineItem["id"] as string }),
-          UpdateExpression:
-            "SET orderId = :newOrderId, orderSortKey = :newSortKey, updatedAt = :now",
+          UpdateExpression: "SET orderId = :newOrderId, updatedAt = :now",
           ExpressionAttributeValues: marshall({
-            ":newOrderId": firstCustomerId,
-            ":newSortKey": newSortKey,
+            ":newOrderId": newOrderId,
             ":now": now,
           }),
         },
@@ -205,10 +193,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       transactItems.push({
         Update: {
           TableName: orderTable,
-          Key: marshall({
-            customerId: order["customerId"] as string,
-            sortKey: order["sortKey"] as string,
-          }),
+          Key: marshall({ id: order["id"] as string }),
           UpdateExpression:
             "SET #st = :cancelled, statusHistory = :history, updatedAt = :now",
           ExpressionAttributeNames: { "#st": "status" },
@@ -238,9 +223,16 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       success: true,
       message: "訂單合併成功",
       data: {
-        newOrderId: firstCustomerId,
-        newOrderSortKey: newSortKey,
+        id: newOrderId,
+        customerId: firstCustomerId,
         newOrderNumber,
+        orderNumber: newOrderNumber,
+        customerName,
+        status: "pending",
+        statusHistory: [],
+        lineItems: [],
+        createdAt: now,
+        updatedAt: now,
         totalAmount,
         mergedOrderCount: orders.length,
         lineItemCount: allLineItems.length,

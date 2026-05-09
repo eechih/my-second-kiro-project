@@ -34,7 +34,7 @@ const ddb = new DynamoDBClient({});
 export const handler: Schema["shipLineItem"]["functionHandler"] = async (
   event,
 ) => {
-  const { orderId, orderSortKey, lineItemId, quantity } = event.arguments;
+  const { orderId, lineItemId, quantity } = event.arguments;
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
@@ -178,7 +178,7 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     const orderResult = await ddb.send(
       new GetItemCommand({
         TableName: orderTable,
-        Key: marshall({ customerId: orderId, sortKey: orderSortKey }),
+        Key: marshall({ id: orderId }),
       }),
     );
 
@@ -249,7 +249,7 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
         transactItems.push({
           Update: {
             TableName: orderTable,
-            Key: marshall({ customerId: orderId, sortKey: orderSortKey }),
+            Key: marshall({ id: orderId }),
             UpdateExpression:
               "SET #st = :newStatus, statusHistory = :history, updatedAt = :now",
             ExpressionAttributeNames: { "#st": "status" },

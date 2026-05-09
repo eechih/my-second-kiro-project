@@ -104,13 +104,11 @@ function isStatusFlagDisabled(
 export interface OrderLineItemTableRowProps {
   item: LineItem;
   orderId: string;
-  orderSortKey: string;
 }
 
 export function OrderLineItemTableRow({
   item,
   orderId,
-  orderSortKey,
 }: OrderLineItemTableRowProps): React.ReactElement {
   const updateLineItemStatusFlag = useUpdateLineItemStatusFlag();
 
@@ -165,7 +163,6 @@ export function OrderLineItemTableRow({
                       ? (_event, nextChecked) => {
                           updateLineItemStatusFlag.mutate({
                             orderId,
-                            orderSortKey,
                             lineItemId: item.id,
                             flag: editableFlag,
                             checked: nextChecked,

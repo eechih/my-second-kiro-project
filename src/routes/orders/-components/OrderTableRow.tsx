@@ -78,8 +78,7 @@ export function OrderTableRow({
       </Table>
       <OrderLineItemsTable
         lineItems={order.lineItems}
-        orderId={order.customerId}
-        orderSortKey={order.id.split("|")[1] ?? ""}
+        orderId={order.id}
       />
     </TableContainer>
   );
