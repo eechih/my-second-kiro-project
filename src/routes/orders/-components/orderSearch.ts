@@ -87,7 +87,6 @@ function mapVariant(raw: Record<string, unknown>): ProductVariant {
   return {
     id: String(raw.id ?? ""),
     label: String(raw.label ?? ""),
-    sku: String(raw.sku ?? ""),
     stockQuantity: Number(raw.stockQuantity ?? 0),
     price:
       raw.price !== null && raw.price !== undefined

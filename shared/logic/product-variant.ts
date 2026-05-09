@@ -1,7 +1,7 @@
 /**
  * 規格選項（Product Variant）純函式
  *
- * 提供 SKU 產生、價格/成本解析、必選驗證等函式。
+ * 提供價格/成本解析、必選驗證等函式。
  * 此模組為純函式，前端與 Lambda 共用同一份邏輯（Single Source of Truth）。
  *
  * 需求：3.12, 3.13, 3.14, 3.15, 4.12, 4.13
@@ -9,24 +9,6 @@
 
 import type { ValidationResult } from "../models/order";
 import type { Product, ProductVariant } from "../models/product";
-
-/**
- * 根據商品 SKU 與規格標籤自動產生規格 SKU。
- *
- * @param productSku - 商品 SKU
- * @param label - 規格標籤
- * @returns 規格 SKU
- */
-export function generateVariantSku(
-  productSku: string,
-  label: string,
-): string {
-  const normalizedLabel = label.trim().replace(/\s+/g, "-");
-  if (!normalizedLabel) {
-    return productSku;
-  }
-  return `${productSku}-${normalizedLabel}`;
-}
 
 /**
  * 解析規格組合的有效單價。

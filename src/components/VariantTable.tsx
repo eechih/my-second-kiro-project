@@ -31,7 +31,6 @@ export interface VariantTableProps {
 
 interface EditingState {
   variantId: string;
-  sku: string;
   price: string;
   cost: string;
 }
@@ -61,7 +60,6 @@ export function VariantTable({
   const startEditing = useCallback((variant: ProductVariant) => {
     setEditing({
       variantId: variant.id,
-      sku: variant.sku,
       price:
         variant.price !== null
           ? String(variant.price)
@@ -81,12 +79,6 @@ export function VariantTable({
     if (!editing) return;
 
     const updates: UpdateVariantInput = {};
-
-    // SKU update
-    const currentVariant = variants.find((v) => v.id === editing.variantId);
-    if (currentVariant && editing.sku !== currentVariant.sku) {
-      updates.sku = editing.sku;
-    }
 
     // Unit price override
     if (editing.price === "") {
@@ -110,33 +102,13 @@ export function VariantTable({
 
     onUpdateVariant(editing.variantId, updates);
     setEditing(null);
-  }, [editing, variants, onUpdateVariant]);
+  }, [editing, onUpdateVariant]);
 
   const columns = useMemo(
     (): ColumnDef<ProductVariant, unknown>[] => [
       columnHelper.accessor("label", {
         header: "規格組合",
         cell: (info) => info.getValue(),
-        enableSorting: true,
-      }) as ColumnDef<ProductVariant, unknown>,
-      columnHelper.accessor("sku", {
-        header: "SKU",
-        cell: (info) => {
-          const variant = info.row.original;
-          if (editing?.variantId === variant.id) {
-            return (
-              <TextField
-                size="small"
-                value={editing.sku}
-                onChange={(e) =>
-                  setEditing({ ...editing, sku: e.target.value })
-                }
-                sx={{ minWidth: 120 }}
-              />
-            );
-          }
-          return info.getValue();
-        },
         enableSorting: true,
       }) as ColumnDef<ProductVariant, unknown>,
       columnHelper.display({

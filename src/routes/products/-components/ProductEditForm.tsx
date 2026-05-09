@@ -73,7 +73,6 @@ export function ProductEditForm({
 }: ProductEditFormProps): React.ReactElement {
   const [newVariant, setNewVariant] = useState({
     label: "",
-    sku: "",
     stockQuantity: "0",
     price: "",
     cost: "",
@@ -132,14 +131,12 @@ export function ProductEditForm({
 
     onCreateVariant({
       label,
-      sku: newVariant.sku.trim() || undefined,
       stockQuantity: Number.isFinite(stockQuantity) ? stockQuantity : 0,
       price: price !== null && Number.isFinite(price) ? price : null,
       cost: cost !== null && Number.isFinite(cost) ? cost : null,
     });
     setNewVariant({
       label: "",
-      sku: "",
       stockQuantity: "0",
       price: "",
       cost: "",
@@ -267,7 +264,7 @@ export function ProductEditForm({
                 gap: 2,
                 gridTemplateColumns: {
                   xs: "1fr",
-                  md: "2fr 1.4fr 1fr 1fr 1fr auto",
+                  md: "2fr 1fr 1fr 1fr auto",
                 },
               }}
             >
@@ -279,15 +276,6 @@ export function ProductEditForm({
                   setNewVariant({ ...newVariant, label: event.target.value })
                 }
                 required
-              />
-              <TextField
-                label="SKU"
-                size="small"
-                value={newVariant.sku}
-                onChange={(event) =>
-                  setNewVariant({ ...newVariant, sku: event.target.value })
-                }
-                placeholder="留空自動產生"
               />
               <TextField
                 label="庫存"

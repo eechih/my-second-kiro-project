@@ -15,7 +15,6 @@ import type {
   UpdateVariantInput,
   PaginatedResult,
 } from "@shared/models";
-import { generateVariantSku } from "@shared/logic/product-variant";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -392,7 +391,7 @@ export function useUpdateProduct(): UseMutationResult<
 /**
  * 建立規格組合 mutation hook
  *
- * 為指定商品新增單一規格組合，自動產生 SKU（若未自訂）。
+ * 為指定商品新增單一規格組合。
  *
  * 需求：3.12, 3.13
  */
@@ -411,20 +410,9 @@ export function useCreateVariant(): UseMutationResult<
       productId: string;
       variant: CreateVariantInput;
     }): Promise<ProductVariant> => {
-      // 若未提供 SKU，需要取得商品 SKU 來自動產生
-      let sku = variant.sku ?? "";
-      if (!sku) {
-        const { data: productData } = await client.models.Product.get({
-          id: productId,
-        });
-        const productSku = String(productData?.sku ?? "");
-        sku = generateVariantSku(productSku, variant.label);
-      }
-
       const { data, errors } = await client.models.ProductVariant.create({
         productId,
         label: variant.label.trim(),
-        sku,
         stockQuantity: variant.stockQuantity ?? 0,
         price: variant.price ?? null,
         cost: variant.cost ?? null,
@@ -455,7 +443,7 @@ export function useCreateVariant(): UseMutationResult<
 /**
  * 更新規格組合 mutation hook
  *
- * 更新規格組合的 SKU、單價覆寫、成本覆寫或庫存數量。
+ * 更新規格組合的單價覆寫、成本覆寫或庫存數量。
  *
  * 需求：3.14, 3.15
  */
@@ -477,7 +465,6 @@ export function useUpdateVariant(): UseMutationResult<
     }): Promise<ProductVariant> => {
       const updatePayload: Record<string, unknown> = { id: variantId };
 
-      if (updates.sku !== undefined) updatePayload.sku = updates.sku;
       if (updates.stockQuantity !== undefined)
         updatePayload.stockQuantity = updates.stockQuantity;
       if (updates.price !== undefined)
@@ -599,7 +586,6 @@ function mapToVariant(raw: Record<string, unknown>): ProductVariant {
   return {
     id: String(raw.id ?? ""),
     label: String(raw.label ?? ""),
-    sku: String(raw.sku ?? ""),
     stockQuantity: Number(raw.stockQuantity ?? 0),
     price:
       raw.price !== null && raw.price !== undefined

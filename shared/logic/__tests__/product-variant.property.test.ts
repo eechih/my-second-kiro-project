@@ -1,13 +1,12 @@
 /**
  * 規格選項純函式——屬性測試
  *
- * 驗證 SKU 產生、價格/成本解析與必選驗證。
+ * 驗證價格/成本解析與必選驗證。
  */
 
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import {
-  generateVariantSku,
   resolveEffectiveCost,
   resolveEffectivePrice,
   validateVariantRequired,
@@ -23,20 +22,6 @@ const positiveNumberArb: fc.Arbitrary<number> = fc.integer({
   min: 1,
   max: 100000,
 });
-
-const skuArb: fc.Arbitrary<string> = fc
-  .array(fc.constantFrom(..."ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("")), {
-    minLength: 3,
-    maxLength: 10,
-  })
-  .map((chars) => chars.join(""));
-
-const labelArb: fc.Arbitrary<string> = fc
-  .array(fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789 ".split("")), {
-    minLength: 1,
-    maxLength: 12,
-  })
-  .map((chars) => chars.join(""));
 
 function createProduct(overrides: Partial<Product> = {}): Product {
   return {
@@ -60,31 +45,12 @@ function createVariant(overrides: Partial<ProductVariant> = {}): ProductVariant 
   return {
     id: "var-1",
     label: "黑色",
-    sku: "TEST-001-黑色",
     stockQuantity: 10,
     price: null,
     cost: null,
     ...overrides,
   };
 }
-
-describe("generateVariantSku", () => {
-  it("以商品 SKU 為前綴，並將規格標籤空白轉為連字號", () => {
-    fc.assert(
-      fc.property(skuArb, labelArb, (productSku, label) => {
-        const sku = generateVariantSku(productSku, label);
-
-        expect(sku.startsWith(productSku)).toBe(true);
-        expect(sku).not.toContain(" ");
-      }),
-      { numRuns: 200 },
-    );
-  });
-
-  it("空白規格標籤會回傳原商品 SKU", () => {
-    expect(generateVariantSku("SKU-001", "   ")).toBe("SKU-001");
-  });
-});
 
 describe("resolveEffectivePrice / resolveEffectiveCost", () => {
   it("規格單價為 null 時使用商品預設單價", () => {

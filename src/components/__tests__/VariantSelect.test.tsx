@@ -7,7 +7,6 @@ const mockVariants: ProductVariant[] = [
   {
     id: "v1",
     label: "黑 L",
-    sku: "SHIRT-001-黑-L",
     stockQuantity: 10,
     price: null,
     cost: null,
@@ -15,7 +14,6 @@ const mockVariants: ProductVariant[] = [
   {
     id: "v2",
     label: "紅 M",
-    sku: "SHIRT-001-紅-M",
     stockQuantity: 5,
     price: null,
     cost: null,

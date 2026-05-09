@@ -65,7 +65,6 @@ function createSampleProduct(): Product {
       {
         id: "var-001",
         label: "紅 L",
-        sku: "TEST-001-紅-L",
         stockQuantity: 50,
         price: null,
         cost: null,
@@ -73,7 +72,6 @@ function createSampleProduct(): Product {
       {
         id: "var-002",
         label: "黑 M",
-        sku: "TEST-001-黑-M",
         stockQuantity: 30,
         price: 120,
         cost: 60,
