@@ -1,5 +1,5 @@
 import { EntitySelect } from "@/components/EntitySelect";
-import { client } from "@/lib/amplify-client";
+import { useMarkProcurement } from "@/hooks/useOrders";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -31,7 +31,7 @@ export function PurchaseDialog({
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [unitCost, setUnitCost] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
+  const markProcurement = useMarkProcurement();
 
   useEffect(() => {
     if (!open) return;
@@ -59,23 +59,17 @@ export function PurchaseDialog({
     }
 
     try {
-      setIsPending(true);
-      const now = new Date().toISOString();
-      await client.models.LineItem.update({
-        id: lineItem.id,
-        status: "ordered",
+      await markProcurement.mutateAsync({
+        orderId: order.id,
+        lineItemId: lineItem.id,
         supplierId: supplier.id,
         supplierName: supplier.name,
         unitCost,
-        purchasedQuantity: lineItem.quantity,
-        purchasedAt: now,
+        quantity: lineItem.quantity,
       });
-      void order;
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "標記採購失敗");
-    } finally {
-      setIsPending(false);
     }
   };
 
@@ -119,9 +113,9 @@ export function PurchaseDialog({
         <Button
           onClick={() => void handleSubmit()}
           variant="contained"
-          disabled={isPending}
+          disabled={markProcurement.isPending}
           startIcon={
-            isPending ? <CircularProgress size={16} /> : undefined
+            markProcurement.isPending ? <CircularProgress size={16} /> : undefined
           }
         >
           確認採購

@@ -1,9 +1,11 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { LINE_ITEM_STATUSES, ORDER_STATUSES } from "@shared/models/order";
 import { cancelOutOfStock } from "../functions/cancel-out-of-stock/resource";
+import { cancelPurchase } from "../functions/cancel-purchase/resource";
 import { cancelReceived } from "../functions/cancel-received/resource";
 import { cancelShipment } from "../functions/cancel-shipment/resource";
 import { confirmOutOfStock } from "../functions/confirm-out-of-stock/resource";
+import { confirmPurchase } from "../functions/confirm-purchase/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
 import { shipLineItem } from "../functions/ship-line-item/resource";
@@ -21,6 +23,8 @@ import { splitOrder } from "../functions/split-order/resource";
  * - LineItem：訂單明細項目（含規格組合關聯、採購數據內嵌）
  *
  * Custom Mutations（Lambda 函式）：
+ * - confirmPurchase：確認採購（採購資料 + 狀態更新，TransactWriteItems）
+ * - cancelPurchase：取消採購（清除採購資料 + 狀態更新，TransactWriteItems）
  * - shipLineItem：出貨操作（庫存扣減 + 狀態更新，TransactWriteItems）
  * - cancelShipment：取消出貨（庫存加回 + 狀態更新，TransactWriteItems）
  * - confirmReceived：入庫確認（庫存增加 + 狀態更新，TransactWriteItems）
@@ -169,6 +173,32 @@ const schema = a.schema({
   // ---------------------------------------------------------------------------
   // Custom Mutations（事務性操作，由 Lambda 函式處理）
   // ---------------------------------------------------------------------------
+
+  /** 確認採購：更新採購資料 + 明細狀態 */
+  confirmPurchase: a
+    .mutation()
+    .arguments({
+      orderId: a.string().required(),
+      lineItemId: a.string().required(),
+      supplierId: a.string(),
+      supplierName: a.string(),
+      unitCost: a.float(),
+      quantity: a.integer(),
+    })
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(confirmPurchase)),
+
+  /** 取消採購：清除採購資料 + 明細狀態回待處理 */
+  cancelPurchase: a
+    .mutation()
+    .arguments({
+      orderId: a.string().required(),
+      lineItemId: a.string().required(),
+    })
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(cancelPurchase)),
 
   /** 出貨操作：扣減庫存 + 更新明細狀態 + 條件性更新訂單狀態 */
   shipLineItem: a

@@ -147,6 +147,7 @@ type LineItemStatusFlagUpdate = {
   receivedAt?: string | null;
   shippedAt?: string | null;
   outOfStockAt?: string | null;
+  purchasedQuantity?: number;
   shippedQuantity?: number;
   status: LineItemStatus;
 };
@@ -570,44 +571,58 @@ async function cancelOutOfStock(
   );
 }
 
-async function markProcurement(input: MarkProcurementInput): Promise<LineItem> {
-  const { data, errors } = await client.models.LineItem.update({
-    id: input.lineItemId,
-    status: "ordered",
-    supplierId: input.supplierId,
-    supplierName: input.supplierName,
-    unitCost: input.unitCost,
-    purchasedQuantity: input.quantity,
-    purchasedAt: new Date().toISOString(),
+async function confirmPurchase(
+  input: Pick<MarkProcurementInput, "orderId" | "lineItemId"> &
+    Partial<
+      Pick<
+        MarkProcurementInput,
+        "supplierId" | "supplierName" | "unitCost" | "quantity"
+      >
+    >,
+): Promise<LineItem> {
+  const { data: result, errors } = await client.mutations.confirmPurchase({
+    orderId: input.orderId,
+    lineItemId: input.lineItemId,
+    supplierId: input.supplierId ?? null,
+    supplierName: input.supplierName ?? null,
+    unitCost: input.unitCost ?? null,
+    quantity: input.quantity ?? null,
   });
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "採購下單失敗");
   }
 
-  if (!data) {
-    throw new Error("採購下單失敗：未回傳資料");
-  }
+  assertCustomMutationSuccess(result, "採購下單失敗");
 
-  return mapToLineItem(data as unknown as Record<string, unknown>);
+  return fetchLineItemAfterCustomMutation(
+    input.lineItemId,
+    "採購下單失敗：找不到明細項目",
+  );
 }
 
-async function cancelProcurement(input: CancelProcurementInput): Promise<LineItem> {
-  const { data, errors } = await client.models.LineItem.update({
-    id: input.lineItemId,
-    status: "out_of_stock",
-    purchasedQuantity: 0,
+async function markProcurement(input: MarkProcurementInput): Promise<LineItem> {
+  return confirmPurchase(input);
+}
+
+async function cancelProcurement(
+  input: CancelProcurementInput,
+): Promise<LineItem> {
+  const { data: result, errors } = await client.mutations.cancelPurchase({
+    orderId: input.orderId,
+    lineItemId: input.lineItemId,
   });
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "取消採購失敗");
   }
 
-  if (!data) {
-    throw new Error("取消採購失敗：未回傳資料");
-  }
+  assertCustomMutationSuccess(result, "取消採購失敗");
 
-  return mapToLineItem(data as unknown as Record<string, unknown>);
+  return fetchLineItemAfterCustomMutation(
+    input.lineItemId,
+    "取消採購失敗：找不到明細項目",
+  );
 }
 
 function buildLineItemStatusFlagUpdate(
@@ -630,6 +645,7 @@ function buildLineItemStatusFlagUpdate(
 
     return {
       purchasedAt: checked ? now : null,
+      purchasedQuantity: checked ? lineItem.quantity : 0,
       status: checked ? "ordered" : "pending",
     };
   }
@@ -693,6 +709,12 @@ function buildLineItemStatusFlagUpdate(
 async function updateLineItemStatusFlag(
   input: UpdateLineItemStatusFlagInput,
 ): Promise<LineItem> {
+  if (input.flag === "ordered") {
+    return input.checked
+      ? confirmPurchase(input)
+      : cancelProcurement(input);
+  }
+
   if (input.flag === "received" && !input.checked) {
     return cancelReceived(input);
   }
@@ -1068,7 +1090,7 @@ export function useMarkProcurement(): UseMutationResult<
 /**
  * 採購取消 mutation hook
  *
- * 將「待處理」或「已訂購」狀態的明細項目標記為缺貨，並將 purchasedQuantity 歸零。
+ * 將「已訂購」狀態的明細項目恢復為待處理，並清除採購資料。
  *
  * 需求：5.1, 5.3, 5.4
  */

@@ -1,7 +1,10 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { StatusChip } from "@/components/StatusChip";
-import { useConfirmReceived } from "@/hooks/useOrders";
-import { client } from "@/lib/amplify-client";
+import {
+  useCancelProcurement,
+  useConfirmReceived,
+  useUpdateLineItemStatusFlag,
+} from "@/hooks/useOrders";
 import BlockIcon from "@mui/icons-material/Block";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
@@ -40,6 +43,8 @@ export function OrderLineItemDetailRow({
   const [outOfStockConfirmOpen, setOutOfStockConfirmOpen] = useState(false);
   const [cancelProcurementConfirmOpen, setCancelProcurementConfirmOpen] = useState(false);
   const confirmReceived = useConfirmReceived();
+  const cancelProcurement = useCancelProcurement();
+  const updateLineItemStatusFlag = useUpdateLineItemStatusFlag();
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const canMarkProcurement = lineItem.status === "pending";
@@ -47,7 +52,9 @@ export function OrderLineItemDetailRow({
   const canConfirmReceived = lineItem.status === "ordered";
   const canCancelProcurement = lineItem.status === "ordered";
   const canMarkOutOfStock =
-    lineItem.status === "pending" || lineItem.status === "ordered";
+    lineItem.status === "pending" ||
+    lineItem.status === "ordered" ||
+    lineItem.status === "received";
 
   const handleConfirmReceived = async (): Promise<void> => {
     setConfirmError(null);
@@ -63,26 +70,27 @@ export function OrderLineItemDetailRow({
 
   const handleMarkOutOfStock = async (): Promise<void> => {
     try {
-      await client.models.LineItem.update({
-        id: lineItem.id,
-        status: "out_of_stock",
+      await updateLineItemStatusFlag.mutateAsync({
+        orderId: order.id,
+        lineItemId: lineItem.id,
+        flag: "outOfStock",
+        checked: true,
       });
       setOutOfStockConfirmOpen(false);
-    } catch {
-      // The next refetch surfaces persistence issues.
+    } catch (err) {
+      setConfirmError(err instanceof Error ? err.message : "確認缺貨失敗");
     }
   };
 
   const handleCancelProcurement = async (): Promise<void> => {
     try {
-      await client.models.LineItem.update({
-        id: lineItem.id,
-        status: "out_of_stock",
-        purchasedQuantity: 0,
+      await cancelProcurement.mutateAsync({
+        orderId: order.id,
+        lineItemId: lineItem.id,
       });
       setCancelProcurementConfirmOpen(false);
-    } catch {
-      // The next refetch surfaces persistence issues.
+    } catch (err) {
+      setConfirmError(err instanceof Error ? err.message : "取消採購失敗");
     }
   };
 

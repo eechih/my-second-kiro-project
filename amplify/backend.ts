@@ -4,9 +4,11 @@ import { auth } from "./auth/resource";
 import { data } from "./data/resource";
 import { storage } from "./storage/resource";
 import { cancelOutOfStock } from "./functions/cancel-out-of-stock/resource";
+import { cancelPurchase } from "./functions/cancel-purchase/resource";
 import { cancelReceived } from "./functions/cancel-received/resource";
 import { cancelShipment } from "./functions/cancel-shipment/resource";
 import { confirmOutOfStock } from "./functions/confirm-out-of-stock/resource";
+import { confirmPurchase } from "./functions/confirm-purchase/resource";
 import { shipLineItem } from "./functions/ship-line-item/resource";
 import { confirmReceived } from "./functions/confirm-received/resource";
 import { mergeOrders } from "./functions/merge-orders/resource";
@@ -18,9 +20,11 @@ const backend = defineBackend({
   data,
   storage,
   cancelOutOfStock,
+  cancelPurchase,
   cancelReceived,
   cancelShipment,
   confirmOutOfStock,
+  confirmPurchase,
   shipLineItem,
   confirmReceived,
   mergeOrders,
@@ -69,9 +73,11 @@ backend.addOutput({
 // 所有需要直接存取 DynamoDB 的 Lambda 函式
 const transactionalFunctions = [
   backend.cancelOutOfStock,
+  backend.cancelPurchase,
   backend.cancelReceived,
   backend.cancelShipment,
   backend.confirmOutOfStock,
+  backend.confirmPurchase,
   backend.shipLineItem,
   backend.confirmReceived,
   backend.mergeOrders,
