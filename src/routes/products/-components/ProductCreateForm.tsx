@@ -89,8 +89,8 @@ export function ProductCreateForm({
         defaultSupplierId: selectedSupplier?.id ?? null,
         variants: variantLabels.map((label) => ({
           label,
-          price: value.unitPrice,
-          cost: value.defaultCost,
+          priceOffset: null,
+          costOffset: null,
         })),
       });
     },

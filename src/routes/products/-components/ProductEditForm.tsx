@@ -73,8 +73,8 @@ export function ProductEditForm({
 }: ProductEditFormProps): React.ReactElement {
   const [newVariant, setNewVariant] = useState({
     label: "",
-    price: "",
-    cost: "",
+    priceOffset: "",
+    costOffset: "",
   });
   const searchSuppliers = useCallback(async (query: string) => {
     const filter: Record<string, unknown> = { isActive: { eq: true } };
@@ -124,18 +124,18 @@ export function ProductEditForm({
     const label = newVariant.label.trim();
     if (!label) return;
 
-    const price = newVariant.price === "" ? null : Number(newVariant.price);
-    const cost = newVariant.cost === "" ? null : Number(newVariant.cost);
+    const priceOffset = newVariant.priceOffset === "" ? null : Number(newVariant.priceOffset);
+    const costOffset = newVariant.costOffset === "" ? null : Number(newVariant.costOffset);
 
     onCreateVariant({
       label,
-      price: price !== null && Number.isFinite(price) ? price : null,
-      cost: cost !== null && Number.isFinite(cost) ? cost : null,
+      priceOffset: priceOffset !== null && Number.isFinite(priceOffset) ? priceOffset : null,
+      costOffset: costOffset !== null && Number.isFinite(costOffset) ? costOffset : null,
     });
     setNewVariant({
       label: "",
-      price: "",
-      cost: "",
+      priceOffset: "",
+      costOffset: "",
     });
   };
 
@@ -272,26 +272,26 @@ export function ProductEditForm({
                 required
               />
               <TextField
-                label="單價"
+                label="單價偏移"
                 size="small"
                 type="number"
-                value={newVariant.price}
+                value={newVariant.priceOffset}
                 onChange={(event) =>
-                  setNewVariant({ ...newVariant, price: event.target.value })
+                  setNewVariant({ ...newVariant, priceOffset: event.target.value })
                 }
-                placeholder={String(product.unitPrice)}
-                slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                placeholder="0"
+                slotProps={{ htmlInput: { step: "any" } }}
               />
               <TextField
-                label="成本"
+                label="成本偏移"
                 size="small"
                 type="number"
-                value={newVariant.cost}
+                value={newVariant.costOffset}
                 onChange={(event) =>
-                  setNewVariant({ ...newVariant, cost: event.target.value })
+                  setNewVariant({ ...newVariant, costOffset: event.target.value })
                 }
-                placeholder={String(product.defaultCost)}
-                slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                placeholder="0"
+                slotProps={{ htmlInput: { step: "any" } }}
               />
               <Button
                 type="button"

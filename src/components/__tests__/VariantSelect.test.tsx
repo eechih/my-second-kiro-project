@@ -7,14 +7,14 @@ const mockVariants: ProductVariant[] = [
   {
     id: "v1",
     label: "黑 L",
-    price: null,
-    cost: null,
+    priceOffset: null,
+    costOffset: null,
   },
   {
     id: "v2",
     label: "紅 M",
-    price: null,
-    cost: null,
+    priceOffset: null,
+    costOffset: null,
   },
 ];
 

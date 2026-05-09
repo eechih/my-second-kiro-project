@@ -17,7 +17,7 @@ export interface VariantTableProps {
   productId: string;
   /** 規格組合列表 */
   variants: ProductVariant[];
-  /** 商品預設單價（用於顯示未覆寫時的值） */
+  /** 商品預設單價 */
   defaultUnitPrice: number;
   /** 商品預設進貨成本 */
   defaultCost: number;
@@ -31,8 +31,8 @@ export interface VariantTableProps {
 
 interface EditingState {
   variantId: string;
-  price: string;
-  cost: string;
+  priceOffset: string;
+  costOffset: string;
 }
 
 const columnHelper = createColumnHelper<ProductVariant>();
@@ -41,8 +41,7 @@ const columnHelper = createColumnHelper<ProductVariant>();
  * 規格組合表格元件。
  *
  * 用於商品詳情/編輯頁面，以表格形式顯示所有規格組合。
- * 使用 DataTable 元件，欄位包含：規格組合名稱、SKU、單價、進貨成本、庫存數量。
- * 支援行內編輯 SKU、單價覆寫、成本覆寫。
+ * 使用偏移量模式：顯示有效價格（預設 + 偏移量），編輯時輸入偏移量。
  *
  * 需求：3.15, 3.16
  */
@@ -60,14 +59,10 @@ export function VariantTable({
   const startEditing = useCallback((variant: ProductVariant) => {
     setEditing({
       variantId: variant.id,
-      price:
-        variant.price !== null
-          ? String(variant.price)
-          : "",
-      cost:
-        variant.cost !== null
-          ? String(variant.cost)
-          : "",
+      priceOffset:
+        variant.priceOffset !== null ? String(variant.priceOffset) : "",
+      costOffset:
+        variant.costOffset !== null ? String(variant.costOffset) : "",
     });
   }, []);
 
@@ -80,23 +75,21 @@ export function VariantTable({
 
     const updates: UpdateVariantInput = {};
 
-    // Unit price override
-    if (editing.price === "") {
-      updates.price = null;
+    if (editing.priceOffset === "") {
+      updates.priceOffset = null;
     } else {
-      const parsed = Number(editing.price);
-      if (!isNaN(parsed) && parsed >= 0) {
-        updates.price = parsed;
+      const parsed = Number(editing.priceOffset);
+      if (!isNaN(parsed)) {
+        updates.priceOffset = parsed;
       }
     }
 
-    // Default cost override
-    if (editing.cost === "") {
-      updates.cost = null;
+    if (editing.costOffset === "") {
+      updates.costOffset = null;
     } else {
-      const parsed = Number(editing.cost);
-      if (!isNaN(parsed) && parsed >= 0) {
-        updates.cost = parsed;
+      const parsed = Number(editing.costOffset);
+      if (!isNaN(parsed)) {
+        updates.costOffset = parsed;
       }
     }
 
@@ -121,33 +114,35 @@ export function VariantTable({
               <TextField
                 size="small"
                 type="number"
-                value={editing.price}
+                value={editing.priceOffset}
                 onChange={(e) =>
                   setEditing({
                     ...editing,
-                    price: e.target.value,
+                    priceOffset: e.target.value,
                   })
                 }
-                placeholder={String(defaultUnitPrice)}
+                placeholder="0"
+                helperText={`有效單價：${defaultUnitPrice + (Number(editing.priceOffset) || 0)}`}
                 sx={{ minWidth: 100 }}
                 slotProps={{
-                  htmlInput: { min: 0, step: "any" },
+                  htmlInput: { step: "any" },
                 }}
               />
             );
           }
-          const effectivePrice =
-            variant.price !== null
-              ? variant.price
-              : defaultUnitPrice;
-          const isOverridden = variant.price !== null;
+          const offset = variant.priceOffset ?? 0;
+          const effectivePrice = defaultUnitPrice + offset;
           return (
-            <Box
-              component="span"
-              sx={{ fontWeight: isOverridden ? 600 : "normal" }}
-            >
+            <Box component="span">
               {effectivePrice}
-              {isOverridden ? "" : "（預設）"}
+              {offset !== 0 && (
+                <Box
+                  component="span"
+                  sx={{ ml: 0.5, color: offset > 0 ? "error.main" : "success.main", fontSize: "0.85em" }}
+                >
+                  ({offset > 0 ? "+" : ""}{offset})
+                </Box>
+              )}
             </Box>
           );
         },
@@ -162,33 +157,35 @@ export function VariantTable({
               <TextField
                 size="small"
                 type="number"
-                value={editing.cost}
+                value={editing.costOffset}
                 onChange={(e) =>
                   setEditing({
                     ...editing,
-                    cost: e.target.value,
+                    costOffset: e.target.value,
                   })
                 }
-                placeholder={String(defaultCost)}
+                placeholder="0"
+                helperText={`有效成本：${defaultCost + (Number(editing.costOffset) || 0)}`}
                 sx={{ minWidth: 100 }}
                 slotProps={{
-                  htmlInput: { min: 0, step: "any" },
+                  htmlInput: { step: "any" },
                 }}
               />
             );
           }
-          const effectiveCost =
-            variant.cost !== null
-              ? variant.cost
-              : defaultCost;
-          const isOverridden = variant.cost !== null;
+          const offset = variant.costOffset ?? 0;
+          const effectiveCost = defaultCost + offset;
           return (
-            <Box
-              component="span"
-              sx={{ fontWeight: isOverridden ? 600 : "normal" }}
-            >
+            <Box component="span">
               {effectiveCost}
-              {isOverridden ? "" : "（預設）"}
+              {offset !== 0 && (
+                <Box
+                  component="span"
+                  sx={{ ml: 0.5, color: offset > 0 ? "error.main" : "success.main", fontSize: "0.85em" }}
+                >
+                  ({offset > 0 ? "+" : ""}{offset})
+                </Box>
+              )}
             </Box>
           );
         },

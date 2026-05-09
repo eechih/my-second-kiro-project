@@ -65,14 +65,14 @@ function createSampleProduct(): Product {
       {
         id: "var-001",
         label: "紅 L",
-        price: null,
-        cost: null,
+        priceOffset: null,
+        costOffset: null,
       },
       {
         id: "var-002",
         label: "黑 M",
-        price: 120,
-        cost: 60,
+        priceOffset: 20,
+        costOffset: 10,
       },
     ],
     imageUrls: ["product-images/prod-001/photo1.jpg"],
@@ -231,10 +231,10 @@ describe("serializeProduct / deserializeProduct", () => {
     const original = createSampleProduct();
     const json = serializeProduct(original);
     const restored = deserializeProduct(json);
-    expect(restored.variants[0]!.price).toBeNull();
-    expect(restored.variants[0]!.cost).toBeNull();
-    expect(restored.variants[1]!.price).toBe(120);
-    expect(restored.variants[1]!.cost).toBe(60);
+    expect(restored.variants[0]!.priceOffset).toBeNull();
+    expect(restored.variants[0]!.costOffset).toBeNull();
+    expect(restored.variants[1]!.priceOffset).toBe(20);
+    expect(restored.variants[1]!.costOffset).toBe(10);
   });
 
   it("反序列化無效 JSON 應拋出錯誤", () => {

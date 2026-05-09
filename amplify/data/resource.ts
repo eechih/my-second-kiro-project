@@ -87,8 +87,8 @@ const schema = a.schema({
       productId: a.id().required(),
       product: a.belongsTo("Product", "productId"),
       label: a.string().required(),
-      price: a.float(),
-      cost: a.float(),
+      priceOffset: a.float(),
+      costOffset: a.float(),
       lineItems: a.hasMany("LineItem", "variantId"),
     })
     .authorization((allow) => [allow.authenticated()]),

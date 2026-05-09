@@ -10,10 +10,10 @@ export interface ProductVariant {
   id: string;
   /** 規格顯示標籤（如「黑」、「L」、「黑 L」） */
   label: string;
-  /** 規格單價（null 表示沿用商品預設單價） */
-  price: number | null;
-  /** 規格成本（null 表示沿用商品預設成本） */
-  cost: number | null;
+  /** 單價偏移量（null 或 0 表示沿用商品預設單價，正值加價、負值減價） */
+  priceOffset: number | null;
+  /** 成本偏移量（null 或 0 表示沿用商品預設成本，正值加價、負值減價） */
+  costOffset: number | null;
 }
 
 /** 商品基本資料 */
@@ -88,16 +88,16 @@ export interface UpdateProductInput {
 export interface CreateVariantInput {
   /** 規格顯示標籤（如「黑」、「L」、「黑 L」） */
   label: string;
-  /** 規格單價（選填，null 表示沿用商品預設單價） */
-  price?: number | null;
-  /** 規格成本（選填，null 表示沿用商品預設成本） */
-  cost?: number | null;
+  /** 單價偏移量（選填，null 或 0 表示無偏移） */
+  priceOffset?: number | null;
+  /** 成本偏移量（選填，null 或 0 表示無偏移） */
+  costOffset?: number | null;
 }
 
 /** 更新規格組合輸入 */
 export interface UpdateVariantInput {
-  /** 規格單價（null 表示沿用商品預設單價） */
-  price?: number | null;
-  /** 規格成本（null 表示沿用商品預設成本） */
-  cost?: number | null;
+  /** 單價偏移量（null 表示無偏移） */
+  priceOffset?: number | null;
+  /** 成本偏移量（null 表示無偏移） */
+  costOffset?: number | null;
 }

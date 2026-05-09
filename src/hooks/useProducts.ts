@@ -413,8 +413,8 @@ export function useCreateVariant(): UseMutationResult<
       const { data, errors } = await client.models.ProductVariant.create({
         productId,
         label: variant.label.trim(),
-        price: variant.price ?? null,
-        cost: variant.cost ?? null,
+        priceOffset: variant.priceOffset ?? null,
+        costOffset: variant.costOffset ?? null,
       });
 
       if (errors && errors.length > 0) {
@@ -464,10 +464,10 @@ export function useUpdateVariant(): UseMutationResult<
     }): Promise<ProductVariant> => {
       const updatePayload: Record<string, unknown> = { id: variantId };
 
-      if (updates.price !== undefined)
-        updatePayload.price = updates.price;
-      if (updates.cost !== undefined)
-        updatePayload.cost = updates.cost;
+      if (updates.priceOffset !== undefined)
+        updatePayload.priceOffset = updates.priceOffset;
+      if (updates.costOffset !== undefined)
+        updatePayload.costOffset = updates.costOffset;
 
       const { data, errors } = await client.models.ProductVariant.update(
         updatePayload as Parameters<
@@ -580,13 +580,13 @@ function mapToVariant(raw: Record<string, unknown>): ProductVariant {
   return {
     id: String(raw.id ?? ""),
     label: String(raw.label ?? ""),
-    price:
-      raw.price !== null && raw.price !== undefined
-        ? Number(raw.price)
+    priceOffset:
+      raw.priceOffset !== null && raw.priceOffset !== undefined
+        ? Number(raw.priceOffset)
         : null,
-    cost:
-      raw.cost !== null && raw.cost !== undefined
-        ? Number(raw.cost)
+    costOffset:
+      raw.costOffset !== null && raw.costOffset !== undefined
+        ? Number(raw.costOffset)
         : null,
   };
 }

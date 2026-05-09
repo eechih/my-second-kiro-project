@@ -84,13 +84,13 @@ function mapVariant(raw: Record<string, unknown>): ProductVariant {
   return {
     id: String(raw.id ?? ""),
     label: String(raw.label ?? ""),
-    price:
-      raw.price !== null && raw.price !== undefined
-        ? Number(raw.price)
+    priceOffset:
+      raw.priceOffset !== null && raw.priceOffset !== undefined
+        ? Number(raw.priceOffset)
         : null,
-    cost:
-      raw.cost !== null && raw.cost !== undefined
-        ? Number(raw.cost)
+    costOffset:
+      raw.costOffset !== null && raw.costOffset !== undefined
+        ? Number(raw.costOffset)
         : null,
   };
 }

@@ -1,8 +1,13 @@
 /**
  * 規格選項（Product Variant）純函式
  *
- * 提供價格/成本解析、必選驗證等函式。
+ * 提供價格/成本解析（偏移量模式）、必選驗證等函式。
  * 此模組為純函式，前端與 Lambda 共用同一份邏輯（Single Source of Truth）。
+ *
+ * 偏移量模式：variant.priceOffset / costOffset 為相對於商品預設值的增減量。
+ * - null 或 0 表示沿用商品預設值
+ * - 正值表示加價（如 +50 表示比預設貴 50）
+ * - 負值表示減價（如 -20 表示比預設便宜 20）
  *
  * 需求：3.12, 3.13, 3.14, 3.15, 4.12, 4.13
  */
@@ -13,8 +18,7 @@ import type { Product, ProductVariant } from "../models/product";
 /**
  * 解析規格組合的有效單價。
  *
- * 若 variant.price 不為 null，回傳覆寫值；
- * 否則回傳 product.unitPrice。
+ * 有效單價 = product.unitPrice + (variant.priceOffset ?? 0)
  *
  * @param variant - 規格組合
  * @param product - 商品
@@ -24,16 +28,13 @@ export function resolveEffectivePrice(
   variant: ProductVariant,
   product: Product,
 ): number {
-  return variant.price !== null
-    ? variant.price
-    : product.unitPrice;
+  return product.unitPrice + (variant.priceOffset ?? 0);
 }
 
 /**
  * 解析規格組合的有效進貨成本。
  *
- * 若 variant.cost 不為 null，回傳覆寫值；
- * 否則回傳 product.defaultCost。
+ * 有效成本 = product.defaultCost + (variant.costOffset ?? 0)
  *
  * @param variant - 規格組合
  * @param product - 商品
@@ -43,9 +44,7 @@ export function resolveEffectiveCost(
   variant: ProductVariant,
   product: Product,
 ): number {
-  return variant.cost !== null
-    ? variant.cost
-    : product.defaultCost;
+  return product.defaultCost + (variant.costOffset ?? 0);
 }
 
 /**
