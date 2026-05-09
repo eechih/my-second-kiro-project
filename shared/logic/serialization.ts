@@ -92,8 +92,8 @@ export function deserializeCustomer(json: string): Customer {
 
   assertStringField(customer, "id", "Customer");
   assertStringField(customer, "name", "Customer");
-  assertStringField(customer, "contactPerson", "Customer");
-  assertStringField(customer, "phone", "Customer");
+  assertOptionalStringField(customer, "contactPerson", "Customer");
+  assertOptionalStringField(customer, "phone", "Customer");
   assertStringField(customer, "email", "Customer");
   assertStringField(customer, "address", "Customer");
   assertBooleanField(customer, "isActive", "Customer");
@@ -121,8 +121,8 @@ export function deserializeSupplier(json: string): Supplier {
 
   assertStringField(supplier, "id", "Supplier");
   assertStringField(supplier, "name", "Supplier");
-  assertStringField(supplier, "contactPerson", "Supplier");
-  assertStringField(supplier, "phone", "Supplier");
+  assertOptionalStringField(supplier, "contactPerson", "Supplier");
+  assertOptionalStringField(supplier, "phone", "Supplier");
   assertStringField(supplier, "email", "Supplier");
   assertStringField(supplier, "address", "Supplier");
   assertBooleanField(supplier, "isActive", "Supplier");
@@ -153,6 +153,18 @@ function assertStringField(
   typeName: string,
 ): void {
   if (typeof obj[field] !== "string") {
+    throw new Error(
+      `反序列化失敗：${typeName}.${field} 應為 string，但收到 ${typeof obj[field]}`,
+    );
+  }
+}
+
+function assertOptionalStringField(
+  obj: Record<string, unknown>,
+  field: string,
+  typeName: string,
+): void {
+  if (obj[field] !== undefined && typeof obj[field] !== "string") {
     throw new Error(
       `反序列化失敗：${typeName}.${field} 應為 string，但收到 ${typeof obj[field]}`,
     );

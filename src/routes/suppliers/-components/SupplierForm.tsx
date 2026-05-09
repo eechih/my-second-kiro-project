@@ -71,24 +71,12 @@ export function SupplierForm({
             )}
           </form.Field>
 
-          <form.Field
-            name="contactPerson"
-            validators={{
-              onBlur: ({ value }) =>
-                !value.trim() ? "聯絡人為必填" : undefined,
-            }}
-          >
-            {(field) => <FormField field={field} label="聯絡人" required />}
+          <form.Field name="contactPerson">
+            {(field) => <FormField field={field} label="聯絡人" />}
           </form.Field>
 
-          <form.Field
-            name="phone"
-            validators={{
-              onBlur: ({ value }) =>
-                !value.trim() ? "電話為必填" : undefined,
-            }}
-          >
-            {(field) => <FormField field={field} label="電話" required />}
+          <form.Field name="phone">
+            {(field) => <FormField field={field} label="電話" />}
           </form.Field>
 
           <form.Field name="email">

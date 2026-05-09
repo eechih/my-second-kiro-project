@@ -150,16 +150,8 @@ function SupplierListPage(): React.ReactElement {
       if (field === "isActive" && value === supplier.isActive) return;
 
       const nextValue = typeof value === "string" ? value.trim() : value;
-      if (
-        (field === "name" || field === "contactPerson" || field === "phone") &&
-        !nextValue
-      ) {
-        const message =
-          field === "name"
-            ? "供應商名稱為必填"
-            : field === "contactPerson"
-              ? "聯絡人為必填"
-              : "電話為必填";
+      if (field === "name" && !nextValue) {
+        const message = "供應商名稱為必填";
         setError(message);
         throw new Error(message);
       }

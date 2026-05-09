@@ -59,8 +59,6 @@ function isInvalidPositiveNumber(value: unknown): boolean {
 /** Customer 必填欄位清單 */
 const CUSTOMER_REQUIRED_FIELDS: readonly (readonly [string, string])[] = [
   ["name", "客戶名稱"],
-  ["contactPerson", "聯絡人"],
-  ["phone", "電話"],
 ] as const;
 
 /**
@@ -115,8 +113,6 @@ export function getMissingCustomerFields(
 /** Supplier 必填欄位清單 */
 const SUPPLIER_REQUIRED_FIELDS: readonly (readonly [string, string])[] = [
   ["name", "供應商名稱"],
-  ["contactPerson", "聯絡人"],
-  ["phone", "電話"],
 ] as const;
 
 /**

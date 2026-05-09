@@ -147,16 +147,8 @@ function CustomerListPage(): React.ReactElement {
       if (field === "isActive" && value === customer.isActive) return;
 
       const nextValue = typeof value === "string" ? value.trim() : value;
-      if (
-        (field === "name" || field === "contactPerson" || field === "phone") &&
-        !nextValue
-      ) {
-        const message =
-          field === "name"
-            ? "客戶名稱為必填"
-            : field === "contactPerson"
-              ? "聯絡人為必填"
-              : "電話為必填";
+      if (field === "name" && !nextValue) {
+        const message = "客戶名稱為必填";
         setError(message);
         throw new Error(message);
       }

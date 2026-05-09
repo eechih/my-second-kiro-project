@@ -30,8 +30,8 @@ const schema = a.schema({
   Customer: a
     .model({
       name: a.string().required(),
-      contactPerson: a.string().required(),
-      phone: a.string().required(),
+      contactPerson: a.string(),
+      phone: a.string(),
       email: a.string(),
       address: a.string(),
       isActive: a.boolean().required().default(true),
@@ -44,8 +44,8 @@ const schema = a.schema({
   Supplier: a
     .model({
       name: a.string().required(),
-      contactPerson: a.string().required(),
-      phone: a.string().required(),
+      contactPerson: a.string(),
+      phone: a.string(),
       email: a.string(),
       address: a.string(),
       isActive: a.boolean().required().default(true),
