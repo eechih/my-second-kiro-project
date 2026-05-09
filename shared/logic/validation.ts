@@ -172,8 +172,8 @@ const PRODUCT_REQUIRED_STRING_FIELDS: readonly (readonly [string, string])[] = [
 
 /** Product 必填數值欄位清單（非負數） */
 const PRODUCT_REQUIRED_NUMBER_FIELDS: readonly (readonly [string, string])[] = [
-  ["unitPrice", "單價"],
-  ["defaultCost", "進貨成本"],
+  ["price", "單價"],
+  ["cost", "進貨成本"],
 ] as const;
 
 /**

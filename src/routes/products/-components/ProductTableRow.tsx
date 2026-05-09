@@ -24,8 +24,8 @@ import { useQuery } from "@tanstack/react-query";
 
 export type EditableProductField =
   | "name"
-  | "unitPrice"
-  | "defaultCost"
+  | "price"
+  | "cost"
   | "stockQuantity"
   | "defaultSupplierId"
   | "isActive";
@@ -156,11 +156,11 @@ export function ProductTableRow({
       </TableCell>
       <TableCell align="right">
         <EditableNumberCell
-          value={product.unitPrice}
+          value={product.price}
           format={(value) => `$${value}`}
           integer
           align="right"
-          onCommit={(value) => onCellEdit(product, "unitPrice", value)}
+          onCommit={(value) => onCellEdit(product, "price", value)}
         />
       </TableCell>
       <TableCell align="right">
@@ -183,11 +183,11 @@ export function ProductTableRow({
       </TableCell>
       <TableCell align="right">
         <EditableNumberCell
-          value={product.defaultCost}
+          value={product.cost}
           format={(value) => `$${value}`}
           integer
           align="right"
-          onCommit={(value) => onCellEdit(product, "defaultCost", value)}
+          onCommit={(value) => onCellEdit(product, "cost", value)}
         />
       </TableCell>
       <TableCell>{createdDate}</TableCell>

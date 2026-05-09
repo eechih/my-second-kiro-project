@@ -59,8 +59,8 @@ const schema = a.schema({
     .model({
       name: a.string().required(),
       sku: a.string().required(),
-      unitPrice: a.float().required(),
-      defaultCost: a.float().required(),
+      price: a.float().required(),
+      cost: a.float().required(),
       defaultSupplierId: a.string(),
       stockQuantity: a.integer().required().default(0),
       imageUrls: a.string().array(),

@@ -25,9 +25,9 @@ export interface Product {
   /** SKU 編號（必填，唯一） */
   sku: string;
   /** 預設單價（必填，>= 0） */
-  unitPrice: number;
+  price: number;
   /** 預設進貨成本（必填，>= 0） */
-  defaultCost: number;
+  cost: number;
   /** 預設供應商 ID（選填） */
   defaultSupplierId: string | null;
   /** 庫存數量（>= 0，無規格組合時使用此欄位追蹤庫存） */
@@ -51,9 +51,9 @@ export interface CreateProductInput {
   /** SKU 編號（必填，唯一） */
   sku: string;
   /** 預設單價（必填，>= 0） */
-  unitPrice: number;
+  price: number;
   /** 預設進貨成本（必填，>= 0） */
-  defaultCost: number;
+  cost: number;
   /** 預設供應商 ID（選填） */
   defaultSupplierId?: string | null;
   /** 初始庫存數量（選填，預設 0） */
@@ -71,9 +71,9 @@ export interface UpdateProductInput {
   /** SKU 編號 */
   sku?: string;
   /** 預設單價 */
-  unitPrice?: number;
+  price?: number;
   /** 預設進貨成本 */
-  defaultCost?: number;
+  cost?: number;
   /** 預設供應商 ID */
   defaultSupplierId?: string | null;
   /** 庫存數量 */

@@ -89,8 +89,8 @@ function ProductEditPage() {
     const validation = validateProduct({
       name: values.name,
       sku: values.sku,
-      unitPrice: values.unitPrice,
-      defaultCost: values.defaultCost,
+      price: values.price,
+      cost: values.cost,
     });
     if (!validation.valid) {
       setSubmitError(validation.error ?? "驗證失敗");
@@ -102,8 +102,8 @@ function ProductEditPage() {
         id: productId,
         name: values.name,
         sku: values.sku,
-        unitPrice: values.unitPrice,
-        defaultCost: values.defaultCost,
+        price: values.price,
+        cost: values.cost,
         defaultSupplierId: values.defaultSupplierId,
         stockQuantity: values.stockQuantity,
       });

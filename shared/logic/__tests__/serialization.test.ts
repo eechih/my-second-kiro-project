@@ -57,8 +57,8 @@ function createSampleProduct(): Product {
     id: "prod-001",
     name: "測試商品",
     sku: "TEST-001",
-    unitPrice: 100,
-    defaultCost: 50,
+    price: 100,
+    cost: 50,
     defaultSupplierId: "sup-001",
     stockQuantity: 200,
     variants: [

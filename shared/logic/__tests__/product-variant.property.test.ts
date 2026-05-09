@@ -28,8 +28,8 @@ function createProduct(overrides: Partial<Product> = {}): Product {
     id: "prod-1",
     name: "測試商品",
     sku: "TEST-001",
-    unitPrice: 100,
-    defaultCost: 50,
+    price: 100,
+    cost: 50,
     defaultSupplierId: null,
     stockQuantity: 0,
     variants: [],
@@ -55,7 +55,7 @@ describe("resolveEffectivePrice / resolveEffectiveCost", () => {
   it("偏移量為 null 時使用商品預設單價", () => {
     fc.assert(
       fc.property(nonNegativeNumberArb, (unitPrice) => {
-        const product = createProduct({ unitPrice });
+        const product = createProduct({ price: unitPrice });
         const variant = createVariant({ priceOffset: null });
 
         expect(resolveEffectivePrice(variant, product)).toBe(unitPrice);
@@ -67,7 +67,7 @@ describe("resolveEffectivePrice / resolveEffectiveCost", () => {
   it("偏移量為正值時加價", () => {
     fc.assert(
       fc.property(positiveNumberArb, (offset) => {
-        const product = createProduct({ unitPrice: 100 });
+        const product = createProduct({ price: 100 });
         const variant = createVariant({ priceOffset: offset });
 
         expect(resolveEffectivePrice(variant, product)).toBe(100 + offset);
@@ -79,7 +79,7 @@ describe("resolveEffectivePrice / resolveEffectiveCost", () => {
   it("偏移量為 0 時等同預設單價", () => {
     fc.assert(
       fc.property(nonNegativeNumberArb, (unitPrice) => {
-        const product = createProduct({ unitPrice });
+        const product = createProduct({ price: unitPrice });
         const variant = createVariant({ priceOffset: 0 });
 
         expect(resolveEffectivePrice(variant, product)).toBe(unitPrice);
@@ -91,7 +91,7 @@ describe("resolveEffectivePrice / resolveEffectiveCost", () => {
   it("成本偏移量為 null 時使用商品預設成本", () => {
     fc.assert(
       fc.property(nonNegativeNumberArb, (defaultCost) => {
-        const product = createProduct({ defaultCost });
+        const product = createProduct({ cost: defaultCost });
         const variant = createVariant({ costOffset: null });
 
         expect(resolveEffectiveCost(variant, product)).toBe(defaultCost);
@@ -103,7 +103,7 @@ describe("resolveEffectivePrice / resolveEffectiveCost", () => {
   it("成本偏移量有值時加上偏移量", () => {
     fc.assert(
       fc.property(positiveNumberArb, (offset) => {
-        const product = createProduct({ defaultCost: 50 });
+        const product = createProduct({ cost: 50 });
         const variant = createVariant({ costOffset: offset });
 
         expect(resolveEffectiveCost(variant, product)).toBe(50 + offset);

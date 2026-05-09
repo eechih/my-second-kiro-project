@@ -53,8 +53,8 @@ const PRODUCT_SELECTION_SET = [
   "id",
   "name",
   "sku",
-  "unitPrice",
-  "defaultCost",
+  "price",
+  "cost",
   "defaultSupplierId",
   "stockQuantity",
   "imageUrls",
@@ -116,9 +116,9 @@ function applyProductUpdate(
     ...product,
     ...(input.name !== undefined && { name: input.name }),
     ...(input.sku !== undefined && { sku: input.sku }),
-    ...(input.unitPrice !== undefined && { unitPrice: input.unitPrice }),
-    ...(input.defaultCost !== undefined && {
-      defaultCost: input.defaultCost,
+    ...(input.price !== undefined && { price: input.price }),
+    ...(input.cost !== undefined && {
+      cost: input.cost,
     }),
     ...(input.defaultSupplierId !== undefined && {
       defaultSupplierId: input.defaultSupplierId,
@@ -209,8 +209,8 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
   const { data, errors } = await client.models.Product.create({
     name: input.name,
     sku: input.sku,
-    unitPrice: input.unitPrice,
-    defaultCost: input.defaultCost,
+    price: input.price,
+    cost: input.cost,
     defaultSupplierId: input.defaultSupplierId ?? null,
     stockQuantity: input.stockQuantity ?? 0,
     imageUrls: input.imageUrls ?? [],
@@ -237,9 +237,9 @@ function buildProductUpdatePayload(
 
   if (input.name !== undefined) updatePayload.name = input.name;
   if (input.sku !== undefined) updatePayload.sku = input.sku;
-  if (input.unitPrice !== undefined) updatePayload.unitPrice = input.unitPrice;
-  if (input.defaultCost !== undefined)
-    updatePayload.defaultCost = input.defaultCost;
+  if (input.price !== undefined) updatePayload.price = input.price;
+  if (input.cost !== undefined)
+    updatePayload.cost = input.cost;
   if (input.defaultSupplierId !== undefined)
     updatePayload.defaultSupplierId = input.defaultSupplierId;
   if (input.stockQuantity !== undefined)
@@ -559,8 +559,8 @@ function mapToProduct(raw: Record<string, unknown>): Product {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
     sku: String(raw.sku ?? ""),
-    unitPrice: Number(raw.unitPrice ?? 0),
-    defaultCost: Number(raw.defaultCost ?? 0),
+    price: Number(raw.price ?? 0),
+    cost: Number(raw.cost ?? 0),
     defaultSupplierId: raw.defaultSupplierId
       ? String(raw.defaultSupplierId)
       : null,

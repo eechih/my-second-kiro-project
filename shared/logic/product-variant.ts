@@ -28,7 +28,7 @@ export function resolveEffectivePrice(
   variant: ProductVariant,
   product: Product,
 ): number {
-  return product.unitPrice + (variant.priceOffset ?? 0);
+  return product.price + (variant.priceOffset ?? 0);
 }
 
 /**
@@ -44,7 +44,7 @@ export function resolveEffectiveCost(
   variant: ProductVariant,
   product: Product,
 ): number {
-  return product.defaultCost + (variant.costOffset ?? 0);
+  return product.cost + (variant.costOffset ?? 0);
 }
 
 /**

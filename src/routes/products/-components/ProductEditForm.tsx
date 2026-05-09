@@ -24,8 +24,8 @@ import { useCallback, useEffect, useState } from "react";
 export interface ProductEditFormValues {
   name: string;
   sku: string;
-  unitPrice: number;
-  defaultCost: number;
+  price: number;
+  cost: number;
   stockQuantity: number;
   defaultSupplierId: string | null;
 }
@@ -94,16 +94,16 @@ export function ProductEditForm({
     defaultValues: {
       name: product.name,
       sku: product.sku,
-      unitPrice: product.unitPrice,
-      defaultCost: product.defaultCost,
+      price: product.price,
+      cost: product.cost,
       stockQuantity: product.stockQuantity,
     },
     onSubmit: async ({ value }) => {
       await onSubmit({
         name: value.name,
         sku: value.sku,
-        unitPrice: value.unitPrice,
-        defaultCost: value.defaultCost,
+        price: value.price,
+        cost: value.cost,
         stockQuantity: value.stockQuantity,
         defaultSupplierId: selectedSupplier?.id ?? null,
       });
@@ -114,8 +114,8 @@ export function ProductEditForm({
     form.reset({
       name: product.name,
       sku: product.sku,
-      unitPrice: product.unitPrice,
-      defaultCost: product.defaultCost,
+      price: product.price,
+      cost: product.cost,
       stockQuantity: product.stockQuantity,
     });
   }, [form, product]);
@@ -196,7 +196,7 @@ export function ProductEditForm({
           </form.Field>
 
           <form.Field
-            name="unitPrice"
+            name="price"
             validators={{
               onBlur: ({ value }) =>
                 value < 0 ? "單價不可為負數" : undefined,
@@ -213,7 +213,7 @@ export function ProductEditForm({
           </form.Field>
 
           <form.Field
-            name="defaultCost"
+            name="cost"
             validators={{
               onBlur: ({ value }) =>
                 value < 0 ? "進貨成本不可為負數" : undefined,
@@ -309,8 +309,8 @@ export function ProductEditForm({
           <VariantTable
             productId={productId}
             variants={product.variants}
-            defaultUnitPrice={product.unitPrice}
-            defaultCost={product.defaultCost}
+            defaultUnitPrice={product.price}
+            defaultCost={product.cost}
             onUpdateVariant={onUpdateVariant}
             onDeleteVariant={onDeleteVariant}
             isLoading={isVariantMutating}

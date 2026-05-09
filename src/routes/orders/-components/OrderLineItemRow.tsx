@@ -53,7 +53,7 @@ export function OrderLineItemRow({
           productName: product.name,
           variantId: null,
           variantLabel: null,
-          unitPrice: product.unitPrice,
+          unitPrice: product.price,
         });
       } else {
         onUpdate({
@@ -83,7 +83,7 @@ export function OrderLineItemRow({
         onUpdate({
           variantId: null,
           variantLabel: null,
-          unitPrice: selectedProduct?.unitPrice ?? 0,
+          unitPrice: selectedProduct?.price ?? 0,
         });
         if (selectedProduct && selectedProduct.variants.length > 0) {
           setVariantError("請選取規格組合");
