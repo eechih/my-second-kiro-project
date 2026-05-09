@@ -6,18 +6,18 @@ import {
   QueryCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { isValidLineItemStatusTransition } from "../../../shared/logic/line-item-status";
-import { isValidOrderStatusTransition } from "../../../shared/logic/order-status";
-import { deriveOrderStatusFromLineItems } from "../../../shared/logic/order-status";
+import { isValidLineItemStatusTransition } from "@shared/logic/line-item-status";
+import { isValidOrderStatusTransition } from "@shared/logic/order-status";
+import { deriveOrderStatusFromLineItems } from "@shared/logic/order-status";
 import {
   calculateRemainingShipQuantity,
   validateShipment,
-} from "../../../shared/logic/shipment";
+} from "@shared/logic/shipment";
 import {
   normalizeLineItemStatus,
   normalizeOrderStatus,
   type LineItemStatus,
-} from "../../../shared/models/order";
+} from "@shared/models/order";
 
 const ddb = new DynamoDBClient({});
 

@@ -6,13 +6,13 @@ import {
   QueryCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { validateMergeOrders } from "../../../shared/logic/order-merge";
+import { validateMergeOrders } from "@shared/logic/order-merge";
 import {
   normalizeLineItemStatus,
   normalizeOrderStatus,
   type LineItem,
   type Order,
-} from "../../../shared/models/order";
+} from "@shared/models/order";
 
 const ddb = new DynamoDBClient({});
 

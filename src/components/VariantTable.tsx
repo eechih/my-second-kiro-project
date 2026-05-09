@@ -8,8 +8,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import Box from "@mui/material/Box";
-import type { ProductVariant } from "../../shared/models/product";
-import type { UpdateVariantInput } from "../../shared/models/product";
+import type { ProductVariant } from "@shared/models/product";
+import type { UpdateVariantInput } from "@shared/models/product";
 import { DataTable } from "./DataTable";
 
 export interface VariantTableProps {

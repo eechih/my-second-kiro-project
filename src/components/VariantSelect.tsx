@@ -1,6 +1,6 @@
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
-import type { ProductVariant } from "../../shared/models/product";
+import type { ProductVariant } from "@shared/models/product";
 
 export interface VariantSelectProps {
   /** 商品 ID */

@@ -1,4 +1,4 @@
-import type { Customer } from "../../shared/models/customer";
+import type { Customer } from "@shared/models/customer";
 
 /**
  * 排序欄位型別定義

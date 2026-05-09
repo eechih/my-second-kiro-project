@@ -5,8 +5,8 @@ import {
   GetItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { validateProcurementReceive } from "../../../shared/logic/procurement";
-import { normalizeLineItemStatus } from "../../../shared/models/order";
+import { validateProcurementReceive } from "@shared/logic/procurement";
+import { normalizeLineItemStatus } from "@shared/models/order";
 
 const ddb = new DynamoDBClient({});
 

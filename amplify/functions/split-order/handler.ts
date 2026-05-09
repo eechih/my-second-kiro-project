@@ -6,11 +6,11 @@ import {
   QueryCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { isValidOrderStatusTransition } from "../../../shared/logic/order-status";
+import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 import {
   normalizeOrderStatus,
   type OrderStatus,
-} from "../../../shared/models/order";
+} from "@shared/models/order";
 
 const ddb = new DynamoDBClient({});
 

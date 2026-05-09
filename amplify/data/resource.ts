@@ -3,7 +3,7 @@ import { shipLineItem } from "../functions/ship-line-item/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
 import { splitOrder } from "../functions/split-order/resource";
-import { LINE_ITEM_STATUSES, ORDER_STATUSES } from "../../shared/models/order";
+import { LINE_ITEM_STATUSES, ORDER_STATUSES } from "@shared/models/order";
 
 /**
  * 電子商務訂單管理系統 — Amplify Gen2 Data Schema

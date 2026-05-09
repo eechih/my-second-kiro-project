@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { VariantSelect } from "../VariantSelect";
-import type { ProductVariant } from "../../../shared/models/product";
+import type { ProductVariant } from "@shared/models/product";
 
 const mockVariants: ProductVariant[] = [
   {
