@@ -1,7 +1,9 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { LINE_ITEM_STATUSES, ORDER_STATUSES } from "@shared/models/order";
+import { cancelOutOfStock } from "../functions/cancel-out-of-stock/resource";
 import { cancelReceived } from "../functions/cancel-received/resource";
 import { cancelShipment } from "../functions/cancel-shipment/resource";
+import { confirmOutOfStock } from "../functions/confirm-out-of-stock/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
 import { shipLineItem } from "../functions/ship-line-item/resource";
@@ -23,6 +25,8 @@ import { splitOrder } from "../functions/split-order/resource";
  * - cancelShipment：取消出貨（庫存加回 + 狀態更新，TransactWriteItems）
  * - confirmReceived：入庫確認（庫存增加 + 狀態更新，TransactWriteItems）
  * - cancelReceived：取消入庫（庫存扣回 + 狀態更新，TransactWriteItems）
+ * - confirmOutOfStock：確認缺貨（缺貨狀態 + 時間戳，TransactWriteItems）
+ * - cancelOutOfStock：取消缺貨（狀態回推 + 清除時間戳，TransactWriteItems）
  * - mergeOrders：訂單合併（建立新訂單 + 搬移明細 + 取消來源，TransactWriteItems）
  * - splitOrder：訂單分拆（建立多筆新訂單 + 分配明細 + 取消原訂單，TransactWriteItems）
  *
@@ -154,6 +158,7 @@ const schema = a.schema({
       purchasedAt: a.datetime(),
       receivedAt: a.datetime(),
       shippedAt: a.datetime(),
+      outOfStockAt: a.datetime(),
       supplierId: a.string(),
       supplierName: a.string(),
       unitCost: a.float(),
@@ -207,6 +212,28 @@ const schema = a.schema({
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
     .handler(a.handler.function(cancelReceived)),
+
+  /** 確認缺貨：更新明細狀態 + 記錄缺貨時間 */
+  confirmOutOfStock: a
+    .mutation()
+    .arguments({
+      orderId: a.string().required(),
+      lineItemId: a.string().required(),
+    })
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(confirmOutOfStock)),
+
+  /** 取消缺貨：依既有時間戳回推明細狀態 */
+  cancelOutOfStock: a
+    .mutation()
+    .arguments({
+      orderId: a.string().required(),
+      lineItemId: a.string().required(),
+    })
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(cancelOutOfStock)),
 
   /** 訂單合併：建立新訂單 + 搬移明細 + 取消來源訂單 */
   mergeOrders: a

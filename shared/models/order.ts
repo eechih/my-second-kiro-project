@@ -162,6 +162,8 @@ export interface LineItem {
   receivedAt: string | null;
   /** ISO 8601 出貨日期時間（尚未出貨時為 null） */
   shippedAt: string | null;
+  /** ISO 8601 缺貨日期時間（尚未缺貨時為 null） */
+  outOfStockAt: string | null;
 
   // --- 採購核心數據 ---
   /** 供應商 ID（尚未採購時為 null） */

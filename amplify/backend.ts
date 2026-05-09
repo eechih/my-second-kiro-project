@@ -3,8 +3,10 @@ import { Function as LambdaFunction } from "aws-cdk-lib/aws-lambda";
 import { auth } from "./auth/resource";
 import { data } from "./data/resource";
 import { storage } from "./storage/resource";
+import { cancelOutOfStock } from "./functions/cancel-out-of-stock/resource";
 import { cancelReceived } from "./functions/cancel-received/resource";
 import { cancelShipment } from "./functions/cancel-shipment/resource";
+import { confirmOutOfStock } from "./functions/confirm-out-of-stock/resource";
 import { shipLineItem } from "./functions/ship-line-item/resource";
 import { confirmReceived } from "./functions/confirm-received/resource";
 import { mergeOrders } from "./functions/merge-orders/resource";
@@ -15,8 +17,10 @@ const backend = defineBackend({
   auth,
   data,
   storage,
+  cancelOutOfStock,
   cancelReceived,
   cancelShipment,
+  confirmOutOfStock,
   shipLineItem,
   confirmReceived,
   mergeOrders,
@@ -64,8 +68,10 @@ backend.addOutput({
 
 // 所有需要直接存取 DynamoDB 的 Lambda 函式
 const transactionalFunctions = [
+  backend.cancelOutOfStock,
   backend.cancelReceived,
   backend.cancelShipment,
+  backend.confirmOutOfStock,
   backend.shipLineItem,
   backend.confirmReceived,
   backend.mergeOrders,

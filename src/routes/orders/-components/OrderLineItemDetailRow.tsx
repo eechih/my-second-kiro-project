@@ -188,7 +188,8 @@ export function OrderLineItemDetailRow({
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 採購日期：{formatDate(lineItem.purchasedAt)} 收到日期：
                 {formatDate(lineItem.receivedAt)} 出貨日期：
-                {formatDate(lineItem.shippedAt)}
+                {formatDate(lineItem.shippedAt)} 缺貨日期：
+                {formatDate(lineItem.outOfStockAt)}
               </Typography>
 
               {lineItem.supplierName && (

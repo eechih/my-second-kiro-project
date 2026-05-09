@@ -61,6 +61,7 @@ function mapLineItem(raw: DdbRecord): LineItem {
     purchasedAt: raw["purchasedAt"] ? String(raw["purchasedAt"]) : null,
     receivedAt: raw["receivedAt"] ? String(raw["receivedAt"]) : null,
     shippedAt: raw["shippedAt"] ? String(raw["shippedAt"]) : null,
+    outOfStockAt: raw["outOfStockAt"] ? String(raw["outOfStockAt"]) : null,
     supplierId: raw["supplierId"] ? String(raw["supplierId"]) : null,
     supplierName: raw["supplierName"] ? String(raw["supplierName"]) : null,
     unitCost:

@@ -146,6 +146,7 @@ type LineItemStatusFlagUpdate = {
   purchasedAt?: string | null;
   receivedAt?: string | null;
   shippedAt?: string | null;
+  outOfStockAt?: string | null;
   shippedQuantity?: number;
   status: LineItemStatus;
 };
@@ -318,6 +319,7 @@ function mapToLineItem(raw: Record<string, unknown>): LineItem {
     purchasedAt: raw.purchasedAt ? String(raw.purchasedAt) : null,
     receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
     shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
+    outOfStockAt: raw.outOfStockAt ? String(raw.outOfStockAt) : null,
     supplierId: raw.supplierId ? String(raw.supplierId) : null,
     supplierName: raw.supplierName ? String(raw.supplierName) : null,
     unitCost: raw.unitCost != null ? Number(raw.unitCost) : null,
@@ -340,6 +342,7 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       purchasedAt: null,
       receivedAt: null,
       shippedAt: null,
+      outOfStockAt: null,
       variantId: item.variantId ?? null,
       variantLabel: item.variantLabel ?? null,
       supplierId: null,
@@ -508,6 +511,65 @@ async function cancelReceived(input: ConfirmReceivedInput): Promise<LineItem> {
   return mapToLineItem(data as unknown as Record<string, unknown>);
 }
 
+async function fetchLineItemAfterCustomMutation(
+  lineItemId: string,
+  fallbackMessage: string,
+): Promise<LineItem> {
+  const { data, errors } = await client.models.LineItem.get({
+    id: lineItemId,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢明細狀態失敗");
+  }
+
+  if (!data) {
+    throw new Error(fallbackMessage);
+  }
+
+  return mapToLineItem(data as unknown as Record<string, unknown>);
+}
+
+async function confirmOutOfStock(
+  input: Pick<UpdateLineItemStatusFlagInput, "orderId" | "lineItemId">,
+): Promise<LineItem> {
+  const { data: result, errors } = await client.mutations.confirmOutOfStock({
+    orderId: input.orderId,
+    lineItemId: input.lineItemId,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "確認缺貨失敗");
+  }
+
+  assertCustomMutationSuccess(result, "確認缺貨失敗");
+
+  return fetchLineItemAfterCustomMutation(
+    input.lineItemId,
+    "確認缺貨失敗：找不到明細項目",
+  );
+}
+
+async function cancelOutOfStock(
+  input: Pick<UpdateLineItemStatusFlagInput, "orderId" | "lineItemId">,
+): Promise<LineItem> {
+  const { data: result, errors } = await client.mutations.cancelOutOfStock({
+    orderId: input.orderId,
+    lineItemId: input.lineItemId,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "取消缺貨失敗");
+  }
+
+  assertCustomMutationSuccess(result, "取消缺貨失敗");
+
+  return fetchLineItemAfterCustomMutation(
+    input.lineItemId,
+    "取消缺貨失敗：找不到明細項目",
+  );
+}
+
 async function markProcurement(input: MarkProcurementInput): Promise<LineItem> {
   const { data, errors } = await client.models.LineItem.update({
     id: input.lineItemId,
@@ -589,12 +651,17 @@ function buildLineItemStatusFlagUpdate(
 
   if (flag === "outOfStock") {
     if (checked) {
-      if (lineItem.status !== "pending" && lineItem.status !== "ordered") {
-        throw new Error("僅待處理或已訂購明細可標記斷貨");
+      if (
+        lineItem.status !== "pending" &&
+        lineItem.status !== "ordered" &&
+        lineItem.status !== "received"
+      ) {
+        throw new Error("僅待處理、已訂購或已到貨明細可標記斷貨");
       }
 
       return {
         status: "out_of_stock",
+        outOfStockAt: now,
       };
     }
 
@@ -604,6 +671,7 @@ function buildLineItemStatusFlagUpdate(
 
     return {
       status: lineItem.purchasedAt ? "ordered" : "pending",
+      outOfStockAt: null,
     };
   }
 
@@ -631,6 +699,10 @@ async function updateLineItemStatusFlag(
 
   if (input.flag === "shipped" && !input.checked) {
     return cancelShipment(input);
+  }
+
+  if (input.flag === "outOfStock") {
+    return input.checked ? confirmOutOfStock(input) : cancelOutOfStock(input);
   }
 
   const now = new Date().toISOString();

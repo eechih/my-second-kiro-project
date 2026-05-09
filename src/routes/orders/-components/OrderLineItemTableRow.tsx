@@ -98,7 +98,11 @@ function isStatusFlagDisabled(
   if (checked) {
     return item.status !== "out_of_stock";
   }
-  return item.status !== "pending" && item.status !== "ordered";
+  return (
+    item.status !== "pending" &&
+    item.status !== "ordered" &&
+    item.status !== "received"
+  );
 }
 
 export interface OrderLineItemTableRowProps {
