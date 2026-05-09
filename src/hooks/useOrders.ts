@@ -629,6 +629,10 @@ async function updateLineItemStatusFlag(
     return cancelReceived(input);
   }
 
+  if (input.flag === "shipped" && !input.checked) {
+    return cancelShipment(input);
+  }
+
   const now = new Date().toISOString();
   const { data: currentLineItem, errors: getErrors } =
     await client.models.LineItem.get({
@@ -685,6 +689,35 @@ async function shipLineItem(input: ShipLineItemInput): Promise<unknown> {
   }
 
   return data;
+}
+
+async function cancelShipment(
+  input: Pick<ShipLineItemInput, "orderId" | "lineItemId">,
+): Promise<LineItem> {
+  const { data: result, errors } = await client.mutations.cancelShipment({
+    orderId: input.orderId,
+    lineItemId: input.lineItemId,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "取消出貨失敗");
+  }
+
+  assertCustomMutationSuccess(result, "取消出貨失敗");
+
+  const { data, errors: getErrors } = await client.models.LineItem.get({
+    id: input.lineItemId,
+  });
+
+  if (getErrors && getErrors.length > 0) {
+    throw new Error(getErrors[0]?.message ?? "查詢明細狀態失敗");
+  }
+
+  if (!data) {
+    throw new Error("取消出貨失敗：找不到明細項目");
+  }
+
+  return mapToLineItem(data as unknown as Record<string, unknown>);
 }
 
 async function mergeOrders(input: { orderIds: string[] }): Promise<Order> {
@@ -1050,7 +1083,7 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
-      if (input.flag === "received") {
+      if (input.flag === "received" || input.flag === "shipped") {
         void queryClient.invalidateQueries({ queryKey: ["products"] });
       }
     },
