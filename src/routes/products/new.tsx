@@ -40,13 +40,18 @@ function ProductNewPage() {
 
     try {
       const product = await createMutation.mutateAsync(values);
-      for (const variant of values.variants) {
-        await createVariantMutation.mutateAsync({
-          productId: product.id,
-          variant,
-        });
-      }
-      void navigate({ to: "/products/$productId", params: { productId: product.id } });
+      await Promise.all(
+        values.variants.map((variant) =>
+          createVariantMutation.mutateAsync({
+            productId: product.id,
+            variant,
+          }),
+        ),
+      );
+      void navigate({
+        to: "/products/$productId",
+        params: { productId: product.id },
+      });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "建立商品失敗");
     }
@@ -67,7 +72,9 @@ function ProductNewPage() {
       )}
 
       <ProductCreateForm
-        isSubmitting={createMutation.isPending || createVariantMutation.isPending}
+        isSubmitting={
+          createMutation.isPending || createVariantMutation.isPending
+        }
         onCancel={() => void navigate({ to: "/products" })}
         onSubmit={handleSubmit}
       />

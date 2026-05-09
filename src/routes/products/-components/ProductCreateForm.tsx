@@ -271,8 +271,6 @@ export function ProductCreateForm({
                   value={variantInput}
                   onChange={(event) => setVariantInput(event.target.value)}
                   placeholder="[黑，白，藍/M，L，XL，2L，3L]"
-                  multiline
-                  minRows={2}
                   helperText="使用 / 分隔規格層級，使用逗號分隔選項；快速模式會帶入產品預設單價與預設成本。"
                 />
                 {variantLabels.length > 0 && (
