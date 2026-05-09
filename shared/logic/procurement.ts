@@ -13,7 +13,7 @@ import type { LineItem, ValidationResult } from "../models/order";
  * 驗證採購下單操作的前置條件。
  *
  * 規則：
- * - status 必須為「待處理」
+ * - status 必須為 pending
  * - supplierId 非空字串
  * - unitCost >= 0
  *
@@ -27,7 +27,7 @@ export function validateProcurementOrder(
   supplierId: string,
   unitCost: number,
 ): ValidationResult {
-  if (lineItem.status !== "待處理") {
+  if (lineItem.status !== "pending") {
     return {
       valid: false,
       error: "此明細項目已完成採購下單",
@@ -55,7 +55,7 @@ export function validateProcurementOrder(
  * 驗證入庫確認操作的前置條件。
  *
  * 規則：
- * - status 必須為「已訂購」
+ * - status 必須為 ordered
  * - purchasedQuantity 必須 > 0
  *
  * @param lineItem - 明細項目（僅需 status 與 purchasedQuantity）
@@ -64,7 +64,7 @@ export function validateProcurementOrder(
 export function validateProcurementReceive(
   lineItem: Pick<LineItem, "status" | "purchasedQuantity">,
 ): ValidationResult {
-  if (lineItem.status !== "已訂購") {
+  if (lineItem.status !== "ordered") {
     return {
       valid: false,
       error: "僅「已訂購」狀態的明細項目可確認入庫",
@@ -85,8 +85,8 @@ export function validateProcurementReceive(
  * 驗證採購取消操作的前置條件。
  *
  * 規則：
- * - status 必須為「待處理」或「已訂購」
- * - 已收到、已出貨、缺貨的明細項目不可取消
+ * - status 必須為 pending 或 ordered
+ * - received、shipped、out_of_stock 的明細項目不可取消
  *
  * @param lineItem - 明細項目（僅需 status）
  * @returns 驗證結果
@@ -94,7 +94,7 @@ export function validateProcurementReceive(
 export function validateProcurementCancel(
   lineItem: Pick<LineItem, "status">,
 ): ValidationResult {
-  if (lineItem.status === "待處理" || lineItem.status === "已訂購") {
+  if (lineItem.status === "pending" || lineItem.status === "ordered") {
     return { valid: true };
   }
 

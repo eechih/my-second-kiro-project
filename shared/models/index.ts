@@ -37,3 +37,5 @@ export type {
   ShipLineItemInput,
   SplitOrderInput,
 } from "./order";
+
+export { LINE_ITEM_STATUS_LABEL, normalizeLineItemStatus } from "./order";

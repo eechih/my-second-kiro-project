@@ -16,7 +16,7 @@ import IconButton from "@mui/material/IconButton";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import type { LineItem, Order } from "@shared/models";
+import { LINE_ITEM_STATUS_LABEL, type LineItem, type Order } from "@shared/models";
 import { useState } from "react";
 import {
   formatDate,
@@ -42,12 +42,12 @@ export function OrderLineItemDetailRow({
   const confirmReceived = useConfirmReceived();
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  const canMarkProcurement = lineItem.status === "待處理";
-  const canShip = lineItem.status === "已收到";
-  const canConfirmReceived = lineItem.status === "已訂購";
-  const canCancelProcurement = lineItem.status === "已訂購";
+  const canMarkProcurement = lineItem.status === "pending";
+  const canShip = lineItem.status === "received";
+  const canConfirmReceived = lineItem.status === "ordered";
+  const canCancelProcurement = lineItem.status === "ordered";
   const canMarkOutOfStock =
-    lineItem.status === "待處理" || lineItem.status === "已訂購";
+    lineItem.status === "pending" || lineItem.status === "ordered";
 
   const handleConfirmReceived = async (): Promise<void> => {
     setConfirmError(null);
@@ -65,7 +65,7 @@ export function OrderLineItemDetailRow({
     try {
       await client.models.LineItem.update({
         id: lineItem.id,
-        status: "缺貨",
+        status: "out_of_stock",
       });
       setOutOfStockConfirmOpen(false);
     } catch {
@@ -77,7 +77,7 @@ export function OrderLineItemDetailRow({
     try {
       await client.models.LineItem.update({
         id: lineItem.id,
-        status: "缺貨",
+        status: "out_of_stock",
         purchasedQuantity: 0,
       });
       setCancelProcurementConfirmOpen(false);
@@ -114,6 +114,7 @@ export function OrderLineItemDetailRow({
         <TableCell align="center">
           <StatusChip
             status={lineItem.status}
+            label={LINE_ITEM_STATUS_LABEL[lineItem.status]}
             colorMap={LINE_ITEM_STATUS_COLOR_MAP}
           />
         </TableCell>

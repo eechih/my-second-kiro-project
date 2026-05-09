@@ -63,7 +63,7 @@ export function PurchaseDialog({
       const now = new Date().toISOString();
       await client.models.LineItem.update({
         id: lineItem.id,
-        status: "已訂購",
+        status: "ordered",
         supplierId: supplier.id,
         supplierName: supplier.name,
         unitCost,

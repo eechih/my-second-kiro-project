@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { validateProcurementReceive } from "../../../shared/logic/procurement";
-import type { LineItemStatus } from "../../../shared/models/order";
+import { normalizeLineItemStatus } from "../../../shared/models/order";
 
 const ddb = new DynamoDBClient({});
 
@@ -58,7 +58,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     }
 
     const lineItem = unmarshall(lineItemResult.Item);
-    const status = lineItem["status"] as LineItemStatus;
+    const status = normalizeLineItemStatus(lineItem["status"]);
     const purchasedQuantity = lineItem["purchasedQuantity"] as number;
 
     // 2. 使用共用驗證函式檢查前置條件
@@ -115,18 +115,19 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]
     >["TransactItems"] = [];
 
-    // 4a. 更新 LineItem：status → "已收到"、receivedAt
+    // 4a. 更新 LineItem：status → "received"、receivedAt
     transactItems.push({
       Update: {
         TableName: lineItemTable,
         Key: marshall({ id: lineItemId }),
         UpdateExpression:
           "SET #st = :newStatus, receivedAt = :now, updatedAt = :now",
-        ConditionExpression: "#st = :expectedStatus",
+        ConditionExpression: "#st = :expectedStatus OR #st = :legacyExpectedStatus",
         ExpressionAttributeNames: { "#st": "status" },
         ExpressionAttributeValues: marshall({
-          ":newStatus": "已收到",
-          ":expectedStatus": "已訂購",
+          ":newStatus": "received",
+          ":expectedStatus": "ordered",
+          ":legacyExpectedStatus": "已訂購",
           ":now": now,
         }),
       },
@@ -158,7 +159,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       data: {
         lineItemId,
         quantity: purchasedQuantity,
-        lineItemStatus: "已收到",
+        lineItemStatus: "received",
       },
     });
   } catch (error: unknown) {

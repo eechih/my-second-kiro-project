@@ -6,7 +6,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import type { LineItem } from "@shared/models";
+import { LINE_ITEM_STATUS_LABEL, type LineItem } from "@shared/models";
 import { LINE_ITEM_STATUS_COLOR } from "./orderTableUtils";
 
 type EditableStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
@@ -43,21 +43,21 @@ const LINE_ITEM_STATUS_FLAGS: LineItemStatusFlagConfig[] = [
   {
     key: "outOfStock",
     getLabel: (checked: boolean) => (checked ? "斷貨" : "未斷貨"),
-    isChecked: (item: LineItem) => item.status === "缺貨",
+    isChecked: (item: LineItem) => item.status === "out_of_stock",
     checkedColor: "error.main",
     uncheckedColor: "text.secondary",
   },
 ];
 
 const NON_CANCELABLE_ORDERED_STATUSES = new Set<LineItem["status"]>([
-  "已收到",
-  "已出貨",
-  "缺貨",
+  "received",
+  "shipped",
+  "out_of_stock",
 ]);
 
 const NON_CANCELABLE_RECEIVED_STATUSES = new Set<LineItem["status"]>([
-  "已出貨",
-  "缺貨",
+  "shipped",
+  "out_of_stock",
 ]);
 
 function isEditableStatusFlag(key: string): key is EditableStatusFlag {
@@ -78,27 +78,27 @@ function isStatusFlagDisabled(
     if (checked) {
       return NON_CANCELABLE_ORDERED_STATUSES.has(item.status);
     }
-    return item.status === "缺貨";
+    return item.status === "out_of_stock";
   }
 
   if (flag === "received") {
     if (checked) {
       return NON_CANCELABLE_RECEIVED_STATUSES.has(item.status);
     }
-    return item.status !== "已訂購";
+    return item.status !== "ordered";
   }
 
   if (flag === "shipped") {
     if (checked) {
-      return item.status === "缺貨";
+      return item.status === "out_of_stock";
     }
-    return item.status !== "已收到";
+    return item.status !== "received";
   }
 
   if (checked) {
-    return item.status !== "缺貨";
+    return item.status !== "out_of_stock";
   }
-  return item.status !== "待處理" && item.status !== "已訂購";
+  return item.status !== "pending" && item.status !== "ordered";
 }
 
 export interface OrderLineItemTableRowProps {
@@ -138,7 +138,11 @@ export function OrderLineItemTableRow({
         ${item.unitPrice.toLocaleString()}
       </TableCell>
       <TableCell align="center">
-        <StatusChip status={item.status} colorMap={LINE_ITEM_STATUS_COLOR} />
+        <StatusChip
+          status={item.status}
+          label={LINE_ITEM_STATUS_LABEL[item.status]}
+          colorMap={LINE_ITEM_STATUS_COLOR}
+        />
       </TableCell>
       {LINE_ITEM_STATUS_FLAGS.map((flag) => {
         const checked = flag.isChecked(item);

@@ -6,15 +6,16 @@ import {
 import { validateMergeOrders } from "@shared/logic/order-merge";
 import { validateSplitOrder } from "@shared/logic/order-split";
 import { isValidOrderStatusTransition } from "@shared/logic/order-status";
-import type {
-  CreateOrderInput,
-  LineItem,
-  LineItemStatus,
-  Order,
-  OrderStatus,
-  PaginatedResult,
-  SplitAllocation,
-  StatusChange,
+import {
+  normalizeLineItemStatus,
+  type CreateOrderInput,
+  type LineItem,
+  type LineItemStatus,
+  type Order,
+  type OrderStatus,
+  type PaginatedResult,
+  type SplitAllocation,
+  type StatusChange,
 } from "@shared/models";
 import {
   useMutation,
@@ -130,14 +131,14 @@ type UpdateLineItemStatusFlagInput = {
 };
 
 const NON_CANCELABLE_ORDERED_STATUSES = new Set<LineItemStatus>([
-  "已收到",
-  "已出貨",
-  "缺貨",
+  "received",
+  "shipped",
+  "out_of_stock",
 ]);
 
 const NON_CANCELABLE_RECEIVED_STATUSES = new Set<LineItemStatus>([
-  "已出貨",
-  "缺貨",
+  "shipped",
+  "out_of_stock",
 ]);
 
 type LineItemStatusFlagUpdate = {
@@ -310,7 +311,7 @@ function mapToLineItem(raw: Record<string, unknown>): LineItem {
     quantity: Number(raw.quantity ?? 0),
     unitPrice: Number(raw.unitPrice ?? 0),
     subtotal: Number(raw.subtotal ?? 0),
-    status: (raw.status as LineItem["status"]) ?? "待處理",
+    status: normalizeLineItemStatus(raw.status),
     purchasedQuantity: Number(raw.purchasedQuantity ?? 0),
     shippedQuantity: Number(raw.shippedQuantity ?? 0),
     purchasedAt: raw.purchasedAt ? String(raw.purchasedAt) : null,
@@ -332,7 +333,7 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     lineItemsWithSubtotal.map((item) => ({
       ...item,
       id: "",
-      status: "待處理" as const,
+      status: "pending" as const,
       purchasedQuantity: 0,
       shippedQuantity: 0,
       purchasedAt: null,
@@ -386,7 +387,7 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subtotal: item.subtotal,
-        status: "待處理",
+        status: "pending",
         purchasedQuantity: 0,
         shippedQuantity: 0,
       });
@@ -463,7 +464,7 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
 async function markProcurement(input: MarkProcurementInput): Promise<LineItem> {
   const { data, errors } = await client.models.LineItem.update({
     id: input.lineItemId,
-    status: "已訂購",
+    status: "ordered",
     supplierId: input.supplierId,
     supplierName: input.supplierName,
     unitCost: input.unitCost,
@@ -485,7 +486,7 @@ async function markProcurement(input: MarkProcurementInput): Promise<LineItem> {
 async function cancelProcurement(input: CancelProcurementInput): Promise<LineItem> {
   const { data, errors } = await client.models.LineItem.update({
     id: input.lineItemId,
-    status: "缺貨",
+    status: "out_of_stock",
     purchasedQuantity: 0,
   });
 
@@ -514,13 +515,13 @@ function buildLineItemStatusFlagUpdate(
       throw new Error(`明細項目目前狀態為「${lineItem.status}」，不可取消訂貨`);
     }
 
-    if (checked && lineItem.status === "缺貨") {
+    if (checked && lineItem.status === "out_of_stock") {
       throw new Error("缺貨明細不可標記訂貨");
     }
 
     return {
       purchasedAt: checked ? now : null,
-      status: checked ? "已訂購" : "待處理",
+      status: checked ? "ordered" : "pending",
     };
   }
 
@@ -529,48 +530,48 @@ function buildLineItemStatusFlagUpdate(
       throw new Error(`明細項目目前狀態為「${lineItem.status}」，不可取消到貨`);
     }
 
-    if (checked && lineItem.status !== "已訂購") {
+    if (checked && lineItem.status !== "ordered") {
       throw new Error("請先標記訂貨，才能標記到貨");
     }
 
     return {
       receivedAt: checked ? now : null,
-      status: checked ? "已收到" : "已訂購",
+      status: checked ? "received" : "ordered",
     };
   }
 
   if (flag === "outOfStock") {
     if (checked) {
-      if (lineItem.status !== "待處理" && lineItem.status !== "已訂購") {
+      if (lineItem.status !== "pending" && lineItem.status !== "ordered") {
         throw new Error("僅待處理或已訂購明細可標記斷貨");
       }
 
       return {
-        status: "缺貨",
+        status: "out_of_stock",
       };
     }
 
-    if (lineItem.status !== "缺貨") {
+    if (lineItem.status !== "out_of_stock") {
       throw new Error("僅缺貨明細可取消斷貨");
     }
 
     return {
-      status: lineItem.purchasedAt ? "已訂購" : "待處理",
+      status: lineItem.purchasedAt ? "ordered" : "pending",
     };
   }
 
-  if (checked && lineItem.status !== "已收到") {
+  if (checked && lineItem.status !== "received") {
     throw new Error("請先標記到貨，才能標記出貨");
   }
 
-  if (!checked && lineItem.status === "缺貨") {
+  if (!checked && lineItem.status === "out_of_stock") {
     throw new Error("缺貨明細不可取消出貨");
   }
 
   return {
     shippedAt: checked ? now : null,
     shippedQuantity: checked ? lineItem.quantity : 0,
-    status: checked ? "已出貨" : "已收到",
+    status: checked ? "shipped" : "received",
   };
 }
 
@@ -598,7 +599,7 @@ async function updateLineItemStatusFlag(
         : null,
       quantity: Number(currentLineItem.quantity ?? 0),
       shippedQuantity: Number(currentLineItem.shippedQuantity ?? 0),
-      status: (currentLineItem.status as LineItemStatus) ?? "待處理",
+      status: normalizeLineItemStatus(currentLineItem.status),
     },
     input.flag,
     input.checked,
@@ -852,7 +853,7 @@ export function useConfirmReceived(): UseMutationResult<
           if (li.id === input.lineItemId) {
             return {
               ...li,
-              status: "已收到" as const,
+              status: "received" as const,
               receivedAt: new Date().toISOString(),
             };
           }
@@ -1038,7 +1039,7 @@ export function useShipLineItem(): UseMutationResult<
             return {
               ...li,
               shippedQuantity: newShippedQty,
-              status: "已出貨" as const,
+              status: "shipped" as const,
               shippedAt: new Date().toISOString(),
             };
           }
@@ -1047,10 +1048,10 @@ export function useShipLineItem(): UseMutationResult<
 
         // Derive order status
         const allShipped = updatedOrder.lineItems.every(
-          (li) => li.status === "已出貨",
+          (li) => li.status === "shipped",
         );
         const someShipped = updatedOrder.lineItems.some(
-          (li) => li.status === "已出貨",
+          (li) => li.status === "shipped",
         );
         if (allShipped) {
           updatedOrder.status = "completed";

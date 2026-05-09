@@ -2,6 +2,7 @@ import Chip from "@mui/material/Chip";
 
 export interface StatusChipProps {
   status: string;
+  label?: string;
   colorMap: Record<
     string,
     | "default"
@@ -20,9 +21,10 @@ export interface StatusChipProps {
  */
 export function StatusChip({
   status,
+  label,
   colorMap,
 }: StatusChipProps): React.ReactElement {
   const color = colorMap[status] ?? "default";
 
-  return <Chip label={status} color={color} size="small" />;
+  return <Chip label={label ?? status} color={color} size="small" />;
 }

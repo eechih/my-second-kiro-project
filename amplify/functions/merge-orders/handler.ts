@@ -7,7 +7,12 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { validateMergeOrders } from "../../../shared/logic/order-merge";
-import type { LineItem, Order, OrderStatus } from "../../../shared/models/order";
+import {
+  normalizeLineItemStatus,
+  type LineItem,
+  type Order,
+  type OrderStatus,
+} from "../../../shared/models/order";
 
 const ddb = new DynamoDBClient({});
 
@@ -50,7 +55,7 @@ function mapLineItem(raw: DdbRecord): LineItem {
     quantity: Number(raw["quantity"] ?? 0),
     unitPrice: Number(raw["unitPrice"] ?? 0),
     subtotal: Number(raw["subtotal"] ?? 0),
-    status: (raw["status"] as LineItem["status"]) ?? "待處理",
+    status: normalizeLineItemStatus(raw["status"]),
     purchasedQuantity: Number(raw["purchasedQuantity"] ?? 0),
     shippedQuantity: Number(raw["shippedQuantity"] ?? 0),
     purchasedAt: raw["purchasedAt"] ? String(raw["purchasedAt"]) : null,

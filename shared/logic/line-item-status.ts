@@ -2,9 +2,9 @@
  * 明細項目狀態轉換驗證
  *
  * 允許路徑：
- *   待處理 → 已訂購 → 已收到 → 已出貨
- *   待處理 → 缺貨
- *   已訂購 → 缺貨
+ *   pending → ordered → received → shipped
+ *   pending → out_of_stock
+ *   ordered → out_of_stock
  *
  * 此模組為純函式，前端與 Lambda 共用同一份邏輯（Single Source of Truth）。
  *
@@ -21,11 +21,11 @@ const ALLOWED_TRANSITIONS: Record<
   LineItemStatus,
   ReadonlySet<LineItemStatus>
 > = {
-  待處理: new Set<LineItemStatus>(["已訂購", "缺貨"]),
-  已訂購: new Set<LineItemStatus>(["已收到", "缺貨"]),
-  已收到: new Set<LineItemStatus>(["已出貨"]),
-  已出貨: new Set<LineItemStatus>([]),
-  缺貨: new Set<LineItemStatus>([]),
+  pending: new Set<LineItemStatus>(["ordered", "out_of_stock"]),
+  ordered: new Set<LineItemStatus>(["received", "out_of_stock"]),
+  received: new Set<LineItemStatus>(["shipped"]),
+  shipped: new Set<LineItemStatus>([]),
+  out_of_stock: new Set<LineItemStatus>([]),
 };
 
 /**

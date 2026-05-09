@@ -24,11 +24,11 @@ export const LINE_ITEM_STATUS_COLOR_MAP: Record<
   string,
   "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"
 > = {
-  待處理: "warning",
-  已訂購: "info",
-  已收到: "primary",
-  已出貨: "success",
-  缺貨: "error",
+  pending: "warning",
+  ordered: "info",
+  received: "primary",
+  shipped: "success",
+  out_of_stock: "error",
 };
 
 export async function searchSuppliers(query: string): Promise<Supplier[]> {

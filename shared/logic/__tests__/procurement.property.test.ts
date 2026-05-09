@@ -6,16 +6,16 @@
  *     calculateProcurementCost(purchasedQuantity, unitCost) >= 0
  *
  * Property 5: 採購下單驗證一致性
- *   ∀ lineItem where status !== "待處理":
+ *   ∀ lineItem where status !== "pending":
  *     validateProcurementOrder(lineItem, validSupplierId, validCost).valid === false
  *
  * Property 6: 取消驗證一致性
- *   ∀ lineItem where status ∈ {"已收到", "已出貨", "缺貨"}:
+ *   ∀ lineItem where status ∈ {"received", "shipped", "out_of_stock"}:
  *     validateProcurementCancel(lineItem).valid === false
  *
  * Additional:
- *   validateProcurementReceive rejects non-"已訂購" statuses
- *   validateProcurementCancel accepts "待處理" and "已訂購"
+ *   validateProcurementReceive rejects non-"ordered" statuses
+ *   validateProcurementCancel accepts "pending" and "ordered"
  *
  * **Validates: Requirements 3.8, 4.8, 5.5, 6.1, 6.4**
  */
@@ -36,31 +36,31 @@ import type { LineItemStatus } from "../../models/order";
 
 /** fast-check Arbitrary：產生非「待處理」的狀態 */
 const nonPendingStatusArb: fc.Arbitrary<LineItemStatus> = fc.constantFrom<LineItemStatus>(
-  "已訂購",
-  "已收到",
-  "已出貨",
-  "缺貨",
+  "ordered",
+  "received",
+  "shipped",
+  "out_of_stock",
 );
 
 /** fast-check Arbitrary：產生非「已訂購」的狀態 */
 const nonOrderedStatusArb: fc.Arbitrary<LineItemStatus> = fc.constantFrom<LineItemStatus>(
-  "待處理",
-  "已收到",
-  "已出貨",
-  "缺貨",
+  "pending",
+  "received",
+  "shipped",
+  "out_of_stock",
 );
 
 /** fast-check Arbitrary：產生不可取消的狀態（已收到、已出貨、缺貨） */
 const nonCancellableStatusArb: fc.Arbitrary<LineItemStatus> = fc.constantFrom<LineItemStatus>(
-  "已收到",
-  "已出貨",
-  "缺貨",
+  "received",
+  "shipped",
+  "out_of_stock",
 );
 
 /** fast-check Arbitrary：產生可取消的狀態（待處理、已訂購） */
 const cancellableStatusArb: fc.Arbitrary<LineItemStatus> = fc.constantFrom<LineItemStatus>(
-  "待處理",
-  "已訂購",
+  "pending",
+  "ordered",
 );
 
 /** fast-check Arbitrary：產生非空字串（供應商 ID） */
@@ -159,7 +159,7 @@ describe("Property 5: 採購下單驗證一致性", () => {
         nonNegativeFloatArb,
         fc.integer({ min: 1, max: 10000 }),
         (supplierId, unitCost, quantity) => {
-          const lineItem = { status: "待處理" as const, quantity };
+          const lineItem = { status: "pending" as const, quantity };
           const result = validateProcurementOrder(lineItem, supplierId, unitCost);
           expect(result.valid).toBe(true);
           expect(result.error).toBeUndefined();
@@ -202,7 +202,7 @@ describe("Property 6: 取消驗證一致性", () => {
 });
 
 // ---------------------------------------------------------------------------
-// validateProcurementReceive: rejects non-"已訂購" statuses
+// validateProcurementReceive: rejects non-"ordered" statuses
 // ---------------------------------------------------------------------------
 
 describe("validateProcurementReceive: rejects non-'已訂購' statuses", () => {
@@ -228,7 +228,7 @@ describe("validateProcurementReceive: rejects non-'已訂購' statuses", () => {
   it("status === '已訂購' 且 purchasedQuantity > 0 時，驗證應通過", () => {
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 10000 }), (purchasedQuantity) => {
-        const lineItem = { status: "已訂購" as const, purchasedQuantity };
+        const lineItem = { status: "ordered" as const, purchasedQuantity };
         const result = validateProcurementReceive(lineItem);
         expect(result.valid).toBe(true);
         expect(result.error).toBeUndefined();

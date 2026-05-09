@@ -17,8 +17,38 @@ export type OrderStatus =
   | "cancelled";
 
 /** 明細項目狀態 */
-export type LineItemStatus = "待處理" | "已訂購" | "已收到" | "已出貨" | "缺貨";
+export type LineItemStatus =
+  | "pending"
+  | "ordered"
+  | "received"
+  | "shipped"
+  | "out_of_stock";
 
+export const LINE_ITEM_STATUS_LABEL: Record<LineItemStatus, string> = {
+  pending: "待處理",
+  ordered: "已訂購",
+  received: "已收到",
+  shipped: "已出貨",
+  out_of_stock: "缺貨",
+};
+
+const LEGACY_LINE_ITEM_STATUS_MAP: Record<string, LineItemStatus> = {
+  待處理: "pending",
+  已訂購: "ordered",
+  已收到: "received",
+  已出貨: "shipped",
+  缺貨: "out_of_stock",
+};
+
+export function normalizeLineItemStatus(value: unknown): LineItemStatus {
+  if (typeof value === "string") {
+    if (value in LINE_ITEM_STATUS_LABEL) return value as LineItemStatus;
+    if (value in LEGACY_LINE_ITEM_STATUS_MAP) {
+      return LEGACY_LINE_ITEM_STATUS_MAP[value]!;
+    }
+  }
+  return "pending";
+}
 
 
 // ---------------------------------------------------------------------------

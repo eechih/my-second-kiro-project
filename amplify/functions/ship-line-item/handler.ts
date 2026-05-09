@@ -13,7 +13,11 @@ import {
   calculateRemainingShipQuantity,
   validateShipment,
 } from "../../../shared/logic/shipment";
-import type { LineItemStatus, OrderStatus } from "../../../shared/models/order";
+import {
+  normalizeLineItemStatus,
+  type LineItemStatus,
+  type OrderStatus,
+} from "../../../shared/models/order";
 
 const ddb = new DynamoDBClient({});
 
@@ -66,8 +70,8 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     const lineItem = unmarshall(lineItemResult.Item);
 
     // 2. 驗證明細狀態——僅「已收到」可出貨
-    const currentStatus = lineItem["status"] as LineItemStatus;
-    if (!isValidLineItemStatusTransition(currentStatus, "已出貨")) {
+    const currentStatus = normalizeLineItemStatus(lineItem["status"]);
+    if (!isValidLineItemStatusTransition(currentStatus, "shipped")) {
       return JSON.stringify({
         success: false,
         message: `明細項目目前狀態為「${currentStatus}」，無法執行出貨操作`,
@@ -161,11 +165,11 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
           return {
             status:
               newShippedQty >= orderQuantity
-                ? ("已出貨" as const)
-                : (li["status"] as LineItemStatus),
+                ? ("shipped" as const)
+                : normalizeLineItemStatus(li["status"]),
           };
         }
-        return { status: li["status"] as LineItemStatus };
+        return { status: normalizeLineItemStatus(li["status"]) };
     });
 
     const derivedOrderStatus = deriveOrderStatusFromLineItems(simulatedLineItems);
@@ -208,7 +212,7 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
 
     // 8b. 更新 LineItem
     const lineItemUpdateStatus: LineItemStatus =
-      newShippedQty >= orderQuantity ? "已出貨" : currentStatus;
+      newShippedQty >= orderQuantity ? "shipped" : currentStatus;
     transactItems.push({
       Update: {
         TableName: lineItemTable,

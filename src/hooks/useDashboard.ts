@@ -8,9 +8,9 @@ import { client } from "@/lib/amplify-client";
 export interface DashboardSummary {
   /** 待處理訂單數量（status = "pending"） */
   pendingOrdersCount: number;
-  /** 待入庫明細數量（status = "已訂購"） */
+  /** 待入庫明細數量（status = "ordered"） */
   pendingProcurementCount: number;
-  /** 待出貨明細數量（status = "已收到"） */
+  /** 待出貨明細數量（status = "received"） */
   readyToShipLineItemsCount: number;
 }
 
@@ -46,14 +46,14 @@ export function useDashboardSummary(): UseQueryResult<DashboardSummary> {
             filter: { status: { eq: "pending" } },
             limit: 1000,
           }),
-          // 待入庫明細（status = "已訂購"）
+          // 待入庫明細（status = "ordered"）
           client.models.LineItem.list({
-            filter: { status: { eq: "已訂購" } },
+            filter: { status: { eq: "ordered" } },
             limit: 1000,
           }),
-          // 待出貨明細（status = "已收到"）
+          // 待出貨明細（status = "received"）
           client.models.LineItem.list({
-            filter: { status: { eq: "已收到" } },
+            filter: { status: { eq: "received" } },
             limit: 1000,
           }),
         ]);

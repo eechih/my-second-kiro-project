@@ -136,7 +136,7 @@ const schema = a.schema({
       quantity: a.integer().required(),
       unitPrice: a.float().required(),
       subtotal: a.float().required(),
-      status: a.string().required().default("待處理"),
+      status: a.string().required().default("pending"),
       purchasedQuantity: a.integer().required().default(0),
       shippedQuantity: a.integer().required().default(0),
       purchasedAt: a.datetime(),

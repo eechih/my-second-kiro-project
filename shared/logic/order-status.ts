@@ -62,8 +62,8 @@ export function getNextAllowedOrderStatuses(
  * 依明細項目狀態自動推導訂單應有的狀態。
  *
  * 規則：
- * - 若所有明細項目狀態皆為「已出貨」→ 回傳 `"completed"`
- * - 若至少一筆明細項目狀態為「已出貨」但非全部 → 回傳 `"shipping"`
+ * - 若所有明細項目狀態皆為 shipped → 回傳 `"completed"`
+ * - 若至少一筆明細項目狀態為 shipped 但非全部 → 回傳 `"shipping"`
  * - 其他情況 → 回傳 `null`（不需自動變更訂單狀態）
  *
  * 注意：此函式僅根據明細狀態推導建議的訂單狀態，不處理 cancelled 等特殊情況。
@@ -81,8 +81,8 @@ export function deriveOrderStatusFromLineItems(
     return null;
   }
 
-  const allShipped = lineItems.every((item) => item.status === "已出貨");
-  const someShipped = lineItems.some((item) => item.status === "已出貨");
+  const allShipped = lineItems.every((item) => item.status === "shipped");
+  const someShipped = lineItems.some((item) => item.status === "shipped");
 
   if (allShipped) {
     return "completed";
