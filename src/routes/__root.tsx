@@ -73,16 +73,10 @@ const navigationItems = [
     icon: <DashboardIcon />,
   },
   {
-    label: "客戶管理",
-    description: "客戶資料與狀態",
-    to: "/customers",
-    icon: <PeopleIcon />,
-  },
-  {
-    label: "供應商管理",
-    description: "供應商聯絡資料",
-    to: "/suppliers",
-    icon: <BusinessIcon />,
+    label: "訂單管理",
+    description: "採購、入庫與出貨",
+    to: "/orders",
+    icon: <ReceiptLongIcon />,
   },
   {
     label: "商品管理",
@@ -91,10 +85,16 @@ const navigationItems = [
     icon: <InventoryIcon />,
   },
   {
-    label: "訂單管理",
-    description: "採購、入庫與出貨",
-    to: "/orders",
-    icon: <ReceiptLongIcon />,
+    label: "供應商管理",
+    description: "供應商聯絡資料",
+    to: "/suppliers",
+    icon: <BusinessIcon />,
+  },
+  {
+    label: "客戶管理",
+    description: "客戶資料與狀態",
+    to: "/customers",
+    icon: <PeopleIcon />,
   },
   {
     label: "基礎設施",
