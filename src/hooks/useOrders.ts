@@ -451,7 +451,6 @@ async function updateOrderStatus(
 async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
   const { data, errors } = await client.mutations.confirmReceived({
     lineItemId: input.lineItemId,
-    orderId: input.orderId,
   });
 
   if (errors && errors.length > 0) {

@@ -91,6 +91,7 @@ const schema = a.schema({
       stockQuantity: a.integer().required().default(0),
       price: a.float(),
       cost: a.float(),
+      lineItems: a.hasMany("LineItem", "variantId"),
     })
     .authorization((allow) => [allow.authenticated()]),
 
@@ -130,6 +131,7 @@ const schema = a.schema({
       productId: a.string().required(),
       productName: a.string().required(),
       variantId: a.string(),
+      variant: a.belongsTo("ProductVariant", "variantId"),
       variantLabel: a.string(),
       quantity: a.integer().required(),
       unitPrice: a.float().required(),
@@ -168,7 +170,6 @@ const schema = a.schema({
     .mutation()
     .arguments({
       lineItemId: a.string().required(),
-      orderId: a.string().required(),
     })
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
