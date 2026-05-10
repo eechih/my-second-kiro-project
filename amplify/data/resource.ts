@@ -7,8 +7,8 @@ import { cancelShipment } from "../functions/cancel-shipment/resource";
 import { confirmOutOfStock } from "../functions/confirm-out-of-stock/resource";
 import { confirmPurchase } from "../functions/confirm-purchase/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
+import { confirmShipment } from "../functions/confirm-shipment/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
-import { shipLineItem } from "../functions/ship-line-item/resource";
 import { splitOrder } from "../functions/split-order/resource";
 
 /**
@@ -25,7 +25,7 @@ import { splitOrder } from "../functions/split-order/resource";
  * Custom Mutations（Lambda 函式）：
  * - confirmPurchase：確認採購（採購資料 + 狀態更新，TransactWriteItems）
  * - cancelPurchase：取消採購（清除採購資料 + 狀態更新，TransactWriteItems）
- * - shipLineItem：出貨操作（庫存扣減 + 狀態更新，TransactWriteItems）
+ * - shipLineItem：出貨操作（庫存扣減 + 狀態更新，TransactWriteItems，由 confirm-shipment Lambda 處理）
  * - cancelShipment：取消出貨（庫存加回 + 狀態更新，TransactWriteItems）
  * - confirmReceived：入庫確認（庫存增加 + 狀態更新，TransactWriteItems）
  * - cancelReceived：取消入庫（庫存扣回 + 狀態更新，TransactWriteItems）
@@ -210,7 +210,7 @@ const schema = a.schema({
     })
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(shipLineItem)),
+    .handler(a.handler.function(confirmShipment)),
 
   /** 取消出貨：加回庫存 + 更新明細與訂單狀態 */
   cancelShipment: a

@@ -27,7 +27,7 @@ import {
 } from "../debug-log";
 
 const ddb = new DynamoDBClient({});
-const FUNCTION_NAME = "shipLineItem";
+const FUNCTION_NAME = "confirmShipment";
 
 /**
  * 出貨操作 Lambda 函式

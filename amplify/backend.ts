@@ -1,4 +1,5 @@
 import { defineBackend } from "@aws-amplify/backend";
+import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { Function as LambdaFunction } from "aws-cdk-lib/aws-lambda";
 import { auth } from "./auth/resource";
 import { data } from "./data/resource";
@@ -9,7 +10,7 @@ import { cancelReceived } from "./functions/cancel-received/resource";
 import { cancelShipment } from "./functions/cancel-shipment/resource";
 import { confirmOutOfStock } from "./functions/confirm-out-of-stock/resource";
 import { confirmPurchase } from "./functions/confirm-purchase/resource";
-import { shipLineItem } from "./functions/ship-line-item/resource";
+import { confirmShipment } from "./functions/confirm-shipment/resource";
 import { confirmReceived } from "./functions/confirm-received/resource";
 import { mergeOrders } from "./functions/merge-orders/resource";
 import { splitOrder } from "./functions/split-order/resource";
@@ -25,7 +26,7 @@ const backend = defineBackend({
   cancelShipment,
   confirmOutOfStock,
   confirmPurchase,
-  shipLineItem,
+  confirmShipment,
   confirmReceived,
   mergeOrders,
   splitOrder,
@@ -78,7 +79,7 @@ const transactionalFunctions = [
   backend.cancelShipment,
   backend.confirmOutOfStock,
   backend.confirmPurchase,
-  backend.shipLineItem,
+  backend.confirmShipment,
   backend.confirmReceived,
   backend.mergeOrders,
   backend.splitOrder,
@@ -103,4 +104,13 @@ for (const fn of transactionalFunctions) {
   lineItemTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
   productVariantTable.grantReadWriteData(lambdaFn);
+
+  // grantReadWriteData does not include GSI ARNs. Several order workflow
+  // functions query LineItem.byOrderId directly to derive order state.
+  lambdaFn.addToRolePolicy(
+    new PolicyStatement({
+      actions: ["dynamodb:Query"],
+      resources: [`${lineItemTable.tableArn}/index/*`],
+    }),
+  );
 }
