@@ -10,8 +10,16 @@ import {
   normalizeOrderStatus,
   type LineItemStatus,
 } from "@shared/models/order";
+import {
+  getTransactionCancellationReasons,
+  logDebug,
+  logError,
+  logInfo,
+  logWarn,
+} from "../debug-log";
 
 const ddb = new DynamoDBClient({});
+const FUNCTION_NAME = "cancelOutOfStock";
 
 function restoreStatus(lineItem: Record<string, unknown>): LineItemStatus {
   if (lineItem["receivedAt"]) {
@@ -37,11 +45,16 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
   event,
 ) => {
   const { orderId, lineItemId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { orderId, lineItemId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
 
   if (!lineItemTable || !orderTable) {
+    logWarn(FUNCTION_NAME, "missing environment variables", {
+      hasLineItemTable: !!lineItemTable,
+      hasOrderTable: !!orderTable,
+    });
     return JSON.stringify({
       success: false,
       message: "缺少必要的環境變數設定",
@@ -65,6 +78,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     ]);
 
     if (!orderResult.Item) {
+      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的訂單",
@@ -72,6 +86,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     }
 
     if (!lineItemResult.Item) {
+      logWarn(FUNCTION_NAME, "line item not found", { orderId, lineItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
@@ -89,6 +104,15 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     const lineItem = unmarshall(lineItemResult.Item);
     const status = normalizeLineItemStatus(lineItem["status"]);
     const lineItemOrderId = String(lineItem["orderId"] ?? "");
+    logDebug(FUNCTION_NAME, "line item loaded", {
+      orderId,
+      lineItemId,
+      lineItemOrderId,
+      status,
+      rawStatus: lineItem["status"],
+      hasPurchasedAt: !!lineItem["purchasedAt"],
+      hasReceivedAt: !!lineItem["receivedAt"],
+    });
 
     if (lineItemOrderId !== orderId) {
       return JSON.stringify({
@@ -107,6 +131,13 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     const nextStatus = restoreStatus(lineItem);
     const now = new Date().toISOString();
 
+    logDebug(FUNCTION_NAME, "executing transaction", {
+      orderId,
+      lineItemId,
+      previousStatus: status,
+      nextStatus,
+      transactItemCount: 1,
+    });
     await ddb.send(
       new TransactWriteItemsCommand({
         TransactItems: [
@@ -132,6 +163,11 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
       }),
     );
 
+    logInfo(FUNCTION_NAME, "handler succeeded", {
+      orderId,
+      lineItemId,
+      lineItemStatus: nextStatus,
+    });
     return JSON.stringify({
       success: true,
       message: "取消缺貨成功",
@@ -143,13 +179,18 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
+      logWarn(FUNCTION_NAME, "transaction cancelled", {
+        orderId,
+        lineItemId,
+        cancellationReasons: getTransactionCancellationReasons(error),
+      });
       return JSON.stringify({
         success: false,
         message: "取消缺貨失敗，資料已變更，請重新取得最新資料後重試",
       });
     }
 
-    console.error("cancelOutOfStock error:", error);
+    logError(FUNCTION_NAME, "handler failed", error, { orderId, lineItemId });
     return JSON.stringify({
       success: false,
       message: `取消缺貨失敗：${err.message ?? "未知錯誤"}`,

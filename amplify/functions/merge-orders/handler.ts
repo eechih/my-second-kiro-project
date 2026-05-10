@@ -13,8 +13,16 @@ import {
   type LineItem,
   type Order,
 } from "@shared/models/order";
+import {
+  getTransactionCancellationReasons,
+  logDebug,
+  logError,
+  logInfo,
+  logWarn,
+} from "../debug-log";
 
 const ddb = new DynamoDBClient({});
+const FUNCTION_NAME = "mergeOrders";
 
 type DdbRecord = Record<string, unknown>;
 
@@ -106,8 +114,15 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 ) => {
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
+  logInfo(FUNCTION_NAME, "handler started", {
+    orderIdsRaw: event.arguments.orderIds,
+  });
 
   if (!orderTable || !lineItemTable) {
+    logWarn(FUNCTION_NAME, "missing environment variables", {
+      hasOrderTable: !!orderTable,
+      hasLineItemTable: !!lineItemTable,
+    });
     return JSON.stringify({
       success: false,
       message: "缺少必要的環境變數設定",
@@ -116,9 +131,14 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 
   try {
     const orderIds = parseOrderIds(event.arguments.orderIds);
+    logDebug(FUNCTION_NAME, "order ids parsed", {
+      orderIds,
+      orderCount: orderIds.length,
+    });
 
     // 1. 驗證至少兩筆訂單
     if (orderIds.length < 2) {
+      logWarn(FUNCTION_NAME, "not enough orders", { orderIds });
       return JSON.stringify({
         success: false,
         message: "至少需要選取兩筆訂單才能合併",
@@ -127,6 +147,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 
     const uniqueOrderIds = new Set(orderIds);
     if (uniqueOrderIds.size !== orderIds.length) {
+      logWarn(FUNCTION_NAME, "duplicate order selected", { orderIds });
       return JSON.stringify({
         success: false,
         message: "不可重複選取同一筆訂單",
@@ -144,6 +165,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
         }),
       );
       if (!result.Item) {
+        logWarn(FUNCTION_NAME, "source order not found", { orderId: oid });
         return JSON.stringify({
           success: false,
           message: `找不到訂單：${oid}`,
@@ -165,6 +187,10 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       const items = (lineItemsResult.Items ?? []).map((rawItem) =>
         unmarshall(rawItem),
       );
+      logDebug(FUNCTION_NAME, "source order loaded", {
+        orderId: oid,
+        lineItemCount: items.length,
+      });
       lineItemsByOrderId.set(oid, items);
     }
 
@@ -179,6 +205,10 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 
     const validation = validateMergeOrders(orders);
     if (!validation.valid) {
+      logWarn(FUNCTION_NAME, "validation failed", {
+        orderIds,
+        validationError: validation.error,
+      });
       return JSON.stringify({
         success: false,
         message: validation.error,
@@ -276,6 +306,10 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 
     // 4. 檢查交易項目數量限制（DynamoDB 最多 100 個）
     if (transactItems.length > 100) {
+      logWarn(FUNCTION_NAME, "transaction item limit exceeded", {
+        orderIds,
+        transactItemCount: transactItems.length,
+      });
       return JSON.stringify({
         success: false,
         message: `合併操作涉及 ${String(transactItems.length)} 個項目，超過 DynamoDB 交易限制（100）。請減少合併的訂單數量。`,
@@ -283,10 +317,26 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
     }
 
     // 5. 執行交易
+    logDebug(FUNCTION_NAME, "executing transaction", {
+      sourceOrderIds: orderIds,
+      newOrderId,
+      newOrderNumber,
+      totalAmount,
+      lineItemCount: allLineItems.length,
+      transactItemCount: transactItems.length,
+    });
     await ddb.send(
       new TransactWriteItemsCommand({ TransactItems: transactItems }),
     );
 
+    logInfo(FUNCTION_NAME, "handler succeeded", {
+      sourceOrderIds: orderIds,
+      newOrderId,
+      newOrderNumber,
+      mergedOrderCount: orders.length,
+      lineItemCount: allLineItems.length,
+      totalAmount,
+    });
     return JSON.stringify({
       success: true,
       message: "訂單合併成功",
@@ -315,19 +365,28 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
     if (err.message === "訂單 ID 格式不正確") {
+      logWarn(FUNCTION_NAME, "invalid order id payload", {
+        orderIdsRaw: event.arguments.orderIds,
+      });
       return JSON.stringify({
         success: false,
         message: err.message,
       });
     }
     if (err.name === "TransactionCanceledException") {
+      logWarn(FUNCTION_NAME, "transaction cancelled", {
+        orderIdsRaw: event.arguments.orderIds,
+        cancellationReasons: getTransactionCancellationReasons(error),
+      });
       return JSON.stringify({
         success: false,
         message:
           "訂單合併失敗：訂單狀態已變更，請重新取得最新資料後重試",
       });
     }
-    console.error("mergeOrders error:", error);
+    logError(FUNCTION_NAME, "handler failed", error, {
+      orderIdsRaw: event.arguments.orderIds,
+    });
     return JSON.stringify({
       success: false,
       message: `訂單合併失敗：${err.message ?? "未知錯誤"}`,

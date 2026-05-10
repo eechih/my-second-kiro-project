@@ -11,8 +11,16 @@ import {
   normalizeOrderStatus,
   type OrderStatus,
 } from "@shared/models/order";
+import {
+  getTransactionCancellationReasons,
+  logDebug,
+  logError,
+  logInfo,
+  logWarn,
+} from "../debug-log";
 
 const ddb = new DynamoDBClient({});
+const FUNCTION_NAME = "splitOrder";
 
 /** 分配方式（前端傳入的 JSON 結構） */
 interface SplitAllocationInput {
@@ -44,11 +52,19 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
   event,
 ) => {
   const { orderId, allocations: allocationsRaw } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", {
+    orderId,
+    allocationsRaw,
+  });
 
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
 
   if (!orderTable || !lineItemTable) {
+    logWarn(FUNCTION_NAME, "missing environment variables", {
+      hasOrderTable: !!orderTable,
+      hasLineItemTable: !!lineItemTable,
+    });
     return JSON.stringify({
       success: false,
       message: "缺少必要的環境變數設定",
@@ -67,15 +83,25 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     );
 
     if (!orderResult.Item) {
+      logWarn(FUNCTION_NAME, "order not found", { orderId });
       return JSON.stringify({ success: false, message: "找不到指定的訂單" });
     }
 
     const order = unmarshall(orderResult.Item);
     const currentStatus = normalizeOrderStatus(order["status"]);
+    logDebug(FUNCTION_NAME, "order loaded", {
+      orderId,
+      currentStatus,
+      rawStatus: order["status"],
+    });
 
     // 2. 驗證訂單狀態——僅 pending 或 confirmed 可分拆
     const splittableStatuses = new Set<string>(["pending", "confirmed"]);
     if (!splittableStatuses.has(currentStatus)) {
+      logWarn(FUNCTION_NAME, "order status is not splittable", {
+        orderId,
+        currentStatus,
+      });
       return JSON.stringify({
         success: false,
         message: "僅能分拆待處理或已確認的訂單",
@@ -84,6 +110,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
 
     // 3. 驗證分配列表
     if (!Array.isArray(allocations) || allocations.length === 0) {
+      logWarn(FUNCTION_NAME, "empty allocations", { orderId, allocationsRaw });
       return JSON.stringify({
         success: false,
         message: "分配列表不可為空",
@@ -102,6 +129,11 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
 
     const allLineItems = (lineItemsResult.Items ?? [])
       .map((rawItem) => unmarshall(rawItem));
+    logDebug(FUNCTION_NAME, "line items loaded", {
+      orderId,
+      lineItemCount: allLineItems.length,
+      allocationCount: allocations.length,
+    });
 
     const lineItemMap = new Map<string, Record<string, unknown>>();
     for (const li of allLineItems) {
@@ -117,6 +149,10 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     // 檢查分配列表中的明細 ID 是否存在於原訂單
     for (const allocation of allocations) {
       if (!orderLineItemIds.has(allocation.lineItemId)) {
+        logWarn(FUNCTION_NAME, "allocation references missing line item", {
+          orderId,
+          lineItemId: allocation.lineItemId,
+        });
         return JSON.stringify({
           success: false,
           message: `明細項目 ${allocation.lineItemId} 不存在於此訂單中`,
@@ -127,6 +163,10 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     // 檢查所有明細項目皆有分配目標
     for (const lineItemId of orderLineItemIds) {
       if (!allocatedIds.has(lineItemId)) {
+        logWarn(FUNCTION_NAME, "line item missing allocation", {
+          orderId,
+          lineItemId,
+        });
         return JSON.stringify({
           success: false,
           message: "所有明細項目皆必須有分配目標",
@@ -137,6 +177,10 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     // 6. 驗證至少分配到兩筆不同的新訂單
     const targetIndices = new Set(allocations.map((a) => a.targetOrderIndex));
     if (targetIndices.size < 2) {
+      logWarn(FUNCTION_NAME, "not enough target orders", {
+        orderId,
+        targetOrderCount: targetIndices.size,
+      });
       return JSON.stringify({
         success: false,
         message: "至少需要分配到兩筆不同的新訂單",
@@ -278,6 +322,10 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
 
     // 9. 檢查交易項目數量限制
     if (transactItems.length > 100) {
+      logWarn(FUNCTION_NAME, "transaction item limit exceeded", {
+        orderId,
+        transactItemCount: transactItems.length,
+      });
       return JSON.stringify({
         success: false,
         message: `分拆操作涉及 ${String(transactItems.length)} 個項目，超過 DynamoDB 交易限制（100）。請減少分拆的明細項目數量。`,
@@ -285,10 +333,23 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     }
 
     // 10. 執行交易
+    logDebug(FUNCTION_NAME, "executing transaction", {
+      orderId,
+      currentStatus,
+      newOrderCount: newOrders.length,
+      lineItemCount: allLineItems.length,
+      transactItemCount: transactItems.length,
+    });
     await ddb.send(
       new TransactWriteItemsCommand({ TransactItems: transactItems }),
     );
 
+    logInfo(FUNCTION_NAME, "handler succeeded", {
+      originalOrderId: orderId,
+      newOrderCount: newOrders.length,
+      newOrderIds: newOrders.map((order) => order.id),
+      lineItemCount: allLineItems.length,
+    });
     return JSON.stringify({
       success: true,
       message: "訂單分拆成功",
@@ -300,13 +361,17 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
+      logWarn(FUNCTION_NAME, "transaction cancelled", {
+        orderId,
+        cancellationReasons: getTransactionCancellationReasons(error),
+      });
       return JSON.stringify({
         success: false,
         message:
           "訂單分拆失敗：訂單狀態已變更，請重新取得最新資料後重試",
       });
     }
-    console.error("splitOrder error:", error);
+    logError(FUNCTION_NAME, "handler failed", error, { orderId });
     return JSON.stringify({
       success: false,
       message: `訂單分拆失敗：${err.message ?? "未知錯誤"}`,

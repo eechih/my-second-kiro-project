@@ -5,8 +5,10 @@ import {
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import sharp from "sharp";
+import { logDebug, logError, logInfo, logWarn } from "../debug-log";
 
 const s3Client = new S3Client({});
+const FUNCTION_NAME = "generateThumbnail";
 
 /**
  * S3 上傳事件觸發的縮圖產生 Lambda 函式。
@@ -19,19 +21,33 @@ const s3Client = new S3Client({});
  * - 非圖片檔案（依 Content-Type 判斷）
  */
 export const handler: S3Handler = async (event) => {
+  logInfo(FUNCTION_NAME, "handler started", {
+    recordCount: event.Records.length,
+  });
+
   for (const record of event.Records) {
     const bucket = record.s3.bucket.name;
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
+    const objectSize = record.s3.object.size;
+    logDebug(FUNCTION_NAME, "record received", { bucket, key, objectSize });
 
     // 跳過 thumbnails 目錄下的檔案，避免無限迴圈觸發
     if (key.includes("/thumbnails/")) {
-      console.log(`跳過縮圖檔案：${key}`);
+      logInfo(FUNCTION_NAME, "record skipped", {
+        bucket,
+        key,
+        reason: "thumbnail-path",
+      });
       continue;
     }
 
     // 僅處理 product-images/ 路徑下的檔案
     if (!key.startsWith("product-images/")) {
-      console.log(`跳過非商品照片路徑：${key}`);
+      logInfo(FUNCTION_NAME, "record skipped", {
+        bucket,
+        key,
+        reason: "non-product-image-path",
+      });
       continue;
     }
 
@@ -42,16 +58,27 @@ export const handler: S3Handler = async (event) => {
       );
 
       const contentType = getResponse.ContentType ?? "image/jpeg";
+      logDebug(FUNCTION_NAME, "source object loaded", {
+        bucket,
+        key,
+        contentType,
+        contentLength: getResponse.ContentLength,
+      });
 
       // 僅處理圖片檔案
       if (!contentType.startsWith("image/")) {
-        console.log(`跳過非圖片檔案：${key}（Content-Type: ${contentType}）`);
+        logInfo(FUNCTION_NAME, "record skipped", {
+          bucket,
+          key,
+          contentType,
+          reason: "non-image-content-type",
+        });
         continue;
       }
 
       const bodyBytes = await getResponse.Body?.transformToByteArray();
       if (!bodyBytes) {
-        console.error(`無法讀取檔案內容：${key}`);
+        logWarn(FUNCTION_NAME, "empty object body", { bucket, key });
         continue;
       }
 
@@ -67,6 +94,13 @@ export const handler: S3Handler = async (event) => {
       const fileName = pathParts.pop()!;
       const basePath = pathParts.join("/");
       const thumbnailKey = `${basePath}/thumbnails/${fileName}`;
+      logDebug(FUNCTION_NAME, "thumbnail generated", {
+        bucket,
+        key,
+        thumbnailKey,
+        sourceBytes: bodyBytes.length,
+        thumbnailBytes: thumbnailBuffer.length,
+      });
 
       // 上傳縮圖至 S3
       await s3Client.send(
@@ -78,10 +112,19 @@ export const handler: S3Handler = async (event) => {
         }),
       );
 
-      console.log(`縮圖產生成功：${thumbnailKey}`);
+      logInfo(FUNCTION_NAME, "record succeeded", {
+        bucket,
+        key,
+        thumbnailKey,
+        contentType,
+      });
     } catch (error) {
-      console.error(`處理檔案 ${key} 時發生錯誤：`, error);
+      logError(FUNCTION_NAME, "record failed", error, { bucket, key });
       // 不拋出錯誤，避免 Lambda 重試導致重複處理
     }
   }
+
+  logInfo(FUNCTION_NAME, "handler completed", {
+    recordCount: event.Records.length,
+  });
 };

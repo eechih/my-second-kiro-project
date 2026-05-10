@@ -382,20 +382,30 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
 
   const createdLineItems: LineItem[] = [];
   for (const item of lineItemsWithSubtotal) {
+    const lineItemPayload: Record<string, unknown> = {
+      orderId,
+      productId: item.productId,
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      subtotal: item.subtotal,
+      status: "pending",
+      purchasedQuantity: 0,
+      shippedQuantity: 0,
+    };
+
+    if (item.variantId) {
+      lineItemPayload.variantId = item.variantId;
+    }
+
+    if (item.variantLabel) {
+      lineItemPayload.variantLabel = item.variantLabel;
+    }
+
     const { data: lineItemData, errors: lineItemErrors } =
-      await client.models.LineItem.create({
-        orderId,
-        productId: item.productId,
-        productName: item.productName,
-        variantId: item.variantId ?? null,
-        variantLabel: item.variantLabel ?? null,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        subtotal: item.subtotal,
-        status: "pending",
-        purchasedQuantity: 0,
-        shippedQuantity: 0,
-      });
+      await client.models.LineItem.create(
+        lineItemPayload as Parameters<typeof client.models.LineItem.create>[0],
+      );
 
     if (lineItemErrors && lineItemErrors.length > 0) {
       throw new Error(lineItemErrors[0]?.message ?? "建立明細項目失敗");
@@ -463,26 +473,45 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
     throw new Error(errors[0]?.message ?? "入庫確認失敗");
   }
 
+  assertCustomMutationSuccess(data, "入庫確認失敗");
+
   return data;
+}
+
+function parseCustomMutationResult(result: unknown): Record<string, unknown> | null {
+  let current = result;
+
+  for (let i = 0; i < 3; i++) {
+    if (typeof current === "string") {
+      try {
+        current = JSON.parse(current) as unknown;
+      } catch {
+        return null;
+      }
+      continue;
+    }
+
+    if (current && typeof current === "object" && !Array.isArray(current)) {
+      return current as Record<string, unknown>;
+    }
+
+    return null;
+  }
+
+  return null;
 }
 
 function assertCustomMutationSuccess(
   result: unknown,
   fallbackMessage: string,
 ): void {
-  if (typeof result !== "string") {
-    return;
-  }
-
-  let parsed: { success?: boolean; message?: string };
-  try {
-    parsed = JSON.parse(result) as { success?: boolean; message?: string };
-  } catch {
+  const parsed = parseCustomMutationResult(result);
+  if (!parsed) {
     return;
   }
 
   if (parsed.success === false) {
-    throw new Error(parsed.message ?? fallbackMessage);
+    throw new Error(String(parsed.message ?? fallbackMessage));
   }
 }
 
@@ -782,6 +811,8 @@ async function shipLineItem(input: ShipLineItemInput): Promise<unknown> {
     throw new Error(errors[0]?.message ?? "出貨操作失敗");
   }
 
+  assertCustomMutationSuccess(data, "出貨操作失敗");
+
   return data;
 }
 
@@ -833,8 +864,7 @@ async function mergeOrders(input: { orderIds: string[] }): Promise<Order> {
     throw new Error("合併訂單失敗：未回傳資料");
   }
 
-  const result = typeof data === "string" ? JSON.parse(data) : (data as unknown);
-  const resultRecord = result as Record<string, unknown>;
+  const resultRecord = parseCustomMutationResult(data) ?? {};
   const orderData =
     resultRecord.data && typeof resultRecord.data === "object"
       ? (resultRecord.data as Record<string, unknown>)
@@ -868,12 +898,11 @@ async function splitOrder(input: {
     throw new Error("分拆訂單失敗：未回傳資料");
   }
 
-  const result = typeof data === "string" ? JSON.parse(data) : (data as unknown);
-  const resultRecord = result as Record<string, unknown>;
+  const resultRecord = parseCustomMutationResult(data) ?? {};
   if (resultRecord.success === false) {
     throw new Error(String(resultRecord.message ?? "分拆訂單失敗"));
   }
-  const splitData = resultRecord.data ?? result;
+  const splitData = resultRecord.data ?? resultRecord;
   if (
     splitData &&
     typeof splitData === "object" &&
@@ -883,13 +912,7 @@ async function splitOrder(input: {
       (item: unknown) => mapToOrder(item as Record<string, unknown>),
     );
   }
-  if (Array.isArray(result)) {
-    return result.map((item: unknown) =>
-      mapToOrder(item as Record<string, unknown>),
-    );
-  }
-
-  return [mapToOrder(result as Record<string, unknown>)];
+  return [mapToOrder(resultRecord)];
 }
 
 // ---------------------------------------------------------------------------

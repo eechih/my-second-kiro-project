@@ -7,8 +7,16 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { validateProcurementReceive } from "@shared/logic/procurement";
 import { normalizeLineItemStatus } from "@shared/models/order";
+import {
+  getTransactionCancellationReasons,
+  logDebug,
+  logError,
+  logInfo,
+  logWarn,
+} from "../debug-log";
 
 const ddb = new DynamoDBClient({});
+const FUNCTION_NAME = "confirmReceived";
 
 /**
  * 入庫確認操作 Lambda 函式（簡化版）
@@ -29,11 +37,16 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
   event,
 ) => {
   const { lineItemId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { lineItemId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
 
   if (!lineItemTable || !productTable) {
+    logWarn(FUNCTION_NAME, "missing environment variables", {
+      hasLineItemTable: !!lineItemTable,
+      hasProductTable: !!productTable,
+    });
     return JSON.stringify({
       success: false,
       message: "缺少必要的環境變數設定",
@@ -50,6 +63,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     );
 
     if (!lineItemResult.Item) {
+      logWarn(FUNCTION_NAME, "line item not found", { lineItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
@@ -59,10 +73,25 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     const lineItem = unmarshall(lineItemResult.Item);
     const status = normalizeLineItemStatus(lineItem["status"]);
     const purchasedQuantity = lineItem["purchasedQuantity"] as number;
+    const productId = lineItem["productId"] as string;
+    logDebug(FUNCTION_NAME, "line item loaded", {
+      lineItemId,
+      productId,
+      status,
+      purchasedQuantity,
+      rawStatus: lineItem["status"],
+    });
 
     // 2. 使用共用驗證函式檢查前置條件
     const validation = validateProcurementReceive({ status, purchasedQuantity });
     if (!validation.valid) {
+      logWarn(FUNCTION_NAME, "validation failed", {
+        lineItemId,
+        productId,
+        status,
+        purchasedQuantity,
+        validationError: validation.error,
+      });
       return JSON.stringify({
         success: false,
         message: validation.error,
@@ -70,8 +99,6 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     }
 
     // 3. 取得庫存資訊（統一在商品層級管理）
-    const productId = lineItem["productId"] as string;
-
     const productResult = await ddb.send(
       new GetItemCommand({
         TableName: productTable,
@@ -79,11 +106,18 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       }),
     );
     if (!productResult.Item) {
+      logWarn(FUNCTION_NAME, "product not found", { lineItemId, productId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的商品",
       });
     }
+    const product = unmarshall(productResult.Item);
+    logDebug(FUNCTION_NAME, "product loaded", {
+      lineItemId,
+      productId,
+      stockQuantity: product["stockQuantity"],
+    });
 
     const now = new Date().toISOString();
 
@@ -126,10 +160,22 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     });
 
     // 5. 執行交易
+    logDebug(FUNCTION_NAME, "executing transaction", {
+      lineItemId,
+      productId,
+      purchasedQuantity,
+      transactItemCount: transactItems.length,
+    });
     await ddb.send(
       new TransactWriteItemsCommand({ TransactItems: transactItems }),
     );
 
+    logInfo(FUNCTION_NAME, "handler succeeded", {
+      lineItemId,
+      productId,
+      quantity: purchasedQuantity,
+      lineItemStatus: "received",
+    });
     return JSON.stringify({
       success: true,
       message: "入庫確認成功",
@@ -142,12 +188,16 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
+      logWarn(FUNCTION_NAME, "transaction cancelled", {
+        lineItemId,
+        cancellationReasons: getTransactionCancellationReasons(error),
+      });
       return JSON.stringify({
         success: false,
         message: "入庫確認失敗，請重新取得最新資料後重試",
       });
     }
-    console.error("confirmReceived error:", error);
+    logError(FUNCTION_NAME, "handler failed", error, { lineItemId });
     return JSON.stringify({
       success: false,
       message: `入庫確認失敗：${err.message ?? "未知錯誤"}`,

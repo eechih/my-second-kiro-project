@@ -18,8 +18,16 @@ import {
   normalizeOrderStatus,
   type LineItemStatus,
 } from "@shared/models/order";
+import {
+  getTransactionCancellationReasons,
+  logDebug,
+  logError,
+  logInfo,
+  logWarn,
+} from "../debug-log";
 
 const ddb = new DynamoDBClient({});
+const FUNCTION_NAME = "shipLineItem";
 
 /**
  * 出貨操作 Lambda 函式
@@ -38,12 +46,18 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
   event,
 ) => {
   const { orderId, lineItemId, quantity } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { orderId, lineItemId, quantity });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
 
   if (!lineItemTable || !orderTable || !productTable) {
+    logWarn(FUNCTION_NAME, "missing environment variables", {
+      hasLineItemTable: !!lineItemTable,
+      hasOrderTable: !!orderTable,
+      hasProductTable: !!productTable,
+    });
     return JSON.stringify({
       success: false,
       message: "缺少必要的環境變數設定",
@@ -60,6 +74,7 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     );
 
     if (!lineItemResult.Item) {
+      logWarn(FUNCTION_NAME, "line item not found", { orderId, lineItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
@@ -70,7 +85,21 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
 
     // 2. 驗證明細狀態——僅「已收到」可出貨
     const currentStatus = normalizeLineItemStatus(lineItem["status"]);
+    logDebug(FUNCTION_NAME, "line item loaded", {
+      orderId,
+      lineItemId,
+      currentStatus,
+      rawStatus: lineItem["status"],
+      orderQuantity: lineItem["quantity"],
+      shippedQuantity: lineItem["shippedQuantity"],
+      productId: lineItem["productId"],
+    });
     if (!isValidLineItemStatusTransition(currentStatus, "shipped")) {
+      logWarn(FUNCTION_NAME, "invalid line item status", {
+        orderId,
+        lineItemId,
+        currentStatus,
+      });
       return JSON.stringify({
         success: false,
         message: `明細項目目前狀態為「${currentStatus}」，無法執行出貨操作`,
@@ -95,6 +124,11 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       }),
     );
     if (!productResult.Item) {
+      logWarn(FUNCTION_NAME, "product not found", {
+        orderId,
+        lineItemId,
+        productId,
+      });
       return JSON.stringify({
         success: false,
         message: "找不到指定的商品",
@@ -102,6 +136,14 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     }
     const product = unmarshall(productResult.Item);
     const stockQuantity = product["stockQuantity"] as number;
+    logDebug(FUNCTION_NAME, "product loaded", {
+      orderId,
+      lineItemId,
+      productId,
+      stockQuantity,
+      requestedQuantity: quantity,
+      remainingShipQty,
+    });
 
     // 5. 使用共用驗證函式檢查出貨數量與庫存
     const shipmentValidation = validateShipment(
@@ -110,6 +152,15 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       stockQuantity,
     );
     if (!shipmentValidation.valid) {
+      logWarn(FUNCTION_NAME, "shipment validation failed", {
+        orderId,
+        lineItemId,
+        productId,
+        quantity,
+        remainingShipQty,
+        stockQuantity,
+        validationError: shipmentValidation.error,
+      });
       return JSON.stringify({
         success: false,
         message: shipmentValidation.error,
@@ -155,6 +206,7 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     );
 
     if (!orderResult.Item) {
+      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
       return JSON.stringify({ success: false, message: "找不到指定的訂單" });
     }
 
@@ -232,10 +284,29 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     }
 
     // 9. 執行交易
+    logDebug(FUNCTION_NAME, "executing transaction", {
+      orderId,
+      lineItemId,
+      productId,
+      quantity,
+      newShippedQty,
+      lineItemUpdateStatus,
+      currentOrderStatus,
+      derivedOrderStatus,
+      transactItemCount: transactItems.length,
+    });
     await ddb.send(
       new TransactWriteItemsCommand({ TransactItems: transactItems }),
     );
 
+    logInfo(FUNCTION_NAME, "handler succeeded", {
+      orderId,
+      lineItemId,
+      productId,
+      shippedQuantity: newShippedQty,
+      lineItemStatus: lineItemUpdateStatus,
+      orderStatus: derivedOrderStatus ?? currentOrderStatus,
+    });
     return JSON.stringify({
       success: true,
       message: "出貨操作成功",
@@ -249,13 +320,23 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
+      logWarn(FUNCTION_NAME, "transaction cancelled", {
+        orderId,
+        lineItemId,
+        quantity,
+        cancellationReasons: getTransactionCancellationReasons(error),
+      });
       return JSON.stringify({
         success: false,
         message:
           "出貨操作失敗：庫存不足或資料已變更，請重新取得最新資料後重試",
       });
     }
-    console.error("shipLineItem error:", error);
+    logError(FUNCTION_NAME, "handler failed", error, {
+      orderId,
+      lineItemId,
+      quantity,
+    });
     return JSON.stringify({
       success: false,
       message: `出貨操作失敗：${err.message ?? "未知錯誤"}`,
