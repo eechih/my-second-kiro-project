@@ -1,4 +1,4 @@
-import { useShipLineItem } from "@/hooks/useOrders";
+import { useConfirmShipment } from "@/hooks/useOrders";
 import { useProduct } from "@/hooks/useProducts";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import Alert from "@mui/material/Alert";
@@ -34,7 +34,7 @@ export function ShipDialog({
 }: ShipDialogProps): React.ReactElement {
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const shipLineItem = useShipLineItem();
+  const confirmShipment = useConfirmShipment();
   const { data: product } = useProduct(lineItem.productId);
 
   const remainingShip = calculateRemainingShipQuantity(
@@ -54,7 +54,7 @@ export function ShipDialog({
     }
 
     try {
-      await shipLineItem.mutateAsync({
+      await confirmShipment.mutateAsync({
         orderId: order.id,
         lineItemId: lineItem.id,
         quantity,
@@ -75,7 +75,8 @@ export function ShipDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Typography variant="body2" color="text.secondary">
-            訂購數量：{lineItem.quantity} 已出貨：{lineItem.shippedQuantity} 未出貨餘額：{remainingShip} 目前庫存：{stockQty}
+            訂購數量：{lineItem.quantity} 已出貨：{lineItem.shippedQuantity}{" "}
+            未出貨餘額：{remainingShip} 目前庫存：{stockQty}
           </Typography>
           <TextField
             label="出貨數量"
@@ -100,9 +101,9 @@ export function ShipDialog({
           onClick={() => void handleSubmit()}
           variant="contained"
           color="primary"
-          disabled={shipLineItem.isPending}
+          disabled={confirmShipment.isPending}
           startIcon={
-            shipLineItem.isPending ? (
+            confirmShipment.isPending ? (
               <CircularProgress size={16} />
             ) : (
               <LocalShippingIcon />

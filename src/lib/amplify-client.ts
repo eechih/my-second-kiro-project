@@ -18,7 +18,7 @@ import type { Schema } from "../../amplify/data/resource";
  * const { data } = await client.models.Customer.list();
  *
  * // Custom Mutation
- * const result = await client.mutations.shipLineItem({ ... });
+ * const result = await client.mutations.confirmShipment({ ... });
  * ```
  */
 

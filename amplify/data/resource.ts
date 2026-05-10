@@ -200,8 +200,8 @@ const schema = a.schema({
     .authorization((allow) => [allow.authenticated()])
     .handler(a.handler.function(cancelPurchase)),
 
-  /** 出貨操作：扣減庫存 + 更新明細狀態 + 條件性更新訂單狀態 */
-  shipLineItem: a
+  /** 確認出貨：扣減庫存 + 更新明細狀態 + 條件性更新訂單狀態 */
+  confirmShipment: a
     .mutation()
     .arguments({
       orderId: a.string().required(),

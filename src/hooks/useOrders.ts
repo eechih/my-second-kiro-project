@@ -9,6 +9,7 @@ import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 import {
   normalizeLineItemStatus,
   normalizeOrderStatus,
+  type ConfirmShipmentInput,
   type CreateOrderInput,
   type LineItem,
   type Order,
@@ -115,11 +116,10 @@ type CancelProcurementInput = {
   orderId: string;
 };
 
-type ShipLineItemInput = {
-  orderId: string;
-  lineItemId: string;
-  quantity: number;
-};
+type ConfirmShipmentBaseInput = Pick<
+  ConfirmShipmentInput,
+  "orderId" | "lineItemId"
+>;
 
 type LineItemStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
@@ -459,7 +459,9 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<LineItem> {
   );
 }
 
-function parseCustomMutationResult(result: unknown): Record<string, unknown> | null {
+function parseCustomMutationResult(
+  result: unknown,
+): Record<string, unknown> | null {
   let current = result;
 
   for (let i = 0; i < 3; i++) {
@@ -694,9 +696,7 @@ async function updateLineItemStatusFlag(
   input: UpdateLineItemStatusFlagInput,
 ): Promise<LineItem> {
   if (input.flag === "ordered") {
-    return input.checked
-      ? confirmPurchase(input)
-      : cancelProcurement(input);
+    return input.checked ? confirmPurchase(input) : cancelProcurement(input);
   }
 
   if (input.flag === "received") {
@@ -704,7 +704,15 @@ async function updateLineItemStatusFlag(
   }
 
   if (input.flag === "shipped") {
-    return input.checked ? confirmShipment(input) : cancelShipment(input);
+    return input.checked
+      ? confirmShipmentRemaining({
+          orderId: input.orderId,
+          lineItemId: input.lineItemId,
+        })
+      : cancelShipment({
+          orderId: input.orderId,
+          lineItemId: input.lineItemId,
+        });
   }
 
   if (input.flag === "outOfStock") {
@@ -714,8 +722,8 @@ async function updateLineItemStatusFlag(
   throw new Error("不支援的明細狀態操作");
 }
 
-async function shipLineItem(input: ShipLineItemInput): Promise<LineItem> {
-  const { data, errors } = await client.mutations.shipLineItem({
+async function confirmShipment(input: ConfirmShipmentInput): Promise<LineItem> {
+  const { data, errors } = await client.mutations.confirmShipment({
     orderId: input.orderId,
     lineItemId: input.lineItemId,
     quantity: input.quantity,
@@ -733,8 +741,8 @@ async function shipLineItem(input: ShipLineItemInput): Promise<LineItem> {
   );
 }
 
-async function confirmShipment(
-  input: Pick<ShipLineItemInput, "orderId" | "lineItemId">,
+async function confirmShipmentRemaining(
+  input: ConfirmShipmentBaseInput,
 ): Promise<LineItem> {
   const { data: currentLineItem, errors: getErrors } =
     await client.models.LineItem.get({
@@ -757,7 +765,7 @@ async function confirmShipment(
     throw new Error("此明細已全數出貨");
   }
 
-  return shipLineItem({
+  return confirmShipment({
     orderId: input.orderId,
     lineItemId: input.lineItemId,
     quantity: remainingQuantity,
@@ -765,7 +773,7 @@ async function confirmShipment(
 }
 
 async function cancelShipment(
-  input: Pick<ShipLineItemInput, "orderId" | "lineItemId">,
+  input: ConfirmShipmentBaseInput,
 ): Promise<LineItem> {
   const { data: result, errors } = await client.mutations.cancelShipment({
     orderId: input.orderId,
@@ -987,9 +995,7 @@ export function useConfirmReceived(): UseMutationResult<
     mutationFn: confirmReceived,
     onMutate: async (input) => {
       // Cancel outgoing refetches
-      const orderKey = ORDER_KEYS.detail(
-        input.orderId,
-      );
+      const orderKey = ORDER_KEYS.detail(input.orderId);
       await queryClient.cancelQueries({ queryKey: orderKey });
 
       // Snapshot previous value
@@ -1016,9 +1022,7 @@ export function useConfirmReceived(): UseMutationResult<
     onError: (_err, input, context) => {
       // Rollback
       if (context?.previousOrder) {
-        const orderKey = ORDER_KEYS.detail(
-          input.orderId,
-        );
+        const orderKey = ORDER_KEYS.detail(input.orderId);
         queryClient.setQueryData(orderKey, context.previousOrder);
       }
     },
@@ -1098,9 +1102,7 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
   return useMutation({
     mutationFn: updateLineItemStatusFlag,
     onMutate: async (input) => {
-      const orderKey = ORDER_KEYS.detail(
-        input.orderId,
-      );
+      const orderKey = ORDER_KEYS.detail(input.orderId);
       await queryClient.cancelQueries({ queryKey: orderKey });
 
       const previousOrder = queryClient.getQueryData<Order>(orderKey);
@@ -1158,25 +1160,23 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
 /**
  * 出貨操作 mutation hook
  *
- * 呼叫 shipLineItem custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems）。
+ * 呼叫 confirmShipment custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems）。
  * 實作樂觀更新：立即更新快取中的 LineItem 狀態為「已出貨」、扣減庫存。
  *
  * 需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5
  */
-export function useShipLineItem(): UseMutationResult<
+export function useConfirmShipment(): UseMutationResult<
   LineItem,
   Error,
-  ShipLineItemInput
+  ConfirmShipmentInput
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: shipLineItem,
+    mutationFn: confirmShipment,
     onMutate: async (input) => {
       // Cancel outgoing refetches
-      const orderKey = ORDER_KEYS.detail(
-        input.orderId,
-      );
+      const orderKey = ORDER_KEYS.detail(input.orderId);
       await queryClient.cancelQueries({ queryKey: orderKey });
 
       // Snapshot previous value
@@ -1219,9 +1219,7 @@ export function useShipLineItem(): UseMutationResult<
     onError: (_err, input, context) => {
       // Rollback
       if (context?.previousOrder) {
-        const orderKey = ORDER_KEYS.detail(
-          input.orderId,
-        );
+        const orderKey = ORDER_KEYS.detail(input.orderId);
         queryClient.setQueryData(orderKey, context.previousOrder);
       }
     },

@@ -1,14 +1,15 @@
-import type { Schema } from "../../data/resource";
 import {
   DynamoDBClient,
-  TransactWriteItemsCommand,
   GetItemCommand,
   QueryCommand,
+  TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { isValidLineItemStatusTransition } from "@shared/logic/line-item-status";
-import { isValidOrderStatusTransition } from "@shared/logic/order-status";
-import { deriveOrderStatusFromLineItems } from "@shared/logic/order-status";
+import {
+  deriveOrderStatusFromLineItems,
+  isValidOrderStatusTransition,
+} from "@shared/logic/order-status";
 import {
   calculateRemainingShipQuantity,
   validateShipment,
@@ -18,6 +19,7 @@ import {
   normalizeOrderStatus,
   type LineItemStatus,
 } from "@shared/models/order";
+import type { Schema } from "../../data/resource";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -42,7 +44,7 @@ const FUNCTION_NAME = "confirmShipment";
  * - 出貨數量不超過未出貨餘額
  * - 庫存數量充足
  */
-export const handler: Schema["shipLineItem"]["functionHandler"] = async (
+export const handler: Schema["confirmShipment"]["functionHandler"] = async (
   event,
 ) => {
   const { orderId, lineItemId, quantity } = event.arguments;
@@ -184,18 +186,19 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
     // 模擬出貨後的明細狀態列表（用於推導訂單狀態）
     const newShippedQty = shippedQuantity + quantity;
     const simulatedLineItems = allLineItems.map((li) => {
-        if (li["id"] === lineItemId) {
-          return {
-            status:
-              newShippedQty >= orderQuantity
-                ? ("shipped" as const)
-                : normalizeLineItemStatus(li["status"]),
-          };
-        }
-        return { status: normalizeLineItemStatus(li["status"]) };
+      if (li["id"] === lineItemId) {
+        return {
+          status:
+            newShippedQty >= orderQuantity
+              ? ("shipped" as const)
+              : normalizeLineItemStatus(li["status"]),
+        };
+      }
+      return { status: normalizeLineItemStatus(li["status"]) };
     });
 
-    const derivedOrderStatus = deriveOrderStatusFromLineItems(simulatedLineItems);
+    const derivedOrderStatus =
+      deriveOrderStatusFromLineItems(simulatedLineItems);
 
     // 7. 取得目前訂單資料（用於狀態轉換驗證）
     const orderResult = await ddb.send(
@@ -328,8 +331,7 @@ export const handler: Schema["shipLineItem"]["functionHandler"] = async (
       });
       return JSON.stringify({
         success: false,
-        message:
-          "出貨操作失敗：庫存不足或資料已變更，請重新取得最新資料後重試",
+        message: "出貨操作失敗：庫存不足或資料已變更，請重新取得最新資料後重試",
       });
     }
     logError(FUNCTION_NAME, "handler failed", error, {

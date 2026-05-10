@@ -3,48 +3,48 @@
  */
 
 export type {
-  Customer,
   CreateCustomerInput,
+  Customer,
   UpdateCustomerInput,
 } from "./customer";
 
 export type {
-  Supplier,
   CreateSupplierInput,
+  Supplier,
   UpdateSupplierInput,
 } from "./supplier";
 
 export type {
-  ProductVariant,
-  Product,
   CreateProductInput,
-  UpdateProductInput,
   CreateVariantInput,
+  Product,
+  ProductVariant,
+  UpdateProductInput,
   UpdateVariantInput,
 } from "./product";
 
 export type {
-  OrderStatus,
-  LineItemStatus,
-  StatusChange,
-  ValidationResult,
-  PaginatedResult,
-  SplitAllocation,
-  LineItem,
-  Order,
+  ConfirmShipmentInput,
   CreateLineItemInput,
   CreateOrderInput,
-  ShipLineItemInput,
+  LineItem,
+  LineItemStatus,
+  Order,
+  OrderStatus,
+  PaginatedResult,
+  SplitAllocation,
   SplitOrderInput,
+  StatusChange,
+  ValidationResult,
 } from "./order";
 
 export {
-  LINE_ITEM_STATUSES,
-  LINE_ITEM_STATUS_LABEL,
-  ORDER_STATUSES,
-  ORDER_STATUS_LABEL,
   isLineItemStatus,
   isOrderStatus,
+  LINE_ITEM_STATUS_LABEL,
+  LINE_ITEM_STATUSES,
   normalizeLineItemStatus,
   normalizeOrderStatus,
+  ORDER_STATUS_LABEL,
+  ORDER_STATUSES,
 } from "./order";

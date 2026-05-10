@@ -85,7 +85,6 @@ export function normalizeLineItemStatus(value: unknown): LineItemStatus {
   return "pending";
 }
 
-
 // ---------------------------------------------------------------------------
 // 共用型別
 // ---------------------------------------------------------------------------
@@ -125,8 +124,6 @@ export interface SplitAllocation {
   /** 分配到第幾筆新訂單（0-based） */
   targetOrderIndex: number;
 }
-
-
 
 // ---------------------------------------------------------------------------
 // 明細項目（LineItem）
@@ -232,10 +229,8 @@ export interface CreateOrderInput {
   lineItems: CreateLineItemInput[];
 }
 
-
-
-/** 出貨操作輸入 */
-export interface ShipLineItemInput {
+/** 確認出貨輸入 */
+export interface ConfirmShipmentInput {
   /** 訂單 ID（必填） */
   orderId: string;
   /** 明細項目 ID（必填） */
