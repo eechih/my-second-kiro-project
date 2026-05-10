@@ -11,7 +11,6 @@ import {
   normalizeOrderStatus,
   type CreateOrderInput,
   type LineItem,
-  type LineItemStatus,
   type Order,
   type OrderStatus,
   type PaginatedResult,
@@ -129,27 +128,6 @@ type UpdateLineItemStatusFlagInput = {
   lineItemId: string;
   flag: LineItemStatusFlag;
   checked: boolean;
-};
-
-const NON_CANCELABLE_ORDERED_STATUSES = new Set<LineItemStatus>([
-  "received",
-  "shipped",
-  "out_of_stock",
-]);
-
-const NON_CANCELABLE_RECEIVED_STATUSES = new Set<LineItemStatus>([
-  "shipped",
-  "out_of_stock",
-]);
-
-type LineItemStatusFlagUpdate = {
-  purchasedAt?: string | null;
-  receivedAt?: string | null;
-  shippedAt?: string | null;
-  outOfStockAt?: string | null;
-  purchasedQuantity?: number;
-  shippedQuantity?: number;
-  status: LineItemStatus;
 };
 
 // ---------------------------------------------------------------------------
@@ -464,7 +442,7 @@ async function updateOrderStatus(
   return mapToOrder(data);
 }
 
-async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
+async function confirmReceived(input: ConfirmReceivedInput): Promise<LineItem> {
   const { data, errors } = await client.mutations.confirmReceived({
     lineItemId: input.lineItemId,
   });
@@ -475,7 +453,10 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<unknown> {
 
   assertCustomMutationSuccess(data, "入庫確認失敗");
 
-  return data;
+  return fetchLineItemAfterCustomMutation(
+    input.lineItemId,
+    "入庫確認失敗：找不到明細項目",
+  );
 }
 
 function parseCustomMutationResult(result: unknown): Record<string, unknown> | null {
@@ -654,85 +635,59 @@ async function cancelProcurement(
   );
 }
 
-function buildLineItemStatusFlagUpdate(
-  lineItem: Pick<
-    LineItem,
-    "purchasedAt" | "quantity" | "status" | "shippedQuantity"
-  >,
+function buildLineItemStatusFlagOptimisticUpdate(
+  lineItem: LineItem,
   flag: LineItemStatusFlag,
   checked: boolean,
   now: string,
-): LineItemStatusFlagUpdate {
+): Partial<LineItem> {
   if (flag === "ordered") {
-    if (!checked && NON_CANCELABLE_ORDERED_STATUSES.has(lineItem.status)) {
-      throw new Error(`明細項目目前狀態為「${lineItem.status}」，不可取消訂貨`);
-    }
-
-    if (checked && lineItem.status === "out_of_stock") {
-      throw new Error("缺貨明細不可標記訂貨");
-    }
-
-    return {
-      purchasedAt: checked ? now : null,
-      purchasedQuantity: checked ? lineItem.quantity : 0,
-      status: checked ? "ordered" : "pending",
-    };
+    return checked
+      ? {
+          status: "ordered",
+          purchasedAt: now,
+          purchasedQuantity: lineItem.quantity,
+        }
+      : {
+          status: "pending",
+          purchasedAt: null,
+          purchasedQuantity: 0,
+          supplierId: null,
+          supplierName: null,
+          unitCost: null,
+        };
   }
 
   if (flag === "received") {
-    if (!checked && NON_CANCELABLE_RECEIVED_STATUSES.has(lineItem.status)) {
-      throw new Error(`明細項目目前狀態為「${lineItem.status}」，不可取消到貨`);
-    }
-
-    if (checked && lineItem.status !== "ordered") {
-      throw new Error("請先標記訂貨，才能標記到貨");
-    }
-
-    return {
-      receivedAt: checked ? now : null,
-      status: checked ? "received" : "ordered",
-    };
+    return checked
+      ? { status: "received", receivedAt: now }
+      : { status: "ordered", receivedAt: null };
   }
 
-  if (flag === "outOfStock") {
-    if (checked) {
-      if (
-        lineItem.status !== "pending" &&
-        lineItem.status !== "ordered" &&
-        lineItem.status !== "received"
-      ) {
-        throw new Error("僅待處理、已訂購或已到貨明細可標記斷貨");
-      }
+  if (flag === "shipped") {
+    return checked
+      ? {
+          status: "shipped",
+          shippedAt: now,
+          shippedQuantity: lineItem.quantity,
+        }
+      : {
+          status: "received",
+          shippedAt: null,
+          shippedQuantity: 0,
+        };
+  }
 
-      return {
-        status: "out_of_stock",
-        outOfStockAt: now,
+  return checked
+    ? { status: "out_of_stock", outOfStockAt: now }
+    : {
+        status: lineItem.receivedAt
+          ? "received"
+          : lineItem.purchasedAt
+            ? "ordered"
+            : "pending",
+        outOfStockAt: null,
       };
-    }
-
-    if (lineItem.status !== "out_of_stock") {
-      throw new Error("僅缺貨明細可取消斷貨");
-    }
-
-    return {
-      status: lineItem.purchasedAt ? "ordered" : "pending",
-      outOfStockAt: null,
-    };
-  }
-
-  if (checked && lineItem.status !== "received") {
-    throw new Error("請先標記到貨，才能標記出貨");
-  }
-
-  if (!checked && lineItem.status === "out_of_stock") {
-    throw new Error("缺貨明細不可取消出貨");
-  }
-
-  return {
-    shippedAt: checked ? now : null,
-    shippedQuantity: checked ? lineItem.quantity : 0,
-    status: checked ? "shipped" : "received",
-  };
 }
 
 async function updateLineItemStatusFlag(
@@ -744,63 +699,22 @@ async function updateLineItemStatusFlag(
       : cancelProcurement(input);
   }
 
-  if (input.flag === "received" && !input.checked) {
-    return cancelReceived(input);
+  if (input.flag === "received") {
+    return input.checked ? confirmReceived(input) : cancelReceived(input);
   }
 
-  if (input.flag === "shipped" && !input.checked) {
-    return cancelShipment(input);
+  if (input.flag === "shipped") {
+    return input.checked ? confirmShipment(input) : cancelShipment(input);
   }
 
   if (input.flag === "outOfStock") {
     return input.checked ? confirmOutOfStock(input) : cancelOutOfStock(input);
   }
 
-  const now = new Date().toISOString();
-  const { data: currentLineItem, errors: getErrors } =
-    await client.models.LineItem.get({
-      id: input.lineItemId,
-    });
-
-  if (getErrors && getErrors.length > 0) {
-    throw new Error(getErrors[0]?.message ?? "查詢明細狀態失敗");
-  }
-
-  if (!currentLineItem) {
-    throw new Error("更新明細狀態失敗：找不到明細項目");
-  }
-
-  const update = buildLineItemStatusFlagUpdate(
-    {
-      purchasedAt: currentLineItem.purchasedAt
-        ? String(currentLineItem.purchasedAt)
-        : null,
-      quantity: Number(currentLineItem.quantity ?? 0),
-      shippedQuantity: Number(currentLineItem.shippedQuantity ?? 0),
-      status: normalizeLineItemStatus(currentLineItem.status),
-    },
-    input.flag,
-    input.checked,
-    now,
-  );
-
-  const { data, errors } = await client.models.LineItem.update({
-    id: input.lineItemId,
-    ...update,
-  });
-
-  if (errors && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "更新明細狀態失敗");
-  }
-
-  if (!data) {
-    throw new Error("更新明細狀態失敗：未回傳資料");
-  }
-
-  return mapToLineItem(data as unknown as Record<string, unknown>);
+  throw new Error("不支援的明細狀態操作");
 }
 
-async function shipLineItem(input: ShipLineItemInput): Promise<unknown> {
+async function shipLineItem(input: ShipLineItemInput): Promise<LineItem> {
   const { data, errors } = await client.mutations.shipLineItem({
     orderId: input.orderId,
     lineItemId: input.lineItemId,
@@ -813,7 +727,41 @@ async function shipLineItem(input: ShipLineItemInput): Promise<unknown> {
 
   assertCustomMutationSuccess(data, "出貨操作失敗");
 
-  return data;
+  return fetchLineItemAfterCustomMutation(
+    input.lineItemId,
+    "出貨操作失敗：找不到明細項目",
+  );
+}
+
+async function confirmShipment(
+  input: Pick<ShipLineItemInput, "orderId" | "lineItemId">,
+): Promise<LineItem> {
+  const { data: currentLineItem, errors: getErrors } =
+    await client.models.LineItem.get({
+      id: input.lineItemId,
+    });
+
+  if (getErrors && getErrors.length > 0) {
+    throw new Error(getErrors[0]?.message ?? "查詢明細狀態失敗");
+  }
+
+  if (!currentLineItem) {
+    throw new Error("出貨操作失敗：找不到明細項目");
+  }
+
+  const quantity = Number(currentLineItem.quantity ?? 0);
+  const shippedQuantity = Number(currentLineItem.shippedQuantity ?? 0);
+  const remainingQuantity = quantity - shippedQuantity;
+
+  if (remainingQuantity <= 0) {
+    throw new Error("此明細已全數出貨");
+  }
+
+  return shipLineItem({
+    orderId: input.orderId,
+    lineItemId: input.lineItemId,
+    quantity: remainingQuantity,
+  });
 }
 
 async function cancelShipment(
@@ -1029,7 +977,7 @@ export function useUpdateOrderStatus(): UseMutationResult<
  * 需求：4.7, 6.5, 6.6, 6.8, 6.10
  */
 export function useConfirmReceived(): UseMutationResult<
-  unknown,
+  LineItem,
   Error,
   ConfirmReceivedInput
 > {
@@ -1164,7 +1112,7 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
         );
 
         if (targetLineItem) {
-          const update = buildLineItemStatusFlagUpdate(
+          const update = buildLineItemStatusFlagOptimisticUpdate(
             targetLineItem,
             input.flag,
             input.checked,
@@ -1216,7 +1164,7 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
  * 需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5
  */
 export function useShipLineItem(): UseMutationResult<
-  unknown,
+  LineItem,
   Error,
   ShipLineItemInput
 > {
