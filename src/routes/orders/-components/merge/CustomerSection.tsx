@@ -51,6 +51,7 @@ export function MergeCustomerSection({
           label="客戶"
           value={selectedCustomer}
           onChange={onCustomerChange}
+          queryKey={["customers", "order-merge-select"]}
           searchFn={searchCustomers}
           getOptionLabel={(option) => option.name}
           required

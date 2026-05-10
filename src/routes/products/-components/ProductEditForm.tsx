@@ -239,6 +239,7 @@ export function ProductEditForm({
             label="預設供應商"
             value={selectedSupplier}
             onChange={onSupplierChange}
+            queryKey={["suppliers", "select"]}
             searchFn={searchSuppliers}
             getOptionLabel={(supplier) => supplier.name}
           />

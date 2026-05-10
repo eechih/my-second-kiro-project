@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -7,6 +8,7 @@ export interface EntitySelectProps<T> {
   label: string;
   value: T | null;
   onChange: (value: T | null) => void;
+  queryKey: readonly unknown[];
   searchFn: (query: string) => Promise<T[]>;
   getOptionLabel: (option: T) => string;
   filterActive?: boolean;
@@ -24,6 +26,7 @@ export function EntitySelect<T>({
   label,
   value,
   onChange,
+  queryKey,
   searchFn,
   getOptionLabel,
   filterActive: _filterActive = true,
@@ -31,53 +34,30 @@ export function EntitySelect<T>({
   disabled = false,
   required = false,
 }: EntitySelectProps<T>): React.ReactElement {
-  const [options, setOptions] = useState<T[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [loading, setLoading] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedInputValue = useDebouncedValue(inputValue, 300);
+  const searchQuery = debouncedInputValue.trim();
 
-  const fetchOptions = useCallback(
-    async (query: string) => {
-      setLoading(true);
-      try {
-        const results = await searchFn(query);
-        setOptions(results);
-      } catch {
-        setOptions([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [searchFn],
-  );
-
-  // Initial load
-  useEffect(() => {
-    void fetchOptions("");
-  }, [fetchOptions]);
+  const searchResult = useQuery({
+    queryKey: [...queryKey, searchQuery],
+    queryFn: () => searchFn(searchQuery),
+    enabled: !disabled,
+    staleTime: 60_000,
+  });
 
   const handleInputChange = (
     _event: React.SyntheticEvent,
     newInputValue: string,
   ): void => {
     setInputValue(newInputValue);
-
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-    timerRef.current = setTimeout(() => {
-      void fetchOptions(newInputValue);
-    }, 300);
   };
 
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
+  const searchError =
+    searchResult.error instanceof Error
+      ? searchResult.error.message
+      : "查詢失敗";
+  const helperText = error ?? (searchResult.isError ? searchError : undefined);
+  const loading = searchResult.isFetching;
 
   return (
     <Autocomplete
@@ -85,7 +65,7 @@ export function EntitySelect<T>({
       onChange={(_event, newValue) => onChange(newValue)}
       inputValue={inputValue}
       onInputChange={handleInputChange}
-      options={options}
+      options={searchResult.data ?? []}
       getOptionLabel={getOptionLabel}
       loading={loading}
       disabled={disabled}
@@ -100,8 +80,8 @@ export function EntitySelect<T>({
           <TextField
             {...restParams}
             label={required ? `${label} *` : label}
-            error={!!error}
-            helperText={error}
+            error={!!helperText}
+            helperText={helperText}
             slotProps={{
               ...paramSlotProps,
               input: {
@@ -121,4 +101,15 @@ export function EntitySelect<T>({
       }}
     />
   );
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [delayMs, value]);
+
+  return debouncedValue;
 }

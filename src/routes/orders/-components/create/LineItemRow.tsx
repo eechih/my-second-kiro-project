@@ -106,6 +106,7 @@ export function LineItemRow({
           label="商品"
           value={selectedProduct}
           onChange={handleProductChange}
+          queryKey={["products", "order-create-select"]}
           searchFn={searchProducts}
           getOptionLabel={(product) => `${product.name}（${product.sku}）`}
           required

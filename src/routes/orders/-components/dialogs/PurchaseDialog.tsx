@@ -89,6 +89,7 @@ export function PurchaseDialog({
             label="供應商"
             value={supplier}
             onChange={setSupplier}
+            queryKey={["suppliers", "select"]}
             searchFn={searchSuppliers}
             getOptionLabel={(s) => `${s.name}（${s.contactPerson}）`}
             required

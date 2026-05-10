@@ -1,59 +1,81 @@
 import { client } from "@/lib/amplify-client";
 import type { Customer, Product, ProductVariant } from "@shared/models";
 
+const SEARCH_LIMIT = 20;
+
+const PRODUCT_SELECTION_SET = [
+  "id",
+  "name",
+  "sku",
+  "price",
+  "cost",
+  "defaultSupplierId",
+  "stockQuantity",
+  "imageUrls",
+  "isActive",
+  "createdAt",
+  "updatedAt",
+  "variants.*",
+] as const;
+
 export async function searchCustomers(query: string): Promise<Customer[]> {
+  const trimmedQuery = query.trim();
   const filter: Record<string, unknown> = { isActive: { eq: true } };
-  if (query) {
+  if (trimmedQuery) {
     filter.or = [
-      { name: { contains: query } },
-      { contactPerson: { contains: query } },
+      { name: { contains: trimmedQuery } },
+      { contactPerson: { contains: trimmedQuery } },
+      { phone: { contains: trimmedQuery } },
     ];
   }
 
-  const { data } = await client.models.Customer.list({
+  const { data, errors } = await client.models.Customer.list({
     filter,
-    limit: 20,
+    limit: SEARCH_LIMIT,
   });
 
-  return (data ?? []).map((raw: Record<string, unknown>) => ({
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "搜尋客戶失敗");
+  }
+
+  return (data ?? []).map(mapCustomer);
+}
+
+export async function searchProducts(query: string): Promise<Product[]> {
+  const trimmedQuery = query.trim();
+  const filter: Record<string, unknown> = { isActive: { eq: true } };
+  if (trimmedQuery) {
+    filter.or = [
+      { name: { contains: trimmedQuery } },
+      { sku: { contains: trimmedQuery } },
+    ];
+  }
+
+  const { data, errors } = await client.models.Product.list({
+    filter,
+    limit: SEARCH_LIMIT,
+    selectionSet: PRODUCT_SELECTION_SET,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "搜尋商品失敗");
+  }
+
+  return (data ?? []).map(mapProduct);
+}
+
+function mapCustomer(raw: Record<string, unknown>): Customer {
+  return {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
     contactPerson: String(raw.contactPerson ?? ""),
     phone: String(raw.phone ?? ""),
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),
-    isActive: true,
+    isActive: raw.isActive !== false,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
-  }));
-}
-
-export async function searchProducts(query: string): Promise<Product[]> {
-  const filter: Record<string, unknown> = { isActive: { eq: true } };
-  if (query) {
-    filter.or = [{ name: { contains: query } }, { sku: { contains: query } }];
-  }
-
-  const { data } = await client.models.Product.list({
-    filter,
-    limit: 20,
-    selectionSet: [
-      "id",
-      "name",
-      "sku",
-      "price",
-      "cost",
-      "defaultSupplierId",
-      "stockQuantity",
-      "imageUrls",
-      "isActive",
-      "createdAt",
-      "updatedAt",
-      "variants.*",
-    ],
-  });
-
-  return (data ?? []).map(mapProduct);
+  };
 }
 
 function mapProduct(raw: Record<string, unknown>): Product {
@@ -61,6 +83,8 @@ function mapProduct(raw: Record<string, unknown>): Product {
   if (raw.variants && Array.isArray(raw.variants)) {
     variants = (raw.variants as Record<string, unknown>[]).map(mapVariant);
   }
+
+  variants.sort((a, b) => a.label.localeCompare(b.label, "zh-TW"));
 
   return {
     id: String(raw.id ?? ""),
@@ -74,7 +98,7 @@ function mapProduct(raw: Record<string, unknown>): Product {
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],
-    isActive: true,
+    isActive: raw.isActive !== false,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };

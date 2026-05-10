@@ -24,6 +24,7 @@ export function CustomerSection({
         label="客戶"
         value={selectedCustomer}
         onChange={onCustomerChange}
+        queryKey={["customers", "order-create-select"]}
         searchFn={searchCustomers}
         getOptionLabel={(customer) =>
           `${customer.name}（${customer.contactPerson}）`
