@@ -157,8 +157,6 @@ export interface LineItem {
   outOfStockAt: string | null;
 
   // --- 採購核心數據 ---
-  /** 供應商 ID（尚未採購時為 null） */
-  supplierId: string | null;
   /** 供應商名稱（反正規化，尚未採購時為 null） */
   supplierName: string | null;
   /** 採購單位成本（尚未採購時為 null） */

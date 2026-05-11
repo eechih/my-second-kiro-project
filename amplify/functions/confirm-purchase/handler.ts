@@ -134,7 +134,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
               TableName: lineItemTable,
               Key: marshall({ id: lineItemId }),
               UpdateExpression:
-                "SET #st = :ordered, purchasedAt = :now, supplierId = :supplierId, supplierName = :supplierName, unitCost = :unitCost, updatedAt = :now",
+                "SET #st = :ordered, purchasedAt = :now, supplierName = :supplierName, unitCost = :unitCost, updatedAt = :now",
               ConditionExpression: "orderId = :orderId AND #st = :pending",
               ExpressionAttributeNames: { "#st": "status" },
               ExpressionAttributeValues: marshall(
@@ -142,7 +142,6 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
                   ":orderId": orderId,
                   ":pending": "pending",
                   ":ordered": "ordered",
-                  ":supplierId": supplierId ?? null,
                   ":supplierName": supplierName ?? null,
                   ":unitCost": unitCost ?? null,
                   ":now": now,

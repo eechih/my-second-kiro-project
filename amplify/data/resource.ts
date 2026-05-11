@@ -159,7 +159,6 @@ const schema = a.schema({
       receivedAt: a.datetime(),
       shippedAt: a.datetime(),
       outOfStockAt: a.datetime(),
-      supplierId: a.string(),
       supplierName: a.string(),
       unitCost: a.float(),
     })

@@ -296,7 +296,6 @@ function mapToLineItem(raw: Record<string, unknown>): LineItem {
     receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
     shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
     outOfStockAt: raw.outOfStockAt ? String(raw.outOfStockAt) : null,
-    supplierId: raw.supplierId ? String(raw.supplierId) : null,
     supplierName: raw.supplierName ? String(raw.supplierName) : null,
     unitCost: raw.unitCost != null ? Number(raw.unitCost) : null,
   };
@@ -318,7 +317,6 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       shippedAt: null,
       outOfStockAt: null,
       variantLabel: item.variantLabel ?? null,
-      supplierId: null,
       supplierName: null,
       unitCost: null,
     })),
@@ -632,7 +630,6 @@ function buildLineItemStatusFlagOptimisticUpdate(
       : {
           status: "pending",
           purchasedAt: null,
-          supplierId: null,
           supplierName: null,
           unitCost: null,
         };
