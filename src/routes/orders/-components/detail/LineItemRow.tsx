@@ -33,11 +33,17 @@ import { ShipDialog } from "../dialogs/ShipDialog";
 export interface LineItemRowProps {
   lineItem: LineItem;
   order: Order;
+  canEdit?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 export function LineItemRow({
   lineItem,
   order,
+  canEdit = false,
+  onEdit,
+  onDelete,
 }: LineItemRowProps): React.ReactElement {
   const [expanded, setExpanded] = useState(false);
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
@@ -140,7 +146,29 @@ export function LineItemRow({
           />
         </TableCell>
         <TableCell align="center">
-          <Box sx={{ display: "flex", justifyContent: "center", gap: 0.5 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 0.5,
+              flexWrap: "wrap",
+            }}
+          >
+            {canEdit && lineItem.status === "pending" && (
+              <>
+                <Button size="small" variant="outlined" onClick={onEdit}>
+                  編輯
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  onClick={onDelete}
+                >
+                  刪除
+                </Button>
+              </>
+            )}
             {canMarkProcurement && (
               <Button
                 size="small"

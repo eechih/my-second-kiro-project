@@ -1236,3 +1236,202 @@ export function useSplitOrder(): UseMutationResult<
 }
 
 export { ORDER_KEYS };
+
+// ---------------------------------------------------------------------------
+// Line Item CRUD Hooks (Order Detail)
+// ---------------------------------------------------------------------------
+
+type AddLineItemToOrderInput = {
+  orderId: string;
+  productId: string;
+  productName: string;
+  variantLabel: string | null;
+  quantity: number;
+  unitPrice: number;
+};
+
+type UpdateLineItemInput = {
+  orderId: string;
+  lineItemId: string;
+  productId: string;
+  productName: string;
+  variantLabel: string | null;
+  quantity: number;
+  unitPrice: number;
+};
+
+type DeleteLineItemInput = {
+  orderId: string;
+  lineItemId: string;
+};
+
+async function addLineItemToOrder(
+  input: AddLineItemToOrderInput,
+): Promise<void> {
+  const subtotal = calculateLineItemSubtotal(input.quantity, input.unitPrice);
+
+  const lineItemPayload: Record<string, unknown> = {
+    orderId: input.orderId,
+    productId: input.productId,
+    productName: input.productName,
+    quantity: input.quantity,
+    unitPrice: input.unitPrice,
+    subtotal,
+    status: "pending",
+  };
+
+  if (input.variantLabel) {
+    lineItemPayload.variantLabel = input.variantLabel;
+  }
+
+  const { errors: lineItemErrors } = await client.models.LineItem.create(
+    lineItemPayload as Parameters<typeof client.models.LineItem.create>[0],
+  );
+
+  if (lineItemErrors && lineItemErrors.length > 0) {
+    throw new Error(lineItemErrors[0]?.message ?? "新增明細項目失敗");
+  }
+
+  // 重新計算訂單總金額
+  await recalculateOrderTotal(input.orderId);
+}
+
+async function updateLineItemInOrder(
+  input: UpdateLineItemInput,
+): Promise<void> {
+  const subtotal = calculateLineItemSubtotal(input.quantity, input.unitPrice);
+
+  const updatePayload: Record<string, unknown> = {
+    id: input.lineItemId,
+    productId: input.productId,
+    productName: input.productName,
+    variantLabel: input.variantLabel ?? null,
+    quantity: input.quantity,
+    unitPrice: input.unitPrice,
+    subtotal,
+  };
+
+  const { errors } = await client.models.LineItem.update(
+    updatePayload as Parameters<typeof client.models.LineItem.update>[0],
+  );
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "更新明細項目失敗");
+  }
+
+  // 重新計算訂單總金額
+  await recalculateOrderTotal(input.orderId);
+}
+
+async function deleteLineItemFromOrder(
+  input: DeleteLineItemInput,
+): Promise<void> {
+  const { errors } = await client.models.LineItem.delete({
+    id: input.lineItemId,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "刪除明細項目失敗");
+  }
+
+  // 重新計算訂單總金額
+  await recalculateOrderTotal(input.orderId);
+}
+
+/** 重新查詢訂單所有明細並更新訂單總金額 */
+async function recalculateOrderTotal(orderId: string): Promise<void> {
+  const { data: lineItemsData, errors: queryErrors } =
+    await client.models.LineItem.listLineItemByOrderId(
+      { orderId },
+      { selectionSet: ["id", "quantity", "unitPrice"] },
+    );
+
+  if (queryErrors && queryErrors.length > 0) {
+    throw new Error(queryErrors[0]?.message ?? "查詢明細項目失敗");
+  }
+
+  const lineItems = (lineItemsData ?? []).map((li) => ({
+    id: String(li.id ?? ""),
+    productId: "",
+    productName: "",
+    variantLabel: null,
+    quantity: Number(li.quantity ?? 0),
+    unitPrice: Number(li.unitPrice ?? 0),
+    subtotal: 0,
+    status: "pending" as const,
+    purchasedAt: null,
+    receivedAt: null,
+    shippedAt: null,
+    outOfStockAt: null,
+    supplierName: null,
+    unitCost: null,
+  }));
+
+  const newTotal = calculateOrderTotal(lineItems);
+
+  const { errors: updateErrors } = await client.models.Order.update({
+    id: orderId,
+    totalAmount: newTotal,
+  });
+
+  if (updateErrors && updateErrors.length > 0) {
+    throw new Error(updateErrors[0]?.message ?? "更新訂單總金額失敗");
+  }
+}
+
+/** 新增明細項目至既有訂單 */
+export function useAddLineItemToOrder(): UseMutationResult<
+  void,
+  Error,
+  AddLineItemToOrderInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: addLineItemToOrder,
+    onSuccess: (_, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(input.orderId),
+      });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+    },
+  });
+}
+
+/** 更新既有訂單的明細項目 */
+export function useUpdateLineItemInOrder(): UseMutationResult<
+  void,
+  Error,
+  UpdateLineItemInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateLineItemInOrder,
+    onSuccess: (_, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(input.orderId),
+      });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+    },
+  });
+}
+
+/** 刪除既有訂單的明細項目 */
+export function useDeleteLineItemFromOrder(): UseMutationResult<
+  void,
+  Error,
+  DeleteLineItemInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteLineItemFromOrder,
+    onSuccess: (_, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.detail(input.orderId),
+      });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+    },
+  });
+}
