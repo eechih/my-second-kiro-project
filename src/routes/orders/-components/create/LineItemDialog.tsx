@@ -181,20 +181,22 @@ export function LineItemDialog({
             required
             fullWidth
           />
-          <TextField
-            label="單價"
-            type="number"
-            value={unitPrice}
-            onChange={(event) => {
-              setUnitPrice(
-                Math.max(0, Math.trunc(Number(event.target.value) || 0)),
-              );
-              setError(null);
-            }}
-            slotProps={{ htmlInput: { min: 0, step: 1 } }}
-            required
-            fullWidth
-          />
+          {isEditMode && (
+            <TextField
+              label="單價"
+              type="number"
+              value={unitPrice}
+              onChange={(event) => {
+                setUnitPrice(
+                  Math.max(0, Math.trunc(Number(event.target.value) || 0)),
+                );
+                setError(null);
+              }}
+              slotProps={{ htmlInput: { min: 0, step: 1 } }}
+              required
+              fullWidth
+            />
+          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
