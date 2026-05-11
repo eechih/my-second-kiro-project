@@ -41,7 +41,9 @@ function createProduct(overrides: Partial<Product> = {}): Product {
   };
 }
 
-function createVariant(overrides: Partial<ProductVariant> = {}): ProductVariant {
+function createVariant(
+  overrides: Partial<ProductVariant> = {},
+): ProductVariant {
   return {
     id: "var-1",
     label: "黑色",
@@ -123,9 +125,33 @@ describe("validateVariantRequired", () => {
     });
   });
 
+  it("商品有規格選項但 variantLabel 為空字串時驗證失敗", () => {
+    const product = createProduct({ variants: [createVariant()] });
+
+    expect(validateVariantRequired(product, "")).toEqual({
+      valid: false,
+      error: "請選取規格組合",
+    });
+  });
+
+  it("商品有規格選項但 variantLabel 為空白字串時驗證失敗", () => {
+    const product = createProduct({ variants: [createVariant()] });
+
+    expect(validateVariantRequired(product, "   ")).toEqual({
+      valid: false,
+      error: "請選取規格組合",
+    });
+  });
+
   it("商品沒有規格選項時可不選規格", () => {
     const product = createProduct({ variants: [] });
 
     expect(validateVariantRequired(product, null)).toEqual({ valid: true });
+  });
+
+  it("商品有規格選項且 variantLabel 為非空字串時驗證通過", () => {
+    const product = createProduct({ variants: [createVariant()] });
+
+    expect(validateVariantRequired(product, "黑色")).toEqual({ valid: true });
   });
 });

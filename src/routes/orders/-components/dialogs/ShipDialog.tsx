@@ -31,9 +31,7 @@ export function ShipDialog({
   const confirmShipment = useConfirmShipment();
   const { data: product } = useProduct(lineItem.productId);
 
-  const stockQty = product
-    ? resolveStockQuantity(product, lineItem.variantId)
-    : 0;
+  const stockQty = product ? resolveStockQuantity(product) : 0;
 
   const handleSubmit = async (): Promise<void> => {
     setError(null);

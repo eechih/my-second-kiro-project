@@ -50,19 +50,22 @@ export function resolveEffectiveCost(
 /**
  * 驗證明細項目的規格組合選取。
  *
- * - 若商品有規格組合（variants.length > 0）但 variantId 為 null，回傳驗證失敗。
- * - 若商品無規格組合（variants.length === 0），variantId 為 null 時驗證通過。
- * - 若商品有規格組合且 variantId 不為 null，驗證通過。
+ * - 若商品有規格組合（variants.length > 0）但 variantLabel 為 null 或空字串，回傳驗證失敗。
+ * - 若商品無規格組合（variants.length === 0），variantLabel 為 null 時驗證通過。
+ * - 若商品有規格組合且 variantLabel 為非空字串，驗證通過。
  *
  * @param product - 商品物件（含 variants 列表）
- * @param variantId - 規格組合 ID（無規格組合時為 null）
+ * @param variantLabel - 規格組合顯示標籤（無規格組合時為 null）
  * @returns 驗證結果
  */
 export function validateVariantRequired(
   product: Product,
-  variantId: string | null,
+  variantLabel: string | null,
 ): ValidationResult {
-  if (product.variants.length > 0 && variantId === null) {
+  if (
+    product.variants.length > 0 &&
+    (variantLabel === null || variantLabel.trim() === "")
+  ) {
     return { valid: false, error: "請選取規格組合" };
   }
   return { valid: true };

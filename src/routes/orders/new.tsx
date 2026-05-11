@@ -68,7 +68,6 @@ function OrderNewPage() {
           lineItems: lineItems.map((item) => ({
             productId: item.productId,
             productName: item.productName,
-            variantId: item.variantId,
             variantLabel: item.variantLabel,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
@@ -106,7 +105,6 @@ function OrderNewPage() {
         tempId: generateTempId(),
         productId: "",
         productName: "",
-        variantId: null,
         variantLabel: null,
         quantity: 1,
         unitPrice: 0,

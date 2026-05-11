@@ -137,8 +137,6 @@ export interface LineItem {
   productId: string;
   /** 商品名稱（反正規化） */
   productName: string;
-  /** 規格組合 ID（商品有規格組合時必填，無規格組合時為 null） */
-  variantId: string | null;
   /** 規格組合顯示標籤（反正規化，如「黑 L」；無規格組合時為 null） */
   variantLabel: string | null;
   /** 訂購數量（> 0） */
@@ -205,8 +203,6 @@ export interface CreateLineItemInput {
   productId: string;
   /** 商品名稱（必填，反正規化） */
   productName: string;
-  /** 規格組合 ID（商品有規格組合時必填） */
-  variantId?: string | null;
   /** 規格組合顯示標籤（商品有規格組合時必填） */
   variantLabel?: string | null;
   /** 訂購數量（必填，> 0） */

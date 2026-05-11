@@ -58,7 +58,6 @@ function mapLineItem(raw: DdbRecord): LineItem {
     id: String(raw["id"] ?? ""),
     productId: String(raw["productId"] ?? ""),
     productName: String(raw["productName"] ?? ""),
-    variantId: raw["variantId"] ? String(raw["variantId"]) : null,
     variantLabel: raw["variantLabel"] ? String(raw["variantLabel"]) : null,
     quantity: Number(raw["quantity"] ?? 0),
     unitPrice: Number(raw["unitPrice"] ?? 0),

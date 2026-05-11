@@ -287,7 +287,6 @@ function mapToLineItem(raw: Record<string, unknown>): LineItem {
     id: String(raw.id ?? ""),
     productId: String(raw.productId ?? ""),
     productName: String(raw.productName ?? ""),
-    variantId: raw.variantId ? String(raw.variantId) : null,
     variantLabel: raw.variantLabel ? String(raw.variantLabel) : null,
     quantity: Number(raw.quantity ?? 0),
     unitPrice: Number(raw.unitPrice ?? 0),
@@ -318,7 +317,6 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       receivedAt: null,
       shippedAt: null,
       outOfStockAt: null,
-      variantId: item.variantId ?? null,
       variantLabel: item.variantLabel ?? null,
       supplierId: null,
       supplierName: null,
@@ -365,10 +363,6 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       subtotal: item.subtotal,
       status: "pending",
     };
-
-    if (item.variantId) {
-      lineItemPayload.variantId = item.variantId;
-    }
 
     if (item.variantLabel) {
       lineItemPayload.variantLabel = item.variantLabel;

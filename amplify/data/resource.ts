@@ -112,7 +112,6 @@ const schema = a.schema({
       label: a.string().required(),
       priceOffset: a.float(),
       costOffset: a.float(),
-      lineItems: a.hasMany("LineItem", "variantId"),
     })
     .authorization((allow) => [allow.authenticated()]),
 
@@ -151,8 +150,6 @@ const schema = a.schema({
       order: a.belongsTo("Order", "orderId"),
       productId: a.string().required(),
       productName: a.string().required(),
-      variantId: a.string(),
-      variant: a.belongsTo("ProductVariant", "variantId"),
       variantLabel: a.string(),
       quantity: a.integer().required(),
       unitPrice: a.float().required(),

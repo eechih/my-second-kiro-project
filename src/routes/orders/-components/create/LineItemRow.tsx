@@ -51,7 +51,6 @@ export function LineItemRow({
         onUpdate({
           productId: product.id,
           productName: product.name,
-          variantId: null,
           variantLabel: null,
           unitPrice: product.price,
         });
@@ -59,7 +58,6 @@ export function LineItemRow({
         onUpdate({
           productId: "",
           productName: "",
-          variantId: null,
           variantLabel: null,
           unitPrice: 0,
         });
@@ -75,13 +73,11 @@ export function LineItemRow({
       if (variant && selectedProduct) {
         setVariantError(undefined);
         onUpdate({
-          variantId: variant.id,
           variantLabel: variant.label,
           unitPrice: resolveEffectivePrice(variant, selectedProduct),
         });
       } else {
         onUpdate({
-          variantId: null,
           variantLabel: null,
           unitPrice: selectedProduct?.price ?? 0,
         });

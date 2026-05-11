@@ -93,7 +93,6 @@ function createSampleOrder(): Order {
         id: "li-001",
         productId: "prod-001",
         productName: "測試商品",
-        variantId: "var-001",
         variantLabel: "紅 L",
         quantity: 10,
         unitPrice: 100,
@@ -111,7 +110,6 @@ function createSampleOrder(): Order {
         id: "li-002",
         productId: "prod-002",
         productName: "無規格商品",
-        variantId: null,
         variantLabel: null,
         quantity: 5,
         unitPrice: 200,
@@ -262,9 +260,8 @@ describe("serializeOrder / deserializeOrder", () => {
     const json = serializeOrder(original);
     const restored = deserializeOrder(json);
 
-    // 第一筆明細有 variantId，第二筆為 null
-    expect(restored.lineItems[0]!.variantId).toBe("var-001");
-    expect(restored.lineItems[1]!.variantId).toBeNull();
+    // 第一筆明細有 variantLabel，第二筆為 null
+    expect(restored.lineItems[0]!.variantLabel).toBe("紅 L");
     expect(restored.lineItems[1]!.variantLabel).toBeNull();
 
     // 第二筆明細的 unitCost 為 null

@@ -42,12 +42,8 @@ export function validateShipment(
  * 解析庫存數量：庫存統一在商品層級管理。
  *
  * @param product - 商品物件
- * @param _variantId - 規格組合 ID（不影響庫存解析）
  * @returns 商品層級的庫存數量
  */
-export function resolveStockQuantity(
-  product: Product,
-  _variantId: string | null,
-): number {
+export function resolveStockQuantity(product: Product): number {
   return product.stockQuantity;
 }
