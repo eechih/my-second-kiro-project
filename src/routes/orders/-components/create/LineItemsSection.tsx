@@ -10,17 +10,24 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import { useState } from "react";
-import { AddLineItemDialog } from "./AddLineItemDialog";
+import { useCallback, useState } from "react";
+import { LineItemDialog, type LineItemEditData } from "./LineItemDialog";
 import type { CreateLineItemInput, LineItemFormData } from "./formTypes";
 import { LineItemRow } from "./LineItemRow";
+
+interface DialogState {
+  open: boolean;
+  /** 編輯模式時的明細索引，null 為新增模式 */
+  editIndex: number | null;
+  editData: LineItemEditData | null;
+}
 
 export interface LineItemsSectionProps {
   lineItems: LineItemFormData[];
   totalAmount: number;
   onAddLineItem: (input: CreateLineItemInput) => void;
   onRemoveLineItem: (index: number) => void;
-  onUpdateLineItem: (index: number, updates: Partial<LineItemFormData>) => void;
+  onUpdateLineItem: (index: number, input: CreateLineItemInput) => void;
 }
 
 export function LineItemsSection({
@@ -30,7 +37,49 @@ export function LineItemsSection({
   onRemoveLineItem,
   onUpdateLineItem,
 }: LineItemsSectionProps): React.ReactElement {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>({
+    open: false,
+    editIndex: null,
+    editData: null,
+  });
+
+  const openAddDialog = useCallback(() => {
+    setDialog({ open: true, editIndex: null, editData: null });
+  }, []);
+
+  const openEditDialog = useCallback(
+    (index: number) => {
+      const item = lineItems[index];
+      if (!item) return;
+      setDialog({
+        open: true,
+        editIndex: index,
+        editData: {
+          productId: item.productId,
+          productName: item.productName,
+          variantLabel: item.variantLabel,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        },
+      });
+    },
+    [lineItems],
+  );
+
+  const closeDialog = useCallback(() => {
+    setDialog({ open: false, editIndex: null, editData: null });
+  }, []);
+
+  const handleDialogSubmit = useCallback(
+    (input: CreateLineItemInput) => {
+      if (dialog.editIndex !== null) {
+        onUpdateLineItem(dialog.editIndex, input);
+      } else {
+        onAddLineItem(input);
+      }
+    },
+    [dialog.editIndex, onAddLineItem, onUpdateLineItem],
+  );
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -47,7 +96,7 @@ export function LineItemsSection({
           variant="outlined"
           size="small"
           startIcon={<AddIcon />}
-          onClick={() => setDialogOpen(true)}
+          onClick={openAddDialog}
         >
           新增明細
         </Button>
@@ -69,10 +118,10 @@ export function LineItemsSection({
                 <TableCell>#</TableCell>
                 <TableCell>商品</TableCell>
                 <TableCell>規格組合</TableCell>
-                <TableCell>數量</TableCell>
-                <TableCell>單價</TableCell>
+                <TableCell align="right">數量</TableCell>
+                <TableCell align="right">單價</TableCell>
                 <TableCell align="right">小計</TableCell>
-                <TableCell />
+                <TableCell align="center">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -81,8 +130,8 @@ export function LineItemsSection({
                   key={item.tempId}
                   item={item}
                   index={index}
+                  onEdit={() => openEditDialog(index)}
                   onRemove={() => onRemoveLineItem(index)}
-                  onUpdate={(updates) => onUpdateLineItem(index, updates)}
                 />
               ))}
             </TableBody>
@@ -107,10 +156,11 @@ export function LineItemsSection({
         </Box>
       )}
 
-      <AddLineItemDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        onSubmit={onAddLineItem}
+      <LineItemDialog
+        open={dialog.open}
+        editData={dialog.editData}
+        onClose={closeDialog}
+        onSubmit={handleDialogSubmit}
       />
     </Paper>
   );

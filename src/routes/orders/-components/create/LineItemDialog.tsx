@@ -10,6 +10,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { useEffect, useState } from "react";
 import type { Product, ProductVariant } from "@shared/models";
+import { useProduct } from "@/hooks/useProducts";
 import type { CreateLineItemInput } from "./formTypes";
 import {
   buildLineItemFormData,
@@ -19,17 +20,29 @@ import {
 } from "./lineItemDraft";
 import { searchProducts } from "./search";
 
-export interface AddLineItemDialogProps {
+/** 編輯模式時傳入的既有明細資料 */
+export interface LineItemEditData {
+  productId: string;
+  productName: string;
+  variantLabel: string | null;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface LineItemDialogProps {
   open: boolean;
+  /** 傳入既有資料時為編輯模式，null 時為新增模式 */
+  editData: LineItemEditData | null;
   onClose: () => void;
   onSubmit: (input: CreateLineItemInput) => void;
 }
 
-export function AddLineItemDialog({
+export function LineItemDialog({
   open,
+  editData,
   onClose,
   onSubmit,
-}: AddLineItemDialogProps): React.ReactElement {
+}: LineItemDialogProps): React.ReactElement {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     null,
@@ -38,18 +51,55 @@ export function AddLineItemDialog({
   const [unitPrice, setUnitPrice] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // 編輯模式時，載入完整商品資料（含 variants）
+  const { data: productDetail } = useProduct(
+    open && editData ? editData.productId : "",
+  );
+
+  const isEditMode = editData !== null;
+  const title = isEditMode ? "編輯明細" : "新增明細";
+  const submitLabel = isEditMode ? "儲存" : "新增";
+
+  // 開啟時初始化狀態
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    const draft = createDefaultLineItemDraft();
-    setSelectedProduct(draft.product);
-    setSelectedVariant(draft.variant);
-    setQuantity(draft.quantity);
-    setUnitPrice(draft.unitPrice);
+    if (!editData) {
+      // 新增模式：重置為預設值
+      const draft = createDefaultLineItemDraft();
+      setSelectedProduct(draft.product);
+      setSelectedVariant(draft.variant);
+      setQuantity(draft.quantity);
+      setUnitPrice(draft.unitPrice);
+    } else {
+      // 編輯模式：設定數量與單價，商品待 productDetail 載入後設定
+      setQuantity(editData.quantity);
+      setUnitPrice(editData.unitPrice);
+      setSelectedProduct(null);
+      setSelectedVariant(null);
+    }
     setError(null);
-  }, [open]);
+  }, [open, editData]);
+
+  // 編輯模式：商品資料載入後設定 selectedProduct 與 selectedVariant
+  useEffect(() => {
+    if (!open || !editData || !productDetail) {
+      return;
+    }
+
+    setSelectedProduct(productDetail);
+
+    if (editData.variantLabel) {
+      const matchedVariant = productDetail.variants.find(
+        (v) => v.label === editData.variantLabel,
+      );
+      setSelectedVariant(matchedVariant ?? null);
+    } else {
+      setSelectedVariant(null);
+    }
+  }, [open, editData, productDetail]);
 
   const handleProductChange = (product: Product | null): void => {
     setSelectedProduct(product);
@@ -97,7 +147,7 @@ export function AddLineItemDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>新增明細</DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
@@ -105,7 +155,7 @@ export function AddLineItemDialog({
             label="商品"
             value={selectedProduct}
             onChange={handleProductChange}
-            queryKey={["products", "order-create-dialog"]}
+            queryKey={["products", "order-line-item-dialog"]}
             searchFn={searchProducts}
             getOptionLabel={(product) => `${product.name}（${product.sku}）`}
             required
@@ -136,7 +186,9 @@ export function AddLineItemDialog({
             type="number"
             value={unitPrice}
             onChange={(event) => {
-              setUnitPrice(Math.max(0, Math.trunc(Number(event.target.value) || 0)));
+              setUnitPrice(
+                Math.max(0, Math.trunc(Number(event.target.value) || 0)),
+              );
               setError(null);
             }}
             slotProps={{ htmlInput: { min: 0, step: 1 } }}
@@ -150,7 +202,7 @@ export function AddLineItemDialog({
           取消
         </Button>
         <Button onClick={handleSubmit} variant="contained">
-          新增
+          {submitLabel}
         </Button>
       </DialogActions>
     </Dialog>

@@ -114,9 +114,9 @@ function OrderNewPage() {
   }, []);
 
   const handleUpdateLineItem = useCallback(
-    (index: number, updates: Partial<LineItemFormData>) => {
+    (index: number, input: CreateLineItemInput) => {
       setLineItems((prev) =>
-        prev.map((item, i) => (i === index ? { ...item, ...updates } : item)),
+        prev.map((item, i) => (i === index ? { ...item, ...input } : item)),
       );
     },
     [],

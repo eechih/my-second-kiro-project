@@ -1,9 +1,10 @@
 import { formatCurrency } from "@/lib/currency";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import IconButton from "@mui/material/IconButton";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
-import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { calculateLineItemSubtotal } from "@shared/logic/order-calculations";
 import type { LineItemFormData } from "./formTypes";
@@ -11,25 +12,25 @@ import type { LineItemFormData } from "./formTypes";
 export interface LineItemRowProps {
   item: LineItemFormData;
   index: number;
+  onEdit: () => void;
   onRemove: () => void;
-  onUpdate: (updates: Partial<LineItemFormData>) => void;
 }
 
 export function LineItemRow({
   item,
   index,
+  onEdit,
   onRemove,
-  onUpdate,
 }: LineItemRowProps): React.ReactElement {
   const subtotal = calculateLineItemSubtotal(item.quantity, item.unitPrice);
 
   return (
-    <TableRow>
+    <TableRow hover sx={{ cursor: "pointer" }} onClick={onEdit}>
       <TableCell sx={{ width: 40 }}>{index + 1}</TableCell>
       <TableCell sx={{ minWidth: 200 }}>
         <Typography variant="body2">{item.productName}</Typography>
       </TableCell>
-      <TableCell sx={{ minWidth: 180 }}>
+      <TableCell sx={{ minWidth: 120 }}>
         {item.variantLabel ? (
           <Typography variant="body2">{item.variantLabel}</Typography>
         ) : (
@@ -38,44 +39,39 @@ export function LineItemRow({
           </Typography>
         )}
       </TableCell>
-      <TableCell sx={{ width: 100 }}>
-        <TextField
-          type="number"
-          value={item.quantity}
-          onChange={(event) =>
-            onUpdate({
-              quantity: Math.max(1, parseInt(event.target.value, 10) || 1),
-            })
-          }
-          size="small"
-          slotProps={{ htmlInput: { min: 1 } }}
-          sx={{ width: 80 }}
-        />
+      <TableCell align="right" sx={{ width: 80 }}>
+        {item.quantity}
       </TableCell>
-      <TableCell sx={{ width: 120 }}>
-        <TextField
-          type="number"
-          value={item.unitPrice}
-          onChange={(event) =>
-            onUpdate({
-              unitPrice: Math.max(
-                0,
-                Math.trunc(Number(event.target.value) || 0),
-              ),
-            })
-          }
-          size="small"
-          slotProps={{ htmlInput: { min: 0, step: 1 } }}
-          sx={{ width: 100 }}
-        />
+      <TableCell align="right" sx={{ width: 100 }}>
+        {formatCurrency(item.unitPrice)}
       </TableCell>
-      <TableCell sx={{ width: 100 }} align="right">
+      <TableCell align="right" sx={{ width: 100 }}>
         {formatCurrency(subtotal)}
       </TableCell>
-      <TableCell sx={{ width: 50 }}>
-        <IconButton size="small" color="error" onClick={onRemove}>
-          <DeleteIcon fontSize="small" />
-        </IconButton>
+      <TableCell sx={{ width: 80 }} align="center">
+        <Tooltip title="編輯">
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="刪除">
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </TableCell>
     </TableRow>
   );
