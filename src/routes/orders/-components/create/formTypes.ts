@@ -8,6 +8,8 @@ export interface LineItemFormData {
   unitPrice: number;
 }
 
+export type CreateLineItemInput = Omit<LineItemFormData, "tempId">;
+
 export function generateTempId(): string {
   return `temp-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 }

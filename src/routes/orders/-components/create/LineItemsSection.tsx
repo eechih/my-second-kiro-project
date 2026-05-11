@@ -10,13 +10,15 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import type { LineItemFormData } from "./formTypes";
+import { useState } from "react";
+import { AddLineItemDialog } from "./AddLineItemDialog";
+import type { CreateLineItemInput, LineItemFormData } from "./formTypes";
 import { LineItemRow } from "./LineItemRow";
 
 export interface LineItemsSectionProps {
   lineItems: LineItemFormData[];
   totalAmount: number;
-  onAddLineItem: () => void;
+  onAddLineItem: (input: CreateLineItemInput) => void;
   onRemoveLineItem: (index: number) => void;
   onUpdateLineItem: (index: number, updates: Partial<LineItemFormData>) => void;
 }
@@ -28,6 +30,8 @@ export function LineItemsSection({
   onRemoveLineItem,
   onUpdateLineItem,
 }: LineItemsSectionProps): React.ReactElement {
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   return (
     <Paper sx={{ p: 3 }}>
       <Box
@@ -43,7 +47,7 @@ export function LineItemsSection({
           variant="outlined"
           size="small"
           startIcon={<AddIcon />}
-          onClick={onAddLineItem}
+          onClick={() => setDialogOpen(true)}
         >
           新增明細
         </Button>
@@ -102,6 +106,12 @@ export function LineItemsSection({
           </Typography>
         </Box>
       )}
+
+      <AddLineItemDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSubmit={onAddLineItem}
+      />
     </Paper>
   );
 }

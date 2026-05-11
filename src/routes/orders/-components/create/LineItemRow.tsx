@@ -1,6 +1,3 @@
-import { EntitySelect } from "@/components/EntitySelect";
-import { VariantSelect } from "@/components/VariantSelect";
-import { useProduct } from "@/hooks/useProducts";
 import { formatCurrency } from "@/lib/currency";
 import DeleteIcon from "@mui/icons-material/Delete";
 import IconButton from "@mui/material/IconButton";
@@ -9,11 +6,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { calculateLineItemSubtotal } from "@shared/logic/order-calculations";
-import { resolveEffectivePrice } from "@shared/logic/product-variant";
-import type { Product, ProductVariant } from "@shared/models";
-import { useCallback, useEffect, useState } from "react";
 import type { LineItemFormData } from "./formTypes";
-import { searchProducts } from "./search";
 
 export interface LineItemRowProps {
   item: LineItemFormData;
@@ -28,97 +21,17 @@ export function LineItemRow({
   onRemove,
   onUpdate,
 }: LineItemRowProps): React.ReactElement {
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
-    null,
-  );
-  const [variantError, setVariantError] = useState<string | undefined>();
-
-  const { data: productDetail } = useProduct(item.productId || "");
-
-  useEffect(() => {
-    if (productDetail && productDetail.id === item.productId) {
-      setSelectedProduct(productDetail);
-    }
-  }, [productDetail, item.productId]);
-
-  const handleProductChange = useCallback(
-    (product: Product | null) => {
-      setSelectedProduct(product);
-      setSelectedVariant(null);
-      setVariantError(undefined);
-
-      if (product) {
-        onUpdate({
-          productId: product.id,
-          productName: product.name,
-          variantLabel: null,
-          unitPrice: product.price,
-        });
-      } else {
-        onUpdate({
-          productId: "",
-          productName: "",
-          variantLabel: null,
-          unitPrice: 0,
-        });
-      }
-    },
-    [onUpdate],
-  );
-
-  const handleVariantChange = useCallback(
-    (variant: ProductVariant | null) => {
-      setSelectedVariant(variant);
-
-      if (variant && selectedProduct) {
-        setVariantError(undefined);
-        onUpdate({
-          variantLabel: variant.label,
-          unitPrice: resolveEffectivePrice(variant, selectedProduct),
-        });
-      } else {
-        onUpdate({
-          variantLabel: null,
-          unitPrice: selectedProduct?.price ?? 0,
-        });
-        if (selectedProduct && selectedProduct.variants.length > 0) {
-          setVariantError("請選取規格組合");
-        }
-      }
-    },
-    [onUpdate, selectedProduct],
-  );
-
   const subtotal = calculateLineItemSubtotal(item.quantity, item.unitPrice);
-  const hasVariants = selectedProduct
-    ? selectedProduct.variants.length > 0
-    : false;
 
   return (
     <TableRow>
       <TableCell sx={{ width: 40 }}>{index + 1}</TableCell>
       <TableCell sx={{ minWidth: 200 }}>
-        <EntitySelect<Product>
-          label="商品"
-          value={selectedProduct}
-          onChange={handleProductChange}
-          queryKey={["products", "order-create-select"]}
-          searchFn={searchProducts}
-          getOptionLabel={(product) => `${product.name}（${product.sku}）`}
-          required
-          error={!item.productId ? "請選取商品" : undefined}
-        />
+        <Typography variant="body2">{item.productName}</Typography>
       </TableCell>
       <TableCell sx={{ minWidth: 180 }}>
-        {hasVariants ? (
-          <VariantSelect
-            productId={item.productId}
-            variants={selectedProduct?.variants ?? []}
-            value={selectedVariant}
-            onChange={handleVariantChange}
-            error={variantError}
-          />
+        {item.variantLabel ? (
+          <Typography variant="body2">{item.variantLabel}</Typography>
         ) : (
           <Typography variant="body2" color="text.secondary">
             —

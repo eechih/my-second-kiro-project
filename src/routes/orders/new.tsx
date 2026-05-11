@@ -14,6 +14,7 @@ import { FormActions } from "./-components/create/FormActions";
 import { LineItemsSection } from "./-components/create/LineItemsSection";
 import {
   generateTempId,
+  type CreateLineItemInput,
   type LineItemFormData,
 } from "./-components/create/formTypes";
 
@@ -98,16 +99,12 @@ function OrderNewPage() {
     [form],
   );
 
-  const handleAddLineItem = useCallback(() => {
+  const handleAddLineItem = useCallback((input: CreateLineItemInput) => {
     setLineItems((prev) => [
       ...prev,
       {
         tempId: generateTempId(),
-        productId: "",
-        productName: "",
-        variantLabel: null,
-        quantity: 1,
-        unitPrice: 0,
+        ...input,
       },
     ]);
   }, []);
