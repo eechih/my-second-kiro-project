@@ -253,7 +253,7 @@ const schema = a.schema({
   mergeOrders: a
     .mutation()
     .arguments({
-      orderIds: a.json().required(),
+      orderIds: a.string().required().array().required(),
     })
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])

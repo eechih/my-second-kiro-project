@@ -4,6 +4,7 @@ import {
   TransactWriteItemsCommand,
   GetItemCommand,
   QueryCommand,
+  type TransactWriteItem,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { validateMergeOrders } from "@shared/logic/order-merge";
@@ -21,37 +22,41 @@ import {
   logWarn,
 } from "../debug-log";
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "mergeOrders";
+const DYNAMO_TRANSACTION_LIMIT = 100;
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 type DdbRecord = Record<string, unknown>;
 
-/** 產生唯一訂單編號（時間戳 + 隨機碼） */
-function generateOrderNumber(): string {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `ORD-${timestamp}-${random}`;
+interface MergeResult {
+  success: boolean;
+  message: string;
+  data?: Record<string, unknown>;
 }
 
-function parseOrderIds(raw: unknown): string[] {
-  let parsed: unknown;
-  try {
-    parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-  } catch {
-    throw new Error("訂單 ID 格式不正確");
-  }
+// ---------------------------------------------------------------------------
+// Response helpers
+// ---------------------------------------------------------------------------
 
-  if (!Array.isArray(parsed)) {
-    throw new Error("訂單 ID 格式不正確");
-  }
-
-  return parsed.map((orderId) => {
-    if (typeof orderId !== "string" || !orderId.trim()) {
-      throw new Error("訂單 ID 格式不正確");
-    }
-    return orderId.trim();
-  });
+function fail(message: string): string {
+  return JSON.stringify({ success: false, message } satisfies MergeResult);
 }
+
+function succeed(message: string, data: Record<string, unknown>): string {
+  return JSON.stringify({ success: true, message, data } satisfies MergeResult);
+}
+
+// ---------------------------------------------------------------------------
+// DynamoDB record mappers
+// ---------------------------------------------------------------------------
 
 function mapLineItem(raw: DdbRecord): LineItem {
   return {
@@ -92,6 +97,147 @@ function mapOrder(raw: DdbRecord, lineItems: LineItem[]): Order {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Data fetching
+// ---------------------------------------------------------------------------
+
+interface FetchedOrderData {
+  record: DdbRecord;
+  lineItems: DdbRecord[];
+}
+
+async function fetchOrderWithLineItems(
+  orderId: string,
+  orderTable: string,
+  lineItemTable: string,
+): Promise<FetchedOrderData | null> {
+  const [orderResult, lineItemsResult] = await Promise.all([
+    ddb.send(
+      new GetItemCommand({
+        TableName: orderTable,
+        Key: marshall({ id: orderId }),
+      }),
+    ),
+    ddb.send(
+      new QueryCommand({
+        TableName: lineItemTable,
+        IndexName: "byOrderId",
+        KeyConditionExpression: "orderId = :orderId",
+        ExpressionAttributeValues: marshall({ ":orderId": orderId }),
+      }),
+    ),
+  ]);
+
+  if (!orderResult.Item) {
+    return null;
+  }
+
+  return {
+    record: unmarshall(orderResult.Item),
+    lineItems: (lineItemsResult.Items ?? []).map((item) => unmarshall(item)),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Transaction item builders
+// ---------------------------------------------------------------------------
+
+/** 產生唯一訂單編號（時間戳 + 隨機碼） */
+function generateOrderNumber(): string {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `ORD-${timestamp}-${random}`;
+}
+
+function buildNewOrderItem(
+  orderTable: string,
+  newOrderId: string,
+  order: Order,
+  totalAmount: number,
+  now: string,
+): TransactWriteItem {
+  const newOrderNumber = generateOrderNumber();
+  return {
+    Put: {
+      TableName: orderTable,
+      Item: marshall({
+        id: newOrderId,
+        customerId: order.customerId,
+        orderNumber: newOrderNumber,
+        customerName: order.customerName,
+        totalAmount,
+        status: "pending",
+        gsiPartition: "Order",
+        createdAtForSort: now,
+        statusHistory: [
+          { fromStatus: "created", toStatus: "pending", changedAt: now },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      }),
+      ConditionExpression: "attribute_not_exists(id)",
+    },
+  };
+}
+
+function buildLineItemMoveItems(
+  lineItemTable: string,
+  lineItems: DdbRecord[],
+  newOrderId: string,
+  now: string,
+): TransactWriteItem[] {
+  return lineItems.map((lineItem) => ({
+    Update: {
+      TableName: lineItemTable,
+      Key: marshall({ id: lineItem["id"] as string }),
+      UpdateExpression: "SET orderId = :newOrderId, updatedAt = :now",
+      ConditionExpression: "orderId = :sourceOrderId",
+      ExpressionAttributeValues: marshall({
+        ":newOrderId": newOrderId,
+        ":sourceOrderId": lineItem["orderId"] as string,
+        ":now": now,
+      }),
+    },
+  }));
+}
+
+function buildCancelOrderItems(
+  orderTable: string,
+  orderRecords: DdbRecord[],
+  now: string,
+): TransactWriteItem[] {
+  return orderRecords.map((order) => {
+    const currentStatus = normalizeOrderStatus(order["status"]);
+    const existingHistory =
+      (order["statusHistory"] as Record<string, unknown>[]) ?? [];
+    const updatedHistory = [
+      ...existingHistory,
+      { fromStatus: currentStatus, toStatus: "cancelled", changedAt: now },
+    ];
+
+    return {
+      Update: {
+        TableName: orderTable,
+        Key: marshall({ id: order["id"] as string }),
+        UpdateExpression:
+          "SET #st = :cancelled, statusHistory = :history, updatedAt = :now",
+        ConditionExpression: "#st = :currentStatus",
+        ExpressionAttributeNames: { "#st": "status" },
+        ExpressionAttributeValues: marshall({
+          ":cancelled": "cancelled",
+          ":currentStatus": currentStatus,
+          ":history": updatedHistory,
+          ":now": now,
+        }),
+      },
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
+
 /**
  * 訂單合併操作 Lambda 函式
  *
@@ -100,103 +246,70 @@ function mapOrder(raw: DdbRecord, lineItems: LineItem[]): Order {
  * - 搬移所有 LineItems 的 orderId 至新 Order
  * - 將所有來源 Orders 狀態變更為 cancelled
  *
- * 包含驗證邏輯：
+ * 驗證規則：
+ * - 至少兩筆訂單、不可重複
  * - 所有來源訂單屬於同一客戶
  * - 狀態皆為 pending 或 confirmed
- * - 合併後新訂單總金額等於所有來源明細小計加總
  */
 export const handler: Schema["mergeOrders"]["functionHandler"] = async (
   event,
 ) => {
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
-  logInfo(FUNCTION_NAME, "handler started", {
-    orderIdsRaw: event.arguments.orderIds,
-  });
+  const { orderIds } = event.arguments;
+
+  logInfo(FUNCTION_NAME, "handler started", { orderIds });
 
   if (!orderTable || !lineItemTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
       hasOrderTable: !!orderTable,
       hasLineItemTable: !!lineItemTable,
     });
-    return JSON.stringify({
-      success: false,
-      message: "缺少必要的環境變數設定",
-    });
+    return fail("缺少必要的環境變數設定");
   }
 
   try {
-    const orderIds = parseOrderIds(event.arguments.orderIds);
-    logDebug(FUNCTION_NAME, "order ids parsed", {
-      orderIds,
-      orderCount: orderIds.length,
-    });
-
-    // 1. 驗證至少兩筆訂單
+    // 1. 基本輸入驗證
     if (orderIds.length < 2) {
       logWarn(FUNCTION_NAME, "not enough orders", { orderIds });
-      return JSON.stringify({
-        success: false,
-        message: "至少需要選取兩筆訂單才能合併",
-      });
+      return fail("至少需要選取兩筆訂單才能合併");
     }
 
-    const uniqueOrderIds = new Set(orderIds);
-    if (uniqueOrderIds.size !== orderIds.length) {
+    if (new Set(orderIds).size !== orderIds.length) {
       logWarn(FUNCTION_NAME, "duplicate order selected", { orderIds });
-      return JSON.stringify({
-        success: false,
-        message: "不可重複選取同一筆訂單",
-      });
+      return fail("不可重複選取同一筆訂單");
     }
 
-    // 2. 取得所有來源訂單與明細資料
-    const orderRecords: DdbRecord[] = [];
-    const lineItemsByOrderId = new Map<string, DdbRecord[]>();
-    for (const oid of orderIds) {
-      const result = await ddb.send(
-        new GetItemCommand({
-          TableName: orderTable,
-          Key: marshall({ id: oid }),
-        }),
-      );
-      if (!result.Item) {
-        logWarn(FUNCTION_NAME, "source order not found", { orderId: oid });
-        return JSON.stringify({
-          success: false,
-          message: `找不到訂單：${oid}`,
-        });
-      }
-
-      const orderRecord = unmarshall(result.Item);
-      orderRecords.push(orderRecord);
-
-      const lineItemsResult = await ddb.send(
-        new QueryCommand({
-          TableName: lineItemTable,
-          IndexName: "byOrderId",
-          KeyConditionExpression: "orderId = :orderId",
-          ExpressionAttributeValues: marshall({ ":orderId": oid }),
-        }),
-      );
-
-      const items = (lineItemsResult.Items ?? []).map((rawItem) =>
-        unmarshall(rawItem),
-      );
-      logDebug(FUNCTION_NAME, "source order loaded", {
-        orderId: oid,
-        lineItemCount: items.length,
-      });
-      lineItemsByOrderId.set(oid, items);
-    }
-
-    const orders = orderRecords.map((orderRecord) =>
-      mapOrder(
-        orderRecord,
-        (lineItemsByOrderId.get(String(orderRecord["id"] ?? "")) ?? []).map(
-          mapLineItem,
-        ),
+    // 2. 並行取得所有來源訂單與明細資料
+    const fetchResults = await Promise.all(
+      orderIds.map((oid) =>
+        fetchOrderWithLineItems(oid, orderTable, lineItemTable),
       ),
+    );
+
+    // 檢查是否有找不到的訂單
+    for (let i = 0; i < fetchResults.length; i++) {
+      if (!fetchResults[i]) {
+        const missingId = orderIds[i]!;
+        logWarn(FUNCTION_NAME, "source order not found", {
+          orderId: missingId,
+        });
+        return fail(`找不到訂單：${missingId}`);
+      }
+    }
+
+    const fetched = fetchResults as FetchedOrderData[];
+    const orderRecords = fetched.map((f) => f.record);
+    const allLineItemRecords = fetched.flatMap((f) => f.lineItems);
+
+    logDebug(FUNCTION_NAME, "all orders loaded", {
+      orderCount: orderRecords.length,
+      totalLineItems: allLineItemRecords.length,
+    });
+
+    // 3. 業務邏輯驗證
+    const orders = fetched.map((f) =>
+      mapOrder(f.record, f.lineItems.map(mapLineItem)),
     );
 
     const validation = validateMergeOrders(orders);
@@ -205,186 +318,107 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
         orderIds,
         validationError: validation.error,
       });
-      return JSON.stringify({
-        success: false,
-        message: validation.error,
-      });
+      return fail(validation.error ?? "驗證失敗");
     }
 
-    const allLineItems = [...lineItemsByOrderId.values()].flat();
-    const totalAmount = allLineItems.reduce(
-      (sum, lineItem) => sum + Number(lineItem["subtotal"] ?? 0),
+    // 4. 準備合併資料
+    const totalAmount = allLineItemRecords.reduce(
+      (sum, li) => sum + Number(li["subtotal"] ?? 0),
       0,
     );
     const now = new Date().toISOString();
-    const newOrderNumber = generateOrderNumber();
     const newOrderId = crypto.randomUUID();
     const firstOrder = orders[0]!;
 
-    // 3. 建立交易項目（DynamoDB TransactWriteItems 最多 100 個項目）
-    const transactItems: NonNullable<
-      ConstructorParameters<typeof TransactWriteItemsCommand>[0]
-    >["TransactItems"] = [];
+    // 5. 組裝交易項目
+    const newOrderItem = buildNewOrderItem(
+      orderTable,
+      newOrderId,
+      firstOrder,
+      totalAmount,
+      now,
+    );
+    const lineItemMoveItems = buildLineItemMoveItems(
+      lineItemTable,
+      allLineItemRecords,
+      newOrderId,
+      now,
+    );
+    const cancelOrderItems = buildCancelOrderItems(
+      orderTable,
+      orderRecords,
+      now,
+    );
 
-    // 3a. 建立新訂單
-    transactItems.push({
-      Put: {
-        TableName: orderTable,
-        Item: marshall({
-          id: newOrderId,
-          customerId: firstOrder.customerId,
-          orderNumber: newOrderNumber,
-          customerName: firstOrder.customerName,
-          totalAmount,
-          status: "pending",
-          gsiPartition: "Order",
-          createdAtForSort: now,
-          statusHistory: [
-            {
-              fromStatus: "created",
-              toStatus: "pending",
-              changedAt: now,
-            },
-          ],
-          createdAt: now,
-          updatedAt: now,
-        }),
-        ConditionExpression: "attribute_not_exists(id)",
-      },
-    });
+    const transactItems = [
+      newOrderItem,
+      ...lineItemMoveItems,
+      ...cancelOrderItems,
+    ];
 
-    // 3b. 搬移所有 LineItems 的 orderId 至新 Order
-    for (const lineItem of allLineItems) {
-      transactItems.push({
-        Update: {
-          TableName: lineItemTable,
-          Key: marshall({ id: lineItem["id"] as string }),
-          UpdateExpression: "SET orderId = :newOrderId, updatedAt = :now",
-          ConditionExpression: "orderId = :sourceOrderId",
-          ExpressionAttributeValues: marshall({
-            ":newOrderId": newOrderId,
-            ":sourceOrderId": lineItem["orderId"] as string,
-            ":now": now,
-          }),
-        },
-      });
-    }
-
-    // 3c. 將所有來源 Orders 狀態變更為 cancelled
-    for (const order of orderRecords) {
-      const currentStatus = normalizeOrderStatus(order["status"]);
-      const existingHistory =
-        (order["statusHistory"] as Record<string, unknown>[]) ?? [];
-      const newHistoryEntry = {
-        fromStatus: currentStatus,
-        toStatus: "cancelled",
-        changedAt: now,
-      };
-      const updatedHistory = [...existingHistory, newHistoryEntry];
-
-      transactItems.push({
-        Update: {
-          TableName: orderTable,
-          Key: marshall({ id: order["id"] as string }),
-          UpdateExpression:
-            "SET #st = :cancelled, statusHistory = :history, updatedAt = :now",
-          ConditionExpression: "#st = :currentStatus",
-          ExpressionAttributeNames: { "#st": "status" },
-          ExpressionAttributeValues: marshall({
-            ":cancelled": "cancelled",
-            ":currentStatus": currentStatus,
-            ":history": updatedHistory,
-            ":now": now,
-          }),
-        },
-      });
-    }
-
-    // 4. 檢查交易項目數量限制（DynamoDB 最多 100 個）
-    if (transactItems.length > 100) {
+    // 6. 檢查交易項目數量限制
+    if (transactItems.length > DYNAMO_TRANSACTION_LIMIT) {
       logWarn(FUNCTION_NAME, "transaction item limit exceeded", {
         orderIds,
         transactItemCount: transactItems.length,
       });
-      return JSON.stringify({
-        success: false,
-        message: `合併操作涉及 ${String(transactItems.length)} 個項目，超過 DynamoDB 交易限制（100）。請減少合併的訂單數量。`,
-      });
+      return fail(
+        `合併操作涉及 ${String(transactItems.length)} 個項目，超過 DynamoDB 交易限制（${String(DYNAMO_TRANSACTION_LIMIT)}）。請減少合併的訂單數量。`,
+      );
     }
 
-    // 5. 執行交易
+    // 7. 執行交易
     logDebug(FUNCTION_NAME, "executing transaction", {
       sourceOrderIds: orderIds,
       newOrderId,
-      newOrderNumber,
       totalAmount,
-      lineItemCount: allLineItems.length,
+      lineItemCount: allLineItemRecords.length,
       transactItemCount: transactItems.length,
     });
+
     await ddb.send(
       new TransactWriteItemsCommand({ TransactItems: transactItems }),
     );
+
+    // 從 Put item 中取得 orderNumber（避免重複呼叫 generateOrderNumber）
+    const newOrderRecord = unmarshall(newOrderItem.Put!.Item!);
+    const newOrderNumber = newOrderRecord["orderNumber"] as string;
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
       sourceOrderIds: orderIds,
       newOrderId,
       newOrderNumber,
       mergedOrderCount: orders.length,
-      lineItemCount: allLineItems.length,
+      lineItemCount: allLineItemRecords.length,
       totalAmount,
     });
-    return JSON.stringify({
-      success: true,
-      message: "訂單合併成功",
-      data: {
-        id: newOrderId,
-        customerId: firstOrder.customerId,
-        newOrderNumber,
-        orderNumber: newOrderNumber,
-        customerName: firstOrder.customerName,
-        status: "pending",
-        statusHistory: [
-          {
-            fromStatus: "created",
-            toStatus: "pending",
-            changedAt: now,
-          },
-        ],
-        lineItems: [],
-        createdAt: now,
-        updatedAt: now,
-        totalAmount,
-        mergedOrderCount: orders.length,
-        lineItemCount: allLineItems.length,
-      },
+
+    return succeed("訂單合併成功", {
+      id: newOrderId,
+      customerId: firstOrder.customerId,
+      orderNumber: newOrderNumber,
+      customerName: firstOrder.customerName,
+      status: "pending",
+      statusHistory: [
+        { fromStatus: "created", toStatus: "pending", changedAt: now },
+      ],
+      lineItems: [],
+      createdAt: now,
+      updatedAt: now,
+      totalAmount,
+      mergedOrderCount: orders.length,
+      lineItemCount: allLineItemRecords.length,
     });
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
-    if (err.message === "訂單 ID 格式不正確") {
-      logWarn(FUNCTION_NAME, "invalid order id payload", {
-        orderIdsRaw: event.arguments.orderIds,
-      });
-      return JSON.stringify({
-        success: false,
-        message: err.message,
-      });
-    }
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        orderIdsRaw: event.arguments.orderIds,
+        orderIds,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
-      return JSON.stringify({
-        success: false,
-        message: "訂單合併失敗：訂單狀態已變更，請重新取得最新資料後重試",
-      });
+      return fail("訂單合併失敗：訂單狀態已變更，請重新取得最新資料後重試");
     }
-    logError(FUNCTION_NAME, "handler failed", error, {
-      orderIdsRaw: event.arguments.orderIds,
-    });
-    return JSON.stringify({
-      success: false,
-      message: `訂單合併失敗：${err.message ?? "未知錯誤"}`,
-    });
+    logError(FUNCTION_NAME, "handler failed", error, { orderIds });
+    return fail(`訂單合併失敗：${err.message ?? "未知錯誤"}`);
   }
 };
