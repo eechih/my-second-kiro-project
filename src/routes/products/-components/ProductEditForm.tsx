@@ -102,8 +102,8 @@ export function ProductEditForm({
       await onSubmit({
         name: value.name,
         sku: value.sku,
-        price: value.price,
-        cost: value.cost,
+        price: Math.trunc(value.price),
+        cost: Math.trunc(value.cost),
         stockQuantity: value.stockQuantity,
         defaultSupplierId: selectedSupplier?.id ?? null,
       });
@@ -124,13 +124,23 @@ export function ProductEditForm({
     const label = newVariant.label.trim();
     if (!label) return;
 
-    const priceOffset = newVariant.priceOffset === "" ? null : Number(newVariant.priceOffset);
-    const costOffset = newVariant.costOffset === "" ? null : Number(newVariant.costOffset);
+    const priceOffset =
+      newVariant.priceOffset === ""
+        ? null
+        : Math.trunc(Number(newVariant.priceOffset));
+    const costOffset =
+      newVariant.costOffset === ""
+        ? null
+        : Math.trunc(Number(newVariant.costOffset));
 
     onCreateVariant({
       label,
-      priceOffset: priceOffset !== null && Number.isFinite(priceOffset) ? priceOffset : null,
-      costOffset: costOffset !== null && Number.isFinite(costOffset) ? costOffset : null,
+      priceOffset:
+        priceOffset !== null && Number.isFinite(priceOffset)
+          ? priceOffset
+          : null,
+      costOffset:
+        costOffset !== null && Number.isFinite(costOffset) ? costOffset : null,
     });
     setNewVariant({
       label: "",
@@ -162,8 +172,7 @@ export function ProductEditForm({
           <form.Field
             name="sku"
             validators={{
-              onBlur: ({ value }) =>
-                !value.trim() ? "SKU 為必填" : undefined,
+              onBlur: ({ value }) => (!value.trim() ? "SKU 為必填" : undefined),
               onBlurAsync: async ({ value }) => {
                 if (!value.trim()) return undefined;
                 if (value.trim() === product.sku) return undefined;
@@ -198,8 +207,7 @@ export function ProductEditForm({
           <form.Field
             name="price"
             validators={{
-              onBlur: ({ value }) =>
-                value < 0 ? "單價不可為負數" : undefined,
+              onBlur: ({ value }) => (value < 0 ? "單價不可為負數" : undefined),
             }}
           >
             {(field) => (
@@ -278,10 +286,13 @@ export function ProductEditForm({
                 type="number"
                 value={newVariant.priceOffset}
                 onChange={(event) =>
-                  setNewVariant({ ...newVariant, priceOffset: event.target.value })
+                  setNewVariant({
+                    ...newVariant,
+                    priceOffset: event.target.value,
+                  })
                 }
                 placeholder="0"
-                slotProps={{ htmlInput: { step: "any" } }}
+                slotProps={{ htmlInput: { step: 1 } }}
               />
               <TextField
                 label="成本偏移"
@@ -289,10 +300,13 @@ export function ProductEditForm({
                 type="number"
                 value={newVariant.costOffset}
                 onChange={(event) =>
-                  setNewVariant({ ...newVariant, costOffset: event.target.value })
+                  setNewVariant({
+                    ...newVariant,
+                    costOffset: event.target.value,
+                  })
                 }
                 placeholder="0"
-                slotProps={{ htmlInput: { step: "any" } }}
+                slotProps={{ htmlInput: { step: 1 } }}
               />
               <Button
                 type="button"

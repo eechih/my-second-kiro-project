@@ -1,5 +1,6 @@
 import { StatusChip } from "@/components/StatusChip";
 import { useOrder } from "@/hooks/useOrders";
+import { formatCurrency } from "@/lib/currency";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
@@ -92,7 +93,7 @@ export function SelectionTableRow({
           colorMap={MERGEABLE_ORDER_STATUS_COLOR}
         />
       </TableCell>
-      <TableCell align="right">${order.totalAmount.toLocaleString()}</TableCell>
+      <TableCell align="right">{formatCurrency(order.totalAmount)}</TableCell>
       <TableCell>{order.lineItems.length} 項</TableCell>
       <TableCell>
         {order.createdAt

@@ -1,5 +1,6 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { StatusChip } from "@/components/StatusChip";
+import { formatCurrency } from "@/lib/currency";
 import {
   useCancelProcurement,
   useConfirmReceived,
@@ -19,12 +20,13 @@ import IconButton from "@mui/material/IconButton";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import { LINE_ITEM_STATUS_LABEL, type LineItem, type Order } from "@shared/models";
-import { useState } from "react";
 import {
-  formatDate,
-  LINE_ITEM_STATUS_COLOR_MAP,
-} from "./detailUtils";
+  LINE_ITEM_STATUS_LABEL,
+  type LineItem,
+  type Order,
+} from "@shared/models";
+import { useState } from "react";
+import { formatDate, LINE_ITEM_STATUS_COLOR_MAP } from "./detailUtils";
 import { PurchaseDialog } from "../dialogs/PurchaseDialog";
 import { ShipDialog } from "../dialogs/ShipDialog";
 
@@ -41,7 +43,8 @@ export function LineItemRow({
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [shipDialogOpen, setShipDialogOpen] = useState(false);
   const [outOfStockConfirmOpen, setOutOfStockConfirmOpen] = useState(false);
-  const [cancelProcurementConfirmOpen, setCancelProcurementConfirmOpen] = useState(false);
+  const [cancelProcurementConfirmOpen, setCancelProcurementConfirmOpen] =
+    useState(false);
   const confirmReceived = useConfirmReceived();
   const cancelProcurement = useCancelProcurement();
   const updateLineItemStatusFlag = useUpdateLineItemStatusFlag();
@@ -106,17 +109,27 @@ export function LineItemRow({
         <TableCell>{lineItem.variantLabel ?? "—"}</TableCell>
         <TableCell align="right">{lineItem.quantity}</TableCell>
         <TableCell align="right">
-          {lineItem.unitPrice.toLocaleString()}
+          {formatCurrency(lineItem.unitPrice)}
         </TableCell>
-        <TableCell align="right">{lineItem.subtotal.toLocaleString()}</TableCell>
+        <TableCell align="right">{formatCurrency(lineItem.subtotal)}</TableCell>
         <TableCell>
-          <Typography variant="body2" color={lineItem.supplierName ? "text.primary" : "text.secondary"}>
+          <Typography
+            variant="body2"
+            color={lineItem.supplierName ? "text.primary" : "text.secondary"}
+          >
             {lineItem.supplierName ?? "—"}
           </Typography>
         </TableCell>
         <TableCell align="right">
-          <Typography variant="body2" color={lineItem.unitCost != null ? "text.primary" : "text.secondary"}>
-            {lineItem.unitCost != null ? lineItem.unitCost.toLocaleString() : "—"}
+          <Typography
+            variant="body2"
+            color={
+              lineItem.unitCost != null ? "text.primary" : "text.secondary"
+            }
+          >
+            {lineItem.unitCost != null
+              ? formatCurrency(lineItem.unitCost)
+              : "—"}
           </Typography>
         </TableCell>
         <TableCell align="center">
@@ -201,8 +214,15 @@ export function LineItemRow({
               </Typography>
 
               {lineItem.supplierName && (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  供應商：{lineItem.supplierName} 單位成本：{lineItem.unitCost != null ? lineItem.unitCost.toLocaleString() : "—"}
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  供應商：{lineItem.supplierName} 單位成本：
+                  {lineItem.unitCost != null
+                    ? formatCurrency(lineItem.unitCost)
+                    : "—"}
                 </Typography>
               )}
 

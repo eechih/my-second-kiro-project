@@ -1,6 +1,7 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { VariantSelect } from "@/components/VariantSelect";
 import { useProduct } from "@/hooks/useProducts";
+import { formatCurrency } from "@/lib/currency";
 import DeleteIcon from "@mui/icons-material/Delete";
 import IconButton from "@mui/material/IconButton";
 import TableCell from "@mui/material/TableCell";
@@ -144,16 +145,19 @@ export function LineItemRow({
           value={item.unitPrice}
           onChange={(event) =>
             onUpdate({
-              unitPrice: Math.max(0, Number(event.target.value) || 0),
+              unitPrice: Math.max(
+                0,
+                Math.trunc(Number(event.target.value) || 0),
+              ),
             })
           }
           size="small"
-          slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+          slotProps={{ htmlInput: { min: 0, step: 1 } }}
           sx={{ width: 100 }}
         />
       </TableCell>
       <TableCell sx={{ width: 100 }} align="right">
-        {subtotal.toLocaleString()}
+        {formatCurrency(subtotal)}
       </TableCell>
       <TableCell sx={{ width: 50 }}>
         <IconButton size="small" color="error" onClick={onRemove}>

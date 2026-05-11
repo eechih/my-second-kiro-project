@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/currency";
 import type { Order } from "@shared/models";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -63,7 +64,7 @@ export function MergeDialog({
                 </Typography>
               </Box>
               <Typography variant="body2">
-                ${order.totalAmount.toLocaleString()}
+                {formatCurrency(order.totalAmount)}
               </Typography>
             </Box>
           ))}
@@ -75,12 +76,14 @@ export function MergeDialog({
           合併預覽資訊
         </Typography>
         <Box sx={{ display: "grid", gap: 1 }}>
-          <Typography variant="body2">選取訂單數：{orders.length} 筆</Typography>
+          <Typography variant="body2">
+            選取訂單數：{orders.length} 筆
+          </Typography>
           <Typography variant="body2">
             合併後明細項目數：{lineItemCount} 項
           </Typography>
           <Typography variant="body2">
-            合併後總金額：${totalAmount.toLocaleString()}
+            合併後總金額：{formatCurrency(totalAmount)}
           </Typography>
         </Box>
 
@@ -97,7 +100,9 @@ export function MergeDialog({
           onClick={onConfirm}
           disabled={isPending}
           startIcon={
-            isPending ? <CircularProgress size={18} color="inherit" /> : undefined
+            isPending ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : undefined
           }
         >
           {isPending ? "合併中..." : "確認合併"}

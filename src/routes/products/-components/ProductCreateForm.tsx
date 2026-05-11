@@ -83,8 +83,8 @@ export function ProductCreateForm({
       await onSubmit({
         name: value.name,
         sku: value.sku,
-        price: value.price,
-        cost: value.cost,
+        price: Math.trunc(value.price),
+        cost: Math.trunc(value.cost),
         stockQuantity: value.stockQuantity,
         defaultSupplierId: selectedSupplier?.id ?? null,
         variants: variantLabels.map((label) => ({
@@ -119,8 +119,7 @@ export function ProductCreateForm({
           <form.Field
             name="sku"
             validators={{
-              onBlur: ({ value }) =>
-                !value.trim() ? "SKU 為必填" : undefined,
+              onBlur: ({ value }) => (!value.trim() ? "SKU 為必填" : undefined),
               onBlurAsync: async ({ value }) => {
                 if (!value.trim()) return undefined;
                 const { data } = await client.models.Product.list({
@@ -154,8 +153,7 @@ export function ProductCreateForm({
           <form.Field
             name="price"
             validators={{
-              onBlur: ({ value }) =>
-                value < 0 ? "單價不可為負數" : undefined,
+              onBlur: ({ value }) => (value < 0 ? "單價不可為負數" : undefined),
             }}
           >
             {(field) => (

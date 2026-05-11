@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/currency";
 import FormControl from "@mui/material/FormControl";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -52,10 +53,10 @@ export function SplitAllocationTable({
                 <TableCell>{lineItem.variantLabel ?? "-"}</TableCell>
                 <TableCell align="right">{lineItem.quantity}</TableCell>
                 <TableCell align="right">
-                  ${lineItem.unitPrice.toLocaleString()}
+                  {formatCurrency(lineItem.unitPrice)}
                 </TableCell>
                 <TableCell align="right">
-                  ${lineItem.subtotal.toLocaleString()}
+                  {formatCurrency(lineItem.subtotal)}
                 </TableCell>
                 <TableCell>
                   <FormControl size="small" fullWidth>
@@ -74,7 +75,10 @@ export function SplitAllocationTable({
                       </MenuItem>
                       {Array.from(
                         {
-                          length: Math.min(maxNewOrders, order.lineItems.length),
+                          length: Math.min(
+                            maxNewOrders,
+                            order.lineItems.length,
+                          ),
                         },
                         (_, index) => (
                           <MenuItem key={index} value={index}>

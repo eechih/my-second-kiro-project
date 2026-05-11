@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/currency";
 import MergeIcon from "@mui/icons-material/CallMerge";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -39,7 +40,7 @@ export function MergePreview({
           <Typography variant="body2" color="text.secondary">
             合併後總金額
           </Typography>
-          <Typography variant="h5">${totalAmount.toLocaleString()}</Typography>
+          <Typography variant="h5">{formatCurrency(totalAmount)}</Typography>
         </Box>
         <Box>
           <Typography variant="body2" color="text.secondary">
@@ -54,7 +55,11 @@ export function MergePreview({
       <Button
         variant="contained"
         startIcon={
-          isPending ? <CircularProgress size={20} color="inherit" /> : <MergeIcon />
+          isPending ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            <MergeIcon />
+          )
         }
         onClick={onMerge}
         disabled={isPending}

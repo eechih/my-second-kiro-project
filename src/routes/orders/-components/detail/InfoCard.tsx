@@ -1,4 +1,5 @@
 import { StatusChip } from "@/components/StatusChip";
+import { formatCurrency } from "@/lib/currency";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -48,7 +49,7 @@ export function InfoCard({
             建立日期：{formatDate(order.createdAt)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            總金額：{order.totalAmount.toLocaleString()}
+            總金額：{formatCurrency(order.totalAmount)}
           </Typography>
         </Box>
         <Box
@@ -70,8 +71,8 @@ export function InfoCard({
                 <Button
                   key={status}
                   size="small"
-                variant="outlined"
-                color={ORDER_STATUS_COLOR_MAP[status] ?? "inherit"}
+                  variant="outlined"
+                  color={ORDER_STATUS_COLOR_MAP[status] ?? "inherit"}
                   onClick={() => onStatusChange(status)}
                   disabled={statusPending}
                 >

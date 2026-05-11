@@ -1,4 +1,5 @@
 import { StatusChip } from "@/components/StatusChip";
+import { formatCurrency } from "@/lib/currency";
 import { useUpdateLineItemStatusFlag } from "@/hooks/useOrders";
 import Chip from "@mui/material/Chip";
 import Checkbox from "@mui/material/Checkbox";
@@ -139,7 +140,7 @@ export function LineItemRow({
         {item.quantity}
       </TableCell>
       <TableCell align="right" sx={{ width: 60, minWidth: 60, maxWidth: 60 }}>
-        ${item.unitPrice.toLocaleString()}
+        {formatCurrency(item.unitPrice)}
       </TableCell>
       <TableCell align="center">
         <StatusChip

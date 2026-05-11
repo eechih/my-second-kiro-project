@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/currency";
 import AddIcon from "@mui/icons-material/Add";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -17,10 +18,7 @@ export interface LineItemsSectionProps {
   totalAmount: number;
   onAddLineItem: () => void;
   onRemoveLineItem: (index: number) => void;
-  onUpdateLineItem: (
-    index: number,
-    updates: Partial<LineItemFormData>,
-  ) => void;
+  onUpdateLineItem: (index: number, updates: Partial<LineItemFormData>) => void;
 }
 
 export function LineItemsSection({
@@ -100,7 +98,7 @@ export function LineItemsSection({
           }}
         >
           <Typography variant="h6">
-            總金額：{totalAmount.toLocaleString()}
+            總金額：{formatCurrency(totalAmount)}
           </Typography>
         </Box>
       )}

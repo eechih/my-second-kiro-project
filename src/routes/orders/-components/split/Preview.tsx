@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/currency";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
@@ -45,8 +46,8 @@ export function SplitPreview({
               新訂單 {group.index + 1}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {group.lineItems.length} 項明細，總金額 $
-              {group.totalAmount.toLocaleString()}
+              {group.lineItems.length} 項明細，總金額{" "}
+              {formatCurrency(group.totalAmount)}
             </Typography>
           </Box>
           <TableContainer>
@@ -66,7 +67,7 @@ export function SplitPreview({
                     <TableCell>{lineItem.variantLabel ?? "-"}</TableCell>
                     <TableCell align="right">{lineItem.quantity}</TableCell>
                     <TableCell align="right">
-                      ${lineItem.subtotal.toLocaleString()}
+                      {formatCurrency(lineItem.subtotal)}
                     </TableCell>
                   </TableRow>
                 ))}

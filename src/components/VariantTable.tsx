@@ -61,8 +61,7 @@ export function VariantTable({
       variantId: variant.id,
       priceOffset:
         variant.priceOffset !== null ? String(variant.priceOffset) : "",
-      costOffset:
-        variant.costOffset !== null ? String(variant.costOffset) : "",
+      costOffset: variant.costOffset !== null ? String(variant.costOffset) : "",
     });
   }, []);
 
@@ -78,7 +77,7 @@ export function VariantTable({
     if (editing.priceOffset === "") {
       updates.priceOffset = null;
     } else {
-      const parsed = Number(editing.priceOffset);
+      const parsed = Math.trunc(Number(editing.priceOffset));
       if (!isNaN(parsed)) {
         updates.priceOffset = parsed;
       }
@@ -87,7 +86,7 @@ export function VariantTable({
     if (editing.costOffset === "") {
       updates.costOffset = null;
     } else {
-      const parsed = Number(editing.costOffset);
+      const parsed = Math.trunc(Number(editing.costOffset));
       if (!isNaN(parsed)) {
         updates.costOffset = parsed;
       }
@@ -125,7 +124,7 @@ export function VariantTable({
                 helperText={`有效單價：${defaultUnitPrice + (Number(editing.priceOffset) || 0)}`}
                 sx={{ minWidth: 100 }}
                 slotProps={{
-                  htmlInput: { step: "any" },
+                  htmlInput: { step: 1 },
                 }}
               />
             );
@@ -138,9 +137,14 @@ export function VariantTable({
               {offset !== 0 && (
                 <Box
                   component="span"
-                  sx={{ ml: 0.5, color: offset > 0 ? "error.main" : "success.main", fontSize: "0.85em" }}
+                  sx={{
+                    ml: 0.5,
+                    color: offset > 0 ? "error.main" : "success.main",
+                    fontSize: "0.85em",
+                  }}
                 >
-                  ({offset > 0 ? "+" : ""}{offset})
+                  ({offset > 0 ? "+" : ""}
+                  {offset})
                 </Box>
               )}
             </Box>
@@ -168,7 +172,7 @@ export function VariantTable({
                 helperText={`有效成本：${defaultCost + (Number(editing.costOffset) || 0)}`}
                 sx={{ minWidth: 100 }}
                 slotProps={{
-                  htmlInput: { step: "any" },
+                  htmlInput: { step: 1 },
                 }}
               />
             );
@@ -181,9 +185,14 @@ export function VariantTable({
               {offset !== 0 && (
                 <Box
                   component="span"
-                  sx={{ ml: 0.5, color: offset > 0 ? "error.main" : "success.main", fontSize: "0.85em" }}
+                  sx={{
+                    ml: 0.5,
+                    color: offset > 0 ? "error.main" : "success.main",
+                    fontSize: "0.85em",
+                  }}
                 >
-                  ({offset > 0 ? "+" : ""}{offset})
+                  ({offset > 0 ? "+" : ""}
+                  {offset})
                 </Box>
               )}
             </Box>

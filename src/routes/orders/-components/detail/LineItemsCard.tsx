@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/currency";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
@@ -60,7 +61,7 @@ export function LineItemsCard({
         }}
       >
         <Typography variant="h6">
-          總金額：{order.totalAmount.toLocaleString()}
+          總金額：{formatCurrency(order.totalAmount)}
         </Typography>
       </Box>
     </Paper>

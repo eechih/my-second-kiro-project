@@ -1,4 +1,5 @@
 import { StatusChip } from "@/components/StatusChip";
+import { formatCurrency } from "@/lib/currency";
 import EditIcon from "@mui/icons-material/Edit";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
@@ -63,7 +64,7 @@ export function MainRow({
           }}
         />
       </TableCell>
-      <TableCell align="right">${order.totalAmount.toLocaleString()}</TableCell>
+      <TableCell align="right">{formatCurrency(order.totalAmount)}</TableCell>
       <TableCell align="center">
         <Tooltip title="編輯">
           <IconButton size="small" onClick={() => onEdit(order.id)}>

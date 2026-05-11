@@ -104,9 +104,9 @@ export function PurchaseDialog({
             type="number"
             value={unitCost}
             onChange={(e) =>
-              setUnitCost(Math.max(0, Number(e.target.value) || 0))
+              setUnitCost(Math.max(0, Math.trunc(Number(e.target.value) || 0)))
             }
-            slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+            slotProps={{ htmlInput: { min: 0, step: 1 } }}
             fullWidth
             required
           />

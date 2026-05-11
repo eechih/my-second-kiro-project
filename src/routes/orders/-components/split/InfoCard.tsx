@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/lib/currency";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -26,7 +27,7 @@ export function SplitInfoCard({
           <Typography variant="body2" color="text.secondary">
             總金額
           </Typography>
-          <Typography>${order.totalAmount.toLocaleString()}</Typography>
+          <Typography>{formatCurrency(order.totalAmount)}</Typography>
         </Box>
         <Box>
           <Typography variant="body2" color="text.secondary">
