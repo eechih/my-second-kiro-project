@@ -247,7 +247,6 @@ const schema = a.schema({
   confirmOutOfStock: a
     .mutation()
     .arguments({
-      orderId: a.string().required(),
       lineItemId: a.string().required(),
     })
     .returns(a.json())
@@ -258,7 +257,6 @@ const schema = a.schema({
   cancelOutOfStock: a
     .mutation()
     .arguments({
-      orderId: a.string().required(),
       lineItemId: a.string().required(),
     })
     .returns(a.json())

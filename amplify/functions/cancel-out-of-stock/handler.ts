@@ -25,11 +25,9 @@ function restoreStatus(lineItem: Record<string, unknown>): LineItemStatus {
   if (lineItem["receivedAt"]) {
     return "received";
   }
-
   if (lineItem["purchasedAt"]) {
     return "ordered";
   }
-
   return "pending";
 }
 
@@ -40,12 +38,14 @@ function restoreStatus(lineItem: Record<string, unknown>): LineItemStatus {
  * - 有 receivedAt 則回 received
  * - 否則有 purchasedAt 則回 ordered
  * - 否則回 pending
+ *
+ * orderId 從 LineItem 記錄中讀取，前端只需傳 lineItemId。
  */
 export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
   event,
 ) => {
-  const { orderId, lineItemId } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { orderId, lineItemId });
+  const { lineItemId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { lineItemId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
@@ -62,35 +62,52 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
   }
 
   try {
-    const [orderResult, lineItemResult] = await Promise.all([
-      ddb.send(
-        new GetItemCommand({
-          TableName: orderTable,
-          Key: marshall({ id: orderId }),
-        }),
-      ),
-      ddb.send(
-        new GetItemCommand({
-          TableName: lineItemTable,
-          Key: marshall({ id: lineItemId }),
-        }),
-      ),
-    ]);
-
-    if (!orderResult.Item) {
-      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
-      return JSON.stringify({
-        success: false,
-        message: "找不到指定的訂單",
-      });
-    }
+    // 1. 取得 LineItem 資料（含 orderId）
+    const lineItemResult = await ddb.send(
+      new GetItemCommand({
+        TableName: lineItemTable,
+        Key: marshall({ id: lineItemId }),
+      }),
+    );
 
     if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderId, lineItemId });
+      logWarn(FUNCTION_NAME, "line item not found", { lineItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
       });
+    }
+
+    const lineItem = unmarshall(lineItemResult.Item);
+    const status = normalizeLineItemStatus(lineItem["status"]);
+    const orderId = String(lineItem["orderId"] ?? "");
+    logDebug(FUNCTION_NAME, "line item loaded", {
+      lineItemId,
+      orderId,
+      status,
+      rawStatus: lineItem["status"],
+      hasPurchasedAt: !!lineItem["purchasedAt"],
+      hasReceivedAt: !!lineItem["receivedAt"],
+    });
+
+    if (!orderId) {
+      return JSON.stringify({
+        success: false,
+        message: "明細項目缺少訂單關聯",
+      });
+    }
+
+    // 2. 驗證訂單狀態
+    const orderResult = await ddb.send(
+      new GetItemCommand({
+        TableName: orderTable,
+        Key: marshall({ id: orderId }),
+      }),
+    );
+
+    if (!orderResult.Item) {
+      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
+      return JSON.stringify({ success: false, message: "找不到指定的訂單" });
     }
 
     const order = unmarshall(orderResult.Item);
@@ -101,26 +118,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
       });
     }
 
-    const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeLineItemStatus(lineItem["status"]);
-    const lineItemOrderId = String(lineItem["orderId"] ?? "");
-    logDebug(FUNCTION_NAME, "line item loaded", {
-      orderId,
-      lineItemId,
-      lineItemOrderId,
-      status,
-      rawStatus: lineItem["status"],
-      hasPurchasedAt: !!lineItem["purchasedAt"],
-      hasReceivedAt: !!lineItem["receivedAt"],
-    });
-
-    if (lineItemOrderId !== orderId) {
-      return JSON.stringify({
-        success: false,
-        message: "明細項目不屬於指定訂單",
-      });
-    }
-
+    // 3. 驗證明細狀態
     if (status !== "out_of_stock") {
       return JSON.stringify({
         success: false,
@@ -131,9 +129,10 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     const nextStatus = restoreStatus(lineItem);
     const now = new Date().toISOString();
 
+    // 4. 執行交易
     logDebug(FUNCTION_NAME, "executing transaction", {
-      orderId,
       lineItemId,
+      orderId,
       previousStatus: status,
       nextStatus,
       transactItemCount: 1,
@@ -164,8 +163,8 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     );
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
-      orderId,
       lineItemId,
+      orderId,
       lineItemStatus: nextStatus,
     });
     return JSON.stringify({
@@ -180,7 +179,6 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        orderId,
         lineItemId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
@@ -190,7 +188,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
       });
     }
 
-    logError(FUNCTION_NAME, "handler failed", error, { orderId, lineItemId });
+    logError(FUNCTION_NAME, "handler failed", error, { lineItemId });
     return JSON.stringify({
       success: false,
       message: `取消缺貨失敗：${err.message ?? "未知錯誤"}`,

@@ -544,10 +544,9 @@ async function fetchLineItemAfterCustomMutation(
 }
 
 async function confirmOutOfStock(
-  input: Pick<UpdateLineItemStatusFlagInput, "orderId" | "lineItemId">,
+  input: Pick<UpdateLineItemStatusFlagInput, "lineItemId">,
 ): Promise<LineItem> {
   const { data: result, errors } = await client.mutations.confirmOutOfStock({
-    orderId: input.orderId,
     lineItemId: input.lineItemId,
   });
 
@@ -564,10 +563,9 @@ async function confirmOutOfStock(
 }
 
 async function cancelOutOfStock(
-  input: Pick<UpdateLineItemStatusFlagInput, "orderId" | "lineItemId">,
+  input: Pick<UpdateLineItemStatusFlagInput, "lineItemId">,
 ): Promise<LineItem> {
   const { data: result, errors } = await client.mutations.cancelOutOfStock({
-    orderId: input.orderId,
     lineItemId: input.lineItemId,
   });
 
