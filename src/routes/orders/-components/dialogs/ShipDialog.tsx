@@ -9,13 +9,8 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import {
-  calculateRemainingShipQuantity,
-  resolveStockQuantity,
-  validateShipment,
-} from "@shared/logic/shipment";
+import { resolveStockQuantity, validateShipment } from "@shared/logic/shipment";
 import type { LineItem, Order } from "@shared/models";
 import { useState } from "react";
 
@@ -32,22 +27,17 @@ export function ShipDialog({
   lineItem,
   order,
 }: ShipDialogProps): React.ReactElement {
-  const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const confirmShipment = useConfirmShipment();
   const { data: product } = useProduct(lineItem.productId);
 
-  const remainingShip = calculateRemainingShipQuantity(
-    lineItem.quantity,
-    lineItem.shippedQuantity,
-  );
   const stockQty = product
     ? resolveStockQuantity(product, lineItem.variantId)
     : 0;
 
   const handleSubmit = async (): Promise<void> => {
     setError(null);
-    const validation = validateShipment(quantity, remainingShip, stockQty);
+    const validation = validateShipment(lineItem.quantity, stockQty);
     if (!validation.valid) {
       setError(validation.error ?? "驗證失敗");
       return;
@@ -57,7 +47,6 @@ export function ShipDialog({
       await confirmShipment.mutateAsync({
         orderId: order.id,
         lineItemId: lineItem.id,
-        quantity,
       });
       onClose();
     } catch (err) {
@@ -75,22 +64,8 @@ export function ShipDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Typography variant="body2" color="text.secondary">
-            訂購數量：{lineItem.quantity} 已出貨：{lineItem.shippedQuantity}{" "}
-            未出貨餘額：{remainingShip} 目前庫存：{stockQty}
+            出貨數量：{lineItem.quantity} ／ 目前庫存：{stockQty}
           </Typography>
-          <TextField
-            label="出貨數量"
-            type="number"
-            value={quantity}
-            onChange={(e) =>
-              setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))
-            }
-            slotProps={{
-              htmlInput: { min: 1, max: Math.min(remainingShip, stockQty) },
-            }}
-            fullWidth
-            required
-          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>

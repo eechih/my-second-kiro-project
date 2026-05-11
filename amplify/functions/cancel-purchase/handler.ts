@@ -28,8 +28,8 @@ const FUNCTION_NAME = "cancelPurchase";
 export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
   event,
 ) => {
-  const { orderId, lineItemId } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { orderId, lineItemId });
+  const { lineItemId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { lineItemId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
@@ -46,32 +46,41 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
   }
 
   try {
-    const [orderResult, lineItemResult] = await Promise.all([
-      ddb.send(
-        new GetItemCommand({
-          TableName: orderTable,
-          Key: marshall({ id: orderId }),
-        }),
-      ),
-      ddb.send(
-        new GetItemCommand({
-          TableName: lineItemTable,
-          Key: marshall({ id: lineItemId }),
-        }),
-      ),
-    ]);
-
-    if (!orderResult.Item) {
-      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
-      return JSON.stringify({ success: false, message: "找不到指定的訂單" });
-    }
+    const lineItemResult = await ddb.send(
+      new GetItemCommand({
+        TableName: lineItemTable,
+        Key: marshall({ id: lineItemId }),
+      }),
+    );
 
     if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderId, lineItemId });
+      logWarn(FUNCTION_NAME, "line item not found", { lineItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
       });
+    }
+
+    const lineItem = unmarshall(lineItemResult.Item);
+    const orderId = String(lineItem["orderId"] ?? "");
+    const status = normalizeLineItemStatus(lineItem["status"]);
+    logDebug(FUNCTION_NAME, "line item loaded", {
+      orderId,
+      lineItemId,
+      status,
+      rawStatus: lineItem["status"],
+    });
+
+    const orderResult = await ddb.send(
+      new GetItemCommand({
+        TableName: orderTable,
+        Key: marshall({ id: orderId }),
+      }),
+    );
+
+    if (!orderResult.Item) {
+      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
+      return JSON.stringify({ success: false, message: "找不到指定的訂單" });
     }
 
     const order = unmarshall(orderResult.Item);
@@ -79,25 +88,6 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
       return JSON.stringify({
         success: false,
         message: "已取消訂單不可取消採購",
-      });
-    }
-
-    const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeLineItemStatus(lineItem["status"]);
-    const lineItemOrderId = String(lineItem["orderId"] ?? "");
-    logDebug(FUNCTION_NAME, "line item loaded", {
-      orderId,
-      lineItemId,
-      lineItemOrderId,
-      status,
-      rawStatus: lineItem["status"],
-      purchasedQuantity: lineItem["purchasedQuantity"],
-    });
-
-    if (lineItemOrderId !== orderId) {
-      return JSON.stringify({
-        success: false,
-        message: "明細項目不屬於指定訂單",
       });
     }
 
@@ -123,7 +113,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
               TableName: lineItemTable,
               Key: marshall({ id: lineItemId }),
               UpdateExpression:
-                "SET #st = :pending, purchasedQuantity = :zero, updatedAt = :now REMOVE purchasedAt, supplierId, supplierName, unitCost",
+                "SET #st = :pending, updatedAt = :now REMOVE purchasedAt, supplierId, supplierName, unitCost",
               ConditionExpression:
                 "orderId = :orderId AND (#st = :ordered OR #st = :legacyOrdered)",
               ExpressionAttributeNames: { "#st": "status" },
@@ -132,7 +122,6 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
                 ":ordered": "ordered",
                 ":legacyOrdered": "已訂購",
                 ":pending": "pending",
-                ":zero": 0,
                 ":now": now,
               }),
             },
@@ -158,7 +147,6 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        orderId,
         lineItemId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
@@ -168,7 +156,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
       });
     }
 
-    logError(FUNCTION_NAME, "handler failed", error, { orderId, lineItemId });
+    logError(FUNCTION_NAME, "handler failed", error, { lineItemId });
     return JSON.stringify({
       success: false,
       message: `取消採購失敗：${err.message ?? "未知錯誤"}`,

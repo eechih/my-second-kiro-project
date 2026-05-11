@@ -64,8 +64,6 @@ function mapLineItem(raw: DdbRecord): LineItem {
     unitPrice: Number(raw["unitPrice"] ?? 0),
     subtotal: Number(raw["subtotal"] ?? 0),
     status: normalizeLineItemStatus(raw["status"]),
-    purchasedQuantity: Number(raw["purchasedQuantity"] ?? 0),
-    shippedQuantity: Number(raw["shippedQuantity"] ?? 0),
     purchasedAt: raw["purchasedAt"] ? String(raw["purchasedAt"]) : null,
     receivedAt: raw["receivedAt"] ? String(raw["receivedAt"]) : null,
     shippedAt: raw["shippedAt"] ? String(raw["shippedAt"]) : null,
@@ -380,8 +378,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       });
       return JSON.stringify({
         success: false,
-        message:
-          "訂單合併失敗：訂單狀態已變更，請重新取得最新資料後重試",
+        message: "訂單合併失敗：訂單狀態已變更，請重新取得最新資料後重試",
       });
     }
     logError(FUNCTION_NAME, "handler failed", error, {

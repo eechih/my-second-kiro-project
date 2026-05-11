@@ -22,9 +22,9 @@ const FUNCTION_NAME = "cancelReceived";
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
  * - LineItem status 從 received 改回 ordered，移除 receivedAt
- * - 扣回 Product.stockQuantity
+ * - 扣回 Product.stockQuantity（扣回 lineItem.quantity）
  *
- * 僅允許尚未出貨的已入庫明細撤銷，並以條件式更新避免庫存扣成負數。
+ * 僅允許狀態為 received 的明細撤銷（shipped 狀態不可撤銷）。
  */
 export const handler: Schema["cancelReceived"]["functionHandler"] = async (
   event,
@@ -40,13 +40,14 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       hasLineItemTable: !!lineItemTable,
       hasProductTable: !!productTable,
     });
-    return {
+    return JSON.stringify({
       success: false,
       message: "缺少必要的環境變數設定",
-    };
+    });
   }
 
   try {
+    // 1. 取得 LineItem 資料
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
@@ -56,69 +57,51 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
 
     if (!lineItemResult.Item) {
       logWarn(FUNCTION_NAME, "line item not found", { lineItemId });
-      return {
+      return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
-      };
+      });
     }
 
     const lineItem = unmarshall(lineItemResult.Item);
     const status = normalizeLineItemStatus(lineItem["status"]);
-    const shippedQuantity = Number(lineItem["shippedQuantity"] ?? 0);
-    const purchasedQuantity = Number(lineItem["purchasedQuantity"] ?? 0);
+    const quantity = Number(lineItem["quantity"] ?? 0);
     const productId = String(lineItem["productId"] ?? "");
     logDebug(FUNCTION_NAME, "line item loaded", {
       lineItemId,
       productId,
       status,
       rawStatus: lineItem["status"],
-      shippedQuantity,
-      purchasedQuantity,
+      quantity,
     });
 
+    // 2. 驗證狀態——僅 received 可撤銷
     if (status !== "received") {
       logWarn(FUNCTION_NAME, "invalid line item status", {
         lineItemId,
         productId,
         status,
       });
-      return {
+      return JSON.stringify({
         success: false,
-        message: "僅已到貨且尚未出貨的明細可取消到貨",
-      };
+        message: "僅已到貨的明細可取消到貨",
+      });
     }
 
-    if (shippedQuantity > 0) {
-      logWarn(FUNCTION_NAME, "line item already shipped", {
-        lineItemId,
-        productId,
-        shippedQuantity,
-      });
-      return {
+    if (!productId) {
+      return JSON.stringify({
         success: false,
-        message: "已出貨明細不可取消到貨",
-      };
-    }
-
-    if (purchasedQuantity <= 0 || !productId) {
-      logWarn(FUNCTION_NAME, "incomplete line item procurement data", {
-        lineItemId,
-        productId,
-        purchasedQuantity,
+        message: "明細商品資料不完整，無法取消到貨",
       });
-      return {
-        success: false,
-        message: "明細採購資料不完整，無法取消到貨",
-      };
     }
 
     const now = new Date().toISOString();
 
+    // 3. 執行交易：LineItem 狀態回 ordered + 庫存扣回
     logDebug(FUNCTION_NAME, "executing transaction", {
       lineItemId,
       productId,
-      purchasedQuantity,
-      shippedQuantity,
+      quantity,
       transactItemCount: 2,
     });
     await ddb.send(
@@ -130,14 +113,12 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
               Key: marshall({ id: lineItemId }),
               UpdateExpression:
                 "SET #st = :ordered, updatedAt = :now REMOVE receivedAt",
-              ConditionExpression:
-                "(#st = :received OR #st = :legacyReceived) AND (attribute_not_exists(shippedQuantity) OR shippedQuantity = :zero)",
+              ConditionExpression: "#st = :received OR #st = :legacyReceived",
               ExpressionAttributeNames: { "#st": "status" },
               ExpressionAttributeValues: marshall({
                 ":ordered": "ordered",
                 ":received": "received",
                 ":legacyReceived": "已收到",
-                ":zero": 0,
                 ":now": now,
               }),
             },
@@ -151,7 +132,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
               ConditionExpression:
                 "attribute_exists(id) AND stockQuantity >= :qty",
               ExpressionAttributeValues: marshall({
-                ":qty": purchasedQuantity,
+                ":qty": quantity,
                 ":now": now,
               }),
             },
@@ -163,18 +144,18 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
     logInfo(FUNCTION_NAME, "handler succeeded", {
       lineItemId,
       productId,
-      quantity: purchasedQuantity,
+      quantity,
       lineItemStatus: "ordered",
     });
-    return {
+    return JSON.stringify({
       success: true,
       message: "取消到貨成功",
       data: {
         lineItemId,
-        quantity: purchasedQuantity,
+        quantity,
         lineItemStatus: "ordered",
       },
-    };
+    });
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
@@ -182,16 +163,16 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
         lineItemId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
-      return {
+      return JSON.stringify({
         success: false,
         message: "取消到貨失敗，庫存不足或資料已變更，請重新取得最新資料後重試",
-      };
+      });
     }
 
     logError(FUNCTION_NAME, "handler failed", error, { lineItemId });
-    return {
+    return JSON.stringify({
       success: false,
       message: `取消到貨失敗：${err.message ?? "未知錯誤"}`,
-    };
+    });
   }
 };

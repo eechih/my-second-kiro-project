@@ -10,10 +10,7 @@ import {
   deriveOrderStatusFromLineItems,
   isValidOrderStatusTransition,
 } from "@shared/logic/order-status";
-import {
-  calculateRemainingShipQuantity,
-  validateShipment,
-} from "@shared/logic/shipment";
+import { validateShipment } from "@shared/logic/shipment";
 import {
   normalizeLineItemStatus,
   normalizeOrderStatus,
@@ -36,19 +33,17 @@ const FUNCTION_NAME = "confirmShipment";
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
  * - 扣減 Product 的 stockQuantity（庫存統一在商品層級管理）
- * - 更新 LineItem 的 shippedQuantity 與狀態為「已出貨」
+ * - 更新 LineItem 狀態為 shipped，記錄 shippedAt
  * - 條件性更新 Order 狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
  *
- * 包含驗證邏輯：
- * - 明細狀態必須為「已收到」才可出貨
- * - 出貨數量不超過未出貨餘額
- * - 庫存數量充足
+ * 不支援分批出貨——出貨即為明細的全部數量。
+ * orderId 從 LineItem 記錄中讀取，前端只需傳 lineItemId。
  */
 export const handler: Schema["confirmShipment"]["functionHandler"] = async (
   event,
 ) => {
-  const { orderId, lineItemId, quantity } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { orderId, lineItemId, quantity });
+  const { lineItemId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { lineItemId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
@@ -76,7 +71,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     );
 
     if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderId, lineItemId });
+      logWarn(FUNCTION_NAME, "line item not found", { lineItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
@@ -84,6 +79,8 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     }
 
     const lineItem = unmarshall(lineItemResult.Item);
+    const orderId = lineItem["orderId"] as string;
+    const quantity = lineItem["quantity"] as number;
 
     // 2. 驗證明細狀態——僅「已收到」可出貨
     const currentStatus = normalizeLineItemStatus(lineItem["status"]);
@@ -93,7 +90,6 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       currentStatus,
       rawStatus: lineItem["status"],
       orderQuantity: lineItem["quantity"],
-      shippedQuantity: lineItem["shippedQuantity"],
       productId: lineItem["productId"],
     });
     if (!isValidLineItemStatusTransition(currentStatus, "shipped")) {
@@ -108,15 +104,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       });
     }
 
-    // 3. 驗證出貨數量
-    const orderQuantity = lineItem["quantity"] as number;
-    const shippedQuantity = lineItem["shippedQuantity"] as number;
-    const remainingShipQty = calculateRemainingShipQuantity(
-      orderQuantity,
-      shippedQuantity,
-    );
-
-    // 4. 取得庫存資訊（統一在商品層級管理）
+    // 3. 取得庫存資訊（統一在商品層級管理）
     const productId = lineItem["productId"] as string;
 
     const productResult = await ddb.send(
@@ -144,22 +132,16 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       productId,
       stockQuantity,
       requestedQuantity: quantity,
-      remainingShipQty,
     });
 
-    // 5. 使用共用驗證函式檢查出貨數量與庫存
-    const shipmentValidation = validateShipment(
-      quantity,
-      remainingShipQty,
-      stockQuantity,
-    );
+    // 4. 使用共用驗證函式檢查出貨數量與庫存
+    const shipmentValidation = validateShipment(quantity, stockQuantity);
     if (!shipmentValidation.valid) {
       logWarn(FUNCTION_NAME, "shipment validation failed", {
         orderId,
         lineItemId,
         productId,
         quantity,
-        remainingShipQty,
         stockQuantity,
         validationError: shipmentValidation.error,
       });
@@ -169,7 +151,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       });
     }
 
-    // 6. 取得同一訂單的所有明細項目（用於推導訂單狀態）
+    // 5. 取得同一訂單的所有明細項目（用於推導訂單狀態）
     const allLineItemsResult = await ddb.send(
       new QueryCommand({
         TableName: lineItemTable,
@@ -184,15 +166,9 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     );
 
     // 模擬出貨後的明細狀態列表（用於推導訂單狀態）
-    const newShippedQty = shippedQuantity + quantity;
     const simulatedLineItems = allLineItems.map((li) => {
       if (li["id"] === lineItemId) {
-        return {
-          status:
-            newShippedQty >= orderQuantity
-              ? ("shipped" as const)
-              : normalizeLineItemStatus(li["status"]),
-        };
+        return { status: "shipped" as const };
       }
       return { status: normalizeLineItemStatus(li["status"]) };
     });
@@ -200,7 +176,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     const derivedOrderStatus =
       deriveOrderStatusFromLineItems(simulatedLineItems);
 
-    // 7. 取得目前訂單資料（用於狀態轉換驗證）
+    // 6. 取得目前訂單資料（用於狀態轉換驗證）
     const orderResult = await ddb.send(
       new GetItemCommand({
         TableName: orderTable,
@@ -217,12 +193,12 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     const currentOrderStatus = normalizeOrderStatus(order["status"]);
     const now = new Date().toISOString();
 
-    // 8. 建立交易項目
+    // 7. 建立交易項目
     const transactItems: NonNullable<
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]
     >["TransactItems"] = [];
 
-    // 8a. 扣減庫存（商品層級）
+    // 7a. 扣減庫存（商品層級）
     transactItems.push({
       Update: {
         TableName: productTable,
@@ -237,25 +213,23 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       },
     });
 
-    // 8b. 更新 LineItem
-    const lineItemUpdateStatus: LineItemStatus =
-      newShippedQty >= orderQuantity ? "shipped" : currentStatus;
+    // 7b. 更新 LineItem
+    const lineItemUpdateStatus: LineItemStatus = "shipped";
     transactItems.push({
       Update: {
         TableName: lineItemTable,
         Key: marshall({ id: lineItemId }),
         UpdateExpression:
-          "SET shippedQuantity = :newShippedQty, #st = :newStatus, shippedAt = :now, updatedAt = :now",
+          "SET #st = :newStatus, shippedAt = :now, updatedAt = :now",
         ExpressionAttributeNames: { "#st": "status" },
         ExpressionAttributeValues: marshall({
-          ":newShippedQty": newShippedQty,
           ":newStatus": lineItemUpdateStatus,
           ":now": now,
         }),
       },
     });
 
-    // 8c. 條件性更新 Order 狀態
+    // 7c. 條件性更新 Order 狀態
     if (derivedOrderStatus && derivedOrderStatus !== currentOrderStatus) {
       if (
         isValidOrderStatusTransition(currentOrderStatus, derivedOrderStatus)
@@ -286,13 +260,12 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       }
     }
 
-    // 9. 執行交易
+    // 8. 執行交易
     logDebug(FUNCTION_NAME, "executing transaction", {
       orderId,
       lineItemId,
       productId,
       quantity,
-      newShippedQty,
       lineItemUpdateStatus,
       currentOrderStatus,
       derivedOrderStatus,
@@ -306,7 +279,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       orderId,
       lineItemId,
       productId,
-      shippedQuantity: newShippedQty,
+      quantity,
       lineItemStatus: lineItemUpdateStatus,
       orderStatus: derivedOrderStatus ?? currentOrderStatus,
     });
@@ -315,7 +288,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       message: "出貨操作成功",
       data: {
         lineItemId,
-        shippedQuantity: newShippedQty,
+        quantity,
         lineItemStatus: lineItemUpdateStatus,
         orderStatus: derivedOrderStatus ?? currentOrderStatus,
       },
@@ -324,9 +297,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        orderId,
         lineItemId,
-        quantity,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
       return JSON.stringify({
@@ -335,9 +306,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       });
     }
     logError(FUNCTION_NAME, "handler failed", error, {
-      orderId,
       lineItemId,
-      quantity,
     });
     return JSON.stringify({
       success: false,

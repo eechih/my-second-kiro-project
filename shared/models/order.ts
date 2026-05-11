@@ -149,10 +149,6 @@ export interface LineItem {
   subtotal: number;
   /** 明細狀態 */
   status: LineItemStatus;
-  /** 累計已採購數量 */
-  purchasedQuantity: number;
-  /** 累計已出貨數量 */
-  shippedQuantity: number;
   /** ISO 8601 採購日期時間（尚未採購時為 null） */
   purchasedAt: string | null;
   /** ISO 8601 收到日期時間（尚未收到時為 null） */
@@ -231,12 +227,8 @@ export interface CreateOrderInput {
 
 /** 確認出貨輸入 */
 export interface ConfirmShipmentInput {
-  /** 訂單 ID（必填） */
-  orderId: string;
   /** 明細項目 ID（必填） */
   lineItemId: string;
-  /** 出貨數量（必填，> 0） */
-  quantity: number;
 }
 
 /** 分拆訂單輸入 */

@@ -116,10 +116,10 @@ type CancelProcurementInput = {
   orderId: string;
 };
 
-type ConfirmShipmentBaseInput = Pick<
-  ConfirmShipmentInput,
-  "orderId" | "lineItemId"
->;
+type ConfirmShipmentBaseInput = {
+  lineItemId: string;
+  orderId: string;
+};
 
 type LineItemStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
@@ -293,8 +293,6 @@ function mapToLineItem(raw: Record<string, unknown>): LineItem {
     unitPrice: Number(raw.unitPrice ?? 0),
     subtotal: Number(raw.subtotal ?? 0),
     status: normalizeLineItemStatus(raw.status),
-    purchasedQuantity: Number(raw.purchasedQuantity ?? 0),
-    shippedQuantity: Number(raw.shippedQuantity ?? 0),
     purchasedAt: raw.purchasedAt ? String(raw.purchasedAt) : null,
     receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
     shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
@@ -316,8 +314,6 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       ...item,
       id: "",
       status: "pending" as const,
-      purchasedQuantity: 0,
-      shippedQuantity: 0,
       purchasedAt: null,
       receivedAt: null,
       shippedAt: null,
@@ -368,8 +364,6 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,
       status: "pending",
-      purchasedQuantity: 0,
-      shippedQuantity: 0,
     };
 
     if (item.variantId) {
@@ -582,21 +576,16 @@ async function cancelOutOfStock(
 }
 
 async function confirmPurchase(
-  input: Pick<MarkProcurementInput, "orderId" | "lineItemId"> &
+  input: Pick<MarkProcurementInput, "lineItemId"> &
     Partial<
-      Pick<
-        MarkProcurementInput,
-        "supplierId" | "supplierName" | "unitCost" | "quantity"
-      >
+      Pick<MarkProcurementInput, "supplierId" | "supplierName" | "unitCost">
     >,
 ): Promise<LineItem> {
   const { data: result, errors } = await client.mutations.confirmPurchase({
-    orderId: input.orderId,
     lineItemId: input.lineItemId,
     supplierId: input.supplierId ?? null,
     supplierName: input.supplierName ?? null,
     unitCost: input.unitCost ?? null,
-    quantity: input.quantity ?? null,
   });
 
   if (errors && errors.length > 0) {
@@ -619,7 +608,6 @@ async function cancelProcurement(
   input: CancelProcurementInput,
 ): Promise<LineItem> {
   const { data: result, errors } = await client.mutations.cancelPurchase({
-    orderId: input.orderId,
     lineItemId: input.lineItemId,
   });
 
@@ -646,12 +634,10 @@ function buildLineItemStatusFlagOptimisticUpdate(
       ? {
           status: "ordered",
           purchasedAt: now,
-          purchasedQuantity: lineItem.quantity,
         }
       : {
           status: "pending",
           purchasedAt: null,
-          purchasedQuantity: 0,
           supplierId: null,
           supplierName: null,
           unitCost: null,
@@ -669,12 +655,10 @@ function buildLineItemStatusFlagOptimisticUpdate(
       ? {
           status: "shipped",
           shippedAt: now,
-          shippedQuantity: lineItem.quantity,
         }
       : {
           status: "received",
           shippedAt: null,
-          shippedQuantity: 0,
         };
   }
 
@@ -720,11 +704,11 @@ async function updateLineItemStatusFlag(
   throw new Error("不支援的明細狀態操作");
 }
 
-async function confirmShipment(input: ConfirmShipmentInput): Promise<LineItem> {
+async function confirmShipment(input: {
+  lineItemId: string;
+}): Promise<LineItem> {
   const { data, errors } = await client.mutations.confirmShipment({
-    orderId: input.orderId,
     lineItemId: input.lineItemId,
-    quantity: input.quantity,
   });
 
   if (errors && errors.length > 0) {
@@ -742,31 +726,8 @@ async function confirmShipment(input: ConfirmShipmentInput): Promise<LineItem> {
 async function confirmShipmentRemaining(
   input: ConfirmShipmentBaseInput,
 ): Promise<LineItem> {
-  const { data: currentLineItem, errors: getErrors } =
-    await client.models.LineItem.get({
-      id: input.lineItemId,
-    });
-
-  if (getErrors && getErrors.length > 0) {
-    throw new Error(getErrors[0]?.message ?? "查詢明細狀態失敗");
-  }
-
-  if (!currentLineItem) {
-    throw new Error("出貨操作失敗：找不到明細項目");
-  }
-
-  const quantity = Number(currentLineItem.quantity ?? 0);
-  const shippedQuantity = Number(currentLineItem.shippedQuantity ?? 0);
-  const remainingQuantity = quantity - shippedQuantity;
-
-  if (remainingQuantity <= 0) {
-    throw new Error("此明細已全數出貨");
-  }
-
   return confirmShipment({
-    orderId: input.orderId,
     lineItemId: input.lineItemId,
-    quantity: remainingQuantity,
   });
 }
 
@@ -774,7 +735,6 @@ async function cancelShipment(
   input: ConfirmShipmentBaseInput,
 ): Promise<LineItem> {
   const { data: result, errors } = await client.mutations.cancelShipment({
-    orderId: input.orderId,
     lineItemId: input.lineItemId,
   });
 
@@ -1166,12 +1126,12 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
 export function useConfirmShipment(): UseMutationResult<
   LineItem,
   Error,
-  ConfirmShipmentInput
+  ConfirmShipmentInput & { orderId: string }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: confirmShipment,
+    mutationFn: (input) => confirmShipment({ lineItemId: input.lineItemId }),
     onMutate: async (input) => {
       // Cancel outgoing refetches
       const orderKey = ORDER_KEYS.detail(input.orderId);
@@ -1185,10 +1145,8 @@ export function useConfirmShipment(): UseMutationResult<
         const updatedOrder = { ...previousOrder };
         updatedOrder.lineItems = updatedOrder.lineItems.map((li) => {
           if (li.id === input.lineItemId) {
-            const newShippedQty = li.shippedQuantity + input.quantity;
             return {
               ...li,
-              shippedQuantity: newShippedQty,
               status: "shipped" as const,
               shippedAt: new Date().toISOString(),
             };

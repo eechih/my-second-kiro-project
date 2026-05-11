@@ -25,7 +25,7 @@ const FUNCTION_NAME = "confirmReceived";
  * - 更新 LineItem 狀態為「已收到」並記錄 receivedAt
  * - 增加 Product 的 stockQuantity（庫存統一在商品層級管理）
  *
- * 不再查詢 PurchaseRecord 表，直接從 LineItem 讀取 status 與 purchasedQuantity。
+ * 不再查詢 PurchaseRecord 表，直接從 LineItem 讀取 status 判斷是否可入庫。
  *
  * 包含驗證邏輯：
  * - LineItem status 必須為「已訂購」（使用 validateProcurementReceive 共用驗證）
@@ -72,24 +72,23 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
 
     const lineItem = unmarshall(lineItemResult.Item);
     const status = normalizeLineItemStatus(lineItem["status"]);
-    const purchasedQuantity = lineItem["purchasedQuantity"] as number;
+    const quantity = lineItem["quantity"] as number;
     const productId = lineItem["productId"] as string;
     logDebug(FUNCTION_NAME, "line item loaded", {
       lineItemId,
       productId,
       status,
-      purchasedQuantity,
+      quantity,
       rawStatus: lineItem["status"],
     });
 
     // 2. 使用共用驗證函式檢查前置條件
-    const validation = validateProcurementReceive({ status, purchasedQuantity });
+    const validation = validateProcurementReceive({ status });
     if (!validation.valid) {
       logWarn(FUNCTION_NAME, "validation failed", {
         lineItemId,
         productId,
         status,
-        purchasedQuantity,
         validationError: validation.error,
       });
       return JSON.stringify({
@@ -133,7 +132,8 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
         Key: marshall({ id: lineItemId }),
         UpdateExpression:
           "SET #st = :newStatus, receivedAt = :now, updatedAt = :now",
-        ConditionExpression: "#st = :expectedStatus OR #st = :legacyExpectedStatus",
+        ConditionExpression:
+          "#st = :expectedStatus OR #st = :legacyExpectedStatus",
         ExpressionAttributeNames: { "#st": "status" },
         ExpressionAttributeValues: marshall({
           ":newStatus": "received",
@@ -153,7 +153,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
           "SET stockQuantity = stockQuantity + :qty, updatedAt = :now",
         ConditionExpression: "attribute_exists(id)",
         ExpressionAttributeValues: marshall({
-          ":qty": purchasedQuantity,
+          ":qty": quantity,
           ":now": now,
         }),
       },
@@ -163,7 +163,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     logDebug(FUNCTION_NAME, "executing transaction", {
       lineItemId,
       productId,
-      purchasedQuantity,
+      quantity,
       transactItemCount: transactItems.length,
     });
     await ddb.send(
@@ -173,7 +173,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     logInfo(FUNCTION_NAME, "handler succeeded", {
       lineItemId,
       productId,
-      quantity: purchasedQuantity,
+      quantity,
       lineItemStatus: "received",
     });
     return JSON.stringify({
@@ -181,7 +181,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       message: "入庫確認成功",
       data: {
         lineItemId,
-        quantity: purchasedQuantity,
+        quantity,
         lineItemStatus: "received",
       },
     });

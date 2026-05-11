@@ -23,25 +23,15 @@ const FUNCTION_NAME = "confirmPurchase";
 /**
  * 確認採購 Lambda 函式
  *
- * 將 pending 明細標記為 ordered，並寫入採購數量、時間與可選供應商/成本資料。
+ * 將 pending 明細標記為 ordered，寫入採購時間與可選供應商/成本資料。
+ * orderId 從 LineItem 記錄中讀取，前端只需傳 lineItemId。
+ * 不再有分批採購——採購即為明細的全部數量。
  */
 export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
   event,
 ) => {
-  const {
-    orderId,
-    lineItemId,
-    supplierId,
-    supplierName,
-    unitCost,
-    quantity,
-  } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", {
-    orderId,
-    lineItemId,
-    supplierId,
-    quantity,
-  });
+  const { lineItemId, supplierId, supplierName, unitCost } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { lineItemId, supplierId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
@@ -58,32 +48,50 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
   }
 
   try {
-    const [orderResult, lineItemResult] = await Promise.all([
-      ddb.send(
-        new GetItemCommand({
-          TableName: orderTable,
-          Key: marshall({ id: orderId }),
-        }),
-      ),
-      ddb.send(
-        new GetItemCommand({
-          TableName: lineItemTable,
-          Key: marshall({ id: lineItemId }),
-        }),
-      ),
-    ]);
-
-    if (!orderResult.Item) {
-      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
-      return JSON.stringify({ success: false, message: "找不到指定的訂單" });
-    }
+    // 1. 取得 LineItem 資料（含 orderId）
+    const lineItemResult = await ddb.send(
+      new GetItemCommand({
+        TableName: lineItemTable,
+        Key: marshall({ id: lineItemId }),
+      }),
+    );
 
     if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderId, lineItemId });
+      logWarn(FUNCTION_NAME, "line item not found", { lineItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
       });
+    }
+
+    const lineItem = unmarshall(lineItemResult.Item);
+    const orderId = String(lineItem["orderId"] ?? "");
+    const status = normalizeLineItemStatus(lineItem["status"]);
+    logDebug(FUNCTION_NAME, "line item loaded", {
+      lineItemId,
+      orderId,
+      status,
+      rawStatus: lineItem["status"],
+    });
+
+    if (!orderId) {
+      return JSON.stringify({
+        success: false,
+        message: "明細項目缺少訂單關聯",
+      });
+    }
+
+    // 2. 驗證訂單狀態
+    const orderResult = await ddb.send(
+      new GetItemCommand({
+        TableName: orderTable,
+        Key: marshall({ id: orderId }),
+      }),
+    );
+
+    if (!orderResult.Item) {
+      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
+      return JSON.stringify({ success: false, message: "找不到指定的訂單" });
     }
 
     const order = unmarshall(orderResult.Item);
@@ -94,28 +102,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
       });
     }
 
-    const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeLineItemStatus(lineItem["status"]);
-    const lineItemOrderId = String(lineItem["orderId"] ?? "");
-    const orderQuantity = Number(lineItem["quantity"] ?? 0);
-    const purchaseQuantity = Number(quantity ?? orderQuantity);
-    logDebug(FUNCTION_NAME, "line item loaded", {
-      orderId,
-      lineItemId,
-      lineItemOrderId,
-      status,
-      orderQuantity,
-      purchaseQuantity,
-      rawStatus: lineItem["status"],
-    });
-
-    if (lineItemOrderId !== orderId) {
-      return JSON.stringify({
-        success: false,
-        message: "明細項目不屬於指定訂單",
-      });
-    }
-
+    // 3. 驗證明細狀態
     if (status !== "pending") {
       return JSON.stringify({
         success: false,
@@ -123,13 +110,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
       });
     }
 
-    if (purchaseQuantity <= 0 || purchaseQuantity > orderQuantity) {
-      return JSON.stringify({
-        success: false,
-        message: "採購數量必須大於 0 且不可超過訂購數量",
-      });
-    }
-
+    // 4. 驗證成本
     if (unitCost !== undefined && unitCost !== null && Number(unitCost) < 0) {
       return JSON.stringify({
         success: false,
@@ -139,12 +120,11 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
 
     const now = new Date().toISOString();
 
+    // 5. 執行交易：更新明細狀態為 ordered + 寫入採購資料
     logDebug(FUNCTION_NAME, "executing transaction", {
-      orderId,
       lineItemId,
+      orderId,
       supplierId,
-      purchaseQuantity,
-      transactItemCount: 1,
     });
     await ddb.send(
       new TransactWriteItemsCommand({
@@ -154,7 +134,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
               TableName: lineItemTable,
               Key: marshall({ id: lineItemId }),
               UpdateExpression:
-                "SET #st = :ordered, purchasedQuantity = :quantity, purchasedAt = :now, supplierId = :supplierId, supplierName = :supplierName, unitCost = :unitCost, updatedAt = :now",
+                "SET #st = :ordered, purchasedAt = :now, supplierId = :supplierId, supplierName = :supplierName, unitCost = :unitCost, updatedAt = :now",
               ConditionExpression: "orderId = :orderId AND #st = :pending",
               ExpressionAttributeNames: { "#st": "status" },
               ExpressionAttributeValues: marshall(
@@ -162,7 +142,6 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
                   ":orderId": orderId,
                   ":pending": "pending",
                   ":ordered": "ordered",
-                  ":quantity": purchaseQuantity,
                   ":supplierId": supplierId ?? null,
                   ":supplierName": supplierName ?? null,
                   ":unitCost": unitCost ?? null,
@@ -177,10 +156,9 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
     );
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
-      orderId,
       lineItemId,
+      orderId,
       supplierId,
-      purchasedQuantity: purchaseQuantity,
       lineItemStatus: "ordered",
     });
     return JSON.stringify({
@@ -189,7 +167,6 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
       data: {
         lineItemId,
         lineItemStatus: "ordered",
-        purchasedQuantity: purchaseQuantity,
         purchasedAt: now,
       },
     });
@@ -197,7 +174,6 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        orderId,
         lineItemId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
@@ -207,7 +183,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
       });
     }
 
-    logError(FUNCTION_NAME, "handler failed", error, { orderId, lineItemId });
+    logError(FUNCTION_NAME, "handler failed", error, { lineItemId });
     return JSON.stringify({
       success: false,
       message: `確認採購失敗：${err.message ?? "未知錯誤"}`,

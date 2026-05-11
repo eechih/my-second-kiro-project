@@ -56,25 +56,17 @@ export function validateProcurementOrder(
  *
  * 規則：
  * - status 必須為 ordered
- * - purchasedQuantity 必須 > 0
  *
- * @param lineItem - 明細項目（僅需 status 與 purchasedQuantity）
+ * @param lineItem - 明細項目（僅需 status）
  * @returns 驗證結果
  */
 export function validateProcurementReceive(
-  lineItem: Pick<LineItem, "status" | "purchasedQuantity">,
+  lineItem: Pick<LineItem, "status">,
 ): ValidationResult {
   if (lineItem.status !== "ordered") {
     return {
       valid: false,
       error: "僅「已訂購」狀態的明細項目可確認入庫",
-    };
-  }
-
-  if (lineItem.purchasedQuantity <= 0) {
-    return {
-      valid: false,
-      error: "採購數量必須大於零",
     };
   }
 
@@ -108,17 +100,17 @@ export function validateProcurementCancel(
  * 計算採購總成本。
  *
  * 規則：
- * - purchasedQuantity >= 0
+ * - quantity >= 0
  * - unitCost >= 0
- * - 回傳 purchasedQuantity × unitCost，結果 >= 0
+ * - 回傳 quantity × unitCost
  *
- * @param purchasedQuantity - 採購數量（必須 >= 0）
+ * @param quantity - 採購數量（即明細的訂購數量）
  * @param unitCost - 單位成本（必須 >= 0）
  * @returns 採購總成本
  */
 export function calculateProcurementCost(
-  purchasedQuantity: number,
+  quantity: number,
   unitCost: number,
 ): number {
-  return purchasedQuantity * unitCost;
+  return quantity * unitCost;
 }

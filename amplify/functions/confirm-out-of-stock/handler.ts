@@ -66,13 +66,11 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
     const lineItem = unmarshall(lineItemResult.Item);
     const status = normalizeLineItemStatus(lineItem["status"]);
     const orderId = String(lineItem["orderId"] ?? "");
-    const shippedQuantity = Number(lineItem["shippedQuantity"] ?? 0);
     logDebug(FUNCTION_NAME, "line item loaded", {
       lineItemId,
       orderId,
       status,
       rawStatus: lineItem["status"],
-      shippedQuantity,
     });
 
     if (!orderId) {
@@ -103,14 +101,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
       });
     }
 
-    // 3. 驗證明細狀態
-    if (shippedQuantity > 0 || status === "shipped") {
-      return JSON.stringify({
-        success: false,
-        message: "已出貨明細不可標記缺貨",
-      });
-    }
-
+    // 3. 驗證明細狀態——僅 pending/ordered/received 可標記缺貨
     if (status !== "pending" && status !== "ordered" && status !== "received") {
       return JSON.stringify({
         success: false,
