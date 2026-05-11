@@ -23,15 +23,15 @@ const FUNCTION_NAME = "confirmPurchase";
 /**
  * 確認採購 Lambda 函式
  *
- * 將 pending 明細標記為 ordered，寫入採購時間與可選供應商/成本資料。
+ * 將 pending 明細標記為 ordered 並記錄 purchasedAt。
+ * 供應商名稱與成本由前端事先透過標準 LineItem.update 寫入。
  * orderId 從 LineItem 記錄中讀取，前端只需傳 lineItemId。
- * 不再有分批採購——採購即為明細的全部數量。
  */
 export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
   event,
 ) => {
-  const { lineItemId, supplierId, supplierName, unitCost } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { lineItemId, supplierId });
+  const { lineItemId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { lineItemId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
@@ -48,7 +48,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 LineItem 資料（含 orderId）
+    // 1. 取得 LineItem 資料
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
@@ -110,21 +110,12 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
       });
     }
 
-    // 4. 驗證成本
-    if (unitCost !== undefined && unitCost !== null && Number(unitCost) < 0) {
-      return JSON.stringify({
-        success: false,
-        message: "單位成本不可小於 0",
-      });
-    }
-
     const now = new Date().toISOString();
 
-    // 5. 執行交易：更新明細狀態為 ordered + 寫入採購資料
+    // 4. 執行交易：status → ordered + purchasedAt
     logDebug(FUNCTION_NAME, "executing transaction", {
       lineItemId,
       orderId,
-      supplierId,
     });
     await ddb.send(
       new TransactWriteItemsCommand({
@@ -134,20 +125,15 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
               TableName: lineItemTable,
               Key: marshall({ id: lineItemId }),
               UpdateExpression:
-                "SET #st = :ordered, purchasedAt = :now, supplierName = :supplierName, unitCost = :unitCost, updatedAt = :now",
+                "SET #st = :ordered, purchasedAt = :now, updatedAt = :now",
               ConditionExpression: "orderId = :orderId AND #st = :pending",
               ExpressionAttributeNames: { "#st": "status" },
-              ExpressionAttributeValues: marshall(
-                {
-                  ":orderId": orderId,
-                  ":pending": "pending",
-                  ":ordered": "ordered",
-                  ":supplierName": supplierName ?? null,
-                  ":unitCost": unitCost ?? null,
-                  ":now": now,
-                },
-                { removeUndefinedValues: true },
-              ),
+              ExpressionAttributeValues: marshall({
+                ":orderId": orderId,
+                ":pending": "pending",
+                ":ordered": "ordered",
+                ":now": now,
+              }),
             },
           },
         ],
@@ -157,7 +143,6 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
     logInfo(FUNCTION_NAME, "handler succeeded", {
       lineItemId,
       orderId,
-      supplierId,
       lineItemStatus: "ordered",
     });
     return JSON.stringify({

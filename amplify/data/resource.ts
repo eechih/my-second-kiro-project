@@ -23,7 +23,7 @@ import { splitOrder } from "../functions/split-order/resource";
  * - LineItem：訂單明細項目（含採購資料內嵌，不支援分批採購/出貨）
  *
  * Custom Mutations（Lambda 函式，皆僅需 lineItemId 作為主要參數）：
- * - confirmPurchase(lineItemId, supplierId?, supplierName?, unitCost?)：確認採購，pending → ordered
+ * - confirmPurchase(lineItemId)：確認採購，pending → ordered
  * - cancelPurchase(lineItemId)：取消採購，ordered → pending
  * - confirmReceived(lineItemId)：入庫確認，ordered → received + 庫存增加
  * - cancelReceived(lineItemId)：取消入庫，received → ordered + 庫存扣回
@@ -154,13 +154,13 @@ const schema = a.schema({
       quantity: a.integer().required(),
       unitPrice: a.float().required(),
       subtotal: a.float().required(),
+      supplierName: a.string(),
+      unitCost: a.float(),
       status: a.ref("LineItemStatus").required(),
       purchasedAt: a.datetime(),
       receivedAt: a.datetime(),
       shippedAt: a.datetime(),
       outOfStockAt: a.datetime(),
-      supplierName: a.string(),
-      unitCost: a.float(),
     })
     .secondaryIndexes((index) => [index("orderId").name("byOrderId")])
     .authorization((allow) => [allow.authenticated()]),
@@ -174,9 +174,6 @@ const schema = a.schema({
     .mutation()
     .arguments({
       lineItemId: a.string().required(),
-      supplierId: a.string(),
-      supplierName: a.string(),
-      unitCost: a.float(),
     })
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
@@ -191,6 +188,26 @@ const schema = a.schema({
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
     .handler(a.handler.function(cancelPurchase)),
+
+  /** 確認入庫：ordered → received，庫存增加 */
+  confirmReceived: a
+    .mutation()
+    .arguments({
+      lineItemId: a.string().required(),
+    })
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(confirmReceived)),
+
+  /** 取消入庫：received → ordered，庫存扣回 */
+  cancelReceived: a
+    .mutation()
+    .arguments({
+      lineItemId: a.string().required(),
+    })
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(cancelReceived)),
 
   /** 確認出貨：received → shipped，庫存扣減，推導訂單狀態 */
   confirmShipment: a
@@ -211,26 +228,6 @@ const schema = a.schema({
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
     .handler(a.handler.function(cancelShipment)),
-
-  /** 入庫確認：ordered → received，庫存增加 */
-  confirmReceived: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(confirmReceived)),
-
-  /** 取消入庫：received → ordered，庫存扣回 */
-  cancelReceived: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(cancelReceived)),
 
   /** 確認缺貨：pending/ordered/received → out_of_stock */
   confirmOutOfStock: a

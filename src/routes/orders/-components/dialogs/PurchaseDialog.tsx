@@ -1,5 +1,6 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { useMarkProcurement } from "@/hooks/useOrders";
+import { client } from "@/lib/amplify-client";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -59,13 +60,17 @@ export function PurchaseDialog({
     }
 
     try {
+      // 1. 先更新 LineItem 的供應商與成本資料
+      await client.models.LineItem.update({
+        id: lineItem.id,
+        supplierName: supplier.name,
+        unitCost,
+      });
+
+      // 2. 再呼叫 confirmPurchase 做狀態轉換 pending → ordered
       await markProcurement.mutateAsync({
         orderId: order.id,
         lineItemId: lineItem.id,
-        supplierId: supplier.id,
-        supplierName: supplier.name,
-        unitCost,
-        quantity: lineItem.quantity,
       });
       onClose();
     } catch (err) {
@@ -116,7 +121,9 @@ export function PurchaseDialog({
           variant="contained"
           disabled={markProcurement.isPending}
           startIcon={
-            markProcurement.isPending ? <CircularProgress size={16} /> : undefined
+            markProcurement.isPending ? (
+              <CircularProgress size={16} />
+            ) : undefined
           }
         >
           確認採購

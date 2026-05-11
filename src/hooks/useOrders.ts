@@ -105,10 +105,6 @@ type ConfirmReceivedInput = {
 type MarkProcurementInput = {
   lineItemId: string;
   orderId: string;
-  supplierId: string;
-  supplierName: string;
-  unitCost: number;
-  quantity: number;
 };
 
 type CancelProcurementInput = {
@@ -568,16 +564,10 @@ async function cancelOutOfStock(
 }
 
 async function confirmPurchase(
-  input: Pick<MarkProcurementInput, "lineItemId"> &
-    Partial<
-      Pick<MarkProcurementInput, "supplierId" | "supplierName" | "unitCost">
-    >,
+  input: Pick<MarkProcurementInput, "lineItemId">,
 ): Promise<LineItem> {
   const { data: result, errors } = await client.mutations.confirmPurchase({
     lineItemId: input.lineItemId,
-    supplierId: input.supplierId ?? null,
-    supplierName: input.supplierName ?? null,
-    unitCost: input.unitCost ?? null,
   });
 
   if (errors && errors.length > 0) {
