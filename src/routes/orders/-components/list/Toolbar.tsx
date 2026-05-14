@@ -4,6 +4,7 @@ import {
 } from "@/components/ListToolbar";
 import AddIcon from "@mui/icons-material/Add";
 import MergeIcon from "@mui/icons-material/CallMerge";
+import PrintIcon from "@mui/icons-material/Print";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import type { OrderStatusFilter } from "@/hooks/useOrders";
@@ -25,6 +26,8 @@ export interface ToolbarProps {
   onStatusFilterChange: (value: OrderStatusFilter) => void;
   mergeDisabled: boolean;
   onMergeClick: () => void;
+  printDisabled: boolean;
+  onPrintClick: () => void;
   onAddClick: () => void;
 }
 
@@ -36,6 +39,8 @@ export function Toolbar({
   onStatusFilterChange,
   mergeDisabled,
   onMergeClick,
+  printDisabled,
+  onPrintClick,
   onAddClick,
 }: ToolbarProps): React.ReactElement {
   return (
@@ -58,6 +63,14 @@ export function Toolbar({
             onClick={onMergeClick}
           >
             合併訂單
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<PrintIcon />}
+            disabled={printDisabled}
+            onClick={onPrintClick}
+          >
+            列印出貨單
           </Button>
           <Button
             variant="contained"

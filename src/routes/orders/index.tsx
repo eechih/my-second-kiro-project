@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MergeDialog } from "./-components/merge/Dialog";
 import { OrderTable } from "./-components/list/OrderTable";
 import { Toolbar } from "./-components/list/Toolbar";
+import { printPackingSlips } from "./-components/list/packingSlip";
 
 export const Route = createFileRoute("/orders/")({
   beforeLoad: requireAuth,
@@ -36,6 +37,7 @@ function OrderListPage(): React.ReactElement {
   );
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
 
   const { data, isLoading } = useOrderList({
     pageSize: pagination.pageSize,
@@ -118,6 +120,8 @@ function OrderListPage(): React.ReactElement {
   const canMergeSelectedOrders =
     selectedOrders.length === selectedOrderIds.size &&
     validateMergeOrders(selectedOrders).valid;
+  const canPrintSelectedOrders =
+    selectedOrders.length > 0 && selectedOrders.length === selectedOrderIds.size;
   const selectedOrderTotalAmount = selectedOrders.reduce(
     (sum, order) => sum + order.totalAmount,
     0,
@@ -148,6 +152,19 @@ function OrderListPage(): React.ReactElement {
     setMergeDialogOpen(true);
   }, [selectedOrders]);
 
+  const handlePrintClick = useCallback((): void => {
+    if (!canPrintSelectedOrders) {
+      setPrintError("請先選取已載入完成的訂單");
+      return;
+    }
+
+    setPrintError(null);
+    const opened = printPackingSlips(selectedOrders);
+    if (!opened) {
+      setPrintError("無法開啟列印視窗，請允許瀏覽器彈出視窗後再試一次");
+    }
+  }, [canPrintSelectedOrders, selectedOrders]);
+
   const handleConfirmMerge = useCallback(async (): Promise<void> => {
     setMergeError(null);
 
@@ -176,6 +193,12 @@ function OrderListPage(): React.ReactElement {
         </Alert>
       )}
 
+      {printError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPrintError(null)}>
+          {printError}
+        </Alert>
+      )}
+
       <Toolbar
         search={search}
         onSearchChange={(value) => {
@@ -190,6 +213,8 @@ function OrderListPage(): React.ReactElement {
         }}
         mergeDisabled={!canMergeSelectedOrders}
         onMergeClick={handleMergeClick}
+        printDisabled={!canPrintSelectedOrders}
+        onPrintClick={handlePrintClick}
         onAddClick={() => navigate({ to: "/orders/new" })}
       />
 
