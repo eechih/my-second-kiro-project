@@ -39,6 +39,7 @@ function SupplierNewPage() {
         phone: values.phone,
         email: values.email || undefined,
         address: values.address || undefined,
+        translationParser: values.translationParser || null,
       });
       void navigate({ to: "/suppliers" });
     } catch (err) {

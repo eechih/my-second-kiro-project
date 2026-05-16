@@ -71,6 +71,7 @@ const schema = a.schema({
       phone: a.string(),
       email: a.string(),
       address: a.string(),
+      translationParser: a.string(),
       isActive: a.boolean().required().default(true),
     })
     .authorization((allow) => [allow.authenticated()]),
@@ -82,6 +83,7 @@ const schema = a.schema({
     .model({
       name: a.string().required(),
       sku: a.string().required(),
+      description: a.string(),
       price: a.integer().required(),
       cost: a.integer().required(),
       defaultSupplierId: a.string(),

@@ -67,6 +67,7 @@ export async function searchSuppliers(query: string): Promise<Supplier[]> {
     phone: String(raw.phone ?? ""),
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),
+    translationParser: null,
     isActive: true,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),

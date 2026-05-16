@@ -34,6 +34,8 @@ export interface FormFieldProps {
   multiline?: boolean;
   /** 多行時的行數 */
   rows?: number;
+  /** 多行時的最少行數，未設定 rows 時會依內容自動展開 */
+  minRows?: number;
   /** 是否停用 */
   disabled?: boolean;
   /** 是否全寬（預設 true） */
@@ -69,6 +71,7 @@ export function FormField({
   type = "text",
   multiline = false,
   rows,
+  minRows,
   disabled = false,
   fullWidth = true,
   children,
@@ -98,6 +101,7 @@ export function FormField({
       type={type}
       multiline={multiline}
       rows={rows}
+      minRows={minRows}
       disabled={disabled}
       fullWidth={fullWidth}
     />

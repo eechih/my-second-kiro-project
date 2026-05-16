@@ -6,6 +6,7 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
+import { isTranslationSupplier } from "@shared/logic/translation-parser";
 import type {
   Supplier,
   CreateSupplierInput,
@@ -112,6 +113,9 @@ function applySupplierUpdate(
     ...(input.phone !== undefined && { phone: input.phone }),
     ...(input.email !== undefined && { email: input.email }),
     ...(input.address !== undefined && { address: input.address }),
+    ...(input.translationParser !== undefined && {
+      translationParser: input.translationParser,
+    }),
     ...(input.isActive !== undefined && { isActive: input.isActive }),
   };
 }
@@ -155,14 +159,19 @@ async function fetchSupplier(id: string): Promise<Supplier> {
 }
 
 async function createSupplier(input: CreateSupplierInput): Promise<Supplier> {
-  const { data, errors } = await client.models.Supplier.create({
+  const payload: Record<string, unknown> = {
     name: input.name,
     contactPerson: input.contactPerson,
     phone: input.phone,
     email: input.email ?? "",
     address: input.address ?? "",
+    translationParser: input.translationParser ?? null,
     isActive: true,
-  });
+  };
+
+  const { data, errors } = await client.models.Supplier.create(
+    payload as Parameters<typeof client.models.Supplier.create>[0],
+  );
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "建立供應商失敗");
@@ -176,7 +185,7 @@ async function createSupplier(input: CreateSupplierInput): Promise<Supplier> {
 }
 
 async function updateSupplier(input: UpdateSupplierInput): Promise<Supplier> {
-  const { data, errors } = await client.models.Supplier.update({
+  const payload: Record<string, unknown> = {
     id: input.id,
     ...(input.name !== undefined && { name: input.name }),
     ...(input.contactPerson !== undefined && {
@@ -185,8 +194,15 @@ async function updateSupplier(input: UpdateSupplierInput): Promise<Supplier> {
     ...(input.phone !== undefined && { phone: input.phone }),
     ...(input.email !== undefined && { email: input.email }),
     ...(input.address !== undefined && { address: input.address }),
+    ...(input.translationParser !== undefined && {
+      translationParser: input.translationParser,
+    }),
     ...(input.isActive !== undefined && { isActive: input.isActive }),
-  });
+  };
+
+  const { data, errors } = await client.models.Supplier.update(
+    payload as Parameters<typeof client.models.Supplier.update>[0],
+  );
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "更新供應商失敗");
@@ -222,6 +238,11 @@ function mapToSupplier(raw: Record<string, unknown>): Supplier {
     phone: String(raw.phone ?? ""),
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),
+    translationParser:
+      typeof raw.translationParser === "string" &&
+      isTranslationSupplier(raw.translationParser)
+        ? raw.translationParser
+        : null,
     isActive: raw.isActive !== false,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),

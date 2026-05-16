@@ -4,6 +4,8 @@
  * 需求：2.1, 2.2, 2.3
  */
 
+import type { TranslationSupplier } from "../logic/translation-parser";
+
 /** 供應商基本資料 */
 export interface Supplier {
   /** 唯一識別碼 */
@@ -18,6 +20,8 @@ export interface Supplier {
   email: string;
   /** 地址（選填） */
   address: string;
+  /** FB 貼文 translation parser 對應 key（選填） */
+  translationParser: TranslationSupplier | null;
   /** 啟用狀態（預設 true，false 表示已停用） */
   isActive: boolean;
   /** ISO 8601 建立時間 */
@@ -38,6 +42,8 @@ export interface CreateSupplierInput {
   email?: string;
   /** 地址（選填） */
   address?: string;
+  /** FB 貼文 translation parser 對應 key（選填） */
+  translationParser?: TranslationSupplier | null;
 }
 
 /** 更新供應商輸入 */
@@ -54,6 +60,8 @@ export interface UpdateSupplierInput {
   email?: string;
   /** 地址 */
   address?: string;
+  /** FB 貼文 translation parser 對應 key */
+  translationParser?: TranslationSupplier | null;
   /** 啟用狀態 */
   isActive?: boolean;
 }

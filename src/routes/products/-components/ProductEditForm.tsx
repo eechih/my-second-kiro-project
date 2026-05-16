@@ -1,14 +1,19 @@
-import { EntitySelect } from "@/components/EntitySelect";
 import { FormField } from "@/components/FormField";
 import { ImageUploader } from "@/components/ImageUploader";
 import { VariantTable } from "@/components/VariantTable";
 import { client } from "@/lib/amplify-client";
+import { isTranslationSupplier } from "@shared/logic/translation-parser";
 import AddIcon from "@mui/icons-material/Add";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
+import FormControl from "@mui/material/FormControl";
+import FormHelperText from "@mui/material/FormHelperText";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -18,12 +23,14 @@ import type {
   Supplier,
   UpdateVariantInput,
 } from "@shared/models";
+import { useQuery } from "@tanstack/react-query";
 import { useForm } from "@tanstack/react-form";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 export interface ProductEditFormValues {
   name: string;
   sku: string;
+  description: string;
   price: number;
   cost: number;
   stockQuantity: number;
@@ -52,10 +59,85 @@ function mapSupplier(raw: Record<string, unknown>): Supplier {
     phone: String(raw.phone ?? ""),
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),
+    translationParser:
+      typeof raw.translationParser === "string" &&
+      isTranslationSupplier(raw.translationParser)
+        ? raw.translationParser
+        : null,
     isActive: raw.isActive !== false,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };
+}
+
+function useSupplierOptions() {
+  return useQuery({
+    queryKey: ["suppliers", "select-options"],
+    queryFn: async () => {
+      const { data, errors } = await client.models.Supplier.list({
+        filter: { isActive: { eq: true } },
+        limit: 200,
+      });
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "查詢供應商失敗");
+      }
+      return (data ?? []).map((raw) =>
+        mapSupplier(raw as unknown as Record<string, unknown>),
+      );
+    },
+    staleTime: 60_000,
+  });
+}
+
+function SupplierSelect({
+  label,
+  value,
+  onChange,
+  suppliers,
+  isLoading,
+  isFetching,
+  error,
+}: {
+  label: string;
+  value: Supplier | null;
+  onChange: (supplier: Supplier | null) => void;
+  suppliers: Supplier[];
+  isLoading: boolean;
+  isFetching: boolean;
+  error: unknown;
+}): React.ReactElement {
+  const errorMessage =
+    error instanceof Error ? error.message : error ? "查詢供應商失敗" : "";
+
+  return (
+    <FormControl fullWidth error={!!error} disabled={isLoading}>
+      <InputLabel id={`${label}-label`}>{label}</InputLabel>
+      <Select
+        labelId={`${label}-label`}
+        label={label}
+        value={value?.id ?? ""}
+        onChange={(event) => {
+          const supplier =
+            suppliers.find((option) => option.id === event.target.value) ??
+            null;
+          onChange(supplier);
+        }}
+        endAdornment={
+          isFetching ? (
+            <CircularProgress color="inherit" size={20} sx={{ mr: 3 }} />
+          ) : undefined
+        }
+      >
+        <MenuItem value="">未指定</MenuItem>
+        {suppliers.map((supplier) => (
+          <MenuItem key={supplier.id} value={supplier.id}>
+            {supplier.name}
+          </MenuItem>
+        ))}
+      </Select>
+      {errorMessage && <FormHelperText>{errorMessage}</FormHelperText>}
+    </FormControl>
+  );
 }
 
 export function ProductEditForm({
@@ -76,24 +158,13 @@ export function ProductEditForm({
     priceOffset: "",
     costOffset: "",
   });
-  const searchSuppliers = useCallback(async (query: string) => {
-    const filter: Record<string, unknown> = { isActive: { eq: true } };
-    if (query) {
-      filter.or = [
-        { name: { contains: query } },
-        { contactPerson: { contains: query } },
-      ];
-    }
-    const { data } = await client.models.Supplier.list({ filter, limit: 20 });
-    return (data ?? []).map((raw) =>
-      mapSupplier(raw as unknown as Record<string, unknown>),
-    );
-  }, []);
+  const suppliersQuery = useSupplierOptions();
 
   const form = useForm({
     defaultValues: {
       name: product.name,
       sku: product.sku,
+      description: product.description,
       price: product.price,
       cost: product.cost,
       stockQuantity: product.stockQuantity,
@@ -102,6 +173,7 @@ export function ProductEditForm({
       await onSubmit({
         name: value.name,
         sku: value.sku,
+        description: value.description,
         price: Math.trunc(value.price),
         cost: Math.trunc(value.cost),
         stockQuantity: value.stockQuantity,
@@ -114,6 +186,7 @@ export function ProductEditForm({
     form.reset({
       name: product.name,
       sku: product.sku,
+      description: product.description,
       price: product.price,
       cost: product.cost,
       stockQuantity: product.stockQuantity,
@@ -243,13 +316,14 @@ export function ProductEditForm({
             )}
           </form.Field>
 
-          <EntitySelect<Supplier>
+          <SupplierSelect
             label="預設供應商"
             value={selectedSupplier}
             onChange={onSupplierChange}
-            queryKey={["suppliers", "select"]}
-            searchFn={searchSuppliers}
-            getOptionLabel={(supplier) => supplier.name}
+            suppliers={suppliersQuery.data ?? []}
+            isLoading={suppliersQuery.isLoading}
+            isFetching={suppliersQuery.isFetching}
+            error={suppliersQuery.error}
           />
 
           <Divider />
@@ -337,6 +411,17 @@ export function ProductEditForm({
             上傳商品照片，系統會自動壓縮圖片並產生縮圖。點擊照片可檢視原圖。
           </Typography>
           <ImageUploader productId={productId} imageKeys={product.imageUrls} />
+
+          <form.Field name="description">
+            {(field) => (
+              <FormField
+                field={field}
+                label="產品描述"
+                multiline
+                minRows={4}
+              />
+            )}
+          </form.Field>
 
           <Divider />
 

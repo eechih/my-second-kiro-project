@@ -2,8 +2,16 @@ import { FormField } from "@/components/FormField";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
+import {
+  TRANSLATION_SUPPLIERS,
+  type TranslationSupplier,
+} from "@shared/logic/translation-parser";
 import { useForm } from "@tanstack/react-form";
 import { useEffect } from "react";
 
@@ -13,6 +21,7 @@ export interface SupplierFormValues {
   phone: string;
   email: string;
   address: string;
+  translationParser: TranslationSupplier | "";
 }
 
 export interface SupplierFormProps {
@@ -29,6 +38,18 @@ const DEFAULT_SUPPLIER_VALUES: SupplierFormValues = {
   phone: "",
   email: "",
   address: "",
+  translationParser: "",
+};
+
+const TRANSLATION_PARSER_LABELS: Record<TranslationSupplier, string> = {
+  wish: "Wish",
+  cat: "小貓",
+  money: "Money",
+  boom: "Boom",
+  boom_p4: "Boom P4",
+  yoshida: "吉田",
+  mitago: "Mitago",
+  apple: "Apple",
 };
 
 export function SupplierForm({
@@ -86,6 +107,34 @@ export function SupplierForm({
           <form.Field name="address">
             {(field) => (
               <FormField field={field} label="地址" multiline rows={2} />
+            )}
+          </form.Field>
+
+          <form.Field name="translationParser">
+            {(field) => (
+              <FormControl fullWidth>
+                <InputLabel id="supplier-translation-parser-label">
+                  貼文解析器
+                </InputLabel>
+                <Select
+                  labelId="supplier-translation-parser-label"
+                  label="貼文解析器"
+                  value={field.state.value}
+                  onChange={(event) =>
+                    field.handleChange(
+                      event.target.value as TranslationSupplier | "",
+                    )
+                  }
+                  onBlur={field.handleBlur}
+                >
+                  <MenuItem value="">未指定</MenuItem>
+                  {TRANSLATION_SUPPLIERS.map((parser) => (
+                    <MenuItem key={parser} value={parser}>
+                      {TRANSLATION_PARSER_LABELS[parser]}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             )}
           </form.Field>
 

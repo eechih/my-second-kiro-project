@@ -53,6 +53,7 @@ const PRODUCT_SELECTION_SET = [
   "id",
   "name",
   "sku",
+  "description",
   "price",
   "cost",
   "defaultSupplierId",
@@ -116,6 +117,7 @@ function applyProductUpdate(
     ...product,
     ...(input.name !== undefined && { name: input.name }),
     ...(input.sku !== undefined && { sku: input.sku }),
+    ...(input.description !== undefined && { description: input.description }),
     ...(input.price !== undefined && { price: input.price }),
     ...(input.cost !== undefined && {
       cost: input.cost,
@@ -209,6 +211,7 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
   const { data, errors } = await client.models.Product.create({
     name: input.name,
     sku: input.sku,
+    description: input.description ?? "",
     price: input.price,
     cost: input.cost,
     defaultSupplierId: input.defaultSupplierId ?? null,
@@ -237,6 +240,8 @@ function buildProductUpdatePayload(
 
   if (input.name !== undefined) updatePayload.name = input.name;
   if (input.sku !== undefined) updatePayload.sku = input.sku;
+  if (input.description !== undefined)
+    updatePayload.description = input.description;
   if (input.price !== undefined) updatePayload.price = input.price;
   if (input.cost !== undefined)
     updatePayload.cost = input.cost;
@@ -559,6 +564,7 @@ function mapToProduct(raw: Record<string, unknown>): Product {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
     sku: String(raw.sku ?? ""),
+    description: String(raw.description ?? ""),
     price: Number(raw.price ?? 0),
     cost: Number(raw.cost ?? 0),
     defaultSupplierId: raw.defaultSupplierId

@@ -38,6 +38,7 @@ function SupplierEditPage() {
       phone: supplier.phone,
       email: supplier.email,
       address: supplier.address,
+      translationParser: supplier.translationParser ?? "",
     };
   }, [supplier]);
 
@@ -60,6 +61,7 @@ function SupplierEditPage() {
         phone: values.phone,
         email: values.email,
         address: values.address,
+        translationParser: values.translationParser || null,
       });
       void navigate({ to: "/suppliers" });
     } catch (err) {
@@ -122,7 +124,7 @@ function SupplierEditSkeleton(): React.ReactElement {
       <Skeleton variant="text" width={200} height={40} sx={{ mb: 2 }} />
       <Paper sx={{ p: 3 }}>
         <Stack spacing={3}>
-          {Array.from({ length: 5 }).map((_, index) => (
+          {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} variant="rectangular" height={56} />
           ))}
         </Stack>

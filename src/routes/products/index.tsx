@@ -193,7 +193,12 @@ function ProductListPage(): React.ReactElement {
         totalCount={data?.totalCount ?? 0}
         statusFilter={statusFilter}
         onStatusFilterChange={handleStatusFilterChange}
-        onAddClick={() => void navigate({ to: "/products/new" })}
+        onAddClick={() =>
+          void navigate({ to: "/products/new", search: { fromPost: false } })
+        }
+        onAddFromPostClick={() =>
+          void navigate({ to: "/products/new", search: { fromPost: true } })
+        }
       />
 
       <ProductTable

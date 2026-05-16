@@ -24,6 +24,8 @@ export interface Product {
   name: string;
   /** SKU 編號（必填，唯一） */
   sku: string;
+  /** 產品描述（選填） */
+  description: string;
   /** 預設單價（必填，>= 0） */
   price: number;
   /** 預設進貨成本（必填，>= 0） */
@@ -50,6 +52,8 @@ export interface CreateProductInput {
   name: string;
   /** SKU 編號（必填，唯一） */
   sku: string;
+  /** 產品描述（選填） */
+  description?: string;
   /** 預設單價（必填，>= 0） */
   price: number;
   /** 預設進貨成本（必填，>= 0） */
@@ -70,6 +74,8 @@ export interface UpdateProductInput {
   name?: string;
   /** SKU 編號 */
   sku?: string;
+  /** 產品描述 */
+  description?: string;
   /** 預設單價 */
   price?: number;
   /** 預設進貨成本 */

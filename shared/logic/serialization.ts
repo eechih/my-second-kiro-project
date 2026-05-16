@@ -62,6 +62,7 @@ export function deserializeProduct(json: string): Product {
   assertStringField(product, "id", "Product");
   assertStringField(product, "name", "Product");
   assertStringField(product, "sku", "Product");
+  assertStringField(product, "description", "Product");
   assertNumberField(product, "price", "Product");
   assertNumberField(product, "cost", "Product");
   assertNumberField(product, "stockQuantity", "Product");
@@ -125,6 +126,7 @@ export function deserializeSupplier(json: string): Supplier {
   assertOptionalStringField(supplier, "phone", "Supplier");
   assertStringField(supplier, "email", "Supplier");
   assertStringField(supplier, "address", "Supplier");
+  assertNullableStringField(supplier, "translationParser", "Supplier");
   assertBooleanField(supplier, "isActive", "Supplier");
   assertStringField(supplier, "createdAt", "Supplier");
   assertStringField(supplier, "updatedAt", "Supplier");
@@ -167,6 +169,22 @@ function assertOptionalStringField(
   if (obj[field] !== undefined && typeof obj[field] !== "string") {
     throw new Error(
       `反序列化失敗：${typeName}.${field} 應為 string，但收到 ${typeof obj[field]}`,
+    );
+  }
+}
+
+function assertNullableStringField(
+  obj: Record<string, unknown>,
+  field: string,
+  typeName: string,
+): void {
+  if (
+    obj[field] !== undefined &&
+    obj[field] !== null &&
+    typeof obj[field] !== "string"
+  ) {
+    throw new Error(
+      `反序列化失敗：${typeName}.${field} 應為 string 或 null，但收到 ${typeof obj[field]}`,
     );
   }
 }
