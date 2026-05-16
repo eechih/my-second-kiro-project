@@ -210,10 +210,11 @@ function RootComponent() {
           spacing={3}
           sx={{
             width: "100%",
-            maxWidth: 1440,
+            maxWidth: 1680,
+            boxSizing: "border-box",
             mx: "auto",
-            px: { xs: 2, sm: 3, lg: 4 },
-            py: { xs: 3, md: 4 },
+            px: { xs: 2, sm: 3, md: 4, xl: 5 },
+            py: { xs: 2, md: 3, xl: 4 },
           }}
         >
           <Outlet />
