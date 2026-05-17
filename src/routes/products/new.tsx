@@ -54,7 +54,6 @@ function ProductNewPage() {
 
     const validation = validateProduct({
       name: values.name,
-      sku: values.sku,
       price: values.price,
       cost: values.cost,
     });
@@ -222,7 +221,7 @@ function ProductPostParserPanel({
       onApply(prefill);
       setParseMessage(
         result.name
-          ? "已解析貼文並填入商品表單，請確認 SKU 與其他欄位後送出。"
+          ? "已解析貼文並填入商品表單，請確認欄位後送出；SKU 會在建立時自動產生。"
           : "已完成解析，但未抓到商品名稱，請手動補上表單欄位。",
       );
     } catch (err) {

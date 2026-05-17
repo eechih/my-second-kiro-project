@@ -167,7 +167,6 @@ export function getMissingSupplierFields(
 /** Product 必填字串欄位清單 */
 const PRODUCT_REQUIRED_STRING_FIELDS: readonly (readonly [string, string])[] = [
   ["name", "商品名稱"],
-  ["sku", "SKU"],
 ] as const;
 
 /** Product 必填數值欄位清單（非負數） */
@@ -179,7 +178,7 @@ const PRODUCT_REQUIRED_NUMBER_FIELDS: readonly (readonly [string, string])[] = [
 /**
  * 驗證商品資料的必填欄位。
  *
- * 字串欄位（name、sku）不可為空。
+ * 字串欄位（name）不可為空；SKU 由系統建立商品時自動產生。
  * 數值欄位（unitPrice、defaultCost）必須為有效的非負數。
  *
  * @param input - 部分商品資料

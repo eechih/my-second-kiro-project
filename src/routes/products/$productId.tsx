@@ -89,7 +89,6 @@ function ProductEditPage() {
 
     const validation = validateProduct({
       name: values.name,
-      sku: values.sku,
       price: values.price,
       cost: values.cost,
     });
@@ -102,7 +101,6 @@ function ProductEditPage() {
       await updateMutation.mutateAsync({
         id: productId,
         name: values.name,
-        sku: values.sku,
         description: values.description,
         price: values.price,
         cost: values.cost,
@@ -164,7 +162,7 @@ function ProductEditPage() {
 
   if (isLoadingProduct) {
     return (
-      <Box sx={{ maxWidth: 800 }}>
+      <Box sx={{ maxWidth: 1040 }}>
         <Skeleton variant="text" width={200} height={40} sx={{ mb: 2 }} />
         <Paper sx={{ p: 3 }}>
           <Stack spacing={3}>
@@ -179,7 +177,7 @@ function ProductEditPage() {
 
   if (loadError) {
     return (
-      <Box sx={{ maxWidth: 800 }}>
+      <Box sx={{ maxWidth: 1040 }}>
         <Alert severity="error">
           {loadError instanceof Error ? loadError.message : "載入商品資料失敗"}
         </Alert>
@@ -189,14 +187,14 @@ function ProductEditPage() {
 
   if (!product) {
     return (
-      <Box sx={{ maxWidth: 800 }}>
+      <Box sx={{ maxWidth: 1040 }}>
         <Alert severity="warning">找不到該商品</Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ maxWidth: 800 }}>
+    <Box sx={{ maxWidth: 1040 }}>
       <PageHeader section="商品" current="編輯" title="編輯商品" />
 
       {submitError && (

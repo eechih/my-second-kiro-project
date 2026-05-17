@@ -50,8 +50,8 @@ export interface Product {
 export interface CreateProductInput {
   /** 商品名稱（必填） */
   name: string;
-  /** SKU 編號（必填，唯一） */
-  sku: string;
+  /** SKU 編號（由系統自動產生） */
+  sku?: string;
   /** 產品描述（選填） */
   description?: string;
   /** 預設單價（必填，>= 0） */

@@ -23,7 +23,6 @@ import { useEffect, useState } from "react";
 
 export interface ProductCreateFormValues {
   name: string;
-  sku: string;
   description: string;
   price: number;
   cost: number;
@@ -156,7 +155,6 @@ export function ProductCreateForm({
   const form = useForm({
     defaultValues: {
       name: "",
-      sku: "",
       description: "",
       price: 0,
       cost: 0,
@@ -165,7 +163,6 @@ export function ProductCreateForm({
     onSubmit: async ({ value }) => {
       await onSubmit({
         name: value.name,
-        sku: value.sku,
         description: value.description,
         price: Math.trunc(value.price),
         cost: Math.trunc(value.cost),
@@ -216,40 +213,6 @@ export function ProductCreateForm({
         }}
       >
         {(field) => <FormField field={field} label="商品名稱" required />}
-      </form.Field>
-
-      <form.Field
-        name="sku"
-        validators={{
-          onBlur: ({ value }) => (!value.trim() ? "SKU 為必填" : undefined),
-          onBlurAsync: async ({ value }) => {
-            if (!value.trim()) return undefined;
-            const { data } = await client.models.Product.list({
-              filter: { sku: { eq: value.trim() } },
-              limit: 1,
-            });
-            return data && data.length > 0
-              ? "此 SKU 已存在，請使用其他 SKU"
-              : undefined;
-          },
-        }}
-      >
-        {(field) => (
-          <Box sx={{ position: "relative" }}>
-            <FormField field={field} label="SKU" required />
-            {field.state.meta.isValidating && (
-              <CircularProgress
-                size={20}
-                sx={{
-                  position: "absolute",
-                  right: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                }}
-              />
-            )}
-          </Box>
-        )}
       </form.Field>
 
       <form.Field
@@ -325,6 +288,17 @@ export function ProductCreateForm({
     </Paper>
   );
 
+  const skuNotice = (
+    <Paper sx={{ p: 2 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <InfoOutlinedIcon color="info" fontSize="small" />
+        <Typography variant="body2" color="text.secondary">
+          SKU 會在建立商品後自動產生，格式為 SKU-000001，並依建立順序遞增。
+        </Typography>
+      </Box>
+    </Paper>
+  );
+
   const photoNotice = (
     <Paper sx={{ p: 2 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -387,6 +361,7 @@ export function ProductCreateForm({
           }}
         >
           <Stack spacing={2} sx={{ gridArea: "main" }}>
+            {skuNotice}
             <Paper sx={{ p: 2 }}>
               <Stack spacing={2}>{productFields}</Stack>
             </Paper>
@@ -428,6 +403,7 @@ export function ProductCreateForm({
   return (
     <form onSubmit={handleFormSubmit}>
       <Stack spacing={2}>
+        {skuNotice}
         <Paper sx={{ p: 2 }}>
           <Stack spacing={2}>{productFields}</Stack>
         </Paper>

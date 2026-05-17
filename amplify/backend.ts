@@ -12,6 +12,7 @@ import { confirmOutOfStock } from "./functions/confirm-out-of-stock/resource";
 import { confirmPurchase } from "./functions/confirm-purchase/resource";
 import { confirmShipment } from "./functions/confirm-shipment/resource";
 import { confirmReceived } from "./functions/confirm-received/resource";
+import { createProduct } from "./functions/create-product/resource";
 import { mergeOrders } from "./functions/merge-orders/resource";
 import { splitOrder } from "./functions/split-order/resource";
 import { generateThumbnail } from "./functions/generate-thumbnail/resource";
@@ -28,6 +29,7 @@ const backend = defineBackend({
   confirmPurchase,
   confirmShipment,
   confirmReceived,
+  createProduct,
   mergeOrders,
   splitOrder,
   generateThumbnail,
@@ -46,15 +48,17 @@ const orderTable = tables["Order"];
 const lineItemTable = tables["LineItem"];
 const productTable = tables["Product"];
 const productVariantTable = tables["ProductVariant"];
+const productCounterTable = tables["ProductCounter"];
 
 if (
   !orderTable ||
   !lineItemTable ||
   !productTable ||
-  !productVariantTable
+  !productVariantTable ||
+  !productCounterTable
 ) {
   throw new Error(
-    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、LineItem、Product、ProductVariant 模型。",
+    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、LineItem、Product、ProductVariant、ProductCounter 模型。",
   );
 }
 
@@ -81,6 +85,7 @@ const transactionalFunctions = [
   backend.confirmPurchase,
   backend.confirmShipment,
   backend.confirmReceived,
+  backend.createProduct,
   backend.mergeOrders,
   backend.splitOrder,
 ];
@@ -98,12 +103,17 @@ for (const fn of transactionalFunctions) {
     "PRODUCTVARIANT_TABLE_NAME",
     productVariantTable.tableName,
   );
+  lambdaFn.addEnvironment(
+    "PRODUCTCOUNTER_TABLE_NAME",
+    productCounterTable.tableName,
+  );
 
   // 授予 DynamoDB 讀寫權限
   orderTable.grantReadWriteData(lambdaFn);
   lineItemTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
   productVariantTable.grantReadWriteData(lambdaFn);
+  productCounterTable.grantReadWriteData(lambdaFn);
 
   // grantReadWriteData does not include GSI ARNs. Several order workflow
   // functions query LineItem.byOrderId directly to derive order state.

@@ -133,6 +133,31 @@ function applyProductUpdate(
   };
 }
 
+function parseCustomMutationResult(
+  result: unknown,
+): Record<string, unknown> | null {
+  let current = result;
+
+  for (let i = 0; i < 3; i += 1) {
+    if (typeof current === "string") {
+      try {
+        current = JSON.parse(current) as unknown;
+      } catch {
+        return null;
+      }
+      continue;
+    }
+
+    if (current && typeof current === "object" && !Array.isArray(current)) {
+      return current as Record<string, unknown>;
+    }
+
+    return null;
+  }
+
+  return null;
+}
+
 async function fetchProductList(
   params: ProductListParams,
 ): Promise<PaginatedResult<string>> {
@@ -208,18 +233,14 @@ async function fetchProduct(id: string): Promise<Product> {
 }
 
 async function createProduct(input: CreateProductInput): Promise<Product> {
-  const { data, errors } = await client.models.Product.create({
+  const { data, errors } = await client.mutations.createProductWithAutoSku({
     name: input.name,
-    sku: input.sku,
     description: input.description ?? "",
     price: input.price,
     cost: input.cost,
     defaultSupplierId: input.defaultSupplierId ?? null,
     stockQuantity: input.stockQuantity ?? 0,
     imageUrls: input.imageUrls ?? [],
-    isActive: true,
-    gsiPartition: "Product",
-    createdAtForSort: new Date().toISOString(),
   });
 
   if (errors && errors.length > 0) {
@@ -230,7 +251,17 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
     throw new Error("建立商品失敗：未回傳資料");
   }
 
-  return mapToProduct({ ...data, variants: [] });
+  const resultRecord = parseCustomMutationResult(data) ?? {};
+  if (resultRecord.success === false) {
+    throw new Error(String(resultRecord.message ?? "建立商品失敗"));
+  }
+
+  const productData =
+    resultRecord.data && typeof resultRecord.data === "object"
+      ? (resultRecord.data as Record<string, unknown>)
+      : resultRecord;
+
+  return mapToProduct({ ...productData, variants: [] });
 }
 
 function buildProductUpdatePayload(

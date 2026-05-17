@@ -8,6 +8,7 @@ import { confirmOutOfStock } from "../functions/confirm-out-of-stock/resource";
 import { confirmPurchase } from "../functions/confirm-purchase/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
 import { confirmShipment } from "../functions/confirm-shipment/resource";
+import { createProduct } from "../functions/create-product/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
 import { splitOrder } from "../functions/split-order/resource";
 
@@ -118,6 +119,15 @@ const schema = a.schema({
     .authorization((allow) => [allow.authenticated()]),
 
   // ---------------------------------------------------------------------------
+  // ProductCounter（商品流水號計數器）
+  // ---------------------------------------------------------------------------
+  ProductCounter: a
+    .model({
+      nextNumber: a.integer().required().default(0),
+    })
+    .authorization((allow) => [allow.authenticated()]),
+
+  // ---------------------------------------------------------------------------
   // Order（訂單）
   // 單一主鍵：id；列表透過 GSI 依建立日期排序
   // ---------------------------------------------------------------------------
@@ -170,6 +180,22 @@ const schema = a.schema({
   // ---------------------------------------------------------------------------
   // Custom Mutations（事務性操作，由 Lambda 函式處理）
   // ---------------------------------------------------------------------------
+
+  /** 建立商品：自動配置 SKU 流水號 */
+  createProductWithAutoSku: a
+    .mutation()
+    .arguments({
+      name: a.string().required(),
+      description: a.string(),
+      price: a.integer().required(),
+      cost: a.integer().required(),
+      defaultSupplierId: a.string(),
+      stockQuantity: a.integer(),
+      imageUrls: a.string().array(),
+    })
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(createProduct)),
 
   /** 確認採購：pending → ordered，寫入供應商與成本資料 */
   confirmPurchase: a

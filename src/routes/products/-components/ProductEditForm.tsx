@@ -4,10 +4,10 @@ import { VariantTable } from "@/components/VariantTable";
 import { client } from "@/lib/amplify-client";
 import { isTranslationSupplier } from "@shared/logic/translation-parser";
 import AddIcon from "@mui/icons-material/Add";
+import SaveIcon from "@mui/icons-material/Save";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import FormHelperText from "@mui/material/FormHelperText";
 import InputLabel from "@mui/material/InputLabel";
@@ -17,6 +17,7 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import type { ReactNode } from "react";
 import type {
   CreateVariantInput,
   Product,
@@ -29,7 +30,6 @@ import { useEffect, useState } from "react";
 
 export interface ProductEditFormValues {
   name: string;
-  sku: string;
   description: string;
   price: number;
   cost: number;
@@ -49,6 +49,32 @@ export interface ProductEditFormProps {
   onCreateVariant: (variant: CreateVariantInput) => void;
   onUpdateVariant: (variantId: string, updates: UpdateVariantInput) => void;
   onDeleteVariant: (variantId: string) => void;
+}
+
+function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}): React.ReactElement {
+  return (
+    <Paper sx={{ p: 2.5 }}>
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="h6">{title}</Typography>
+          {description && (
+            <Typography variant="body2" color="text.secondary">
+              {description}
+            </Typography>
+          )}
+        </Box>
+        {children}
+      </Stack>
+    </Paper>
+  );
 }
 
 function mapSupplier(raw: Record<string, unknown>): Supplier {
@@ -163,7 +189,6 @@ export function ProductEditForm({
   const form = useForm({
     defaultValues: {
       name: product.name,
-      sku: product.sku,
       description: product.description,
       price: product.price,
       cost: product.cost,
@@ -172,7 +197,6 @@ export function ProductEditForm({
     onSubmit: async ({ value }) => {
       await onSubmit({
         name: value.name,
-        sku: value.sku,
         description: value.description,
         price: Math.trunc(value.price),
         cost: Math.trunc(value.cost),
@@ -185,7 +209,6 @@ export function ProductEditForm({
   useEffect(() => {
     form.reset({
       name: product.name,
-      sku: product.sku,
       description: product.description,
       price: product.price,
       cost: product.cost,
@@ -223,118 +246,105 @@ export function ProductEditForm({
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          void form.handleSubmit();
-        }}
-      >
-        <Stack spacing={3}>
-          <form.Field
-            name="name"
-            validators={{
-              onBlur: ({ value }) =>
-                !value.trim() ? "商品名稱為必填" : undefined,
-            }}
-          >
-            {(field) => <FormField field={field} label="商品名稱" required />}
-          </form.Field>
-
-          <form.Field
-            name="sku"
-            validators={{
-              onBlur: ({ value }) => (!value.trim() ? "SKU 為必填" : undefined),
-              onBlurAsync: async ({ value }) => {
-                if (!value.trim()) return undefined;
-                if (value.trim() === product.sku) return undefined;
-                const { data } = await client.models.Product.list({
-                  filter: { sku: { eq: value.trim() } },
-                  limit: 1,
-                });
-                return data && data.length > 0
-                  ? "此 SKU 已存在，請使用其他 SKU"
-                  : undefined;
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void form.handleSubmit();
+      }}
+    >
+      <Stack spacing={2.5}>
+        <FormSection title="基本資料">
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: {
+                xs: "1fr",
+                md: "minmax(0, 1.4fr) minmax(220px, 0.8fr)",
               },
             }}
           >
-            {(field) => (
-              <Box sx={{ position: "relative" }}>
-                <FormField field={field} label="SKU" required />
-                {field.state.meta.isValidating && (
-                  <CircularProgress
-                    size={20}
-                    sx={{
-                      position: "absolute",
-                      right: 12,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                    }}
-                  />
-                )}
-              </Box>
-            )}
-          </form.Field>
+            <form.Field
+              name="name"
+              validators={{
+                onBlur: ({ value }) =>
+                  !value.trim() ? "商品名稱為必填" : undefined,
+              }}
+            >
+              {(field) => <FormField field={field} label="商品名稱" required />}
+            </form.Field>
 
-          <form.Field
-            name="price"
-            validators={{
-              onBlur: ({ value }) => (value < 0 ? "單價不可為負數" : undefined),
-            }}
-          >
-            {(field) => (
-              <FormField
-                field={field}
-                label="預設單價"
-                type="number"
-                required
-              />
-            )}
-          </form.Field>
+            <TextField
+              label="SKU"
+              value={product.sku}
+              disabled
+              helperText="系統產生的流水號，建立後不可修改。"
+            />
 
-          <form.Field
-            name="cost"
-            validators={{
-              onBlur: ({ value }) =>
-                value < 0 ? "進貨成本不可為負數" : undefined,
-            }}
-          >
-            {(field) => (
-              <FormField
-                field={field}
-                label="預設進貨成本"
-                type="number"
-                required
-              />
-            )}
-          </form.Field>
+            <form.Field
+              name="price"
+              validators={{
+                onBlur: ({ value }) =>
+                  value < 0 ? "單價不可為負數" : undefined,
+              }}
+            >
+              {(field) => (
+                <FormField
+                  field={field}
+                  label="預設單價"
+                  type="number"
+                  required
+                />
+              )}
+            </form.Field>
 
-          <form.Field name="stockQuantity">
-            {(field) => (
-              <FormField field={field} label="庫存數量" type="number" />
-            )}
-          </form.Field>
+            <form.Field
+              name="cost"
+              validators={{
+                onBlur: ({ value }) =>
+                  value < 0 ? "進貨成本不可為負數" : undefined,
+              }}
+            >
+              {(field) => (
+                <FormField
+                  field={field}
+                  label="預設進貨成本"
+                  type="number"
+                  required
+                />
+              )}
+            </form.Field>
 
-          <SupplierSelect
-            label="預設供應商"
-            value={selectedSupplier}
-            onChange={onSupplierChange}
-            suppliers={suppliersQuery.data ?? []}
-            isLoading={suppliersQuery.isLoading}
-            isFetching={suppliersQuery.isFetching}
-            error={suppliersQuery.error}
-          />
+            <form.Field
+              name="stockQuantity"
+              validators={{
+                onBlur: ({ value }) =>
+                  value < 0 ? "庫存數量不可為負數" : undefined,
+              }}
+            >
+              {(field) => (
+                <FormField field={field} label="庫存數量" type="number" />
+              )}
+            </form.Field>
 
-          <Divider />
-          <Stack spacing={1.5}>
-            <Box>
-              <Typography variant="h6">規格選項</Typography>
-              <Typography variant="body2" color="text.secondary">
-                每個規格以單一標籤管理，例如「黑色」或「XL」。
-              </Typography>
-            </Box>
+            <SupplierSelect
+              label="預設供應商"
+              value={selectedSupplier}
+              onChange={onSupplierChange}
+              suppliers={suppliersQuery.data ?? []}
+              isLoading={suppliersQuery.isLoading}
+              isFetching={suppliersQuery.isFetching}
+              error={suppliersQuery.error}
+            />
+          </Box>
+        </FormSection>
 
+        <FormSection
+          title="規格選項"
+          description="每個規格以單一標籤管理，例如「黑色」或「XL」。"
+        >
+          <Stack spacing={2}>
             <Box
               sx={{
                 display: "grid",
@@ -393,39 +403,41 @@ export function ProductEditForm({
                 新增
               </Button>
             </Box>
+
+            <VariantTable
+              productId={productId}
+              variants={product.variants}
+              defaultUnitPrice={product.price}
+              defaultCost={product.cost}
+              onUpdateVariant={onUpdateVariant}
+              onDeleteVariant={onDeleteVariant}
+              isLoading={isVariantMutating}
+            />
           </Stack>
+        </FormSection>
 
-          <VariantTable
-            productId={productId}
-            variants={product.variants}
-            defaultUnitPrice={product.price}
-            defaultCost={product.cost}
-            onUpdateVariant={onUpdateVariant}
-            onDeleteVariant={onDeleteVariant}
-            isLoading={isVariantMutating}
-          />
-
-          <Divider />
-          <Typography variant="h6">商品照片</Typography>
-          <Typography variant="body2" color="text.secondary">
-            上傳商品照片，系統會自動壓縮圖片並產生縮圖。點擊照片可檢視原圖。
-          </Typography>
+        <FormSection
+          title="商品照片"
+          description="上傳商品照片，系統會自動壓縮圖片並產生縮圖。點擊照片可檢視原圖。"
+        >
           <ImageUploader productId={productId} imageKeys={product.imageUrls} />
+        </FormSection>
 
+        <FormSection title="產品描述">
           <form.Field name="description">
             {(field) => (
               <FormField
                 field={field}
                 label="產品描述"
                 multiline
-                minRows={4}
+                minRows={5}
               />
             )}
           </form.Field>
+        </FormSection>
 
-          <Divider />
-
-          <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
+        <Paper sx={{ p: 1.5 }}>
+          <Box sx={{ display: "flex", gap: 1.5, justifyContent: "flex-end" }}>
             <Button variant="outlined" onClick={onCancel}>
               取消
             </Button>
@@ -434,14 +446,14 @@ export function ProductEditForm({
               variant="contained"
               disabled={isSubmitting}
               startIcon={
-                isSubmitting ? <CircularProgress size={16} /> : undefined
+                isSubmitting ? <CircularProgress size={16} /> : <SaveIcon />
               }
             >
               儲存
             </Button>
           </Box>
-        </Stack>
-      </form>
-    </Paper>
+        </Paper>
+      </Stack>
+    </form>
   );
 }
