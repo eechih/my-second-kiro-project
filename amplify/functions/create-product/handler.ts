@@ -7,6 +7,7 @@ import {
   UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import { v4 as uuidv4 } from "uuid";
 import { logError, logInfo, logWarn } from "../debug-log";
 
 const ddb = new DynamoDBClient({});
@@ -87,6 +88,7 @@ async function ensureCounterInitialized(
       new PutItemCommand({
         TableName: counterTable,
         Item: marshall({
+          id: COUNTER_NAME,
           name: COUNTER_NAME,
           current: maxSequence,
           createdAt: now,
@@ -180,7 +182,7 @@ export const handler: Schema["createProductWithAutoSku"]["functionHandler"] =
 
       const sequence = await allocateSkuSequence(counterTable, productTable, now);
       const sku = formatSku(sequence);
-      const id = crypto.randomUUID();
+      const id = uuidv4();
       const product = {
         id,
         name: trimmedName,

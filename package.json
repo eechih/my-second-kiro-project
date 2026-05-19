@@ -31,7 +31,8 @@
     "aws-amplify": "^6.12.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@aws-amplify/backend-cli": "^1.4.0",
