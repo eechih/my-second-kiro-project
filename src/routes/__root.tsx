@@ -1,5 +1,6 @@
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import BusinessIcon from "@mui/icons-material/Business";
+import CloseIcon from "@mui/icons-material/Close";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import DnsIcon from "@mui/icons-material/Dns";
 import InventoryIcon from "@mui/icons-material/Inventory";
@@ -128,6 +129,7 @@ function RootComponent() {
     select: (state) => state.location.pathname,
   });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(true);
 
   if (auth.isLoading) {
     return (
@@ -174,10 +176,34 @@ function RootComponent() {
         bgcolor: alpha(theme.palette.primary.main, 0.03),
       }}
     >
-      <SideMenu pathname={pathname} />
+      <SideMenu
+        pathname={pathname}
+        open={desktopMenuOpen}
+        onToggle={() => setDesktopMenuOpen((prev) => !prev)}
+      />
+      {!desktopMenuOpen && (
+        <IconButton
+          aria-label="開啟側邊選單"
+          onClick={() => setDesktopMenuOpen(true)}
+          sx={{
+            display: { xs: "none", md: "inline-flex" },
+            position: "fixed",
+            top: 16,
+            left: 16,
+            zIndex: (muiTheme) => muiTheme.zIndex.appBar + 1,
+            bgcolor: "background.paper",
+            border: 1,
+            borderColor: "divider",
+            "&:hover": { bgcolor: "action.hover" },
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+      )}
       <MobileAppBar
         sectionLabel={sectionLabel}
-        onOpenMenu={() => setMobileOpen(true)}
+        mobileOpen={mobileOpen}
+        onToggleMenu={() => setMobileOpen((prev) => !prev)}
       />
       <Drawer
         variant="temporary"
@@ -202,7 +228,9 @@ function RootComponent() {
         sx={{
           flexGrow: 1,
           minWidth: 0,
-          width: { md: `calc(100% - ${drawerWidth}px)` },
+          width: {
+            md: desktopMenuOpen ? `calc(100% - ${drawerWidth}px)` : "100%",
+          },
         }}
       >
         <Toolbar sx={{ display: { xs: "block", md: "none" } }} />
@@ -268,10 +296,15 @@ function PublicAppBar() {
 
 interface MobileAppBarProps {
   sectionLabel: string;
-  onOpenMenu: () => void;
+  mobileOpen: boolean;
+  onToggleMenu: () => void;
 }
 
-function MobileAppBar({ sectionLabel, onOpenMenu }: MobileAppBarProps) {
+function MobileAppBar({
+  sectionLabel,
+  mobileOpen,
+  onToggleMenu,
+}: MobileAppBarProps) {
   const auth = useAuth();
 
   return (
@@ -287,8 +320,12 @@ function MobileAppBar({ sectionLabel, onOpenMenu }: MobileAppBarProps) {
       }}
     >
       <Toolbar sx={{ gap: 1.5 }}>
-        <IconButton edge="start" aria-label="開啟選單" onClick={onOpenMenu}>
-          <MenuIcon />
+        <IconButton
+          edge="start"
+          aria-label={mobileOpen ? "隱藏選單" : "開啟選單"}
+          onClick={onToggleMenu}
+        >
+          {mobileOpen ? <CloseIcon /> : <MenuIcon />}
         </IconButton>
         <Typography variant="h6" noWrap sx={{ flexGrow: 1, minWidth: 0 }}>
           {sectionLabel}
@@ -310,44 +347,77 @@ function MobileAppBar({ sectionLabel, onOpenMenu }: MobileAppBarProps) {
 
 interface SideMenuProps {
   pathname: string;
+  open: boolean;
+  onToggle: () => void;
 }
 
-function SideMenu({ pathname }: SideMenuProps) {
+function SideMenu({ pathname, open, onToggle }: SideMenuProps) {
   return (
-    <Drawer
-      variant="permanent"
+    <Box
       sx={{
-        display: { xs: "none", md: "block" },
-        width: drawerWidth,
+        display: { xs: "none", md: "flex" },
+        width: { md: open ? drawerWidth : 0 },
         flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: drawerWidth,
-          boxSizing: "border-box",
-          borderRight: 1,
-          borderColor: "divider",
-          bgcolor: "background.paper",
-          backgroundImage: "none",
-        },
+        overflow: "hidden",
+        transition: (theme) =>
+          theme.transitions.create("width", {
+            duration: theme.transitions.duration.standard,
+            easing: theme.transitions.easing.easeInOut,
+          }),
       }}
     >
-      <NavigationPanel pathname={pathname} />
-    </Drawer>
+      <Drawer
+        variant="permanent"
+        open={open}
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          "& .MuiDrawer-paper": {
+            width: drawerWidth,
+            boxSizing: "border-box",
+            borderRight: 1,
+            borderColor: "divider",
+            bgcolor: "background.paper",
+            backgroundImage: "none",
+            transform: open ? "translateX(0)" : `translateX(-${drawerWidth}px)`,
+            transition: (theme) =>
+              theme.transitions.create("transform", {
+                duration: theme.transitions.duration.standard,
+                easing: theme.transitions.easing.easeInOut,
+              }),
+          },
+        }}
+      >
+        <NavigationPanel
+          pathname={pathname}
+          onToggleDesktop={onToggle}
+          showDesktopToggle
+        />
+      </Drawer>
+    </Box>
   );
 }
 
 interface NavigationPanelProps {
   pathname: string;
   onNavigate?: () => void;
+  onToggleDesktop?: () => void;
+  showDesktopToggle?: boolean;
 }
 
-function NavigationPanel({ pathname, onNavigate }: NavigationPanelProps) {
+function NavigationPanel({
+  pathname,
+  onNavigate,
+  onToggleDesktop,
+  showDesktopToggle = false,
+}: NavigationPanelProps) {
   const auth = useAuth();
 
   return (
     <Stack sx={{ height: "100%" }}>
       <Toolbar sx={{ minHeight: 72, gap: 1.5, px: 2 }}>
         <BrandMark />
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
           <Typography variant="subtitle1" noWrap>
             訂單管理系統
           </Typography>
@@ -355,6 +425,17 @@ function NavigationPanel({ pathname, onNavigate }: NavigationPanelProps) {
             採購、入庫、出貨
           </Typography>
         </Box>
+        {showDesktopToggle && (
+          <Tooltip title="隱藏側邊選單">
+            <IconButton
+              aria-label="隱藏側邊選單"
+              onClick={onToggleDesktop}
+              sx={{ display: { xs: "none", md: "inline-flex" } }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Tooltip>
+        )}
       </Toolbar>
       <Divider />
       <List sx={{ flexGrow: 1, px: 1.5, py: 2 }}>
