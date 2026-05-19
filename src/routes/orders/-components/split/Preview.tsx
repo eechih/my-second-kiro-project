@@ -10,11 +10,11 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import type { LineItem } from "@shared/models";
+import type { OrderItem } from "@shared/models";
 
 export interface SplitPreviewGroup {
   index: number;
-  lineItems: LineItem[];
+  lineItems: OrderItem[];
   totalAmount: number;
 }
 

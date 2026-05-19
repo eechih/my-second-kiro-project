@@ -24,6 +24,7 @@ import { searchProducts } from "./search";
 export interface LineItemEditData {
   productId: string;
   productName: string;
+  productSku: string;
   variantLabel: string | null;
   quantity: number;
   unitPrice: number;

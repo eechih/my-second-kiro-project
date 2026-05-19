@@ -11,7 +11,7 @@ import {
   normalizeOrderStatus,
   type ConfirmShipmentInput,
   type CreateOrderInput,
-  type LineItem,
+  type OrderItem,
   type Order,
   type OrderStatus,
   type PaginatedResult,
@@ -62,28 +62,30 @@ const ORDER_DETAIL_SELECTION_SET = [
   "id",
   "customerId",
   "orderNumber",
-  "customerName",
+  "customerNameSnapshot",
   "totalAmount",
+  "subtotalAmount",
   "status",
   "statusHistory",
   "createdAt",
   "updatedAt",
   "createdAtForSort",
-  "lineItems.*",
+  "items.*",
 ] as const;
 
 const ORDER_VALIDATION_SELECTION_SET = [
   "id",
   "customerId",
   "orderNumber",
-  "customerName",
+  "customerNameSnapshot",
   "totalAmount",
+  "subtotalAmount",
   "status",
   "statusHistory",
   "createdAt",
   "updatedAt",
   "createdAtForSort",
-  "lineItems.*",
+  "items.*",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -117,12 +119,12 @@ type ConfirmShipmentBaseInput = {
   orderId: string;
 };
 
-type LineItemStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
+type OrderItemStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
 type UpdateLineItemStatusFlagInput = {
   orderId: string;
   lineItemId: string;
-  flag: LineItemStatusFlag;
+  flag: OrderItemStatusFlag;
   checked: boolean;
 };
 
@@ -139,7 +141,7 @@ function buildOrderFilter({
   if (search) {
     filter.or = [
       { orderNumber: { contains: search } },
-      { customerName: { contains: search } },
+      { customerNameSnapshot: { contains: search } },
     ];
   }
 
@@ -258,16 +260,16 @@ function mapToOrder(raw: Record<string, unknown>): Order {
     }
   }
 
-  let lineItems: LineItem[] = [];
-  if (raw.lineItems && Array.isArray(raw.lineItems)) {
-    lineItems = (raw.lineItems as Record<string, unknown>[]).map(mapToLineItem);
+  let lineItems: OrderItem[] = [];
+  if (raw.items && Array.isArray(raw.items)) {
+    lineItems = (raw.items as Record<string, unknown>[]).map(mapToLineItem);
   }
 
   return {
     id: String(raw.id ?? ""),
     orderNumber: String(raw.orderNumber ?? ""),
     customerId: String(raw.customerId ?? ""),
-    customerName: String(raw.customerName ?? ""),
+    customerName: String(raw.customerNameSnapshot ?? raw.customerName ?? ""),
     lineItems,
     totalAmount: Number(raw.totalAmount ?? 0),
     status: normalizeOrderStatus(raw.status),
@@ -278,15 +280,23 @@ function mapToOrder(raw: Record<string, unknown>): Order {
 }
 
 /** 將 Amplify Data 回傳的原始資料映射為 LineItem 型別 */
-function mapToLineItem(raw: Record<string, unknown>): LineItem {
+function mapToLineItem(raw: Record<string, unknown>): OrderItem {
   return {
     id: String(raw.id ?? ""),
     productId: String(raw.productId ?? ""),
-    productName: String(raw.productName ?? ""),
-    variantLabel: raw.variantLabel ? String(raw.variantLabel) : null,
+    productName: String(raw.productNameSnapshot ?? raw.productName ?? ""),
+    productSku:
+      raw.productSkuSnapshot !== undefined && raw.productSkuSnapshot !== null
+        ? String(raw.productSkuSnapshot)
+        : "",
+    variantLabel: raw.variantLabelSnapshot
+      ? String(raw.variantLabelSnapshot)
+      : raw.variantLabel
+        ? String(raw.variantLabel)
+        : null,
     quantity: Number(raw.quantity ?? 0),
     unitPrice: Number(raw.unitPrice ?? 0),
-    subtotal: Number(raw.subtotal ?? 0),
+    subtotal: Number(raw.subtotalAmount ?? raw.subtotal ?? 0),
     status: normalizeLineItemStatus(raw.status),
     purchasedAt: raw.purchasedAt ? String(raw.purchasedAt) : null,
     receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
@@ -325,10 +335,14 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     await client.models.Order.create({
       customerId: input.customerId,
       orderNumber,
-      customerName: input.customerName,
+      customerNameSnapshot: input.customerName,
+      subtotalAmount: totalAmount,
       totalAmount,
+      shippingFee: 0,
+      discountAmount: 0,
       status: "pending",
       statusHistory: JSON.stringify([]),
+      isActive: true,
       gsiPartition: "Order",
       createdAtForSort: now,
     });
@@ -346,25 +360,27 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     throw new Error("建立訂單失敗：未回傳訂單 ID");
   }
 
-  const createdLineItems: LineItem[] = [];
+  const createdLineItems: OrderItem[] = [];
   for (const item of lineItemsWithSubtotal) {
     const lineItemPayload: Record<string, unknown> = {
       orderId,
       productId: item.productId,
-      productName: item.productName,
+      productNameSnapshot: item.productName,
+      productSkuSnapshot: item.productSku,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
-      subtotal: item.subtotal,
+      subtotalAmount: item.subtotal,
       status: "pending",
+      createdAtForSort: now,
     };
 
     if (item.variantLabel) {
-      lineItemPayload.variantLabel = item.variantLabel;
+      lineItemPayload.variantLabelSnapshot = item.variantLabel;
     }
 
     const { data: lineItemData, errors: lineItemErrors } =
-      await client.models.LineItem.create(
-        lineItemPayload as Parameters<typeof client.models.LineItem.create>[0],
+      await client.models.OrderItem.create(
+        lineItemPayload as Parameters<typeof client.models.OrderItem.create>[0],
       );
 
     if (lineItemErrors && lineItemErrors.length > 0) {
@@ -424,7 +440,7 @@ async function updateOrderStatus(
   return mapToOrder(data);
 }
 
-async function confirmReceived(input: ConfirmReceivedInput): Promise<LineItem> {
+async function confirmReceived(input: ConfirmReceivedInput): Promise<OrderItem> {
   const { data, errors } = await client.mutations.confirmReceived({
     lineItemId: input.lineItemId,
   });
@@ -480,7 +496,7 @@ function assertCustomMutationSuccess(
   }
 }
 
-async function cancelReceived(input: ConfirmReceivedInput): Promise<LineItem> {
+async function cancelReceived(input: ConfirmReceivedInput): Promise<OrderItem> {
   const { data: result, errors } = await client.mutations.cancelReceived({
     lineItemId: input.lineItemId,
   });
@@ -491,7 +507,7 @@ async function cancelReceived(input: ConfirmReceivedInput): Promise<LineItem> {
 
   assertCustomMutationSuccess(result, "取消到貨失敗");
 
-  const { data, errors: getErrors } = await client.models.LineItem.get({
+  const { data, errors: getErrors } = await client.models.OrderItem.get({
     id: input.lineItemId,
   });
 
@@ -509,8 +525,8 @@ async function cancelReceived(input: ConfirmReceivedInput): Promise<LineItem> {
 async function fetchLineItemAfterCustomMutation(
   lineItemId: string,
   fallbackMessage: string,
-): Promise<LineItem> {
-  const { data, errors } = await client.models.LineItem.get({
+): Promise<OrderItem> {
+  const { data, errors } = await client.models.OrderItem.get({
     id: lineItemId,
   });
 
@@ -527,7 +543,7 @@ async function fetchLineItemAfterCustomMutation(
 
 async function confirmOutOfStock(
   input: Pick<UpdateLineItemStatusFlagInput, "lineItemId">,
-): Promise<LineItem> {
+): Promise<OrderItem> {
   const { data: result, errors } = await client.mutations.confirmOutOfStock({
     lineItemId: input.lineItemId,
   });
@@ -546,7 +562,7 @@ async function confirmOutOfStock(
 
 async function cancelOutOfStock(
   input: Pick<UpdateLineItemStatusFlagInput, "lineItemId">,
-): Promise<LineItem> {
+): Promise<OrderItem> {
   const { data: result, errors } = await client.mutations.cancelOutOfStock({
     lineItemId: input.lineItemId,
   });
@@ -565,7 +581,7 @@ async function cancelOutOfStock(
 
 async function confirmPurchase(
   input: Pick<MarkProcurementInput, "lineItemId">,
-): Promise<LineItem> {
+): Promise<OrderItem> {
   const { data: result, errors } = await client.mutations.confirmPurchase({
     lineItemId: input.lineItemId,
   });
@@ -582,13 +598,13 @@ async function confirmPurchase(
   );
 }
 
-async function markProcurement(input: MarkProcurementInput): Promise<LineItem> {
+async function markProcurement(input: MarkProcurementInput): Promise<OrderItem> {
   return confirmPurchase(input);
 }
 
 async function cancelProcurement(
   input: CancelProcurementInput,
-): Promise<LineItem> {
+): Promise<OrderItem> {
   const { data: result, errors } = await client.mutations.cancelPurchase({
     lineItemId: input.lineItemId,
   });
@@ -606,11 +622,11 @@ async function cancelProcurement(
 }
 
 function buildLineItemStatusFlagOptimisticUpdate(
-  lineItem: LineItem,
-  flag: LineItemStatusFlag,
+  lineItem: OrderItem,
+  flag: OrderItemStatusFlag,
   checked: boolean,
   now: string,
-): Partial<LineItem> {
+): Partial<OrderItem> {
   if (flag === "ordered") {
     return checked
       ? {
@@ -657,7 +673,7 @@ function buildLineItemStatusFlagOptimisticUpdate(
 
 async function updateLineItemStatusFlag(
   input: UpdateLineItemStatusFlagInput,
-): Promise<LineItem> {
+): Promise<OrderItem> {
   if (input.flag === "ordered") {
     return input.checked ? confirmPurchase(input) : cancelProcurement(input);
   }
@@ -687,7 +703,7 @@ async function updateLineItemStatusFlag(
 
 async function confirmShipment(input: {
   lineItemId: string;
-}): Promise<LineItem> {
+}): Promise<OrderItem> {
   const { data, errors } = await client.mutations.confirmShipment({
     lineItemId: input.lineItemId,
   });
@@ -706,7 +722,7 @@ async function confirmShipment(input: {
 
 async function confirmShipmentRemaining(
   input: ConfirmShipmentBaseInput,
-): Promise<LineItem> {
+): Promise<OrderItem> {
   return confirmShipment({
     lineItemId: input.lineItemId,
   });
@@ -714,7 +730,7 @@ async function confirmShipmentRemaining(
 
 async function cancelShipment(
   input: ConfirmShipmentBaseInput,
-): Promise<LineItem> {
+): Promise<OrderItem> {
   const { data: result, errors } = await client.mutations.cancelShipment({
     lineItemId: input.lineItemId,
   });
@@ -725,7 +741,7 @@ async function cancelShipment(
 
   assertCustomMutationSuccess(result, "取消出貨失敗");
 
-  const { data, errors: getErrors } = await client.models.LineItem.get({
+  const { data, errors: getErrors } = await client.models.OrderItem.get({
     id: input.lineItemId,
   });
 
@@ -924,7 +940,7 @@ export function useUpdateOrderStatus(): UseMutationResult<
  * 需求：4.7, 6.5, 6.6, 6.8, 6.10
  */
 export function useConfirmReceived(): UseMutationResult<
-  LineItem,
+  OrderItem,
   Error,
   ConfirmReceivedInput
 > {
@@ -984,7 +1000,7 @@ export function useConfirmReceived(): UseMutationResult<
  * 需求：3.1, 3.4, 3.5, 3.6, 3.7
  */
 export function useMarkProcurement(): UseMutationResult<
-  LineItem,
+  OrderItem,
   Error,
   MarkProcurementInput
 > {
@@ -1009,7 +1025,7 @@ export function useMarkProcurement(): UseMutationResult<
  * 需求：5.1, 5.3, 5.4
  */
 export function useCancelProcurement(): UseMutationResult<
-  LineItem,
+  OrderItem,
   Error,
   CancelProcurementInput
 > {
@@ -1032,7 +1048,7 @@ export function useCancelProcurement(): UseMutationResult<
  * 用於訂單列表內的快速 checkbox 操作，更新 LineItem 的日期與狀態。
  */
 export function useUpdateLineItemStatusFlag(): UseMutationResult<
-  LineItem,
+  OrderItem,
   Error,
   UpdateLineItemStatusFlagInput
 > {
@@ -1048,13 +1064,13 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
       const now = new Date().toISOString();
 
       if (previousOrder) {
-        const targetLineItem = previousOrder.lineItems.find(
+        const targetOrderItem = previousOrder.lineItems.find(
           (lineItem) => lineItem.id === input.lineItemId,
         );
 
-        if (targetLineItem) {
+        if (targetOrderItem) {
           const update = buildLineItemStatusFlagOptimisticUpdate(
-            targetLineItem,
+            targetOrderItem,
             input.flag,
             input.checked,
             now,
@@ -1105,7 +1121,7 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
  * 需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5
  */
 export function useConfirmShipment(): UseMutationResult<
-  LineItem,
+  OrderItem,
   Error,
   ConfirmShipmentInput & { orderId: string }
 > {
@@ -1245,6 +1261,7 @@ type AddLineItemToOrderInput = {
   orderId: string;
   productId: string;
   productName: string;
+  productSku: string;
   variantLabel: string | null;
   quantity: number;
   unitPrice: number;
@@ -1255,6 +1272,7 @@ type UpdateLineItemInput = {
   lineItemId: string;
   productId: string;
   productName: string;
+  productSku: string;
   variantLabel: string | null;
   quantity: number;
   unitPrice: number;
@@ -1273,19 +1291,21 @@ async function addLineItemToOrder(
   const lineItemPayload: Record<string, unknown> = {
     orderId: input.orderId,
     productId: input.productId,
-    productName: input.productName,
+    productNameSnapshot: input.productName,
+    productSkuSnapshot: input.productSku,
     quantity: input.quantity,
     unitPrice: input.unitPrice,
-    subtotal,
+    subtotalAmount: subtotal,
     status: "pending",
+    createdAtForSort: new Date().toISOString(),
   };
 
   if (input.variantLabel) {
-    lineItemPayload.variantLabel = input.variantLabel;
+    lineItemPayload.variantLabelSnapshot = input.variantLabel;
   }
 
-  const { errors: lineItemErrors } = await client.models.LineItem.create(
-    lineItemPayload as Parameters<typeof client.models.LineItem.create>[0],
+  const { errors: lineItemErrors } = await client.models.OrderItem.create(
+    lineItemPayload as Parameters<typeof client.models.OrderItem.create>[0],
   );
 
   if (lineItemErrors && lineItemErrors.length > 0) {
@@ -1304,15 +1324,16 @@ async function updateLineItemInOrder(
   const updatePayload: Record<string, unknown> = {
     id: input.lineItemId,
     productId: input.productId,
-    productName: input.productName,
-    variantLabel: input.variantLabel ?? null,
+    productNameSnapshot: input.productName,
+    productSkuSnapshot: input.productSku,
+    variantLabelSnapshot: input.variantLabel ?? null,
     quantity: input.quantity,
     unitPrice: input.unitPrice,
-    subtotal,
+    subtotalAmount: subtotal,
   };
 
-  const { errors } = await client.models.LineItem.update(
-    updatePayload as Parameters<typeof client.models.LineItem.update>[0],
+  const { errors } = await client.models.OrderItem.update(
+    updatePayload as Parameters<typeof client.models.OrderItem.update>[0],
   );
 
   if (errors && errors.length > 0) {
@@ -1326,7 +1347,7 @@ async function updateLineItemInOrder(
 async function deleteLineItemFromOrder(
   input: DeleteLineItemInput,
 ): Promise<void> {
-  const { errors } = await client.models.LineItem.delete({
+  const { errors } = await client.models.OrderItem.delete({
     id: input.lineItemId,
   });
 
@@ -1341,7 +1362,7 @@ async function deleteLineItemFromOrder(
 /** 重新查詢訂單所有明細並更新訂單總金額 */
 async function recalculateOrderTotal(orderId: string): Promise<void> {
   const { data: lineItemsData, errors: queryErrors } =
-    await client.models.LineItem.listLineItemByOrderId(
+    await client.models.OrderItem.listOrderItemsByOrderId(
       { orderId },
       { selectionSet: ["id", "quantity", "unitPrice"] },
     );
@@ -1354,6 +1375,7 @@ async function recalculateOrderTotal(orderId: string): Promise<void> {
     id: String(li.id ?? ""),
     productId: "",
     productName: "",
+    productSku: "",
     variantLabel: null,
     quantity: Number(li.quantity ?? 0),
     unitPrice: Number(li.unitPrice ?? 0),
@@ -1371,6 +1393,7 @@ async function recalculateOrderTotal(orderId: string): Promise<void> {
 
   const { errors: updateErrors } = await client.models.Order.update({
     id: orderId,
+    subtotalAmount: newTotal,
     totalAmount: newTotal,
   });
 

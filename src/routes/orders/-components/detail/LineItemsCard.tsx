@@ -17,7 +17,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import type { LineItem, Order } from "@shared/models";
+import type { OrderItem, Order } from "@shared/models";
 import { useCallback, useState } from "react";
 import {
   LineItemDialog,
@@ -28,7 +28,7 @@ import { LineItemRow } from "./LineItemRow";
 
 interface DialogState {
   open: boolean;
-  editLineItem: LineItem | null;
+  editLineItem: OrderItem | null;
 }
 
 export interface LineItemsCardProps {
@@ -42,7 +42,7 @@ export function LineItemsCard({
     open: false,
     editLineItem: null,
   });
-  const [deleteTarget, setDeleteTarget] = useState<LineItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<OrderItem | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const addLineItem = useAddLineItemToOrder();
@@ -56,7 +56,7 @@ export function LineItemsCard({
     setError(null);
   }, []);
 
-  const openEditDialog = useCallback((lineItem: LineItem) => {
+  const openEditDialog = useCallback((lineItem: OrderItem) => {
     setDialog({ open: true, editLineItem: lineItem });
     setError(null);
   }, []);
@@ -75,6 +75,7 @@ export function LineItemsCard({
             lineItemId: dialog.editLineItem.id,
             productId: input.productId,
             productName: input.productName,
+            productSku: input.productSku,
             variantLabel: input.variantLabel ?? null,
             quantity: input.quantity,
             unitPrice: input.unitPrice,
@@ -84,6 +85,7 @@ export function LineItemsCard({
             orderId: order.id,
             productId: input.productId,
             productName: input.productName,
+            productSku: input.productSku,
             variantLabel: input.variantLabel ?? null,
             quantity: input.quantity,
             unitPrice: input.unitPrice,
@@ -115,6 +117,7 @@ export function LineItemsCard({
     ? {
         productId: dialog.editLineItem.productId,
         productName: dialog.editLineItem.productName,
+        productSku: dialog.editLineItem.productSku ?? "",
         variantLabel: dialog.editLineItem.variantLabel,
         quantity: dialog.editLineItem.quantity,
         unitPrice: dialog.editLineItem.unitPrice,

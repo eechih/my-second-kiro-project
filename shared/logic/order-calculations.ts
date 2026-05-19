@@ -7,7 +7,7 @@
  * 需求：4.11
  */
 
-import type { LineItem } from "../models/order";
+import type { OrderItem } from "../models/order";
 
 /**
  * 計算單筆明細項目的小計金額。
@@ -35,7 +35,7 @@ export function calculateLineItemSubtotal(
  * @param lineItems - 明細項目列表
  * @returns 訂單總金額
  */
-export function calculateOrderTotal(lineItems: LineItem[]): number {
+export function calculateOrderTotal(lineItems: OrderItem[]): number {
   return lineItems.reduce(
     (total, item) =>
       total + calculateLineItemSubtotal(item.quantity, item.unitPrice),

@@ -52,6 +52,7 @@ export function buildLineItemFormData(
   return {
     productId: draft.product.id,
     productName: draft.product.name,
+    productSku: draft.product.sku,
     variantLabel: draft.variant?.label ?? null,
     quantity: draft.quantity,
     unitPrice: draft.unitPrice,

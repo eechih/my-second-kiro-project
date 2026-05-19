@@ -7,7 +7,7 @@
  * 需求：3.8, 4.8, 5.5, 6.1
  */
 
-import type { LineItem, ValidationResult } from "../models/order";
+import type { OrderItem, ValidationResult } from "../models/order";
 
 /**
  * 驗證採購下單操作的前置條件。
@@ -23,7 +23,7 @@ import type { LineItem, ValidationResult } from "../models/order";
  * @returns 驗證結果
  */
 export function validateProcurementOrder(
-  lineItem: Pick<LineItem, "status" | "quantity">,
+  lineItem: Pick<OrderItem, "status" | "quantity">,
   supplierId: string,
   unitCost: number,
 ): ValidationResult {
@@ -61,7 +61,7 @@ export function validateProcurementOrder(
  * @returns 驗證結果
  */
 export function validateProcurementReceive(
-  lineItem: Pick<LineItem, "status">,
+  lineItem: Pick<OrderItem, "status">,
 ): ValidationResult {
   if (lineItem.status !== "ordered") {
     return {
@@ -84,7 +84,7 @@ export function validateProcurementReceive(
  * @returns 驗證結果
  */
 export function validateProcurementCancel(
-  lineItem: Pick<LineItem, "status">,
+  lineItem: Pick<OrderItem, "status">,
 ): ValidationResult {
   if (lineItem.status === "pending" || lineItem.status === "ordered") {
     return { valid: true };

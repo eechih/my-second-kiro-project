@@ -15,7 +15,7 @@
  */
 
 import type {
-  LineItem,
+  OrderItem,
   Order,
   OrderStatus,
   SplitAllocation,
@@ -34,7 +34,7 @@ export interface SplitOrderData {
   /** 客戶名稱（反正規化） */
   customerName: string;
   /** 分配到此新訂單的明細項目 */
-  lineItems: LineItem[];
+  lineItems: OrderItem[];
   /** 新訂單總金額 */
   totalAmount: number;
   /** 新訂單的初始狀態 */
@@ -170,13 +170,13 @@ export function splitOrder(
   allocations: SplitAllocation[],
 ): SplitOrderData[] {
   // 建立明細項目 ID → LineItem 的查找表
-  const lineItemMap = new Map<string, LineItem>();
+  const lineItemMap = new Map<string, OrderItem>();
   for (const lineItem of order.lineItems) {
     lineItemMap.set(lineItem.id, lineItem);
   }
 
   // 依 targetOrderIndex 分組明細項目
-  const groupedLineItems = new Map<number, LineItem[]>();
+  const groupedLineItems = new Map<number, OrderItem[]>();
   for (const allocation of allocations) {
     const lineItem = lineItemMap.get(allocation.lineItemId);
     if (!lineItem) {

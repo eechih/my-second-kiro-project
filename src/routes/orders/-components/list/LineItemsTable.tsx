@@ -1,18 +1,18 @@
 import Box from "@mui/material/Box";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
-import type { LineItem } from "@shared/models";
+import type { OrderItem } from "@shared/models";
 import { LineItemRow } from "./LineItemRow";
 
-export interface LineItemsTableProps {
-  lineItems: LineItem[];
+export interface OrderItemsTableProps {
+  lineItems: OrderItem[];
   orderId: string;
 }
 
 export function LineItemsTable({
   lineItems,
   orderId,
-}: LineItemsTableProps): React.ReactElement {
+}: OrderItemsTableProps): React.ReactElement {
   return (
     <Box>
       <Table size="small">

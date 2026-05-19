@@ -11,7 +11,7 @@ import { logError, logInfo, logWarn } from "../debug-log";
 
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "createProduct";
-const COUNTER_ID = "ProductSku";
+const COUNTER_NAME = "ProductSku";
 const SKU_PREFIX = "SKU";
 const SKU_PADDING = 6;
 
@@ -87,8 +87,8 @@ async function ensureCounterInitialized(
       new PutItemCommand({
         TableName: counterTable,
         Item: marshall({
-          id: COUNTER_ID,
-          nextNumber: maxSequence,
+          name: COUNTER_NAME,
+          current: maxSequence,
           createdAt: now,
           updatedAt: now,
         }),
@@ -113,12 +113,12 @@ async function allocateSkuSequence(
       const result = await ddb.send(
         new UpdateItemCommand({
           TableName: counterTable,
-          Key: marshall({ id: COUNTER_ID }),
+          Key: marshall({ id: COUNTER_NAME }),
           UpdateExpression:
-            "SET #nextNumber = #nextNumber + :one, updatedAt = :now",
+            "SET #current = #current + :one, updatedAt = :now",
           ConditionExpression: "attribute_exists(id)",
           ExpressionAttributeNames: {
-            "#nextNumber": "nextNumber",
+            "#current": "current",
           },
           ExpressionAttributeValues: marshall({
             ":one": 1,
@@ -129,7 +129,7 @@ async function allocateSkuSequence(
       );
 
       return Number(
-        result.Attributes ? unmarshall(result.Attributes).nextNumber : 0,
+        result.Attributes ? unmarshall(result.Attributes).current : 0,
       );
     } catch (error) {
       if (!(error instanceof ConditionalCheckFailedException)) {
@@ -146,7 +146,7 @@ async function allocateSkuSequence(
 export const handler: Schema["createProductWithAutoSku"]["functionHandler"] =
   async (event) => {
     const productTable = process.env["PRODUCT_TABLE_NAME"];
-    const counterTable = process.env["PRODUCTCOUNTER_TABLE_NAME"];
+    const counterTable = process.env["SEQUENCECOUNTER_TABLE_NAME"];
     const {
       name,
       description,

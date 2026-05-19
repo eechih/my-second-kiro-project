@@ -150,6 +150,7 @@ async function fetchCustomer(id: string): Promise<Customer> {
 }
 
 async function createCustomer(input: CreateCustomerInput): Promise<Customer> {
+  const now = new Date().toISOString();
   const { data, errors } = await client.models.Customer.create({
     name: input.name,
     contactPerson: input.contactPerson,
@@ -157,7 +158,9 @@ async function createCustomer(input: CreateCustomerInput): Promise<Customer> {
     email: input.email ?? "",
     address: input.address ?? "",
     isActive: true,
-  });
+    gsiPartition: "Customer",
+    createdAtForSort: now,
+  } as Parameters<typeof client.models.Customer.create>[0]);
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "建立客戶失敗");

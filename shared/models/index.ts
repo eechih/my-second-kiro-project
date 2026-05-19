@@ -26,9 +26,12 @@ export type {
 export type {
   ConfirmShipmentInput,
   CreateLineItemInput,
+  CreateOrderItemInput,
   CreateOrderInput,
   LineItem,
   LineItemStatus,
+  OrderItem,
+  OrderItemStatus,
   Order,
   OrderStatus,
   PaginatedResult,
@@ -39,10 +42,13 @@ export type {
 } from "./order";
 
 export {
+  isOrderItemStatus,
   isLineItemStatus,
+  ORDER_ITEM_STATUS_LABEL,
   isOrderStatus,
   LINE_ITEM_STATUS_LABEL,
   LINE_ITEM_STATUSES,
+  normalizeOrderItemStatus,
   normalizeLineItemStatus,
   normalizeOrderStatus,
   ORDER_STATUS_LABEL,

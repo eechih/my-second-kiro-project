@@ -12,14 +12,14 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { validateProcurementOrder } from "@shared/logic/procurement";
-import type { LineItem, Order, Supplier } from "@shared/models";
+import type { OrderItem, Order, Supplier } from "@shared/models";
 import { useEffect, useState } from "react";
 import { searchSuppliers } from "../detail/detailUtils";
 
 export interface PurchaseDialogProps {
   open: boolean;
   onClose: () => void;
-  lineItem: LineItem;
+  lineItem: OrderItem;
   order: Order;
 }
 
@@ -61,7 +61,7 @@ export function PurchaseDialog({
 
     try {
       // 1. 先更新 LineItem 的供應商與成本資料
-      await client.models.LineItem.update({
+      await client.models.OrderItem.update({
         id: lineItem.id,
         supplierName: supplier.name,
         unitCost,

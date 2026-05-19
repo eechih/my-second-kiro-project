@@ -12,45 +12,68 @@ import { createProduct } from "../functions/create-product/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
 import { splitOrder } from "../functions/split-order/resource";
 
-/**
- * 電子商務訂單管理系統 — Amplify Gen2 Data Schema
- *
- * 模型：
- * - Customer：客戶基本資料（含軟刪除 isActive 欄位）
- * - Supplier：供應商基本資料（含軟刪除 isActive 欄位）
- * - Product：商品基本資料（含照片、商品層級庫存、預設售價與成本）
- * - ProductVariant：商品規格選項（只保存顯示標籤與價格/成本偏移）
- * - Order：訂單（單一 id 主鍵，透過 GSI 依建立日期排序）
- * - LineItem：訂單明細項目（含採購資料內嵌，不支援分批採購/出貨）
- *
- * Custom Mutations（Lambda 函式，皆僅需 lineItemId 作為主要參數）：
- * - confirmPurchase(lineItemId)：確認採購，pending → ordered
- * - cancelPurchase(lineItemId)：取消採購，ordered → pending
- * - confirmReceived(lineItemId)：入庫確認，ordered → received + 庫存增加
- * - cancelReceived(lineItemId)：取消入庫，received → ordered + 庫存扣回
- * - confirmShipment(lineItemId)：確認出貨，received → shipped + 庫存扣減 + 訂單狀態推導
- * - cancelShipment(lineItemId)：取消出貨，shipped → received + 庫存加回 + 訂單狀態推導
- * - confirmOutOfStock(lineItemId)：確認缺貨，pending/ordered/received → out_of_stock
- * - cancelOutOfStock(lineItemId)：取消缺貨，out_of_stock → 依時間戳回推原狀態
- * - mergeOrders(orderIds)：訂單合併（建立新訂單 + 搬移明細 + 取消來源）
- * - splitOrder(orderId, allocations)：訂單分拆（建立多筆新訂單 + 分配明細 + 取消原訂單）
- *
- * 所有 Lambda 使用 DynamoDB TransactWriteItems 確保原子性。
- * 授權規則：僅已驗證使用者可存取。
- */
-const PRODUCT_SORT_PARTITION = "Product";
-const ORDER_SORT_PARTITION = "Order";
+const SORT_PARTITIONS = {
+  customer: "Customer",
+  supplier: "Supplier",
+  product: "Product",
+  order: "Order",
+} as const;
+
+type SortPartition =
+  (typeof SORT_PARTITIONS)[keyof typeof SORT_PARTITIONS];
+type FunctionResource = Parameters<typeof a.handler.function>[0];
+
+function activeFlagField() {
+  return a.boolean().required().default(true);
+}
+
+function createdAtForSortField() {
+  return a.datetime();
+}
+
+function sortPartitionField(partition: SortPartition) {
+  return a.string().required().default(partition);
+}
+
+function sortFields(partition: SortPartition) {
+  return {
+    gsiPartition: sortPartitionField(partition),
+    createdAtForSort: createdAtForSortField(),
+  };
+}
+
+function lineItemIdArgument() {
+  return {
+    lineItemId: a.string().required(),
+  };
+}
+
+function authenticatedLineItemMutation(resource: FunctionResource) {
+  return a
+    .mutation()
+    .arguments(lineItemIdArgument())
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(resource));
+}
+
+function authenticatedJsonMutation<
+  TArguments extends Parameters<ReturnType<typeof a.mutation>["arguments"]>[0],
+>(argumentsShape: TArguments, resource: FunctionResource) {
+  return a
+    .mutation()
+    .arguments(argumentsShape)
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(resource));
+}
 
 const schema = a.schema({
-  // ---------------------------------------------------------------------------
-  // Enums
-  // ---------------------------------------------------------------------------
+  // 訂單流程狀態（沿用 shared/models/order.ts 的狀態值）
   OrderStatus: a.enum(ORDER_STATUSES),
-  LineItemStatus: a.enum(LINE_ITEM_STATUSES),
+  // 訂單明細流程狀態（沿用 shared/models/order.ts 的狀態值）
+  OrderItemStatus: a.enum(LINE_ITEM_STATUSES),
 
-  // ---------------------------------------------------------------------------
-  // Customer（客戶）
-  // ---------------------------------------------------------------------------
   Customer: a
     .model({
       name: a.string().required(),
@@ -58,13 +81,21 @@ const schema = a.schema({
       phone: a.string(),
       email: a.string(),
       address: a.string(),
-      isActive: a.boolean().required().default(true),
+      note: a.string(),
+      isActive: activeFlagField(),
+      deletedAt: a.datetime(),
+      ...sortFields(SORT_PARTITIONS.customer),
+      orders: a.hasMany("Order", "customerId"),
     })
+    .secondaryIndexes((index) => [
+      index("name").queryField("customersByName").name("byName"),
+      index("gsiPartition")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listCustomersByCreatedDate")
+        .name("byCreatedAt"),
+    ])
     .authorization((allow) => [allow.authenticated()]),
 
-  // ---------------------------------------------------------------------------
-  // Supplier（供應商）
-  // ---------------------------------------------------------------------------
   Supplier: a
     .model({
       name: a.string().required(),
@@ -73,16 +104,24 @@ const schema = a.schema({
       email: a.string(),
       address: a.string(),
       translationParser: a.string(),
-      isActive: a.boolean().required().default(true),
+      note: a.string(),
+      isActive: activeFlagField(),
+      deletedAt: a.datetime(),
+      ...sortFields(SORT_PARTITIONS.supplier),
     })
+    .secondaryIndexes((index) => [
+      index("name").queryField("suppliersByName").name("byName"),
+      index("gsiPartition")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listSuppliersByCreatedDate")
+        .name("byCreatedAt"),
+    ])
     .authorization((allow) => [allow.authenticated()]),
 
-  // ---------------------------------------------------------------------------
-  // Product（商品）
-  // ---------------------------------------------------------------------------
   Product: a
     .model({
       name: a.string().required(),
+      searchName: a.string(),
       sku: a.string().required(),
       description: a.string(),
       price: a.integer().required(),
@@ -90,101 +129,156 @@ const schema = a.schema({
       defaultSupplierId: a.string(),
       stockQuantity: a.integer().required().default(0),
       imageUrls: a.string().array(),
-      isActive: a.boolean().required().default(true),
-      /** GSI 分區鍵：固定值 "Product"，用於按建立日期排序查詢全部商品 */
-      gsiPartition: a.string().required().default(PRODUCT_SORT_PARTITION),
-      /** 建立時間（ISO 8601），用於 GSI 排序，避免與 Amplify 內建 createdAt 混淆 */
-      createdAtForSort: a.datetime(),
+      isActive: activeFlagField(),
+      // 預購收單狀態：草稿 / 開放收單 / 關閉收單
+      preorderStatus: a.enum(["DRAFT", "OPEN", "CLOSED"]),
+      preorderOpenAt: a.datetime(),
+      preorderCloseAt: a.datetime(),
+      deletedAt: a.datetime(),
+      ...sortFields(SORT_PARTITIONS.product),
       variants: a.hasMany("ProductVariant", "productId"),
+      orderItems: a.hasMany("OrderItem", "productId"),
     })
     .secondaryIndexes((index) => [
+      index("name").queryField("productsByName").name("byName"),
+      index("sku").queryField("productBySku").name("bySku"),
       index("gsiPartition")
         .sortKeys(["createdAtForSort"])
         .queryField("listProductsByCreatedDate")
         .name("byCreatedAt"),
+      index("preorderStatus")
+        .sortKeys(["preorderCloseAt"])
+        .queryField("listProductsByPreorderStatusAndCloseDate")
+        .name("byPreorderStatusAndCloseDate"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 
-  // ---------------------------------------------------------------------------
-  // ProductVariant（商品規格選項）
-  // ---------------------------------------------------------------------------
   ProductVariant: a
     .model({
       productId: a.id().required(),
       product: a.belongsTo("Product", "productId"),
       label: a.string().required(),
-      priceOffset: a.integer(),
-      costOffset: a.integer(),
-    })
-    .authorization((allow) => [allow.authenticated()]),
-
-  // ---------------------------------------------------------------------------
-  // ProductCounter（商品流水號計數器）
-  // ---------------------------------------------------------------------------
-  ProductCounter: a
-    .model({
-      nextNumber: a.integer().required().default(0),
-    })
-    .authorization((allow) => [allow.authenticated()]),
-
-  // ---------------------------------------------------------------------------
-  // Order（訂單）
-  // 單一主鍵：id；列表透過 GSI 依建立日期排序
-  // ---------------------------------------------------------------------------
-  Order: a
-    .model({
-      customerId: a.string().required(),
-      orderNumber: a.string().required(),
-      customerName: a.string().required(),
-      totalAmount: a.integer().required(),
-      status: a.ref("OrderStatus").required(),
-      statusHistory: a.json(),
-      /** GSI 分區鍵：固定值 "Order"，用於按建立日期排序查詢全部訂單 */
-      gsiPartition: a.string().required().default(ORDER_SORT_PARTITION),
-      /** 建立時間（ISO 8601），用於 GSI 排序，避免與 Amplify 內建 createdAt 混淆 */
-      createdAtForSort: a.datetime(),
-      lineItems: a.hasMany("LineItem", "orderId"),
+      priceOffset: a.integer().required().default(0),
+      costOffset: a.integer().required().default(0),
+      sortOrder: a.integer().required().default(0),
+      isActive: activeFlagField(),
+      deletedAt: a.datetime(),
+      createdAtForSort: createdAtForSortField(),
     })
     .secondaryIndexes((index) => [
-      index("gsiPartition")
-        .sortKeys(["createdAtForSort"])
-        .queryField("listOrdersByCreatedDate")
-        .name("byOrderCreatedAt"),
+      index("productId")
+        .sortKeys(["sortOrder"])
+        .queryField("listVariantsByProduct")
+        .name("byProduct"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 
-  // ---------------------------------------------------------------------------
-  // LineItem（訂單明細項目）
-  // ---------------------------------------------------------------------------
-  LineItem: a
+  Order: a
     .model({
-      orderId: a.string().required(),
+      orderNumber: a.string().required(),
+      customerId: a.id(),
+      customer: a.belongsTo("Customer", "customerId"),
+      customerNameSnapshot: a.string().required(),
+      customerPhoneSnapshot: a.string(),
+      customerEmailSnapshot: a.string(),
+      shippingAddressSnapshot: a.string(),
+      // 付款狀態：未付款 / 已付款 / 已退款
+      paymentStatus: a.enum(["UNPAID", "PAID", "REFUNDED"]),
+      // 履約狀態：待處理 / 部分到貨 / 可出貨 / 部分出貨 / 全部出貨 / 完成
+      fulfillmentStatus: a.enum([
+        "PENDING",
+        "PARTIALLY_RECEIVED",
+        "READY_TO_SHIP",
+        "PARTIALLY_SHIPPED",
+        "SHIPPED",
+        "COMPLETED",
+      ]),
+      cancelledAt: a.datetime(),
+      subtotalAmount: a.integer().required(),
+      shippingFee: a.integer().required().default(0),
+      discountAmount: a.integer().required().default(0),
+      totalAmount: a.integer().required(),
+      note: a.string(),
+      // 訂單主狀態（前端流程與 Lambda 判斷主要依據）
+      status: a.ref("OrderStatus").required(),
+      statusHistory: a.json(),
+      isActive: activeFlagField(),
+      deletedAt: a.datetime(),
+      ...sortFields(SORT_PARTITIONS.order),
+      items: a.hasMany("OrderItem", "orderId"),
+    })
+    .secondaryIndexes((index) => [
+      index("orderNumber").queryField("orderByNumber").name("byOrderNumber"),
+      index("customerId")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listOrdersByCustomer")
+        .name("byCustomer"),
+      index("gsiPartition")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listOrdersByCreatedDate")
+        .name("byCreatedAt"),
+      index("paymentStatus")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listOrdersByPaymentStatus")
+        .name("byPaymentStatus"),
+      index("fulfillmentStatus")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listOrdersByFulfillmentStatus")
+        .name("byFulfillmentStatus"),
+    ])
+    .authorization((allow) => [allow.authenticated()]),
+
+  OrderItem: a
+    .model({
+      orderId: a.id().required(),
       order: a.belongsTo("Order", "orderId"),
-      productId: a.string().required(),
-      productName: a.string().required(),
-      variantLabel: a.string(),
+      productId: a.id().required(),
+      product: a.belongsTo("Product", "productId"),
+      productVariantId: a.id(),
       quantity: a.integer().required(),
       unitPrice: a.integer().required(),
-      subtotal: a.integer().required(),
+      subtotalAmount: a.integer().required(),
+      // 訂單明細狀態（採購 / 入庫 / 出貨流程主要依據）
+      status: a.ref("OrderItemStatus").required(),
+      productNameSnapshot: a.string().required(),
+      productSkuSnapshot: a.string().required(),
+      variantLabelSnapshot: a.string(),
       supplierName: a.string(),
       unitCost: a.integer(),
-      status: a.ref("LineItemStatus").required(),
       purchasedAt: a.datetime(),
       receivedAt: a.datetime(),
       shippedAt: a.datetime(),
       outOfStockAt: a.datetime(),
+      createdAtForSort: createdAtForSortField(),
     })
-    .secondaryIndexes((index) => [index("orderId").name("byOrderId")])
+    .secondaryIndexes((index) => [
+      index("orderId")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listOrderItemsByOrderId")
+        .name("byOrderId"),
+      index("productId")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listOrderItemsByProductId")
+        .name("byProductId"),
+      index("status")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listOrderItemsByStatus")
+        .name("byStatus"),
+    ])
     .authorization((allow) => [allow.authenticated()]),
 
-  // ---------------------------------------------------------------------------
-  // Custom Mutations（事務性操作，由 Lambda 函式處理）
-  // ---------------------------------------------------------------------------
+  SequenceCounter: a
+    .model({
+      name: a.string().required(),
+      current: a.integer().required().default(0),
+    })
+    .secondaryIndexes((index) => [
+      index("name").queryField("counterByName").name("byName"),
+    ])
+    .authorization((allow) => [allow.authenticated()]),
 
-  /** 建立商品：自動配置 SKU 流水號 */
-  createProductWithAutoSku: a
-    .mutation()
-    .arguments({
+  createProductWithAutoSku: authenticatedJsonMutation(
+    {
       name: a.string().required(),
       description: a.string(),
       price: a.integer().required(),
@@ -192,111 +286,33 @@ const schema = a.schema({
       defaultSupplierId: a.string(),
       stockQuantity: a.integer(),
       imageUrls: a.string().array(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(createProduct)),
+    },
+    createProduct,
+  ),
 
-  /** 確認採購：pending → ordered，寫入供應商與成本資料 */
-  confirmPurchase: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(confirmPurchase)),
+  confirmPurchase: authenticatedLineItemMutation(confirmPurchase),
+  cancelPurchase: authenticatedLineItemMutation(cancelPurchase),
+  confirmReceived: authenticatedLineItemMutation(confirmReceived),
+  cancelReceived: authenticatedLineItemMutation(cancelReceived),
+  confirmShipment: authenticatedLineItemMutation(confirmShipment),
+  cancelShipment: authenticatedLineItemMutation(cancelShipment),
+  confirmOutOfStock: authenticatedLineItemMutation(confirmOutOfStock),
+  cancelOutOfStock: authenticatedLineItemMutation(cancelOutOfStock),
 
-  /** 取消採購：ordered → pending，清除供應商與成本資料 */
-  cancelPurchase: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(cancelPurchase)),
-
-  /** 確認入庫：ordered → received，庫存增加 */
-  confirmReceived: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(confirmReceived)),
-
-  /** 取消入庫：received → ordered，庫存扣回 */
-  cancelReceived: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(cancelReceived)),
-
-  /** 確認出貨：received → shipped，庫存扣減，推導訂單狀態 */
-  confirmShipment: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(confirmShipment)),
-
-  /** 取消出貨：shipped → received，庫存加回，推導訂單狀態 */
-  cancelShipment: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(cancelShipment)),
-
-  /** 確認缺貨：pending/ordered/received → out_of_stock */
-  confirmOutOfStock: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(confirmOutOfStock)),
-
-  /** 取消缺貨：out_of_stock → 依時間戳回推原狀態 */
-  cancelOutOfStock: a
-    .mutation()
-    .arguments({
-      lineItemId: a.string().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(cancelOutOfStock)),
-
-  /** 訂單合併：建立新訂單 + 搬移明細 + 取消來源訂單 */
-  mergeOrders: a
-    .mutation()
-    .arguments({
+  mergeOrders: authenticatedJsonMutation(
+    {
       orderIds: a.string().required().array().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(mergeOrders)),
+    },
+    mergeOrders,
+  ),
 
-  /** 訂單分拆：建立多筆新訂單 + 分配明細 + 取消原訂單 */
-  splitOrder: a
-    .mutation()
-    .arguments({
+  splitOrder: authenticatedJsonMutation(
+    {
       orderId: a.string().required(),
       allocations: a.json().required(),
-    })
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(splitOrder)),
+    },
+    splitOrder,
+  ),
 });
 
 export type Schema = ClientSchema<typeof schema>;

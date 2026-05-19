@@ -62,6 +62,7 @@ describe("lineItemDraft", () => {
     ).toEqual({
       productId: "product-1",
       productName: "測試商品",
+      productSku: "SKU-001",
       variantLabel: "黑 L",
       quantity: 2,
       unitPrice: 350,

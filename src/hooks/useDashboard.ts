@@ -47,12 +47,12 @@ export function useDashboardSummary(): UseQueryResult<DashboardSummary> {
             limit: 1000,
           }),
           // 待入庫明細（status = "ordered"）
-          client.models.LineItem.list({
+          client.models.OrderItem.list({
             filter: { status: { eq: "ordered" } },
             limit: 1000,
           }),
           // 待出貨明細（status = "received"）
-          client.models.LineItem.list({
+          client.models.OrderItem.list({
             filter: { status: { eq: "received" } },
             limit: 1000,
           }),

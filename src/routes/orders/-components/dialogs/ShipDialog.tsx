@@ -11,13 +11,13 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { resolveStockQuantity, validateShipment } from "@shared/logic/shipment";
-import type { LineItem, Order } from "@shared/models";
+import type { OrderItem, Order } from "@shared/models";
 import { useState } from "react";
 
 export interface ShipDialogProps {
   open: boolean;
   onClose: () => void;
-  lineItem: LineItem;
+  lineItem: OrderItem;
   order: Order;
 }
 

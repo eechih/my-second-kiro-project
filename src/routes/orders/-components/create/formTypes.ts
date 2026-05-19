@@ -3,6 +3,7 @@ export interface LineItemFormData {
   tempId: string;
   productId: string;
   productName: string;
+  productSku: string;
   variantLabel: string | null;
   quantity: number;
   unitPrice: number;

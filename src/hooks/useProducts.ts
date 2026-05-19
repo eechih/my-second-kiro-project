@@ -449,8 +449,11 @@ export function useCreateVariant(): UseMutationResult<
       const { data, errors } = await client.models.ProductVariant.create({
         productId,
         label: variant.label.trim(),
-        priceOffset: variant.priceOffset ?? null,
-        costOffset: variant.costOffset ?? null,
+        priceOffset: variant.priceOffset ?? 0,
+        costOffset: variant.costOffset ?? 0,
+        sortOrder: 0,
+        isActive: true,
+        createdAtForSort: new Date().toISOString(),
       });
 
       if (errors && errors.length > 0) {
@@ -501,9 +504,9 @@ export function useUpdateVariant(): UseMutationResult<
       const updatePayload: Record<string, unknown> = { id: variantId };
 
       if (updates.priceOffset !== undefined)
-        updatePayload.priceOffset = updates.priceOffset;
+        updatePayload.priceOffset = updates.priceOffset ?? 0;
       if (updates.costOffset !== undefined)
-        updatePayload.costOffset = updates.costOffset;
+        updatePayload.costOffset = updates.costOffset ?? 0;
 
       const { data, errors } = await client.models.ProductVariant.update(
         updatePayload as Parameters<

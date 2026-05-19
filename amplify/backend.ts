@@ -45,10 +45,10 @@ const tables = backend.data.resources.tables;
 
 // 取得各模型對應的 DynamoDB 表格
 const orderTable = tables["Order"];
-const lineItemTable = tables["LineItem"];
+const lineItemTable = tables["OrderItem"];
 const productTable = tables["Product"];
 const productVariantTable = tables["ProductVariant"];
-const productCounterTable = tables["ProductCounter"];
+const productCounterTable = tables["SequenceCounter"];
 
 if (
   !orderTable ||
@@ -58,7 +58,7 @@ if (
   !productCounterTable
 ) {
   throw new Error(
-    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、LineItem、Product、ProductVariant、ProductCounter 模型。",
+    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、Product、ProductVariant、SequenceCounter 模型。",
   );
 }
 
@@ -104,7 +104,7 @@ for (const fn of transactionalFunctions) {
     productVariantTable.tableName,
   );
   lambdaFn.addEnvironment(
-    "PRODUCTCOUNTER_TABLE_NAME",
+    "SEQUENCECOUNTER_TABLE_NAME",
     productCounterTable.tableName,
   );
 
@@ -116,7 +116,7 @@ for (const fn of transactionalFunctions) {
   productCounterTable.grantReadWriteData(lambdaFn);
 
   // grantReadWriteData does not include GSI ARNs. Several order workflow
-  // functions query LineItem.byOrderId directly to derive order state.
+  // functions query OrderItem.byOrderId directly to derive order state.
   lambdaFn.addToRolePolicy(
     new PolicyStatement({
       actions: ["dynamodb:Query"],

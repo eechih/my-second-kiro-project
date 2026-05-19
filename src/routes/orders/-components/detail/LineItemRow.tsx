@@ -13,14 +13,14 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import {
   LINE_ITEM_STATUS_LABEL,
-  type LineItem,
+  type OrderItem,
   type Order,
 } from "@shared/models";
 import { useState } from "react";
 import { formatDate, LINE_ITEM_STATUS_COLOR_MAP } from "./detailUtils";
 
 export interface LineItemRowProps {
-  lineItem: LineItem;
+  lineItem: OrderItem;
   order: Order;
   canEdit?: boolean;
   onEdit?: () => void;

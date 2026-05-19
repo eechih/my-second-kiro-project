@@ -11,7 +11,7 @@ import { validateMergeOrders } from "@shared/logic/order-merge";
 import {
   normalizeLineItemStatus,
   normalizeOrderStatus,
-  type LineItem,
+  type OrderItem,
   type Order,
 } from "@shared/models/order";
 import {
@@ -58,7 +58,7 @@ function succeed(message: string, data: Record<string, unknown>): string {
 // DynamoDB record mappers
 // ---------------------------------------------------------------------------
 
-function mapLineItem(raw: DdbRecord): LineItem {
+function mapLineItem(raw: DdbRecord): OrderItem {
   return {
     id: String(raw["id"] ?? ""),
     productId: String(raw["productId"] ?? ""),
@@ -80,7 +80,7 @@ function mapLineItem(raw: DdbRecord): LineItem {
   };
 }
 
-function mapOrder(raw: DdbRecord, lineItems: LineItem[]): Order {
+function mapOrder(raw: DdbRecord, lineItems: OrderItem[]): Order {
   return {
     id: String(raw["id"] ?? ""),
     orderNumber: String(raw["orderNumber"] ?? ""),

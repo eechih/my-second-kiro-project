@@ -159,6 +159,7 @@ async function fetchSupplier(id: string): Promise<Supplier> {
 }
 
 async function createSupplier(input: CreateSupplierInput): Promise<Supplier> {
+  const now = new Date().toISOString();
   const payload: Record<string, unknown> = {
     name: input.name,
     contactPerson: input.contactPerson,
@@ -167,6 +168,8 @@ async function createSupplier(input: CreateSupplierInput): Promise<Supplier> {
     address: input.address ?? "",
     translationParser: input.translationParser ?? null,
     isActive: true,
+    gsiPartition: "Supplier",
+    createdAtForSort: now,
   };
 
   const { data, errors } = await client.models.Supplier.create(

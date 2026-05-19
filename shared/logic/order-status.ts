@@ -10,7 +10,7 @@
  * 需求：5.1, 5.2, 5.3, 5.5, 5.6
  */
 
-import type { LineItem, OrderStatus } from "../models/order";
+import type { OrderItem, OrderStatus } from "../models/order";
 
 /**
  * 合法的訂單狀態轉換對照表。
@@ -75,7 +75,7 @@ export function getNextAllowedOrderStatuses(
  * 需求：5.5, 5.6
  */
 export function deriveOrderStatusFromLineItems(
-  lineItems: ReadonlyArray<Pick<LineItem, "status">>,
+  lineItems: ReadonlyArray<Pick<OrderItem, "status">>,
 ): OrderStatus | null {
   if (lineItems.length === 0) {
     return null;

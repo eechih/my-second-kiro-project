@@ -7,56 +7,56 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import { LINE_ITEM_STATUS_LABEL, type LineItem } from "@shared/models";
+import { LINE_ITEM_STATUS_LABEL, type OrderItem } from "@shared/models";
 import { LINE_ITEM_STATUS_COLOR } from "./tableUtils";
 
 type EditableStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
-type LineItemStatusFlagConfig = {
+type OrderItemStatusFlagConfig = {
   key: EditableStatusFlag;
   getLabel: (checked: boolean) => string;
-  isChecked: (item: LineItem) => boolean;
+  isChecked: (item: OrderItem) => boolean;
   checkedColor: string;
   uncheckedColor?: string;
 };
 
-const LINE_ITEM_STATUS_FLAGS: LineItemStatusFlagConfig[] = [
+const LINE_ITEM_STATUS_FLAGS: OrderItemStatusFlagConfig[] = [
   {
     key: "ordered",
     getLabel: (checked: boolean) => (checked ? "訂貨" : "未訂貨"),
-    isChecked: (item: LineItem) => Boolean(item.purchasedAt),
+    isChecked: (item: OrderItem) => Boolean(item.purchasedAt),
     checkedColor: "warning.main",
   },
   {
     key: "received",
     getLabel: (checked: boolean) => (checked ? "到貨" : "未到貨"),
-    isChecked: (item: LineItem) => Boolean(item.receivedAt),
+    isChecked: (item: OrderItem) => Boolean(item.receivedAt),
     checkedColor: "info.main",
     uncheckedColor: "text.secondary",
   },
   {
     key: "shipped",
     getLabel: (checked: boolean) => (checked ? "出貨" : "未出貨"),
-    isChecked: (item: LineItem) => Boolean(item.shippedAt),
+    isChecked: (item: OrderItem) => Boolean(item.shippedAt),
     checkedColor: "success.main",
     uncheckedColor: "text.secondary",
   },
   {
     key: "outOfStock",
     getLabel: (checked: boolean) => (checked ? "斷貨" : "未斷貨"),
-    isChecked: (item: LineItem) => item.status === "out_of_stock",
+    isChecked: (item: OrderItem) => item.status === "out_of_stock",
     checkedColor: "error.main",
     uncheckedColor: "text.secondary",
   },
 ];
 
-const NON_CANCELABLE_ORDERED_STATUSES = new Set<LineItem["status"]>([
+const NON_CANCELABLE_ORDERED_STATUSES = new Set<OrderItem["status"]>([
   "received",
   "shipped",
   "out_of_stock",
 ]);
 
-const NON_CANCELABLE_RECEIVED_STATUSES = new Set<LineItem["status"]>([
+const NON_CANCELABLE_RECEIVED_STATUSES = new Set<OrderItem["status"]>([
   "shipped",
   "out_of_stock",
 ]);
@@ -72,7 +72,7 @@ function isEditableStatusFlag(key: string): key is EditableStatusFlag {
 
 function isStatusFlagDisabled(
   flag: EditableStatusFlag,
-  item: LineItem,
+  item: OrderItem,
   checked: boolean,
 ): boolean {
   if (flag === "ordered") {
@@ -107,7 +107,7 @@ function isStatusFlagDisabled(
 }
 
 export interface LineItemRowProps {
-  item: LineItem;
+  item: OrderItem;
   orderId: string;
 }
 

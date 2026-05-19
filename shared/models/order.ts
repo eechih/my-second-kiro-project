@@ -1,5 +1,5 @@
 /**
- * 訂單（Order）、明細項目（LineItem）及共用型別
+ * 訂單（Order）、訂單明細（OrderItem）及共用型別
  *
  * 需求：4.1, 4.3, 4.4, 4.12, 4.13, 5.1, 6.1, 6.9
  */
@@ -28,7 +28,8 @@ export const LINE_ITEM_STATUSES = [
   "out_of_stock",
 ] as const;
 
-export type LineItemStatus = (typeof LINE_ITEM_STATUSES)[number];
+export type OrderItemStatus = (typeof LINE_ITEM_STATUSES)[number];
+export type LineItemStatus = OrderItemStatus;
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "待處理",
@@ -38,15 +39,16 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   cancelled: "已取消",
 };
 
-export const LINE_ITEM_STATUS_LABEL: Record<LineItemStatus, string> = {
+export const ORDER_ITEM_STATUS_LABEL: Record<OrderItemStatus, string> = {
   pending: "待處理",
   ordered: "已訂購",
   received: "已收到",
   shipped: "已出貨",
   out_of_stock: "缺貨",
 };
+export const LINE_ITEM_STATUS_LABEL = ORDER_ITEM_STATUS_LABEL;
 
-const LEGACY_LINE_ITEM_STATUS_MAP: Record<string, LineItemStatus> = {
+const LEGACY_LINE_ITEM_STATUS_MAP: Record<string, OrderItemStatus> = {
   待處理: "pending",
   已訂購: "ordered",
   已收到: "received",
@@ -65,15 +67,19 @@ export function normalizeOrderStatus(value: unknown): OrderStatus {
   return isOrderStatus(value) ? value : "pending";
 }
 
-export function isLineItemStatus(value: unknown): value is LineItemStatus {
+export function isOrderItemStatus(value: unknown): value is OrderItemStatus {
   return (
     typeof value === "string" &&
     (LINE_ITEM_STATUSES as readonly string[]).includes(value)
   );
 }
 
-export function normalizeLineItemStatus(value: unknown): LineItemStatus {
-  if (isLineItemStatus(value)) {
+export function isLineItemStatus(value: unknown): value is LineItemStatus {
+  return isOrderItemStatus(value);
+}
+
+export function normalizeOrderItemStatus(value: unknown): OrderItemStatus {
+  if (isOrderItemStatus(value)) {
     return value;
   }
 
@@ -84,6 +90,7 @@ export function normalizeLineItemStatus(value: unknown): LineItemStatus {
   }
   return "pending";
 }
+export const normalizeLineItemStatus = normalizeOrderItemStatus;
 
 // ---------------------------------------------------------------------------
 // 共用型別
@@ -126,17 +133,19 @@ export interface SplitAllocation {
 }
 
 // ---------------------------------------------------------------------------
-// 明細項目（LineItem）
+// 訂單明細（OrderItem）
 // ---------------------------------------------------------------------------
 
 /** 訂單明細項目 */
-export interface LineItem {
+export interface OrderItem {
   /** 唯一識別碼 */
   id: string;
   /** 商品 ID */
   productId: string;
   /** 商品名稱（反正規化） */
   productName: string;
+  /** 商品 SKU（反正規化） */
+  productSku?: string;
   /** 規格組合顯示標籤（反正規化，如「黑 L」；無規格組合時為 null） */
   variantLabel: string | null;
   /** 訂購數量（> 0） */
@@ -146,7 +155,7 @@ export interface LineItem {
   /** 小計 = quantity × unitPrice */
   subtotal: number;
   /** 明細狀態 */
-  status: LineItemStatus;
+  status: OrderItemStatus;
   /** ISO 8601 採購日期時間（尚未採購時為 null） */
   purchasedAt: string | null;
   /** ISO 8601 收到日期時間（尚未收到時為 null） */
@@ -162,6 +171,7 @@ export interface LineItem {
   /** 採購單位成本（尚未採購時為 null） */
   unitCost: number | null;
 }
+export type LineItem = OrderItem;
 
 // ---------------------------------------------------------------------------
 // 訂單（Order）
@@ -178,7 +188,7 @@ export interface Order {
   /** 客戶名稱（反正規化，方便列表顯示） */
   customerName: string;
   /** 明細項目列表 */
-  lineItems: LineItem[];
+  lineItems: OrderItem[];
   /** 訂單總金額 */
   totalAmount: number;
   /** 訂單狀態 */
@@ -196,11 +206,13 @@ export interface Order {
 // ---------------------------------------------------------------------------
 
 /** 建立訂單明細項目輸入 */
-export interface CreateLineItemInput {
+export interface CreateOrderItemInput {
   /** 商品 ID（必填） */
   productId: string;
   /** 商品名稱（必填，反正規化） */
   productName: string;
+  /** 商品 SKU（必填，反正規化） */
+  productSku: string;
   /** 規格組合顯示標籤（商品有規格組合時必填） */
   variantLabel?: string | null;
   /** 訂購數量（必填，> 0） */
@@ -216,8 +228,9 @@ export interface CreateOrderInput {
   /** 客戶名稱（必填，反正規化） */
   customerName: string;
   /** 明細項目列表（必填，至少一筆） */
-  lineItems: CreateLineItemInput[];
+  lineItems: CreateOrderItemInput[];
 }
+export type CreateLineItemInput = CreateOrderItemInput;
 
 /** 確認出貨輸入 */
 export interface ConfirmShipmentInput {

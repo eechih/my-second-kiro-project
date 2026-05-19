@@ -10,7 +10,7 @@ import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import { calculateOrderTotal } from "@shared/logic/order-calculations";
 import { validateSplitOrder } from "@shared/logic/order-split";
-import type { LineItem, SplitAllocation } from "@shared/models";
+import type { OrderItem, SplitAllocation } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { SplitActions } from "./-components/split/Actions";
@@ -69,7 +69,7 @@ function OrderSplitPage() {
   const splitPreview = useMemo<SplitPreviewGroup[]>(() => {
     if (!order) return [];
 
-    const groups = new Map<number, LineItem[]>();
+    const groups = new Map<number, OrderItem[]>();
     for (const [lineItemId, targetIndex] of allocations.entries()) {
       const lineItem = order.lineItems.find((li) => li.id === lineItemId);
       if (lineItem) {
