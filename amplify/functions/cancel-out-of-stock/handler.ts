@@ -21,11 +21,11 @@ import {
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "cancelOutOfStock";
 
-function restoreStatus(lineItem: Record<string, unknown>): OrderItemStatus {
-  if (lineItem["receivedAt"]) {
+function restoreStatus(orderItem: Record<string, unknown>): OrderItemStatus {
+  if (orderItem["receivedAt"]) {
     return "received";
   }
-  if (lineItem["purchasedAt"]) {
+  if (orderItem["purchasedAt"]) {
     return "ordered";
   }
   return "pending";
@@ -47,12 +47,12 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
   const { orderItemId } = event.arguments;
   logInfo(FUNCTION_NAME, "handler started", { orderItemId });
 
-  const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
+  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
 
-  if (!lineItemTable || !orderTable) {
+  if (!orderItemTable || !orderTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
-      hasLineItemTable: !!lineItemTable,
+      hasOrderItemTable: !!orderItemTable,
       hasOrderTable: !!orderTable,
     });
     return JSON.stringify({
@@ -63,31 +63,31 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
 
   try {
     // 1. 取得 OrderItem 資料（含 orderId）
-    const lineItemResult = await ddb.send(
+    const orderItemResult = await ddb.send(
       new GetItemCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         Key: marshall({ id: orderItemId }),
       }),
     );
 
-    if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderItemId });
+    if (!orderItemResult.Item) {
+      logWarn(FUNCTION_NAME, "order item not found", { orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
       });
     }
 
-    const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeOrderItemStatus(lineItem["status"]);
-    const orderId = String(lineItem["orderId"] ?? "");
-    logDebug(FUNCTION_NAME, "line item loaded", {
+    const orderItem = unmarshall(orderItemResult.Item);
+    const status = normalizeOrderItemStatus(orderItem["status"]);
+    const orderId = String(orderItem["orderId"] ?? "");
+    logDebug(FUNCTION_NAME, "order item loaded", {
       orderItemId,
       orderId,
       status,
-      rawStatus: lineItem["status"],
-      hasPurchasedAt: !!lineItem["purchasedAt"],
-      hasReceivedAt: !!lineItem["receivedAt"],
+      rawStatus: orderItem["status"],
+      hasPurchasedAt: !!orderItem["purchasedAt"],
+      hasReceivedAt: !!orderItem["receivedAt"],
     });
 
     if (!orderId) {
@@ -126,7 +126,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
       });
     }
 
-    const nextStatus = restoreStatus(lineItem);
+    const nextStatus = restoreStatus(orderItem);
     const now = new Date().toISOString();
 
     // 4. 執行交易
@@ -142,7 +142,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
         TransactItems: [
           {
             Update: {
-              TableName: lineItemTable,
+              TableName: orderItemTable,
               Key: marshall({ id: orderItemId }),
               UpdateExpression:
                 "SET #st = :nextStatus, updatedAt = :now REMOVE outOfStockAt",
@@ -165,14 +165,14 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     logInfo(FUNCTION_NAME, "handler succeeded", {
       orderItemId,
       orderId,
-      lineItemStatus: nextStatus,
+      orderItemStatus: nextStatus,
     });
     return JSON.stringify({
       success: true,
       message: "取消缺貨成功",
       data: {
         orderItemId,
-        lineItemStatus: nextStatus,
+        orderItemStatus: nextStatus,
       },
     });
   } catch (error: unknown) {

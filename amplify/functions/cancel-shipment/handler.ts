@@ -40,12 +40,12 @@ function parseStatusHistory(raw: unknown): Record<string, unknown>[] {
 }
 
 function deriveOrderStatusAfterShipmentCancel(
-  lineItems: ReadonlyArray<{
+  orderItems: ReadonlyArray<{
     status: ReturnType<typeof normalizeOrderItemStatus>;
   }>,
 ): OrderStatus {
-  const allShipped = lineItems.every((item) => item.status === "shipped");
-  const someShipped = lineItems.some((item) => item.status === "shipped");
+  const allShipped = orderItems.every((item) => item.status === "shipped");
+  const someShipped = orderItems.some((item) => item.status === "shipped");
 
   if (allShipped) {
     return "completed";
@@ -74,13 +74,13 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
   const { orderItemId } = event.arguments;
   logInfo(FUNCTION_NAME, "handler started", { orderItemId });
 
-  const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
+  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
 
-  if (!lineItemTable || !orderTable || !productTable) {
+  if (!orderItemTable || !orderTable || !productTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
-      hasLineItemTable: !!lineItemTable,
+      hasOrderItemTable: !!orderItemTable,
       hasOrderTable: !!orderTable,
       hasProductTable: !!productTable,
     });
@@ -91,31 +91,31 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
   }
 
   try {
-    const lineItemResult = await ddb.send(
+    const orderItemResult = await ddb.send(
       new GetItemCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         Key: marshall({ id: orderItemId }),
       }),
     );
 
-    if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderItemId });
+    if (!orderItemResult.Item) {
+      logWarn(FUNCTION_NAME, "order item not found", { orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
       });
     }
 
-    const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeOrderItemStatus(lineItem["status"]);
-    const quantity = Number(lineItem["quantity"] ?? 0);
-    const productId = String(lineItem["productId"] ?? "");
-    const orderId = String(lineItem["orderId"] ?? "");
-    logDebug(FUNCTION_NAME, "line item loaded", {
+    const orderItem = unmarshall(orderItemResult.Item);
+    const status = normalizeOrderItemStatus(orderItem["status"]);
+    const quantity = Number(orderItem["quantity"] ?? 0);
+    const productId = String(orderItem["productId"] ?? "");
+    const orderId = String(orderItem["orderId"] ?? "");
+    logDebug(FUNCTION_NAME, "order item loaded", {
       orderId,
       orderItemId,
       status,
-      rawStatus: lineItem["status"],
+      rawStatus: orderItem["status"],
       quantity,
       productId,
     });
@@ -141,26 +141,26 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       });
     }
 
-    const allLineItemsResult = await ddb.send(
+    const allOrderItemsResult = await ddb.send(
       new QueryCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         IndexName: "byOrderId",
         KeyConditionExpression: "orderId = :orderId",
         ExpressionAttributeValues: marshall({ ":orderId": orderId }),
       }),
     );
 
-    const allLineItems = (allLineItemsResult.Items ?? []).map((rawItem) =>
+    const allOrderItems = (allOrderItemsResult.Items ?? []).map((rawItem) =>
       unmarshall(rawItem),
     );
-    const simulatedLineItems = allLineItems.map((item) => ({
+    const simulatedOrderItems = allOrderItems.map((item) => ({
       status:
         item["id"] === orderItemId
           ? ("received" as const)
           : normalizeOrderItemStatus(item["status"]),
     }));
     const derivedOrderStatus =
-      deriveOrderStatusAfterShipmentCancel(simulatedLineItems);
+      deriveOrderStatusAfterShipmentCancel(simulatedOrderItems);
 
     const orderResult = await ddb.send(
       new GetItemCommand({
@@ -184,7 +184,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       orderItemId,
       currentOrderStatus,
       derivedOrderStatus,
-      lineItemCount: allLineItems.length,
+      orderItemCount: allOrderItems.length,
     });
     if (currentOrderStatus === "cancelled") {
       return JSON.stringify({
@@ -212,7 +212,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       },
       {
         Update: {
-          TableName: lineItemTable,
+          TableName: orderItemTable,
           Key: marshall({ id: orderItemId }),
           UpdateExpression:
             "SET #st = :received, updatedAt = :now REMOVE shippedAt",
@@ -274,7 +274,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       orderItemId,
       productId,
       restoredQuantity: quantity,
-      lineItemStatus: "received",
+      orderItemStatus: "received",
       orderStatus: derivedOrderStatus,
     });
     return JSON.stringify({
@@ -283,7 +283,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       data: {
         orderItemId,
         restoredQuantity: quantity,
-        lineItemStatus: "received",
+        orderItemStatus: "received",
         orderStatus: derivedOrderStatus,
       },
     });

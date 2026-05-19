@@ -42,7 +42,7 @@ export function buildPackingSlipHtml(orders: readonly Order[]): string {
 
   const slips = orders
     .map((order) => {
-      const shippingLineItems = order.lineItems.filter((item) =>
+      const shippingLineItems = order.items.filter((item) =>
         Boolean(item.shippedAt),
       );
       const rows =

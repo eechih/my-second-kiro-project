@@ -90,7 +90,7 @@ function createSampleOrder(): Order {
     orderNumber: "ORD-20250101-001",
     customerId: "cust-001",
     customerName: "測試客戶",
-    lineItems: [
+    items: [
       {
         id: "li-001",
         productId: "prod-001",
@@ -261,23 +261,23 @@ describe("serializeOrder / deserializeOrder", () => {
     const restored = deserializeOrder(json);
 
     // 第一筆明細有 variantLabel，第二筆為 null
-    expect(restored.lineItems[0]!.variantLabel).toBe("紅 L");
-    expect(restored.lineItems[1]!.variantLabel).toBeNull();
+    expect(restored.items[0]!.variantLabel).toBe("紅 L");
+    expect(restored.items[1]!.variantLabel).toBeNull();
 
     // 第二筆明細的 unitCost 為 null
-    expect(restored.lineItems[1]!.unitCost).toBeNull();
+    expect(restored.items[1]!.unitCost).toBeNull();
   });
 
   it("空明細項目的訂單往返序列化應正確", () => {
     const original: Order = {
       ...createSampleOrder(),
-      lineItems: [],
+      items: [],
       totalAmount: 0,
     };
     const json = serializeOrder(original);
     const restored = deserializeOrder(json);
     expect(restored).toEqual(original);
-    expect(restored.lineItems).toEqual([]);
+    expect(restored.items).toEqual([]);
   });
 
   it("狀態歷史記錄應正確保留", () => {

@@ -166,7 +166,7 @@ export interface Order {
   /** 客戶名稱（反正規化，方便列表顯示） */
   customerName: string;
   /** 明細項目列表 */
-  lineItems: OrderItem[];
+  items: OrderItem[];
   /** 訂單總金額 */
   totalAmount: number;
   /** 訂單狀態 */

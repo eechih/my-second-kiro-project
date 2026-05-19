@@ -40,12 +40,12 @@ function generateOrderNumber(): string {
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
  * - 建立多筆新 Orders
- * - 依分配方式將 LineItems 的 orderId 更新至對應的新 Order
+ * - 依分配方式將 OrderItems 的 orderId 更新至對應的新 Order
  * - 將原 Order 狀態變更為 cancelled
  *
  * 包含驗證邏輯：
  * - 原訂單狀態為 pending 或 confirmed
- * - 所有 LineItems 皆有分配目標
+ * - 所有 OrderItems 皆有分配目標
  * - 分拆後所有新訂單的明細項目總和等於原訂單（數量守恆）
  */
 export const handler: Schema["splitOrder"]["functionHandler"] = async (
@@ -58,12 +58,12 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
   });
 
   const orderTable = process.env["ORDER_TABLE_NAME"];
-  const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
+  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
 
-  if (!orderTable || !lineItemTable) {
+  if (!orderTable || !orderItemTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
       hasOrderTable: !!orderTable,
-      hasLineItemTable: !!lineItemTable,
+      hasOrderItemTable: !!orderItemTable,
     });
     return JSON.stringify({
       success: false,
@@ -118,38 +118,38 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     }
 
     // 4. 取得原訂單的所有明細項目
-    const lineItemsResult = await ddb.send(
+    const orderItemsResult = await ddb.send(
       new QueryCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         IndexName: "byOrderId",
         KeyConditionExpression: "orderId = :orderId",
         ExpressionAttributeValues: marshall({ ":orderId": orderId }),
       }),
     );
 
-    const allLineItems = (lineItemsResult.Items ?? [])
+    const allOrderItems = (orderItemsResult.Items ?? [])
       .map((rawItem) => unmarshall(rawItem));
-    logDebug(FUNCTION_NAME, "line items loaded", {
+    logDebug(FUNCTION_NAME, "order items loaded", {
       orderId,
-      lineItemCount: allLineItems.length,
+      orderItemCount: allOrderItems.length,
       allocationCount: allocations.length,
     });
 
-    const lineItemMap = new Map<string, Record<string, unknown>>();
-    for (const li of allLineItems) {
-      lineItemMap.set(li["id"] as string, li);
+    const orderItemMap = new Map<string, Record<string, unknown>>();
+    for (const li of allOrderItems) {
+      orderItemMap.set(li["id"] as string, li);
     }
 
     // 5. 驗證所有明細項目皆有分配目標
     const allocatedIds = new Set(allocations.map((a) => a.orderItemId));
-    const orderLineItemIds = new Set(
-      allLineItems.map((li) => li["id"] as string),
+    const orderOrderItemIds = new Set(
+      allOrderItems.map((li) => li["id"] as string),
     );
 
     // 檢查分配列表中的明細 ID 是否存在於原訂單
     for (const allocation of allocations) {
-      if (!orderLineItemIds.has(allocation.orderItemId)) {
-        logWarn(FUNCTION_NAME, "allocation references missing line item", {
+      if (!orderOrderItemIds.has(allocation.orderItemId)) {
+        logWarn(FUNCTION_NAME, "allocation references missing order item", {
           orderId,
           orderItemId: allocation.orderItemId,
         });
@@ -161,9 +161,9 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     }
 
     // 檢查所有明細項目皆有分配目標
-    for (const orderItemId of orderLineItemIds) {
+    for (const orderItemId of orderOrderItemIds) {
       if (!allocatedIds.has(orderItemId)) {
-        logWarn(FUNCTION_NAME, "line item missing allocation", {
+        logWarn(FUNCTION_NAME, "order item missing allocation", {
           orderId,
           orderItemId,
         });
@@ -188,16 +188,16 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     }
 
     // 7. 依 targetOrderIndex 分組明細項目
-    const groupedLineItems = new Map<number, Record<string, unknown>[]>();
+    const groupedOrderItems = new Map<number, Record<string, unknown>[]>();
     for (const allocation of allocations) {
-      const lineItem = lineItemMap.get(allocation.orderItemId);
-      if (!lineItem) continue;
+      const orderItem = orderItemMap.get(allocation.orderItemId);
+      if (!orderItem) continue;
 
-      const group = groupedLineItems.get(allocation.targetOrderIndex);
+      const group = groupedOrderItems.get(allocation.targetOrderIndex);
       if (group) {
-        group.push(lineItem);
+        group.push(orderItem);
       } else {
-        groupedLineItems.set(allocation.targetOrderIndex, [lineItem]);
+        groupedOrderItems.set(allocation.targetOrderIndex, [orderItem]);
       }
     }
 
@@ -216,23 +216,23 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       customerName: string;
       status: OrderStatus;
       statusHistory: Record<string, unknown>[];
-      lineItems: Record<string, unknown>[];
+      orderItems: Record<string, unknown>[];
       createdAt: string;
       updatedAt: string;
       totalAmount: number;
-      lineItemCount: number;
+      orderItemCount: number;
     }[] = [];
 
     // 8a. 為每個分組建立新訂單
-    const sortedIndices = [...groupedLineItems.keys()].sort((a, b) => a - b);
+    const sortedIndices = [...groupedOrderItems.keys()].sort((a, b) => a - b);
     for (const index of sortedIndices) {
-      const lineItems = groupedLineItems.get(index)!;
+      const orderItems = groupedOrderItems.get(index)!;
       const newOrderNumber = generateOrderNumber();
       const newOrderId = crypto.randomUUID();
 
       // 計算新訂單總金額
       let totalAmount = 0;
-      for (const li of lineItems) {
+      for (const li of orderItems) {
         totalAmount +=
           (li["quantity"] as number) * (li["unitPrice"] as number);
       }
@@ -270,18 +270,18 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
         customerName,
         status: "pending",
         statusHistory: [],
-        lineItems: [],
+        orderItems: [],
         createdAt: now,
         updatedAt: now,
         totalAmount,
-        lineItemCount: lineItems.length,
+        orderItemCount: orderItems.length,
       });
 
       // 搬移明細項目至新訂單
-      for (const li of lineItems) {
+      for (const li of orderItems) {
         transactItems.push({
           Update: {
-            TableName: lineItemTable,
+            TableName: orderItemTable,
             Key: marshall({ id: li["id"] as string }),
             UpdateExpression: "SET orderId = :newOrderId, updatedAt = :now",
             ExpressionAttributeValues: marshall({
@@ -337,7 +337,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       orderId,
       currentStatus,
       newOrderCount: newOrders.length,
-      lineItemCount: allLineItems.length,
+      orderItemCount: allOrderItems.length,
       transactItemCount: transactItems.length,
     });
     await ddb.send(
@@ -348,7 +348,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       originalOrderId: orderId,
       newOrderCount: newOrders.length,
       newOrderIds: newOrders.map((order) => order.id),
-      lineItemCount: allLineItems.length,
+      orderItemCount: allOrderItems.length,
     });
     return JSON.stringify({
       success: true,

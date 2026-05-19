@@ -34,7 +34,7 @@ export interface SplitOrderData {
   /** 客戶名稱（反正規化） */
   customerName: string;
   /** 分配到此新訂單的明細項目 */
-  lineItems: OrderItem[];
+  items: OrderItem[];
   /** 新訂單總金額 */
   totalAmount: number;
   /** 新訂單的初始狀態 */
@@ -93,7 +93,7 @@ export function validateSplitOrder(
   }
 
   // 建立原訂單明細 ID 集合，用於後續驗證
-  const orderLineItemIds = new Set(order.lineItems.map((li) => li.id));
+  const orderLineItemIds = new Set(order.items.map((li) => li.id));
 
   // 規則 4：分配列表中的明細 ID 必須存在於原訂單
   const invalidAllocation = allocations.find(
@@ -171,7 +171,7 @@ export function splitOrder(
 ): SplitOrderData[] {
   // 建立明細項目 ID → OrderItem 的查找表
   const lineItemMap = new Map<string, OrderItem>();
-  for (const lineItem of order.lineItems) {
+  for (const lineItem of order.items) {
     lineItemMap.set(lineItem.id, lineItem);
   }
 
@@ -195,13 +195,13 @@ export function splitOrder(
   const sortedIndices = [...groupedLineItems.keys()].sort((a, b) => a - b);
 
   return sortedIndices.map((index) => {
-    const lineItems = groupedLineItems.get(index)!;
-    const totalAmount = calculateOrderTotal(lineItems);
+    const items = groupedLineItems.get(index)!;
+    const totalAmount = calculateOrderTotal(items);
 
     return {
       customerId: order.customerId,
       customerName: order.customerName,
-      lineItems,
+      items,
       totalAmount,
       status: "pending" as OrderStatus,
       sourceOrderId: order.id,

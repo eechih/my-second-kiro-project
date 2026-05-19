@@ -127,7 +127,7 @@ function OrderListPage(): React.ReactElement {
     0,
   );
   const selectedOrderLineItemCount = selectedOrders.reduce(
-    (sum, order) => sum + order.lineItems.length,
+    (sum, order) => sum + order.items.length,
     0,
   );
 

@@ -39,12 +39,12 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
   const { orderItemId } = event.arguments;
   logInfo(FUNCTION_NAME, "handler started", { orderItemId });
 
-  const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
+  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
 
-  if (!lineItemTable || !productTable) {
+  if (!orderItemTable || !productTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
-      hasLineItemTable: !!lineItemTable,
+      hasOrderItemTable: !!orderItemTable,
       hasProductTable: !!productTable,
     });
     return JSON.stringify({
@@ -55,31 +55,31 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
 
   try {
     // 1. 取得 OrderItem 資料
-    const lineItemResult = await ddb.send(
+    const orderItemResult = await ddb.send(
       new GetItemCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         Key: marshall({ id: orderItemId }),
       }),
     );
 
-    if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderItemId });
+    if (!orderItemResult.Item) {
+      logWarn(FUNCTION_NAME, "order item not found", { orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
       });
     }
 
-    const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeOrderItemStatus(lineItem["status"]);
-    const quantity = lineItem["quantity"] as number;
-    const productId = lineItem["productId"] as string;
-    logDebug(FUNCTION_NAME, "line item loaded", {
+    const orderItem = unmarshall(orderItemResult.Item);
+    const status = normalizeOrderItemStatus(orderItem["status"]);
+    const quantity = orderItem["quantity"] as number;
+    const productId = orderItem["productId"] as string;
+    logDebug(FUNCTION_NAME, "order item loaded", {
       orderItemId,
       productId,
       status,
       quantity,
-      rawStatus: lineItem["status"],
+      rawStatus: orderItem["status"],
     });
 
     // 2. 使用共用驗證函式檢查前置條件
@@ -128,7 +128,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     // 4a. 更新 OrderItem：status → "received"、receivedAt
     transactItems.push({
       Update: {
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         Key: marshall({ id: orderItemId }),
         UpdateExpression:
           "SET #st = :newStatus, receivedAt = :now, updatedAt = :now",
@@ -174,7 +174,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       orderItemId,
       productId,
       quantity,
-      lineItemStatus: "received",
+      orderItemStatus: "received",
     });
     return JSON.stringify({
       success: true,
@@ -182,7 +182,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       data: {
         orderItemId,
         quantity,
-        lineItemStatus: "received",
+        orderItemStatus: "received",
       },
     });
   } catch (error: unknown) {

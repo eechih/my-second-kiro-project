@@ -31,12 +31,12 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
   const { orderItemId } = event.arguments;
   logInfo(FUNCTION_NAME, "handler started", { orderItemId });
 
-  const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
+  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
 
-  if (!lineItemTable || !orderTable) {
+  if (!orderItemTable || !orderTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
-      hasLineItemTable: !!lineItemTable,
+      hasOrderItemTable: !!orderItemTable,
       hasOrderTable: !!orderTable,
     });
     return JSON.stringify({
@@ -46,29 +46,29 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
   }
 
   try {
-    const lineItemResult = await ddb.send(
+    const orderItemResult = await ddb.send(
       new GetItemCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         Key: marshall({ id: orderItemId }),
       }),
     );
 
-    if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderItemId });
+    if (!orderItemResult.Item) {
+      logWarn(FUNCTION_NAME, "order item not found", { orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
       });
     }
 
-    const lineItem = unmarshall(lineItemResult.Item);
-    const orderId = String(lineItem["orderId"] ?? "");
-    const status = normalizeOrderItemStatus(lineItem["status"]);
-    logDebug(FUNCTION_NAME, "line item loaded", {
+    const orderItem = unmarshall(orderItemResult.Item);
+    const orderId = String(orderItem["orderId"] ?? "");
+    const status = normalizeOrderItemStatus(orderItem["status"]);
+    logDebug(FUNCTION_NAME, "order item loaded", {
       orderId,
       orderItemId,
       status,
-      rawStatus: lineItem["status"],
+      rawStatus: orderItem["status"],
     });
 
     const orderResult = await ddb.send(
@@ -110,7 +110,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
         TransactItems: [
           {
             Update: {
-              TableName: lineItemTable,
+              TableName: orderItemTable,
               Key: marshall({ id: orderItemId }),
               UpdateExpression:
                 "SET #st = :pending, updatedAt = :now REMOVE purchasedAt, supplierName, unitCost",
@@ -133,14 +133,14 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
     logInfo(FUNCTION_NAME, "handler succeeded", {
       orderId,
       orderItemId,
-      lineItemStatus: "pending",
+      orderItemStatus: "pending",
     });
     return JSON.stringify({
       success: true,
       message: "取消採購成功",
       data: {
         orderItemId,
-        lineItemStatus: "pending",
+        orderItemStatus: "pending",
       },
     });
   } catch (error: unknown) {

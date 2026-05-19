@@ -48,7 +48,7 @@ function orderItemIdArgument() {
   };
 }
 
-function authenticatedLineItemMutation(resource: FunctionResource) {
+function authenticatedOrderItemMutation(resource: FunctionResource) {
   return a
     .mutation()
     .arguments(orderItemIdArgument())
@@ -290,14 +290,14 @@ const schema = a.schema({
     createProduct,
   ),
 
-  confirmPurchase: authenticatedLineItemMutation(confirmPurchase),
-  cancelPurchase: authenticatedLineItemMutation(cancelPurchase),
-  confirmReceived: authenticatedLineItemMutation(confirmReceived),
-  cancelReceived: authenticatedLineItemMutation(cancelReceived),
-  confirmShipment: authenticatedLineItemMutation(confirmShipment),
-  cancelShipment: authenticatedLineItemMutation(cancelShipment),
-  confirmOutOfStock: authenticatedLineItemMutation(confirmOutOfStock),
-  cancelOutOfStock: authenticatedLineItemMutation(cancelOutOfStock),
+  confirmPurchase: authenticatedOrderItemMutation(confirmPurchase),
+  cancelPurchase: authenticatedOrderItemMutation(cancelPurchase),
+  confirmReceived: authenticatedOrderItemMutation(confirmReceived),
+  cancelReceived: authenticatedOrderItemMutation(cancelReceived),
+  confirmShipment: authenticatedOrderItemMutation(confirmShipment),
+  cancelShipment: authenticatedOrderItemMutation(cancelShipment),
+  confirmOutOfStock: authenticatedOrderItemMutation(confirmOutOfStock),
+  cancelOutOfStock: authenticatedOrderItemMutation(cancelOutOfStock),
 
   mergeOrders: authenticatedJsonMutation(
     {

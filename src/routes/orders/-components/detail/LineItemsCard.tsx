@@ -170,7 +170,7 @@ export function LineItemsCard({
             </TableRow>
           </TableHead>
           <TableBody>
-            {order.lineItems.map((lineItem) => (
+            {order.items.map((lineItem) => (
               <LineItemRow
                 key={lineItem.id}
                 lineItem={lineItem}

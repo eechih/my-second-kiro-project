@@ -58,7 +58,7 @@ function succeed(message: string, data: Record<string, unknown>): string {
 // DynamoDB record mappers
 // ---------------------------------------------------------------------------
 
-function mapLineItem(raw: DdbRecord): OrderItem {
+function mapOrderItem(raw: DdbRecord): OrderItem {
   return {
     id: String(raw["id"] ?? ""),
     productId: String(raw["productId"] ?? ""),
@@ -80,20 +80,24 @@ function mapLineItem(raw: DdbRecord): OrderItem {
   };
 }
 
-function mapOrder(raw: DdbRecord, lineItems: OrderItem[]): Order {
+function mapOrderRecordToOrder(input: {
+  rawOrder: DdbRecord;
+  orderItems: OrderItem[];
+}): Order {
+  const { rawOrder, orderItems } = input;
   return {
-    id: String(raw["id"] ?? ""),
-    orderNumber: String(raw["orderNumber"] ?? ""),
-    customerId: String(raw["customerId"] ?? ""),
-    customerName: String(raw["customerName"] ?? ""),
-    lineItems,
-    totalAmount: Number(raw["totalAmount"] ?? 0),
-    status: normalizeOrderStatus(raw["status"]),
-    statusHistory: Array.isArray(raw["statusHistory"])
-      ? (raw["statusHistory"] as Order["statusHistory"])
+    id: String(rawOrder["id"] ?? ""),
+    orderNumber: String(rawOrder["orderNumber"] ?? ""),
+    customerId: String(rawOrder["customerId"] ?? ""),
+    customerName: String(rawOrder["customerName"] ?? ""),
+    items: orderItems,
+    totalAmount: Number(rawOrder["totalAmount"] ?? 0),
+    status: normalizeOrderStatus(rawOrder["status"]),
+    statusHistory: Array.isArray(rawOrder["statusHistory"])
+      ? (rawOrder["statusHistory"] as Order["statusHistory"])
       : [],
-    createdAt: String(raw["createdAt"] ?? ""),
-    updatedAt: String(raw["updatedAt"] ?? ""),
+    createdAt: String(rawOrder["createdAt"] ?? ""),
+    updatedAt: String(rawOrder["updatedAt"] ?? ""),
   };
 }
 
@@ -103,15 +107,15 @@ function mapOrder(raw: DdbRecord, lineItems: OrderItem[]): Order {
 
 interface FetchedOrderData {
   record: DdbRecord;
-  lineItems: DdbRecord[];
+  orderItems: DdbRecord[];
 }
 
-async function fetchOrderWithLineItems(
+async function fetchOrderWithOrderItems(
   orderId: string,
   orderTable: string,
-  lineItemTable: string,
+  orderItemTable: string,
 ): Promise<FetchedOrderData | null> {
-  const [orderResult, lineItemsResult] = await Promise.all([
+  const [orderResult, orderItemsResult] = await Promise.all([
     ddb.send(
       new GetItemCommand({
         TableName: orderTable,
@@ -120,7 +124,7 @@ async function fetchOrderWithLineItems(
     ),
     ddb.send(
       new QueryCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         IndexName: "byOrderId",
         KeyConditionExpression: "orderId = :orderId",
         ExpressionAttributeValues: marshall({ ":orderId": orderId }),
@@ -134,7 +138,7 @@ async function fetchOrderWithLineItems(
 
   return {
     record: unmarshall(orderResult.Item),
-    lineItems: (lineItemsResult.Items ?? []).map((item) => unmarshall(item)),
+    orderItems: (orderItemsResult.Items ?? []).map((item) => unmarshall(item)),
   };
 }
 
@@ -180,21 +184,21 @@ function buildNewOrderItem(
   };
 }
 
-function buildLineItemMoveItems(
-  lineItemTable: string,
-  lineItems: DdbRecord[],
+function buildOrderItemMoveItems(
+  orderItemTable: string,
+  orderItems: DdbRecord[],
   newOrderId: string,
   now: string,
 ): TransactWriteItem[] {
-  return lineItems.map((lineItem) => ({
+  return orderItems.map((orderItem) => ({
     Update: {
-      TableName: lineItemTable,
-      Key: marshall({ id: lineItem["id"] as string }),
+      TableName: orderItemTable,
+      Key: marshall({ id: orderItem["id"] as string }),
       UpdateExpression: "SET orderId = :newOrderId, updatedAt = :now",
       ConditionExpression: "orderId = :sourceOrderId",
       ExpressionAttributeValues: marshall({
         ":newOrderId": newOrderId,
-        ":sourceOrderId": lineItem["orderId"] as string,
+        ":sourceOrderId": orderItem["orderId"] as string,
         ":now": now,
       }),
     },
@@ -242,8 +246,8 @@ function buildCancelOrderItems(
  * 訂單合併操作 Lambda 函式
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
- * - 建立新 Order（包含所有來源訂單的 LineItems）
- * - 搬移所有 LineItems 的 orderId 至新 Order
+ * - 建立新 Order（包含所有來源訂單的 OrderItems）
+ * - 搬移所有 OrderItems 的 orderId 至新 Order
  * - 將所有來源 Orders 狀態變更為 cancelled
  *
  * 驗證規則：
@@ -255,15 +259,15 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
   event,
 ) => {
   const orderTable = process.env["ORDER_TABLE_NAME"];
-  const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
+  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const { orderIds } = event.arguments;
 
   logInfo(FUNCTION_NAME, "handler started", { orderIds });
 
-  if (!orderTable || !lineItemTable) {
+  if (!orderTable || !orderItemTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
       hasOrderTable: !!orderTable,
-      hasLineItemTable: !!lineItemTable,
+      hasOrderItemTable: !!orderItemTable,
     });
     return fail("缺少必要的環境變數設定");
   }
@@ -283,7 +287,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
     // 2. 並行取得所有來源訂單與明細資料
     const fetchResults = await Promise.all(
       orderIds.map((oid) =>
-        fetchOrderWithLineItems(oid, orderTable, lineItemTable),
+        fetchOrderWithOrderItems(oid, orderTable, orderItemTable),
       ),
     );
 
@@ -300,16 +304,19 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 
     const fetched = fetchResults as FetchedOrderData[];
     const orderRecords = fetched.map((f) => f.record);
-    const allLineItemRecords = fetched.flatMap((f) => f.lineItems);
+    const allOrderItemRecords = fetched.flatMap((f) => f.orderItems);
 
     logDebug(FUNCTION_NAME, "all orders loaded", {
       orderCount: orderRecords.length,
-      totalLineItems: allLineItemRecords.length,
+      totalOrderItems: allOrderItemRecords.length,
     });
 
     // 3. 業務邏輯驗證
     const orders = fetched.map((f) =>
-      mapOrder(f.record, f.lineItems.map(mapLineItem)),
+      mapOrderRecordToOrder({
+        rawOrder: f.record,
+        orderItems: f.orderItems.map(mapOrderItem),
+      }),
     );
 
     const validation = validateMergeOrders(orders);
@@ -322,7 +329,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
     }
 
     // 4. 準備合併資料
-    const totalAmount = allLineItemRecords.reduce(
+    const totalAmount = allOrderItemRecords.reduce(
       (sum, li) => sum + Number(li["subtotal"] ?? 0),
       0,
     );
@@ -338,9 +345,9 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       totalAmount,
       now,
     );
-    const lineItemMoveItems = buildLineItemMoveItems(
-      lineItemTable,
-      allLineItemRecords,
+    const orderItemMoveItems = buildOrderItemMoveItems(
+      orderItemTable,
+      allOrderItemRecords,
       newOrderId,
       now,
     );
@@ -352,7 +359,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 
     const transactItems = [
       newOrderItem,
-      ...lineItemMoveItems,
+      ...orderItemMoveItems,
       ...cancelOrderItems,
     ];
 
@@ -372,7 +379,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       sourceOrderIds: orderIds,
       newOrderId,
       totalAmount,
-      lineItemCount: allLineItemRecords.length,
+      orderItemCount: allOrderItemRecords.length,
       transactItemCount: transactItems.length,
     });
 
@@ -389,7 +396,7 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       newOrderId,
       newOrderNumber,
       mergedOrderCount: orders.length,
-      lineItemCount: allLineItemRecords.length,
+      orderItemCount: allOrderItemRecords.length,
       totalAmount,
     });
 
@@ -402,12 +409,12 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       statusHistory: [
         { fromStatus: "created", toStatus: "pending", changedAt: now },
       ],
-      lineItems: [],
+      orderItems: [],
       createdAt: now,
       updatedAt: now,
       totalAmount,
       mergedOrderCount: orders.length,
-      lineItemCount: allLineItemRecords.length,
+      orderItemCount: allOrderItemRecords.length,
     });
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };

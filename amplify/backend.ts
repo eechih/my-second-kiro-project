@@ -45,14 +45,14 @@ const tables = backend.data.resources.tables;
 
 // 取得各模型對應的 DynamoDB 表格
 const orderTable = tables["Order"];
-const lineItemTable = tables["OrderItem"];
+const orderItemTable = tables["OrderItem"];
 const productTable = tables["Product"];
 const productVariantTable = tables["ProductVariant"];
 const productCounterTable = tables["SequenceCounter"];
 
 if (
   !orderTable ||
-  !lineItemTable ||
+  !orderItemTable ||
   !productTable ||
   !productVariantTable ||
   !productCounterTable
@@ -97,7 +97,7 @@ for (const fn of transactionalFunctions) {
 
   // 設定環境變數——傳遞 DynamoDB 表格名稱
   lambdaFn.addEnvironment("ORDER_TABLE_NAME", orderTable.tableName);
-  lambdaFn.addEnvironment("LINEITEM_TABLE_NAME", lineItemTable.tableName);
+  lambdaFn.addEnvironment("ORDER_ITEM_TABLE_NAME", orderItemTable.tableName);
   lambdaFn.addEnvironment("PRODUCT_TABLE_NAME", productTable.tableName);
   lambdaFn.addEnvironment(
     "PRODUCTVARIANT_TABLE_NAME",
@@ -110,7 +110,7 @@ for (const fn of transactionalFunctions) {
 
   // 授予 DynamoDB 讀寫權限
   orderTable.grantReadWriteData(lambdaFn);
-  lineItemTable.grantReadWriteData(lambdaFn);
+  orderItemTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
   productVariantTable.grantReadWriteData(lambdaFn);
   productCounterTable.grantReadWriteData(lambdaFn);
@@ -120,7 +120,7 @@ for (const fn of transactionalFunctions) {
   lambdaFn.addToRolePolicy(
     new PolicyStatement({
       actions: ["dynamodb:Query"],
-      resources: [`${lineItemTable.tableArn}/index/*`],
+      resources: [`${orderItemTable.tableArn}/index/*`],
     }),
   );
 }

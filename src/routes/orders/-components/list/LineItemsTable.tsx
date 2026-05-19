@@ -5,19 +5,19 @@ import type { OrderItem } from "@shared/models";
 import { LineItemRow } from "./LineItemRow";
 
 export interface OrderItemsTableProps {
-  lineItems: OrderItem[];
+  items: OrderItem[];
   orderId: string;
 }
 
 export function LineItemsTable({
-  lineItems,
+  items,
   orderId,
 }: OrderItemsTableProps): React.ReactElement {
   return (
     <Box>
       <Table size="small">
         <TableBody>
-          {lineItems.map((item) => (
+          {items.map((item) => (
             <LineItemRow
               key={item.id}
               item={item}

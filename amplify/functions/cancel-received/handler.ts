@@ -22,7 +22,7 @@ const FUNCTION_NAME = "cancelReceived";
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
  * - OrderItem status 從 received 改回 ordered，移除 receivedAt
- * - 扣回 Product.stockQuantity（扣回 lineItem.quantity）
+ * - 扣回 Product.stockQuantity（扣回 orderItem.quantity）
  *
  * 僅允許狀態為 received 的明細撤銷（shipped 狀態不可撤銷）。
  */
@@ -32,12 +32,12 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
   const { orderItemId } = event.arguments;
   logInfo(FUNCTION_NAME, "handler started", { orderItemId });
 
-  const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
+  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
 
-  if (!lineItemTable || !productTable) {
+  if (!orderItemTable || !productTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
-      hasLineItemTable: !!lineItemTable,
+      hasOrderItemTable: !!orderItemTable,
       hasProductTable: !!productTable,
     });
     return JSON.stringify({
@@ -48,36 +48,36 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
 
   try {
     // 1. 取得 OrderItem 資料
-    const lineItemResult = await ddb.send(
+    const orderItemResult = await ddb.send(
       new GetItemCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         Key: marshall({ id: orderItemId }),
       }),
     );
 
-    if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderItemId });
+    if (!orderItemResult.Item) {
+      logWarn(FUNCTION_NAME, "order item not found", { orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
       });
     }
 
-    const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeOrderItemStatus(lineItem["status"]);
-    const quantity = Number(lineItem["quantity"] ?? 0);
-    const productId = String(lineItem["productId"] ?? "");
-    logDebug(FUNCTION_NAME, "line item loaded", {
+    const orderItem = unmarshall(orderItemResult.Item);
+    const status = normalizeOrderItemStatus(orderItem["status"]);
+    const quantity = Number(orderItem["quantity"] ?? 0);
+    const productId = String(orderItem["productId"] ?? "");
+    logDebug(FUNCTION_NAME, "order item loaded", {
       orderItemId,
       productId,
       status,
-      rawStatus: lineItem["status"],
+      rawStatus: orderItem["status"],
       quantity,
     });
 
     // 2. 驗證狀態——僅 received 可撤銷
     if (status !== "received") {
-      logWarn(FUNCTION_NAME, "invalid line item status", {
+      logWarn(FUNCTION_NAME, "invalid order item status", {
         orderItemId,
         productId,
         status,
@@ -109,7 +109,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
         TransactItems: [
           {
             Update: {
-              TableName: lineItemTable,
+              TableName: orderItemTable,
               Key: marshall({ id: orderItemId }),
               UpdateExpression:
                 "SET #st = :ordered, updatedAt = :now REMOVE receivedAt",
@@ -145,7 +145,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       orderItemId,
       productId,
       quantity,
-      lineItemStatus: "ordered",
+      orderItemStatus: "ordered",
     });
     return JSON.stringify({
       success: true,
@@ -153,7 +153,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       data: {
         orderItemId,
         quantity,
-        lineItemStatus: "ordered",
+        orderItemStatus: "ordered",
       },
     });
   } catch (error: unknown) {

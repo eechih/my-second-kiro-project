@@ -47,7 +47,7 @@ export function SplitAllocationTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {order.lineItems.map((lineItem) => (
+            {order.items.map((lineItem) => (
               <TableRow key={lineItem.id}>
                 <TableCell>{lineItem.productName}</TableCell>
                 <TableCell>{lineItem.variantLabel ?? "-"}</TableCell>
@@ -77,7 +77,7 @@ export function SplitAllocationTable({
                         {
                           length: Math.min(
                             maxNewOrders,
-                            order.lineItems.length,
+                            order.items.length,
                           ),
                         },
                         (_, index) => (

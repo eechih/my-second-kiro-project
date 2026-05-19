@@ -69,20 +69,20 @@ export function getNextAllowedOrderStatuses(
  * 注意：此函式僅根據明細狀態推導建議的訂單狀態，不處理 cancelled 等特殊情況。
  * 呼叫端應自行判斷是否套用推導結果（例如已取消的訂單不應被自動推導覆蓋）。
  *
- * @param lineItems - 訂單的明細項目列表
+ * @param orderItems - 訂單的明細項目列表
  * @returns 推導的訂單狀態，或 `null` 表示不需自動變更
  *
  * 需求：5.5, 5.6
  */
-export function deriveOrderStatusFromLineItems(
-  lineItems: ReadonlyArray<Pick<OrderItem, "status">>,
+export function deriveOrderStatusFromOrderItems(
+  orderItems: ReadonlyArray<Pick<OrderItem, "status">>,
 ): OrderStatus | null {
-  if (lineItems.length === 0) {
+  if (orderItems.length === 0) {
     return null;
   }
 
-  const allShipped = lineItems.every((item) => item.status === "shipped");
-  const someShipped = lineItems.some((item) => item.status === "shipped");
+  const allShipped = orderItems.every((item) => item.status === "shipped");
+  const someShipped = orderItems.some((item) => item.status === "shipped");
 
   if (allShipped) {
     return "completed";
@@ -94,3 +94,8 @@ export function deriveOrderStatusFromLineItems(
 
   return null;
 }
+
+/**
+ * @deprecated 請改用 `deriveOrderStatusFromOrderItems`。
+ */
+export const deriveOrderStatusFromLineItems = deriveOrderStatusFromOrderItems;

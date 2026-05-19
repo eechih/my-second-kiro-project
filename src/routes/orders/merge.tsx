@@ -68,7 +68,7 @@ function OrderMergePage() {
         current &&
         current.status === order.status &&
         current.totalAmount === order.totalAmount &&
-        current.lineItems.length === order.lineItems.length &&
+        current.items.length === order.items.length &&
         current.updatedAt === order.updatedAt
       ) {
         return prev;
@@ -145,7 +145,7 @@ function OrderMergePage() {
     0,
   );
   const totalLineItemCount = selectedOrders.reduce(
-    (sum, order) => sum + order.lineItems.length,
+    (sum, order) => sum + order.items.length,
     0,
   );
 

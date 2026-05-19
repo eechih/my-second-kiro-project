@@ -13,7 +13,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
     totalAmount: 1200,
     createdAt: "2026-05-14T01:23:00.000Z",
     updatedAt: "2026-05-14T01:23:00.000Z",
-    lineItems: [
+    items: [
       {
         id: "item-1",
         productId: "product-1",
@@ -57,7 +57,7 @@ describe("buildPackingSlipHtml", () => {
   it("未勾選出貨品項時顯示沒有商品需要出貨", () => {
     const html = buildPackingSlipHtml([
       makeOrder({
-        lineItems: [
+        items: [
           {
             id: "item-1",
             productId: "product-1",
@@ -87,7 +87,7 @@ describe("buildPackingSlipHtml", () => {
     const html = buildPackingSlipHtml([
       makeOrder({
         totalAmount: 1700,
-        lineItems: [
+        items: [
           {
             id: "item-1",
             productId: "product-1",

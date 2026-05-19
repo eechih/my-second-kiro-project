@@ -12,7 +12,7 @@
  *
  * 環境變數：
  * - PURCHASERECORD_TABLE_NAME: PurchaseRecord DynamoDB 表名
- * - LINEITEM_TABLE_NAME: LineItem DynamoDB 表名
+ * - ORDER_ITEM_TABLE_NAME: LineItem DynamoDB 表名
  *
  * 執行方式：
  *   npx tsx scripts/migrate-purchase-records.ts
@@ -33,11 +33,11 @@ import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 // ---------------------------------------------------------------------------
 
 const PURCHASERECORD_TABLE_NAME = process.env["PURCHASERECORD_TABLE_NAME"];
-const LINEITEM_TABLE_NAME = process.env["LINEITEM_TABLE_NAME"];
+const ORDER_ITEM_TABLE_NAME = process.env["ORDER_ITEM_TABLE_NAME"];
 
-if (!PURCHASERECORD_TABLE_NAME || !LINEITEM_TABLE_NAME) {
+if (!PURCHASERECORD_TABLE_NAME || !ORDER_ITEM_TABLE_NAME) {
   console.error(
-    "錯誤：請設定環境變數 PURCHASERECORD_TABLE_NAME 與 LINEITEM_TABLE_NAME",
+    "錯誤：請設定環境變數 PURCHASERECORD_TABLE_NAME 與 ORDER_ITEM_TABLE_NAME",
   );
   process.exit(1);
 }
@@ -113,7 +113,7 @@ async function scanAllPurchaseRecords(): Promise<PurchaseRecordData[]> {
 async function isAlreadyMigrated(orderItemId: string): Promise<boolean> {
   const result = await ddb.send(
     new GetItemCommand({
-      TableName: LINEITEM_TABLE_NAME,
+      TableName: ORDER_ITEM_TABLE_NAME,
       Key: marshall({ id: orderItemId }),
       ProjectionExpression: "supplierId",
     }),
@@ -144,7 +144,7 @@ async function migrateRecord(
     // 使用條件更新確保冪等性
     await ddb.send(
       new UpdateItemCommand({
-        TableName: LINEITEM_TABLE_NAME,
+        TableName: ORDER_ITEM_TABLE_NAME,
         Key: marshall({ id: record.orderItemId }),
         UpdateExpression:
           "SET supplierId = :supplierId, supplierName = :supplierName, unitCost = :unitCost",
@@ -181,7 +181,7 @@ async function migrateRecord(
 async function migrate(): Promise<void> {
   console.log("=== 開始資料遷移：PurchaseRecord → LineItem ===");
   console.log(`PurchaseRecord 表：${PURCHASERECORD_TABLE_NAME}`);
-  console.log(`LineItem 表：${LINEITEM_TABLE_NAME}`);
+  console.log(`LineItem 表：${ORDER_ITEM_TABLE_NAME}`);
   console.log("");
 
   // Step 1: 掃描所有 PurchaseRecord

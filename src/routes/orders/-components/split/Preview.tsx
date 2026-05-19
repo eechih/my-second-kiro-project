@@ -14,7 +14,7 @@ import type { OrderItem } from "@shared/models";
 
 export interface SplitPreviewGroup {
   index: number;
-  lineItems: OrderItem[];
+  items: OrderItem[];
   totalAmount: number;
 }
 
@@ -46,7 +46,7 @@ export function SplitPreview({
               新訂單 {group.index + 1}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {group.lineItems.length} 項明細，總金額{" "}
+              {group.items.length} 項明細，總金額{" "}
               {formatCurrency(group.totalAmount)}
             </Typography>
           </Box>
@@ -61,7 +61,7 @@ export function SplitPreview({
                 </TableRow>
               </TableHead>
               <TableBody>
-                {group.lineItems.map((lineItem) => (
+                {group.items.map((lineItem) => (
                   <TableRow key={lineItem.id}>
                     <TableCell>{lineItem.productName}</TableCell>
                     <TableCell>{lineItem.variantLabel ?? "-"}</TableCell>

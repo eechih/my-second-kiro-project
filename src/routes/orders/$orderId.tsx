@@ -83,7 +83,7 @@ function OrderDetailPage(): React.ReactElement {
             </Button>
             <Chip label={order.orderNumber} variant="outlined" />
             {(order.status === "pending" || order.status === "confirmed") &&
-              order.lineItems.length >= 2 && (
+              order.items.length >= 2 && (
                 <Button
                   size="small"
                   variant="outlined"

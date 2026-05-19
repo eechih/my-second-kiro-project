@@ -40,7 +40,7 @@ function OrderSplitPage() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   // 可用的新訂單數量（最多等於明細項目數量，最少 2）
-  const maxNewOrders = Math.max(order?.lineItems.length ?? 2, 2);
+  const maxNewOrders = Math.max(order?.items.length ?? 2, 2);
 
   // 更新分配
   const handleAllocationChange = (
@@ -71,7 +71,7 @@ function OrderSplitPage() {
 
     const groups = new Map<number, OrderItem[]>();
     for (const [orderItemId, targetIndex] of allocations.entries()) {
-      const lineItem = order.lineItems.find((li) => li.id === orderItemId);
+      const lineItem = order.items.find((li) => li.id === orderItemId);
       if (lineItem) {
         const group = groups.get(targetIndex);
         if (group) {
@@ -84,10 +84,10 @@ function OrderSplitPage() {
 
     return Array.from(groups.entries())
       .sort(([a], [b]) => a - b)
-      .map(([index, lineItems]) => ({
+      .map(([index, items]) => ({
         index,
-        lineItems,
-        totalAmount: calculateOrderTotal(lineItems),
+        items,
+        totalAmount: calculateOrderTotal(items),
       }));
   }, [order, allocations]);
 
@@ -215,7 +215,7 @@ function OrderSplitPage() {
           isPending={splitOrder.isPending}
           disabled={
             splitOrder.isPending ||
-            allocations.size !== order.lineItems.length ||
+            allocations.size !== order.items.length ||
             usedOrderIndices.size < 2
           }
           onConfirm={handleSplitClick}

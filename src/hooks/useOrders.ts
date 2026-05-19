@@ -260,9 +260,9 @@ function mapToOrder(raw: Record<string, unknown>): Order {
     }
   }
 
-  let lineItems: OrderItem[] = [];
+  let items: OrderItem[] = [];
   if (raw.items && Array.isArray(raw.items)) {
-    lineItems = (raw.items as Record<string, unknown>[]).map(mapToLineItem);
+    items = (raw.items as Record<string, unknown>[]).map(mapToLineItem);
   }
 
   return {
@@ -270,7 +270,7 @@ function mapToOrder(raw: Record<string, unknown>): Order {
     orderNumber: String(raw.orderNumber ?? ""),
     customerId: String(raw.customerId ?? ""),
     customerName: String(raw.customerNameSnapshot ?? raw.customerName ?? ""),
-    lineItems,
+    items,
     totalAmount: Number(raw.totalAmount ?? 0),
     status: normalizeOrderStatus(raw.status),
     statusHistory,
@@ -397,7 +397,7 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     orderNumber,
     customerId: input.customerId,
     customerName: input.customerName,
-    lineItems: createdLineItems,
+    items: createdLineItems,
     totalAmount,
     status: "pending",
     statusHistory: [],
@@ -959,7 +959,7 @@ export function useConfirmReceived(): UseMutationResult<
       // Optimistic update
       if (previousOrder) {
         const updatedOrder = { ...previousOrder };
-        updatedOrder.lineItems = updatedOrder.lineItems.map((li) => {
+        updatedOrder.items = updatedOrder.items.map((li) => {
           if (li.id === input.orderItemId) {
             return {
               ...li,
@@ -1064,7 +1064,7 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
       const now = new Date().toISOString();
 
       if (previousOrder) {
-        const targetOrderItem = previousOrder.lineItems.find(
+        const targetOrderItem = previousOrder.items.find(
           (lineItem) => lineItem.id === input.orderItemId,
         );
 
@@ -1078,7 +1078,7 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
 
           queryClient.setQueryData<Order>(orderKey, {
             ...previousOrder,
-            lineItems: previousOrder.lineItems.map((lineItem) =>
+            items: previousOrder.items.map((lineItem) =>
               lineItem.id === input.orderItemId
                 ? {
                     ...lineItem,
@@ -1140,7 +1140,7 @@ export function useConfirmShipment(): UseMutationResult<
       // Optimistic update
       if (previousOrder) {
         const updatedOrder = { ...previousOrder };
-        updatedOrder.lineItems = updatedOrder.lineItems.map((li) => {
+        updatedOrder.items = updatedOrder.items.map((li) => {
           if (li.id === input.orderItemId) {
             return {
               ...li,
@@ -1152,10 +1152,10 @@ export function useConfirmShipment(): UseMutationResult<
         });
 
         // Derive order status
-        const allShipped = updatedOrder.lineItems.every(
+        const allShipped = updatedOrder.items.every(
           (li) => li.status === "shipped",
         );
-        const someShipped = updatedOrder.lineItems.some(
+        const someShipped = updatedOrder.items.some(
           (li) => li.status === "shipped",
         );
         if (allShipped) {
@@ -1371,7 +1371,7 @@ async function recalculateOrderTotal(orderId: string): Promise<void> {
     throw new Error(queryErrors[0]?.message ?? "查詢明細項目失敗");
   }
 
-  const lineItems = (lineItemsData ?? []).map((li) => ({
+  const items = (lineItemsData ?? []).map((li) => ({
     id: String(li.id ?? ""),
     productId: "",
     productName: "",
@@ -1389,7 +1389,7 @@ async function recalculateOrderTotal(orderId: string): Promise<void> {
     unitCost: null,
   }));
 
-  const newTotal = calculateOrderTotal(lineItems);
+  const newTotal = calculateOrderTotal(items);
 
   const { errors: updateErrors } = await client.models.Order.update({
     id: orderId,

@@ -33,7 +33,7 @@ export interface MergedOrderData {
   /** 客戶名稱（反正規化） */
   customerName: string;
   /** 合併後的所有明細項目（來自所有來源訂單） */
-  lineItems: OrderItem[];
+  items: OrderItem[];
   /** 合併後的訂單總金額 */
   totalAmount: number;
   /** 合併後訂單的初始狀態 */
@@ -124,7 +124,7 @@ export function mergeOrders(orders: Order[]): MergedOrderData {
   const firstOrder = orders[0]!;
 
   // 收集所有來源訂單的明細項目
-  const allLineItems: OrderItem[] = orders.flatMap((order) => order.lineItems);
+  const allLineItems: OrderItem[] = orders.flatMap((order) => order.items);
 
   // 重新計算總金額，確保一致性（需求 9.2）
   const totalAmount = calculateOrderTotal(allLineItems);
@@ -132,7 +132,7 @@ export function mergeOrders(orders: Order[]): MergedOrderData {
   return {
     customerId: firstOrder.customerId,
     customerName: firstOrder.customerName,
-    lineItems: allLineItems,
+    items: allLineItems,
     totalAmount,
     status: "pending",
     sourceOrderIds: orders.map((order) => order.id),

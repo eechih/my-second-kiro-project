@@ -33,7 +33,7 @@ export function SplitInfoCard({
           <Typography variant="body2" color="text.secondary">
             明細項目數
           </Typography>
-          <Typography>{order.lineItems.length} 項</Typography>
+          <Typography>{order.items.length} 項</Typography>
         </Box>
       </Box>
     </Paper>

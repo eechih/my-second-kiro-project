@@ -7,7 +7,7 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { isValidOrderItemStatusTransition } from "@shared/logic/order-item-status";
 import {
-  deriveOrderStatusFromLineItems,
+  deriveOrderStatusFromOrderItems,
   isValidOrderStatusTransition,
 } from "@shared/logic/order-status";
 import { validateShipment } from "@shared/logic/shipment";
@@ -45,13 +45,13 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
   const { orderItemId } = event.arguments;
   logInfo(FUNCTION_NAME, "handler started", { orderItemId });
 
-  const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
+  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
 
-  if (!lineItemTable || !orderTable || !productTable) {
+  if (!orderItemTable || !orderTable || !productTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
-      hasLineItemTable: !!lineItemTable,
+      hasOrderItemTable: !!orderItemTable,
       hasOrderTable: !!orderTable,
       hasProductTable: !!productTable,
     });
@@ -63,37 +63,37 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
 
   try {
     // 1. 取得 OrderItem 資料
-    const lineItemResult = await ddb.send(
+    const orderItemResult = await ddb.send(
       new GetItemCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         Key: marshall({ id: orderItemId }),
       }),
     );
 
-    if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { orderItemId });
+    if (!orderItemResult.Item) {
+      logWarn(FUNCTION_NAME, "order item not found", { orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
       });
     }
 
-    const lineItem = unmarshall(lineItemResult.Item);
-    const orderId = lineItem["orderId"] as string;
-    const quantity = lineItem["quantity"] as number;
+    const orderItem = unmarshall(orderItemResult.Item);
+    const orderId = orderItem["orderId"] as string;
+    const quantity = orderItem["quantity"] as number;
 
     // 2. 驗證明細狀態——僅「已收到」可出貨
-    const currentStatus = normalizeOrderItemStatus(lineItem["status"]);
-    logDebug(FUNCTION_NAME, "line item loaded", {
+    const currentStatus = normalizeOrderItemStatus(orderItem["status"]);
+    logDebug(FUNCTION_NAME, "order item loaded", {
       orderId,
       orderItemId,
       currentStatus,
-      rawStatus: lineItem["status"],
-      orderQuantity: lineItem["quantity"],
-      productId: lineItem["productId"],
+      rawStatus: orderItem["status"],
+      orderQuantity: orderItem["quantity"],
+      productId: orderItem["productId"],
     });
     if (!isValidOrderItemStatusTransition(currentStatus, "shipped")) {
-      logWarn(FUNCTION_NAME, "invalid line item status", {
+      logWarn(FUNCTION_NAME, "invalid order item status", {
         orderId,
         orderItemId,
         currentStatus,
@@ -105,7 +105,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     }
 
     // 3. 取得庫存資訊（統一在商品層級管理）
-    const productId = lineItem["productId"] as string;
+    const productId = orderItem["productId"] as string;
 
     const productResult = await ddb.send(
       new GetItemCommand({
@@ -152,21 +152,21 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     }
 
     // 5. 取得同一訂單的所有明細項目（用於推導訂單狀態）
-    const allLineItemsResult = await ddb.send(
+    const allOrderItemsResult = await ddb.send(
       new QueryCommand({
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         IndexName: "byOrderId",
         KeyConditionExpression: "orderId = :orderId",
         ExpressionAttributeValues: marshall({ ":orderId": orderId }),
       }),
     );
 
-    const allLineItems = (allLineItemsResult.Items ?? []).map((rawItem) =>
+    const allOrderItems = (allOrderItemsResult.Items ?? []).map((rawItem) =>
       unmarshall(rawItem),
     );
 
     // 模擬出貨後的明細狀態列表（用於推導訂單狀態）
-    const simulatedLineItems = allLineItems.map((li) => {
+    const simulatedOrderItems = allOrderItems.map((li) => {
       if (li["id"] === orderItemId) {
         return { status: "shipped" as const };
       }
@@ -174,7 +174,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     });
 
     const derivedOrderStatus =
-      deriveOrderStatusFromLineItems(simulatedLineItems);
+      deriveOrderStatusFromOrderItems(simulatedOrderItems);
 
     // 6. 取得目前訂單資料（用於狀態轉換驗證）
     const orderResult = await ddb.send(
@@ -214,16 +214,16 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     });
 
     // 7b. 更新 OrderItem
-    const lineItemUpdateStatus: OrderItemStatus = "shipped";
+    const orderItemUpdateStatus: OrderItemStatus = "shipped";
     transactItems.push({
       Update: {
-        TableName: lineItemTable,
+        TableName: orderItemTable,
         Key: marshall({ id: orderItemId }),
         UpdateExpression:
           "SET #st = :newStatus, shippedAt = :now, updatedAt = :now",
         ExpressionAttributeNames: { "#st": "status" },
         ExpressionAttributeValues: marshall({
-          ":newStatus": lineItemUpdateStatus,
+          ":newStatus": orderItemUpdateStatus,
           ":now": now,
         }),
       },
@@ -266,7 +266,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       orderItemId,
       productId,
       quantity,
-      lineItemUpdateStatus,
+      orderItemUpdateStatus,
       currentOrderStatus,
       derivedOrderStatus,
       transactItemCount: transactItems.length,
@@ -280,7 +280,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       orderItemId,
       productId,
       quantity,
-      lineItemStatus: lineItemUpdateStatus,
+      orderItemStatus: orderItemUpdateStatus,
       orderStatus: derivedOrderStatus ?? currentOrderStatus,
     });
     return JSON.stringify({
@@ -289,7 +289,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       data: {
         orderItemId,
         quantity,
-        lineItemStatus: lineItemUpdateStatus,
+        orderItemStatus: orderItemUpdateStatus,
         orderStatus: derivedOrderStatus ?? currentOrderStatus,
       },
     });
