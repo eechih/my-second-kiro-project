@@ -18,7 +18,7 @@ import type { OrderItem } from "../models/order";
  * @param unitPrice - 單價（應 >= 0）
  * @returns 小計金額（quantity × unitPrice）
  */
-export function calculateLineItemSubtotal(
+export function calculateOrderItemSubtotal(
   quantity: number,
   unitPrice: number,
 ): number {
@@ -32,13 +32,13 @@ export function calculateLineItemSubtotal(
  * 使用每筆明細的 quantity 與 unitPrice 重新計算，而非直接加總 subtotal 欄位，
  * 確保計算結果的正確性不依賴於 subtotal 是否已正確設定。
  *
- * @param lineItems - 明細項目列表
+ * @param orderItems - 明細項目列表
  * @returns 訂單總金額
  */
-export function calculateOrderTotal(lineItems: OrderItem[]): number {
-  return lineItems.reduce(
+export function calculateOrderTotal(orderItems: OrderItem[]): number {
+  return orderItems.reduce(
     (total, item) =>
-      total + calculateLineItemSubtotal(item.quantity, item.unitPrice),
+      total + calculateOrderItemSubtotal(item.quantity, item.unitPrice),
     0,
   );
 }

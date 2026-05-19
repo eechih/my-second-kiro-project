@@ -19,14 +19,14 @@ import { searchSuppliers } from "../detail/detailUtils";
 export interface PurchaseDialogProps {
   open: boolean;
   onClose: () => void;
-  lineItem: OrderItem;
+  orderItem: OrderItem;
   order: Order;
 }
 
 export function PurchaseDialog({
   open,
   onClose,
-  lineItem,
+  orderItem,
   order,
 }: PurchaseDialogProps): React.ReactElement {
   const [supplier, setSupplier] = useState<Supplier | null>(null);
@@ -50,7 +50,7 @@ export function PurchaseDialog({
     }
 
     const validation = validateProcurementOrder(
-      lineItem,
+      orderItem,
       supplier.id,
       unitCost,
     );
@@ -60,9 +60,9 @@ export function PurchaseDialog({
     }
 
     try {
-      // 1. 先更新 LineItem 的供應商與成本資料
+      // 1. 先更新 OrderItem 的供應商與成本資料
       await client.models.OrderItem.update({
-        id: lineItem.id,
+        id: orderItem.id,
         supplierName: supplier.name,
         unitCost,
       });
@@ -70,7 +70,7 @@ export function PurchaseDialog({
       // 2. 再呼叫 confirmPurchase 做狀態轉換 pending → ordered
       await markProcurement.mutateAsync({
         orderId: order.id,
-        orderItemId: lineItem.id,
+        orderItemId: orderItem.id,
       });
       onClose();
     } catch (err) {
@@ -81,14 +81,14 @@ export function PurchaseDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        標記採購 — {lineItem.productName}
-        {lineItem.variantLabel ? ` (${lineItem.variantLabel})` : ""}
+        標記採購 — {orderItem.productName}
+        {orderItem.variantLabel ? ` (${orderItem.variantLabel})` : ""}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Typography variant="body2" color="text.secondary">
-            訂購數量：{lineItem.quantity}（全量採購）
+            訂購數量：{orderItem.quantity}（全量採購）
           </Typography>
           <EntitySelect<Supplier>
             label="供應商"

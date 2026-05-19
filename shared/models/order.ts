@@ -206,7 +206,7 @@ export interface CreateOrderInput {
   /** 客戶名稱（必填，反正規化） */
   customerName: string;
   /** 明細項目列表（必填，至少一筆） */
-  lineItems: CreateOrderItemInput[];
+  orderItems: CreateOrderItemInput[];
 }
 
 /** 確認出貨輸入 */

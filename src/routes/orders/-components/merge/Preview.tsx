@@ -10,7 +10,7 @@ import Typography from "@mui/material/Typography";
 export interface MergePreviewProps {
   selectedOrderCount: number;
   totalAmount: number;
-  lineItemCount: number;
+  orderItemCount: number;
   isPending: boolean;
   onMerge: () => void;
 }
@@ -18,7 +18,7 @@ export interface MergePreviewProps {
 export function MergePreview({
   selectedOrderCount,
   totalAmount,
-  lineItemCount,
+  orderItemCount,
   isPending,
   onMerge,
 }: MergePreviewProps): React.ReactElement | null {
@@ -46,7 +46,7 @@ export function MergePreview({
           <Typography variant="body2" color="text.secondary">
             合併後明細項目數
           </Typography>
-          <Typography variant="h5">{lineItemCount} 項</Typography>
+          <Typography variant="h5">{orderItemCount} 項</Typography>
         </Box>
       </Box>
       <Alert severity="warning" sx={{ mb: 2 }}>

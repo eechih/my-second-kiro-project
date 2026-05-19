@@ -1,6 +1,6 @@
 import { client } from "@/lib/amplify-client";
 import {
-  calculateLineItemSubtotal,
+  calculateOrderItemSubtotal,
   calculateOrderTotal,
 } from "@shared/logic/order-calculations";
 import { validateMergeOrders } from "@shared/logic/order-merge";
@@ -308,9 +308,9 @@ function mapToOrderItem(raw: Record<string, unknown>): OrderItem {
 }
 
 async function createOrder(input: CreateOrderInput): Promise<Order> {
-  const orderItemsWithSubtotal = input.lineItems.map((item) => ({
+  const orderItemsWithSubtotal = input.orderItems.map((item) => ({
     ...item,
-    subtotal: calculateLineItemSubtotal(item.quantity, item.unitPrice),
+    subtotal: calculateOrderItemSubtotal(item.quantity, item.unitPrice),
   }));
 
   const totalAmount = calculateOrderTotal(
@@ -1254,7 +1254,7 @@ export function useSplitOrder(): UseMutationResult<
 export { ORDER_KEYS };
 
 // ---------------------------------------------------------------------------
-// Line Item CRUD Hooks (Order Detail)
+// Order Item CRUD Hooks (Order Detail)
 // ---------------------------------------------------------------------------
 
 type AddOrderItemToOrderInput = {
@@ -1286,7 +1286,7 @@ type DeleteOrderItemInput = {
 async function addOrderItemToOrder(
   input: AddOrderItemToOrderInput,
 ): Promise<void> {
-  const subtotal = calculateLineItemSubtotal(input.quantity, input.unitPrice);
+  const subtotal = calculateOrderItemSubtotal(input.quantity, input.unitPrice);
 
   const orderItemPayload: Record<string, unknown> = {
     orderId: input.orderId,
@@ -1319,7 +1319,7 @@ async function addOrderItemToOrder(
 async function updateOrderItemInOrder(
   input: UpdateOrderItemInput,
 ): Promise<void> {
-  const subtotal = calculateLineItemSubtotal(input.quantity, input.unitPrice);
+  const subtotal = calculateOrderItemSubtotal(input.quantity, input.unitPrice);
 
   const updatePayload: Record<string, unknown> = {
     id: input.orderItemId,

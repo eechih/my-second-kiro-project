@@ -1,4 +1,4 @@
-export interface LegacyLineItemRecord {
+export interface LegacyOrderItemRecord {
   id: string;
   orderId: string;
   productId: string;
@@ -76,30 +76,30 @@ export function mapLegacyOrderToCurrentShape(
   };
 }
 
-export function mapLegacyLineItemToOrderItem(
-  lineItem: LegacyLineItemRecord,
+export function mapLegacyOrderItemToOrderItem(
+  orderItem: LegacyOrderItemRecord,
   productSku: string,
 ): Record<string, unknown> {
   return {
-    id: lineItem.id,
-    orderId: lineItem.orderId,
-    productId: lineItem.productId,
-    quantity: Number(lineItem.quantity ?? 0),
-    unitPrice: Number(lineItem.unitPrice ?? 0),
-    subtotalAmount: Number(lineItem.subtotal ?? 0),
-    status: lineItem.status ?? "pending",
-    productNameSnapshot: String(lineItem.productName ?? ""),
+    id: orderItem.id,
+    orderId: orderItem.orderId,
+    productId: orderItem.productId,
+    quantity: Number(orderItem.quantity ?? 0),
+    unitPrice: Number(orderItem.unitPrice ?? 0),
+    subtotalAmount: Number(orderItem.subtotal ?? 0),
+    status: orderItem.status ?? "pending",
+    productNameSnapshot: String(orderItem.productName ?? ""),
     productSkuSnapshot: productSku,
-    variantLabelSnapshot: lineItem.variantLabel ?? null,
-    supplierName: lineItem.supplierName ?? null,
-    unitCost: lineItem.unitCost ?? null,
-    purchasedAt: lineItem.purchasedAt ?? null,
-    receivedAt: lineItem.receivedAt ?? null,
-    shippedAt: lineItem.shippedAt ?? null,
-    outOfStockAt: lineItem.outOfStockAt ?? null,
-    createdAtForSort: resolveSortTimestamp(lineItem),
-    createdAt: lineItem.createdAt ?? undefined,
-    updatedAt: lineItem.updatedAt ?? undefined,
+    variantLabelSnapshot: orderItem.variantLabel ?? null,
+    supplierName: orderItem.supplierName ?? null,
+    unitCost: orderItem.unitCost ?? null,
+    purchasedAt: orderItem.purchasedAt ?? null,
+    receivedAt: orderItem.receivedAt ?? null,
+    shippedAt: orderItem.shippedAt ?? null,
+    outOfStockAt: orderItem.outOfStockAt ?? null,
+    createdAtForSort: resolveSortTimestamp(orderItem),
+    createdAt: orderItem.createdAt ?? undefined,
+    updatedAt: orderItem.updatedAt ?? undefined,
   };
 }
 

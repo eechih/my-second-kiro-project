@@ -6,12 +6,12 @@
  *     calculateProcurementCost(quantity, unitCost) >= 0
  *
  * Property 5: 採購下單驗證一致性
- *   ∀ lineItem where status !== "pending":
- *     validateProcurementOrder(lineItem, validSupplierId, validCost).valid === false
+ *   ∀ orderItem where status !== "pending":
+ *     validateProcurementOrder(orderItem, validSupplierId, validCost).valid === false
  *
  * Property 6: 取消驗證一致性
- *   ∀ lineItem where status ∈ {"received", "shipped", "out_of_stock"}:
- *     validateProcurementCancel(lineItem).valid === false
+ *   ∀ orderItem where status ∈ {"received", "shipped", "out_of_stock"}:
+ *     validateProcurementCancel(orderItem).valid === false
  *
  * Additional:
  *   validateProcurementReceive rejects non-"ordered" statuses
@@ -132,16 +132,16 @@ describe("Property 5: 採購下單驗證一致性", () => {
   /**
    * **Validates: Requirements 3.1, 3.8**
    */
-  it("∀ lineItem where status !== '待處理': validateProcurementOrder(lineItem, validSupplierId, validCost).valid === false", () => {
+  it("∀ orderItem where status !== '待處理': validateProcurementOrder(orderItem, validSupplierId, validCost).valid === false", () => {
     fc.assert(
       fc.property(
         nonPendingStatusArb,
         nonEmptyStringArb,
         nonNegativeFloatArb,
         (status, supplierId, unitCost) => {
-          const lineItem = { status, quantity: 10 };
+          const orderItem = { status, quantity: 10 };
           const result = validateProcurementOrder(
-            lineItem,
+            orderItem,
             supplierId,
             unitCost,
           );
@@ -160,9 +160,9 @@ describe("Property 5: 採購下單驗證一致性", () => {
         nonNegativeFloatArb,
         fc.integer({ min: 1, max: 10000 }),
         (supplierId, unitCost, quantity) => {
-          const lineItem = { status: "pending" as const, quantity };
+          const orderItem = { status: "pending" as const, quantity };
           const result = validateProcurementOrder(
-            lineItem,
+            orderItem,
             supplierId,
             unitCost,
           );
@@ -183,7 +183,7 @@ describe("Property 6: 取消驗證一致性", () => {
   /**
    * **Validates: Requirements 5.2, 5.5**
    */
-  it("∀ lineItem where status ∈ {'已收到', '已出貨', '缺貨'}: validateProcurementCancel(lineItem).valid === false", () => {
+  it("∀ orderItem where status ∈ {'已收到', '已出貨', '缺貨'}: validateProcurementCancel(orderItem).valid === false", () => {
     fc.assert(
       fc.property(nonCancellableStatusArb, (status) => {
         const result = validateProcurementCancel({ status });
@@ -194,7 +194,7 @@ describe("Property 6: 取消驗證一致性", () => {
     );
   });
 
-  it("∀ lineItem where status ∈ {'待處理', '已訂購'}: validateProcurementCancel(lineItem).valid === true", () => {
+  it("∀ orderItem where status ∈ {'待處理', '已訂購'}: validateProcurementCancel(orderItem).valid === true", () => {
     fc.assert(
       fc.property(cancellableStatusArb, (status) => {
         const result = validateProcurementCancel({ status });
@@ -214,11 +214,11 @@ describe("validateProcurementReceive: rejects non-'已訂購' statuses", () => {
   /**
    * **Validates: Requirements 4.1, 4.8**
    */
-  it("∀ lineItem where status !== '已訂購': validateProcurementReceive(lineItem).valid === false", () => {
+  it("∀ orderItem where status !== '已訂購': validateProcurementReceive(orderItem).valid === false", () => {
     fc.assert(
       fc.property(nonOrderedStatusArb, (status) => {
-        const lineItem = { status };
-        const result = validateProcurementReceive(lineItem);
+        const orderItem = { status };
+        const result = validateProcurementReceive(orderItem);
         expect(result.valid).toBe(false);
         expect(result.error).toBeDefined();
       }),
@@ -227,8 +227,8 @@ describe("validateProcurementReceive: rejects non-'已訂購' statuses", () => {
   });
 
   it("status === '已訂購' 時，驗證應通過", () => {
-    const lineItem = { status: "ordered" as const };
-    const result = validateProcurementReceive(lineItem);
+    const orderItem = { status: "ordered" as const };
+    const result = validateProcurementReceive(orderItem);
     expect(result.valid).toBe(true);
     expect(result.error).toBeUndefined();
   });

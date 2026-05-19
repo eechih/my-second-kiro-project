@@ -2,8 +2,8 @@
  * 遷移腳本單元測試
  *
  * 測試遷移腳本的核心邏輯：
- * - 10.1: 讀取 PurchaseRecord 並回填至 LineItem
- * - 10.2: 無 PurchaseRecord 的 LineItem 保持 null（不需額外操作）
+ * - 10.1: 讀取 PurchaseRecord 並回填至 OrderItem
+ * - 10.2: 無 PurchaseRecord 的 OrderItem 保持 null（不需額外操作）
  * - 10.3: 冪等操作（重複執行不產生錯誤）
  */
 
@@ -75,8 +75,8 @@ describe("migrate-purchase-records logic", () => {
     vi.clearAllMocks();
   });
 
-  describe("10.1: 讀取 PurchaseRecord 並回填至 LineItem", () => {
-    it("should scan PurchaseRecord table and update corresponding LineItem", async () => {
+  describe("10.1: 讀取 PurchaseRecord 並回填至 OrderItem", () => {
+    it("should scan PurchaseRecord table and update corresponding OrderItem", async () => {
       // Arrange: ScanCommand → GetItemCommand (check) → UpdateItemCommand
       mockSend
         .mockResolvedValueOnce({
@@ -114,22 +114,22 @@ describe("migrate-purchase-records logic", () => {
       );
       expect(scanResult.Items).toHaveLength(1);
 
-      // Step 2: For each record, check if LineItem already migrated
+      // Step 2: For each record, check if OrderItem already migrated
       const record = unmarshall(scanResult.Items![0]!);
       const getResult = await client.send(
         new GetItemCommand({
-          TableName: "LineItem-table",
+          TableName: "OrderItem-table",
           Key: { id: { S: record["orderItemId"] as string } } as never,
           ProjectionExpression: "supplierId",
         }),
       );
-      const lineItem = unmarshall(getResult.Item!);
-      expect(lineItem["supplierId"]).toBeNull();
+      const orderItem = unmarshall(getResult.Item!);
+      expect(orderItem["supplierId"]).toBeNull();
 
-      // Step 3: Update LineItem with procurement data
+      // Step 3: Update OrderItem with procurement data
       await client.send(
         new UpdateItemCommand({
-          TableName: "LineItem-table",
+          TableName: "OrderItem-table",
           Key: { id: { S: record["orderItemId"] as string } } as never,
           UpdateExpression:
             "SET supplierId = :supplierId, supplierName = :supplierName, unitCost = :unitCost",
@@ -207,8 +207,8 @@ describe("migrate-purchase-records logic", () => {
     });
   });
 
-  describe("10.2: 無 PurchaseRecord 的 LineItem 保持 null", () => {
-    it("should not modify LineItems without corresponding PurchaseRecord", async () => {
+  describe("10.2: 無 PurchaseRecord 的 OrderItem 保持 null", () => {
+    it("should not modify OrderItems without corresponding PurchaseRecord", async () => {
       // When scan returns empty, no updates should be made
       mockSend.mockResolvedValueOnce({
         Items: [],
@@ -231,8 +231,8 @@ describe("migrate-purchase-records logic", () => {
   });
 
   describe("10.3: 冪等操作", () => {
-    it("should skip LineItem that already has supplierId set", async () => {
-      // GetItemCommand returns a LineItem with supplierId already set
+    it("should skip OrderItem that already has supplierId set", async () => {
+      // GetItemCommand returns a OrderItem with supplierId already set
       mockSend.mockResolvedValueOnce({
         Item: {
           supplierId: { S: "sup-001" },
@@ -247,7 +247,7 @@ describe("migrate-purchase-records logic", () => {
       const client = new DynamoDBClient({});
       const getResult = await client.send(
         new GetItemCommand({
-          TableName: "LineItem-table",
+          TableName: "OrderItem-table",
           Key: { id: { S: "li-001" } } as never,
           ProjectionExpression: "supplierId",
         }),
@@ -285,7 +285,7 @@ describe("migrate-purchase-records logic", () => {
       // Check - appears not migrated
       const getResult = await client.send(
         new GetItemCommand({
-          TableName: "LineItem-table",
+          TableName: "OrderItem-table",
           Key: { id: { S: "li-001" } } as never,
         }),
       );
@@ -297,7 +297,7 @@ describe("migrate-purchase-records logic", () => {
       try {
         await client.send(
           new UpdateItemCommand({
-            TableName: "LineItem-table",
+            TableName: "OrderItem-table",
             Key: { id: { S: "li-001" } } as never,
           }),
         );
@@ -331,7 +331,7 @@ describe("migrate-purchase-records logic", () => {
       // First run check
       const firstCheck = await client.send(
         new GetItemCommand({
-          TableName: "LineItem-table",
+          TableName: "OrderItem-table",
           Key: { id: { S: "li-001" } } as never,
         }),
       );
@@ -342,7 +342,7 @@ describe("migrate-purchase-records logic", () => {
       // Second run check (after migration)
       const secondCheck = await client.send(
         new GetItemCommand({
-          TableName: "LineItem-table",
+          TableName: "OrderItem-table",
           Key: { id: { S: "li-001" } } as never,
         }),
       );

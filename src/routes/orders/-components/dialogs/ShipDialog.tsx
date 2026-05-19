@@ -17,25 +17,25 @@ import { useState } from "react";
 export interface ShipDialogProps {
   open: boolean;
   onClose: () => void;
-  lineItem: OrderItem;
+  orderItem: OrderItem;
   order: Order;
 }
 
 export function ShipDialog({
   open,
   onClose,
-  lineItem,
+  orderItem,
   order,
 }: ShipDialogProps): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const confirmShipment = useConfirmShipment();
-  const { data: product } = useProduct(lineItem.productId);
+  const { data: product } = useProduct(orderItem.productId);
 
   const stockQty = product ? resolveStockQuantity(product) : 0;
 
   const handleSubmit = async (): Promise<void> => {
     setError(null);
-    const validation = validateShipment(lineItem.quantity, stockQty);
+    const validation = validateShipment(orderItem.quantity, stockQty);
     if (!validation.valid) {
       setError(validation.error ?? "驗證失敗");
       return;
@@ -44,7 +44,7 @@ export function ShipDialog({
     try {
       await confirmShipment.mutateAsync({
         orderId: order.id,
-        orderItemId: lineItem.id,
+        orderItemId: orderItem.id,
       });
       onClose();
     } catch (err) {
@@ -55,14 +55,14 @@ export function ShipDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        出貨 — {lineItem.productName}
-        {lineItem.variantLabel ? ` (${lineItem.variantLabel})` : ""}
+        出貨 — {orderItem.productName}
+        {orderItem.variantLabel ? ` (${orderItem.variantLabel})` : ""}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <Typography variant="body2" color="text.secondary">
-            出貨數量：{lineItem.quantity} ／ 目前庫存：{stockQty}
+            出貨數量：{orderItem.quantity} ／ 目前庫存：{stockQty}
           </Typography>
         </Stack>
       </DialogContent>

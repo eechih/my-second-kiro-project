@@ -47,24 +47,24 @@ export function SplitAllocationTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {order.items.map((lineItem) => (
-              <TableRow key={lineItem.id}>
-                <TableCell>{lineItem.productName}</TableCell>
-                <TableCell>{lineItem.variantLabel ?? "-"}</TableCell>
-                <TableCell align="right">{lineItem.quantity}</TableCell>
+            {order.items.map((orderItem) => (
+              <TableRow key={orderItem.id}>
+                <TableCell>{orderItem.productName}</TableCell>
+                <TableCell>{orderItem.variantLabel ?? "-"}</TableCell>
+                <TableCell align="right">{orderItem.quantity}</TableCell>
                 <TableCell align="right">
-                  {formatCurrency(lineItem.unitPrice)}
+                  {formatCurrency(orderItem.unitPrice)}
                 </TableCell>
                 <TableCell align="right">
-                  {formatCurrency(lineItem.subtotal)}
+                  {formatCurrency(orderItem.subtotal)}
                 </TableCell>
                 <TableCell>
                   <FormControl size="small" fullWidth>
                     <Select
-                      value={allocations.get(lineItem.id) ?? ""}
+                      value={allocations.get(orderItem.id) ?? ""}
                       onChange={(event) =>
                         onAllocationChange(
-                          lineItem.id,
+                          orderItem.id,
                           Number(event.target.value),
                         )
                       }

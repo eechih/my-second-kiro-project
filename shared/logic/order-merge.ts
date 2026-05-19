@@ -124,15 +124,15 @@ export function mergeOrders(orders: Order[]): MergedOrderData {
   const firstOrder = orders[0]!;
 
   // 收集所有來源訂單的明細項目
-  const allLineItems: OrderItem[] = orders.flatMap((order) => order.items);
+  const allOrderItems: OrderItem[] = orders.flatMap((order) => order.items);
 
   // 重新計算總金額，確保一致性（需求 9.2）
-  const totalAmount = calculateOrderTotal(allLineItems);
+  const totalAmount = calculateOrderTotal(allOrderItems);
 
   return {
     customerId: firstOrder.customerId,
     customerName: firstOrder.customerName,
-    items: allLineItems,
+    items: allOrderItems,
     totalAmount,
     status: "pending",
     sourceOrderIds: orders.map((order) => order.id),

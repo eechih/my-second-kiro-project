@@ -51,7 +51,7 @@ describe("orderItemDraft", () => {
     ).toBe("請選取規格組合");
   });
 
-  it("builds line item data from a valid draft", () => {
+  it("builds order item data from a valid draft", () => {
     expect(
       buildOrderItemFormData({
         product: baseProduct,

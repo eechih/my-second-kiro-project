@@ -247,7 +247,7 @@ export function getMissingProductFields(
  * 規則：
  * - customerId 不可為空
  * - customerName 不可為空
- * - lineItems 必須為非空陣列
+ * - orderItems 必須為非空陣列
  * - 每筆明細項目的 productId、productName 不可為空
  * - 每筆明細項目的 quantity 必須為正數（> 0）
  * - 每筆明細項目的 unitPrice 必須為非負數（>= 0）
@@ -268,12 +268,12 @@ export function validateOrder(
     missing.push("客戶名稱");
   }
 
-  const lineItems = input["lineItems"];
-  if (!Array.isArray(lineItems) || lineItems.length === 0) {
+  const orderItems = input["orderItems"];
+  if (!Array.isArray(orderItems) || orderItems.length === 0) {
     missing.push("明細項目");
   } else {
-    for (let i = 0; i < lineItems.length; i++) {
-      const item = lineItems[i] as Record<string, unknown> | undefined;
+    for (let i = 0; i < orderItems.length; i++) {
+      const item = orderItems[i] as Record<string, unknown> | undefined;
       if (!item) {
         missing.push(`明細項目 ${i + 1}`);
         continue;
@@ -328,12 +328,12 @@ export function getMissingOrderFields(
     missing.push("客戶名稱");
   }
 
-  const lineItems = input["lineItems"];
-  if (!Array.isArray(lineItems) || lineItems.length === 0) {
+  const orderItems = input["orderItems"];
+  if (!Array.isArray(orderItems) || orderItems.length === 0) {
     missing.push("明細項目");
   } else {
-    for (let i = 0; i < lineItems.length; i++) {
-      const item = lineItems[i] as Record<string, unknown> | undefined;
+    for (let i = 0; i < orderItems.length; i++) {
+      const item = orderItems[i] as Record<string, unknown> | undefined;
       if (!item) {
         missing.push(`明細項目 ${i + 1}`);
         continue;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   mapLegacyCounterToSequenceCounter,
-  mapLegacyLineItemToOrderItem,
+  mapLegacyOrderItemToOrderItem,
   mapLegacyOrderToCurrentShape,
   normalizeSearchName,
   resolveSortTimestamp,
@@ -44,7 +44,7 @@ describe("order-schema-migration-lib", () => {
 
   it("maps legacy line item to order item snapshot shape", () => {
     expect(
-      mapLegacyLineItemToOrderItem(
+      mapLegacyOrderItemToOrderItem(
         {
           id: "li-1",
           orderId: "order-1",

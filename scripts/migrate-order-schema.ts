@@ -8,11 +8,11 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
   mapLegacyCounterToSequenceCounter,
-  mapLegacyLineItemToOrderItem,
+  mapLegacyOrderItemToOrderItem,
   mapLegacyOrderToCurrentShape,
   normalizeSearchName,
   resolveSortTimestamp,
-  type LegacyLineItemRecord,
+  type LegacyOrderItemRecord,
 } from "./order-schema-migration-lib";
 
 const TABLE_NAMES = {
@@ -23,7 +23,7 @@ const TABLE_NAMES = {
   order: process.env["ORDER_TABLE_NAME"],
   orderItem: process.env["ORDERITEM_TABLE_NAME"],
   sequenceCounter: process.env["SEQUENCECOUNTER_TABLE_NAME"],
-  legacyLineItem: process.env["LEGACY_LINEITEM_TABLE_NAME"],
+  legacyOrderItem: process.env["LEGACY_LINEITEM_TABLE_NAME"],
   legacyProductCounter: process.env["LEGACY_PRODUCTCOUNTER_TABLE_NAME"],
 } as const;
 
@@ -279,26 +279,26 @@ async function backfillOrders(): Promise<Stats> {
   return stats;
 }
 
-async function migrateLegacyLineItems(productSkuMap: Map<string, string>): Promise<Stats> {
+async function migrateLegacyOrderItems(productSkuMap: Map<string, string>): Promise<Stats> {
   const stats: Stats = { scanned: 0, updated: 0, created: 0, skipped: 0 };
-  if (!TABLE_NAMES.legacyLineItem) {
+  if (!TABLE_NAMES.legacyOrderItem) {
     return stats;
   }
 
-  const items = await scanAll(TABLE_NAMES.legacyLineItem!);
+  const items = await scanAll(TABLE_NAMES.legacyOrderItem!);
 
   for (const rawItem of items) {
     stats.scanned += 1;
-    const lineItem = rawItem as unknown as LegacyLineItemRecord;
-    const exists = await itemExists(TABLE_NAMES.orderItem!, lineItem.id);
+    const orderItem = rawItem as unknown as LegacyOrderItemRecord;
+    const exists = await itemExists(TABLE_NAMES.orderItem!, orderItem.id);
     if (exists) {
       stats.skipped += 1;
       continue;
     }
 
-    const nextItem = mapLegacyLineItemToOrderItem(
-      lineItem,
-      productSkuMap.get(lineItem.productId) ?? "",
+    const nextItem = mapLegacyOrderItemToOrderItem(
+      orderItem,
+      productSkuMap.get(orderItem.productId) ?? "",
     );
 
     if (!DRY_RUN) {
@@ -369,7 +369,7 @@ async function main(): Promise<void> {
   const productSkuMap = await backfillProducts();
   const variantStats = await backfillProductVariants();
   const orderStats = await backfillOrders();
-  const orderItemStats = await migrateLegacyLineItems(productSkuMap);
+  const orderItemStats = await migrateLegacyOrderItems(productSkuMap);
   const counterStats = await migrateLegacyCounters();
 
   printStats("Customer", customerStats);

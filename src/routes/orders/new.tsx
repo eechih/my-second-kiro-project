@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/route-guards";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
-import { calculateLineItemSubtotal } from "@shared/logic/order-calculations";
+import { calculateOrderItemSubtotal } from "@shared/logic/order-calculations";
 import type { Customer } from "@shared/models";
 import { useForm } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -43,13 +43,13 @@ function OrderNewPage() {
         return;
       }
 
-      // Validate line items
+      // Validate order items
       if (orderItems.length === 0) {
         setSubmitError("請至少新增一筆明細項目");
         return;
       }
 
-      // Validate each line item
+      // Validate each order item
       for (let i = 0; i < orderItems.length; i++) {
         const item = orderItems[i]!;
         if (!item.productId) {
@@ -66,7 +66,7 @@ function OrderNewPage() {
         await createMutation.mutateAsync({
           customerId: value.customerId,
           customerName: value.customerName,
-          lineItems: orderItems.map((item) => ({
+          orderItems: orderItems.map((item) => ({
             productId: item.productId,
             productName: item.productName,
             productSku: item.productSku,
@@ -126,7 +126,7 @@ function OrderNewPage() {
   // Calculate total amount
   const totalAmount = orderItems.reduce(
     (sum, item) =>
-      sum + calculateLineItemSubtotal(item.quantity, item.unitPrice),
+      sum + calculateOrderItemSubtotal(item.quantity, item.unitPrice),
     0,
   );
 

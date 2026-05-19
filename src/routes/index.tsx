@@ -137,7 +137,7 @@ function Dashboard() {
                   <Skeleton variant="text" width={60} height={48} />
                 ) : (
                   <Typography variant="h3" color="success.main">
-                    {data?.readyToShipLineItemsCount ?? 0}
+                    {data?.readyToShipOrderItemsCount ?? 0}
                   </Typography>
                 )}
               </CardContent>

@@ -61,13 +61,13 @@ export function SplitPreview({
                 </TableRow>
               </TableHead>
               <TableBody>
-                {group.items.map((lineItem) => (
-                  <TableRow key={lineItem.id}>
-                    <TableCell>{lineItem.productName}</TableCell>
-                    <TableCell>{lineItem.variantLabel ?? "-"}</TableCell>
-                    <TableCell align="right">{lineItem.quantity}</TableCell>
+                {group.items.map((orderItem) => (
+                  <TableRow key={orderItem.id}>
+                    <TableCell>{orderItem.productName}</TableCell>
+                    <TableCell>{orderItem.variantLabel ?? "-"}</TableCell>
+                    <TableCell align="right">{orderItem.quantity}</TableCell>
                     <TableCell align="right">
-                      {formatCurrency(lineItem.subtotal)}
+                      {formatCurrency(orderItem.subtotal)}
                     </TableCell>
                   </TableRow>
                 ))}

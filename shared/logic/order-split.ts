@@ -93,11 +93,11 @@ export function validateSplitOrder(
   }
 
   // 建立原訂單明細 ID 集合，用於後續驗證
-  const orderLineItemIds = new Set(order.items.map((li) => li.id));
+  const orderOrderItemIds = new Set(order.items.map((li) => li.id));
 
   // 規則 4：分配列表中的明細 ID 必須存在於原訂單
   const invalidAllocation = allocations.find(
-    (a) => !orderLineItemIds.has(a.orderItemId),
+    (a) => !orderOrderItemIds.has(a.orderItemId),
   );
   if (invalidAllocation) {
     return {
@@ -107,21 +107,21 @@ export function validateSplitOrder(
   }
 
   // 規則 6：每筆明細項目只能分配一次
-  const allocatedLineItemIds = new Set<string>();
+  const allocatedOrderItemIds = new Set<string>();
   for (const allocation of allocations) {
-    if (allocatedLineItemIds.has(allocation.orderItemId)) {
+    if (allocatedOrderItemIds.has(allocation.orderItemId)) {
       return {
         valid: false,
         error: `明細項目 ${allocation.orderItemId} 重複分配`,
       };
     }
-    allocatedLineItemIds.add(allocation.orderItemId);
+    allocatedOrderItemIds.add(allocation.orderItemId);
   }
 
   // 規則 3：所有明細項目皆必須有分配目標
   const unallocatedIds: string[] = [];
-  for (const orderItemId of orderLineItemIds) {
-    if (!allocatedLineItemIds.has(orderItemId)) {
+  for (const orderItemId of orderOrderItemIds) {
+    if (!allocatedOrderItemIds.has(orderItemId)) {
       unallocatedIds.push(orderItemId);
     }
   }
@@ -170,32 +170,32 @@ export function splitOrder(
   allocations: SplitAllocation[],
 ): SplitOrderData[] {
   // 建立明細項目 ID → OrderItem 的查找表
-  const lineItemMap = new Map<string, OrderItem>();
-  for (const lineItem of order.items) {
-    lineItemMap.set(lineItem.id, lineItem);
+  const orderItemMap = new Map<string, OrderItem>();
+  for (const orderItem of order.items) {
+    orderItemMap.set(orderItem.id, orderItem);
   }
 
   // 依 targetOrderIndex 分組明細項目
-  const groupedLineItems = new Map<number, OrderItem[]>();
+  const groupedOrderItems = new Map<number, OrderItem[]>();
   for (const allocation of allocations) {
-    const lineItem = lineItemMap.get(allocation.orderItemId);
-    if (!lineItem) {
+    const orderItem = orderItemMap.get(allocation.orderItemId);
+    if (!orderItem) {
       continue; // 理論上不會發生（已通過驗證）
     }
 
-    const group = groupedLineItems.get(allocation.targetOrderIndex);
+    const group = groupedOrderItems.get(allocation.targetOrderIndex);
     if (group) {
-      group.push(lineItem);
+      group.push(orderItem);
     } else {
-      groupedLineItems.set(allocation.targetOrderIndex, [lineItem]);
+      groupedOrderItems.set(allocation.targetOrderIndex, [orderItem]);
     }
   }
 
   // 依 targetOrderIndex 排序後產生新訂單資料
-  const sortedIndices = [...groupedLineItems.keys()].sort((a, b) => a - b);
+  const sortedIndices = [...groupedOrderItems.keys()].sort((a, b) => a - b);
 
   return sortedIndices.map((index) => {
-    const items = groupedLineItems.get(index)!;
+    const items = groupedOrderItems.get(index)!;
     const totalAmount = calculateOrderTotal(items);
 
     return {

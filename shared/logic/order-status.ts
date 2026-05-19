@@ -94,8 +94,3 @@ export function deriveOrderStatusFromOrderItems(
 
   return null;
 }
-
-/**
- * @deprecated 請改用 `deriveOrderStatusFromOrderItems`。
- */
-export const deriveOrderStatusFromLineItems = deriveOrderStatusFromOrderItems;

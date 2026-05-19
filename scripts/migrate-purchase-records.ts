@@ -1,18 +1,18 @@
 /**
- * 資料遷移腳本：將 PurchaseRecord 的採購數據回填至 LineItem
+ * 資料遷移腳本：將 PurchaseRecord 的採購數據回填至 OrderItem
  *
  * 此腳本讀取所有 PurchaseRecord，將 supplierId、supplierName、unitCost
- * 回填至對應的 LineItem。
+ * 回填至對應的 OrderItem。
  *
  * 特性：
  * - 冪等操作：重複執行不產生錯誤或重複資料
  * - 處理 DynamoDB scan 分頁（每次最多 1MB）
- * - 跳過已遷移的 LineItem（supplierId 已有值）
- * - 無 PurchaseRecord 的 LineItem 保持 null（不需額外處理）
+ * - 跳過已遷移的 OrderItem（supplierId 已有值）
+ * - 無 PurchaseRecord 的 OrderItem 保持 null（不需額外處理）
  *
  * 環境變數：
  * - PURCHASERECORD_TABLE_NAME: PurchaseRecord DynamoDB 表名
- * - ORDER_ITEM_TABLE_NAME: LineItem DynamoDB 表名
+ * - ORDER_ITEM_TABLE_NAME: OrderItem DynamoDB 表名
  *
  * 執行方式：
  *   npx tsx scripts/migrate-purchase-records.ts
@@ -108,7 +108,7 @@ async function scanAllPurchaseRecords(): Promise<PurchaseRecordData[]> {
 }
 
 /**
- * 檢查 LineItem 是否已遷移（supplierId 已有值）
+ * 檢查 OrderItem 是否已遷移（supplierId 已有值）
  */
 async function isAlreadyMigrated(orderItemId: string): Promise<boolean> {
   const result = await ddb.send(
@@ -128,7 +128,7 @@ async function isAlreadyMigrated(orderItemId: string): Promise<boolean> {
 }
 
 /**
- * 將 PurchaseRecord 的採購數據回填至對應的 LineItem
+ * 將 PurchaseRecord 的採購數據回填至對應的 OrderItem
  * 使用條件更新確保冪等性：僅在 supplierId 為 null 時更新
  */
 async function migrateRecord(
@@ -163,13 +163,13 @@ async function migrateRecord(
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
 
-    // ConditionalCheckFailedException 表示已遷移或 LineItem 不存在，視為跳過
+    // ConditionalCheckFailedException 表示已遷移或 OrderItem 不存在，視為跳過
     if (err.name === "ConditionalCheckFailedException") {
       return "skipped";
     }
 
     console.error(
-      `  錯誤：遷移 PurchaseRecord ${record.id} (LineItem: ${record.orderItemId}) 失敗：${err.message ?? "未知錯誤"}`,
+      `  錯誤：遷移 PurchaseRecord ${record.id} (OrderItem: ${record.orderItemId}) 失敗：${err.message ?? "未知錯誤"}`,
     );
     return "error";
   }
@@ -179,9 +179,9 @@ async function migrateRecord(
  * 執行遷移
  */
 async function migrate(): Promise<void> {
-  console.log("=== 開始資料遷移：PurchaseRecord → LineItem ===");
+  console.log("=== 開始資料遷移：PurchaseRecord → OrderItem ===");
   console.log(`PurchaseRecord 表：${PURCHASERECORD_TABLE_NAME}`);
-  console.log(`LineItem 表：${ORDER_ITEM_TABLE_NAME}`);
+  console.log(`OrderItem 表：${ORDER_ITEM_TABLE_NAME}`);
   console.log("");
 
   // Step 1: 掃描所有 PurchaseRecord
@@ -196,7 +196,7 @@ async function migrate(): Promise<void> {
   }
 
   // Step 2: 逐筆遷移
-  console.log("步驟 2：回填採購數據至 LineItem...");
+  console.log("步驟 2：回填採購數據至 OrderItem...");
   const stats: MigrationStats = {
     totalScanned: records.length,
     updated: 0,

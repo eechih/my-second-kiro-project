@@ -17,17 +17,17 @@ import type { OrderItem, ValidationResult } from "../models/order";
  * - supplierId 非空字串
  * - unitCost >= 0
  *
- * @param lineItem - 明細項目（僅需 status 與 quantity）
+ * @param orderItem - 明細項目（僅需 status 與 quantity）
  * @param supplierId - 供應商 ID
  * @param unitCost - 採購單位成本
  * @returns 驗證結果
  */
 export function validateProcurementOrder(
-  lineItem: Pick<OrderItem, "status" | "quantity">,
+  orderItem: Pick<OrderItem, "status" | "quantity">,
   supplierId: string,
   unitCost: number,
 ): ValidationResult {
-  if (lineItem.status !== "pending") {
+  if (orderItem.status !== "pending") {
     return {
       valid: false,
       error: "此明細項目已完成採購下單",
@@ -57,13 +57,13 @@ export function validateProcurementOrder(
  * 規則：
  * - status 必須為 ordered
  *
- * @param lineItem - 明細項目（僅需 status）
+ * @param orderItem - 明細項目（僅需 status）
  * @returns 驗證結果
  */
 export function validateProcurementReceive(
-  lineItem: Pick<OrderItem, "status">,
+  orderItem: Pick<OrderItem, "status">,
 ): ValidationResult {
-  if (lineItem.status !== "ordered") {
+  if (orderItem.status !== "ordered") {
     return {
       valid: false,
       error: "僅「已訂購」狀態的明細項目可確認入庫",
@@ -80,13 +80,13 @@ export function validateProcurementReceive(
  * - status 必須為 pending 或 ordered
  * - received、shipped、out_of_stock 的明細項目不可取消
  *
- * @param lineItem - 明細項目（僅需 status）
+ * @param orderItem - 明細項目（僅需 status）
  * @returns 驗證結果
  */
 export function validateProcurementCancel(
-  lineItem: Pick<OrderItem, "status">,
+  orderItem: Pick<OrderItem, "status">,
 ): ValidationResult {
-  if (lineItem.status === "pending" || lineItem.status === "ordered") {
+  if (orderItem.status === "pending" || orderItem.status === "ordered") {
     return { valid: true };
   }
 

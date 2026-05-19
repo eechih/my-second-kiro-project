@@ -71,13 +71,13 @@ function OrderSplitPage() {
 
     const groups = new Map<number, OrderItem[]>();
     for (const [orderItemId, targetIndex] of allocations.entries()) {
-      const lineItem = order.items.find((li) => li.id === orderItemId);
-      if (lineItem) {
+      const orderItem = order.items.find((li) => li.id === orderItemId);
+      if (orderItem) {
         const group = groups.get(targetIndex);
         if (group) {
-          group.push(lineItem);
+          group.push(orderItem);
         } else {
-          groups.set(targetIndex, [lineItem]);
+          groups.set(targetIndex, [orderItem]);
         }
       }
     }

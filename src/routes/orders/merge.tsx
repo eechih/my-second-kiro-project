@@ -144,7 +144,7 @@ function OrderMergePage() {
     (sum, order) => sum + order.totalAmount,
     0,
   );
-  const totalLineItemCount = selectedOrders.reduce(
+  const totalOrderItemCount = selectedOrders.reduce(
     (sum, order) => sum + order.items.length,
     0,
   );
@@ -200,7 +200,7 @@ function OrderMergePage() {
       <MergePreview
         selectedOrderCount={selectedOrderIds.size}
         totalAmount={totalMergedAmount}
-        lineItemCount={totalLineItemCount}
+        orderItemCount={totalOrderItemCount}
         isPending={mergeOrders.isPending}
         onMerge={handleMergeClick}
       />

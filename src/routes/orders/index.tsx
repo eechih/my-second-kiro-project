@@ -126,7 +126,7 @@ function OrderListPage(): React.ReactElement {
     (sum, order) => sum + order.totalAmount,
     0,
   );
-  const selectedOrderLineItemCount = selectedOrders.reduce(
+  const selectedOrderItemCount = selectedOrders.reduce(
     (sum, order) => sum + order.items.length,
     0,
   );
@@ -244,7 +244,7 @@ function OrderListPage(): React.ReactElement {
         open={mergeDialogOpen}
         orders={selectedOrders}
         totalAmount={selectedOrderTotalAmount}
-        lineItemCount={selectedOrderLineItemCount}
+        orderItemCount={selectedOrderItemCount}
         error={mergeError}
         isPending={mergeOrders.isPending}
         onClose={() => {

@@ -15,7 +15,7 @@ export interface MergeDialogProps {
   open: boolean;
   orders: Order[];
   totalAmount: number;
-  lineItemCount: number;
+  orderItemCount: number;
   error: string | null;
   isPending: boolean;
   onClose: () => void;
@@ -27,7 +27,7 @@ export function MergeDialog({
   open,
   orders,
   totalAmount,
-  lineItemCount,
+  orderItemCount,
   error,
   isPending,
   onClose,
@@ -80,7 +80,7 @@ export function MergeDialog({
             選取訂單數：{orders.length} 筆
           </Typography>
           <Typography variant="body2">
-            合併後明細項目數：{lineItemCount} 項
+            合併後明細項目數：{orderItemCount} 項
           </Typography>
           <Typography variant="body2">
             合併後總金額：{formatCurrency(totalAmount)}

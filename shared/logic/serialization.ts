@@ -37,7 +37,7 @@ export function deserializeOrder(json: string): Order {
   assertStringField(order, "status", "Order");
   assertStringField(order, "createdAt", "Order");
   assertStringField(order, "updatedAt", "Order");
-  assertArrayField(order, "lineItems", "Order");
+  assertArrayField(order, "orderItems", "Order");
   assertArrayField(order, "statusHistory", "Order");
 
   return parsed as unknown as Order;

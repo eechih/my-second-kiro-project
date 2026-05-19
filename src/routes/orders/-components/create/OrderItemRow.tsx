@@ -6,7 +6,7 @@ import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { calculateLineItemSubtotal } from "@shared/logic/order-calculations";
+import { calculateOrderItemSubtotal } from "@shared/logic/order-calculations";
 import type { OrderItemFormData } from "./formTypes";
 
 export interface OrderItemRowProps {
@@ -22,7 +22,7 @@ export function OrderItemRow({
   onEdit,
   onRemove,
 }: OrderItemRowProps): React.ReactElement {
-  const subtotal = calculateLineItemSubtotal(item.quantity, item.unitPrice);
+  const subtotal = calculateOrderItemSubtotal(item.quantity, item.unitPrice);
 
   return (
     <TableRow hover sx={{ cursor: "pointer" }} onClick={onEdit}>

@@ -11,7 +11,7 @@ export interface DashboardSummary {
   /** 待入庫明細數量（status = "ordered"） */
   pendingProcurementCount: number;
   /** 待出貨明細數量（status = "received"） */
-  readyToShipLineItemsCount: number;
+  readyToShipOrderItemsCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ export function useDashboardSummary(): UseQueryResult<DashboardSummary> {
     queryKey: DASHBOARD_KEYS.summary(),
     queryFn: async (): Promise<DashboardSummary> => {
       // 並行查詢三個摘要數量
-      const [ordersResult, pendingProcurementResult, lineItemsResult] =
+      const [ordersResult, pendingProcurementResult, orderItemsResult] =
         await Promise.all([
           // 待處理訂單（status = "pending"）
           client.models.Order.list({
@@ -61,7 +61,7 @@ export function useDashboardSummary(): UseQueryResult<DashboardSummary> {
       return {
         pendingOrdersCount: ordersResult.data?.length ?? 0,
         pendingProcurementCount: pendingProcurementResult.data?.length ?? 0,
-        readyToShipLineItemsCount: lineItemsResult.data?.length ?? 0,
+        readyToShipOrderItemsCount: orderItemsResult.data?.length ?? 0,
       };
     },
     // 每 30 秒自動重新查詢
