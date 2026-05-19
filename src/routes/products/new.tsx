@@ -25,7 +25,7 @@ import { validateProduct } from "@shared/logic/validation";
 import type { Supplier } from "@shared/models";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ProductCreateForm,
   type ProductCreateFormPrefill,
@@ -47,12 +47,16 @@ function ProductNewPage() {
   const createVariantMutation = useCreateVariant();
   const uploadImagesMutation = useUploadProductImagesBatch();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [formInstanceKey, setFormInstanceKey] = useState(0);
+  const [postPanelResetKey, setPostPanelResetKey] = useState(0);
   const [prefill, setPrefill] = useState<ProductCreateFormPrefill | null>(null);
 
   const handleSubmit = async (
     values: ProductCreateFormValues,
   ): Promise<void> => {
     setSubmitError(null);
+    setSubmitSuccess(false);
 
     const validation = validateProduct({
       name: values.name,
@@ -78,17 +82,23 @@ function ProductNewPage() {
         productId: product.id,
         files: values.imageFiles,
       });
-      void navigate({
-        to: "/products/$productId",
-        params: { productId: product.id },
-      });
+      setSubmitSuccess(true);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "建立商品失敗");
     }
   };
 
+  const handleContinueCreate = (): void => {
+    setSubmitSuccess(false);
+    setSubmitError(null);
+    setPrefill(null);
+    setFormInstanceKey((prev) => prev + 1);
+    setPostPanelResetKey((prev) => prev + 1);
+  };
+
   const productForm = (
     <ProductCreateForm
+      key={formInstanceKey}
       layout={fromPost ? "splitDescription" : "default"}
       prefill={prefill}
       isSubmitting={
@@ -119,6 +129,34 @@ function ProductNewPage() {
         </Alert>
       )}
 
+      {submitSuccess && (
+        <Alert
+          severity="success"
+          sx={{ mb: 2 }}
+          action={
+            <Stack direction="row" spacing={1}>
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => void navigate({ to: "/products" })}
+              >
+                前往商品列表
+              </Button>
+              <Button
+                color="inherit"
+                size="small"
+                variant="outlined"
+                onClick={handleContinueCreate}
+              >
+                繼續新增
+              </Button>
+            </Stack>
+          }
+        >
+          商品已新增完成。
+        </Alert>
+      )}
+
       {fromPost ? (
         <Box
           sx={{
@@ -133,6 +171,7 @@ function ProductNewPage() {
         >
           <Box sx={{ alignSelf: { lg: "stretch" } }}>
             <ProductPostParserPanel
+              resetKey={postPanelResetKey}
               onApply={(values) => {
                 setSubmitError(null);
                 setPrefill(values);
@@ -149,8 +188,10 @@ function ProductNewPage() {
 }
 
 function ProductPostParserPanel({
+  resetKey,
   onApply,
 }: {
+  resetKey: number;
   onApply: (values: ProductCreateFormPrefill) => void;
 }): React.ReactElement {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
@@ -194,6 +235,12 @@ function ProductPostParserPanel({
     setParseError(null);
     setParseMessage(null);
   };
+
+  useEffect(() => {
+    setPostContent("");
+    setParseError(null);
+    setParseMessage(null);
+  }, [resetKey]);
 
   const handleParse = (): void => {
     setParseError(null);
