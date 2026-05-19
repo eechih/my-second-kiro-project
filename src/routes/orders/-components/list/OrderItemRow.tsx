@@ -106,16 +106,16 @@ function isStatusFlagDisabled(
   );
 }
 
-export interface LineItemRowProps {
+export interface OrderItemRowProps {
   item: OrderItem;
   orderId: string;
 }
 
-export function LineItemRow({
+export function OrderItemRow({
   item,
   orderId,
-}: LineItemRowProps): React.ReactElement {
-  const updateLineItemStatusFlag = useUpdateOrderItemStatusFlag();
+}: OrderItemRowProps): React.ReactElement {
+  const updateOrderItemStatusFlag = useUpdateOrderItemStatusFlag();
 
   return (
     <TableRow
@@ -157,7 +157,7 @@ export function LineItemRow({
         const disabled =
           editableFlag === null ||
           isStatusFlagDisabled(editableFlag, item, checked) ||
-          updateLineItemStatusFlag.isPending;
+          updateOrderItemStatusFlag.isPending;
 
         return (
           <TableCell key={flag.key} align="center">
@@ -170,7 +170,7 @@ export function LineItemRow({
                   onChange={
                     editableFlag !== null
                       ? (_event, nextChecked) => {
-                          updateLineItemStatusFlag.mutate({
+                          updateOrderItemStatusFlag.mutate({
                             orderId,
                             orderItemId: item.id,
                             flag: editableFlag,

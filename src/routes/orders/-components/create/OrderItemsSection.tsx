@@ -11,32 +11,32 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { useCallback, useState } from "react";
-import { LineItemDialog, type LineItemEditData } from "./LineItemDialog";
-import type { CreateOrderItemInput, LineItemFormData } from "./formTypes";
-import { LineItemRow } from "./LineItemRow";
+import { OrderItemDialog, type OrderItemEditData } from "./OrderItemDialog";
+import type { CreateOrderItemInput, OrderItemFormData } from "./formTypes";
+import { OrderItemRow } from "./OrderItemRow";
 
 interface DialogState {
   open: boolean;
   /** 編輯模式時的明細索引，null 為新增模式 */
   editIndex: number | null;
-  editData: LineItemEditData | null;
+  editData: OrderItemEditData | null;
 }
 
-export interface LineItemsSectionProps {
-  lineItems: LineItemFormData[];
+export interface OrderItemsSectionProps {
+  orderItems: OrderItemFormData[];
   totalAmount: number;
-  onAddLineItem: (input: CreateOrderItemInput) => void;
-  onRemoveLineItem: (index: number) => void;
-  onUpdateLineItem: (index: number, input: CreateOrderItemInput) => void;
+  onAddOrderItem: (input: CreateOrderItemInput) => void;
+  onRemoveOrderItem: (index: number) => void;
+  onUpdateOrderItem: (index: number, input: CreateOrderItemInput) => void;
 }
 
-export function LineItemsSection({
-  lineItems,
+export function OrderItemsSection({
+  orderItems,
   totalAmount,
-  onAddLineItem,
-  onRemoveLineItem,
-  onUpdateLineItem,
-}: LineItemsSectionProps): React.ReactElement {
+  onAddOrderItem,
+  onRemoveOrderItem,
+  onUpdateOrderItem,
+}: OrderItemsSectionProps): React.ReactElement {
   const [dialog, setDialog] = useState<DialogState>({
     open: false,
     editIndex: null,
@@ -49,7 +49,7 @@ export function LineItemsSection({
 
   const openEditDialog = useCallback(
     (index: number) => {
-      const item = lineItems[index];
+      const item = orderItems[index];
       if (!item) return;
       setDialog({
         open: true,
@@ -64,7 +64,7 @@ export function LineItemsSection({
         },
       });
     },
-    [lineItems],
+    [orderItems],
   );
 
   const closeDialog = useCallback(() => {
@@ -74,12 +74,12 @@ export function LineItemsSection({
   const handleDialogSubmit = useCallback(
     (input: CreateOrderItemInput) => {
       if (dialog.editIndex !== null) {
-        onUpdateLineItem(dialog.editIndex, input);
+        onUpdateOrderItem(dialog.editIndex, input);
       } else {
-        onAddLineItem(input);
+        onAddOrderItem(input);
       }
     },
-    [dialog.editIndex, onAddLineItem, onUpdateLineItem],
+    [dialog.editIndex, onAddOrderItem, onUpdateOrderItem],
   );
 
   return (
@@ -103,7 +103,7 @@ export function LineItemsSection({
         </Button>
       </Box>
 
-      {lineItems.length === 0 ? (
+      {orderItems.length === 0 ? (
         <Typography
           variant="body2"
           color="text.secondary"
@@ -126,13 +126,13 @@ export function LineItemsSection({
               </TableRow>
             </TableHead>
             <TableBody>
-              {lineItems.map((item, index) => (
-                <LineItemRow
+              {orderItems.map((item, index) => (
+                <OrderItemRow
                   key={item.tempId}
                   item={item}
                   index={index}
                   onEdit={() => openEditDialog(index)}
-                  onRemove={() => onRemoveLineItem(index)}
+                  onRemove={() => onRemoveOrderItem(index)}
                 />
               ))}
             </TableBody>
@@ -140,7 +140,7 @@ export function LineItemsSection({
         </TableContainer>
       )}
 
-      {lineItems.length > 0 && (
+      {orderItems.length > 0 && (
         <Box
           sx={{
             display: "flex",
@@ -157,7 +157,7 @@ export function LineItemsSection({
         </Box>
       )}
 
-      <LineItemDialog
+      <OrderItemDialog
         open={dialog.open}
         editData={dialog.editData}
         onClose={closeDialog}

@@ -13,15 +13,15 @@ import type { Product, ProductVariant } from "@shared/models";
 import { useProduct } from "@/hooks/useProducts";
 import type { CreateOrderItemInput } from "./formTypes";
 import {
-  buildLineItemFormData,
-  createDefaultLineItemDraft,
-  getLineItemDraftError,
+  buildOrderItemFormData,
+  createDefaultOrderItemDraft,
+  getOrderItemDraftError,
   resolveDraftUnitPrice,
-} from "./lineItemDraft";
+} from "./orderItemDraft";
 import { searchProducts } from "./search";
 
 /** 編輯模式時傳入的既有明細資料 */
-export interface LineItemEditData {
+export interface OrderItemEditData {
   productId: string;
   productName: string;
   productSku: string;
@@ -30,20 +30,20 @@ export interface LineItemEditData {
   unitPrice: number;
 }
 
-export interface LineItemDialogProps {
+export interface OrderItemDialogProps {
   open: boolean;
   /** 傳入既有資料時為編輯模式，null 時為新增模式 */
-  editData: LineItemEditData | null;
+  editData: OrderItemEditData | null;
   onClose: () => void;
   onSubmit: (input: CreateOrderItemInput) => void;
 }
 
-export function LineItemDialog({
+export function OrderItemDialog({
   open,
   editData,
   onClose,
   onSubmit,
-}: LineItemDialogProps): React.ReactElement {
+}: OrderItemDialogProps): React.ReactElement {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     null,
@@ -69,7 +69,7 @@ export function LineItemDialog({
 
     if (!editData) {
       // 新增模式：重置為預設值
-      const draft = createDefaultLineItemDraft();
+      const draft = createDefaultOrderItemDraft();
       setSelectedProduct(draft.product);
       setSelectedVariant(draft.variant);
       setQuantity(draft.quantity);
@@ -133,14 +133,14 @@ export function LineItemDialog({
       quantity,
       unitPrice,
     };
-    const validationError = getLineItemDraftError(draft);
+    const validationError = getOrderItemDraftError(draft);
 
     if (validationError) {
       setError(validationError);
       return;
     }
 
-    onSubmit(buildLineItemFormData(draft));
+    onSubmit(buildOrderItemFormData(draft));
     onClose();
   };
 

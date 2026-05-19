@@ -2,14 +2,14 @@ import { resolveEffectivePrice, validateVariantRequired } from "@shared/logic/pr
 import type { Product, ProductVariant } from "@shared/models";
 import type { CreateOrderItemInput } from "./formTypes";
 
-export interface LineItemDraft {
+export interface OrderItemDraft {
   product: Product | null;
   variant: ProductVariant | null;
   quantity: number;
   unitPrice: number;
 }
 
-export function createDefaultLineItemDraft(): LineItemDraft {
+export function createDefaultOrderItemDraft(): OrderItemDraft {
   return {
     product: null,
     variant: null,
@@ -18,7 +18,7 @@ export function createDefaultLineItemDraft(): LineItemDraft {
   };
 }
 
-export function getLineItemDraftError(draft: LineItemDraft): string | null {
+export function getOrderItemDraftError(draft: OrderItemDraft): string | null {
   if (!draft.product) {
     return "請選取商品";
   }
@@ -42,8 +42,8 @@ export function getLineItemDraftError(draft: LineItemDraft): string | null {
   return null;
 }
 
-export function buildLineItemFormData(
-  draft: LineItemDraft,
+export function buildOrderItemFormData(
+  draft: OrderItemDraft,
 ): CreateOrderItemInput {
   if (!draft.product) {
     throw new Error("請選取商品");

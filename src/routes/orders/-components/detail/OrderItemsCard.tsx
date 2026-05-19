@@ -1,8 +1,8 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
-  useAddLineItemToOrder,
-  useDeleteLineItemFromOrder,
-  useUpdateLineItemInOrder,
+  useAddOrderItemToOrder,
+  useDeleteOrderItemFromOrder,
+  useUpdateOrderItemInOrder,
 } from "@/hooks/useOrders";
 import { formatCurrency } from "@/lib/currency";
 import AddIcon from "@mui/icons-material/Add";
@@ -20,59 +20,59 @@ import Typography from "@mui/material/Typography";
 import type { OrderItem, Order } from "@shared/models";
 import { useCallback, useState } from "react";
 import {
-  LineItemDialog,
-  type LineItemEditData,
-} from "../create/LineItemDialog";
+  OrderItemDialog,
+  type OrderItemEditData,
+} from "../create/OrderItemDialog";
 import type { CreateOrderItemInput } from "../create/formTypes";
-import { LineItemRow } from "./LineItemRow";
+import { OrderItemRow } from "./OrderItemRow";
 
 interface DialogState {
   open: boolean;
-  editLineItem: OrderItem | null;
+  editOrderItem: OrderItem | null;
 }
 
-export interface LineItemsCardProps {
+export interface OrderItemsCardProps {
   order: Order;
 }
 
-export function LineItemsCard({
+export function OrderItemsCard({
   order,
-}: LineItemsCardProps): React.ReactElement {
+}: OrderItemsCardProps): React.ReactElement {
   const [dialog, setDialog] = useState<DialogState>({
     open: false,
-    editLineItem: null,
+    editOrderItem: null,
   });
   const [deleteTarget, setDeleteTarget] = useState<OrderItem | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const addLineItem = useAddLineItemToOrder();
-  const updateLineItem = useUpdateLineItemInOrder();
-  const deleteLineItem = useDeleteLineItemFromOrder();
+  const addOrderItem = useAddOrderItemToOrder();
+  const updateOrderItem = useUpdateOrderItemInOrder();
+  const deleteOrderItem = useDeleteOrderItemFromOrder();
 
   const canEdit = order.status === "pending" || order.status === "confirmed";
 
   const openAddDialog = useCallback(() => {
-    setDialog({ open: true, editLineItem: null });
+    setDialog({ open: true, editOrderItem: null });
     setError(null);
   }, []);
 
-  const openEditDialog = useCallback((lineItem: OrderItem) => {
-    setDialog({ open: true, editLineItem: lineItem });
+  const openEditDialog = useCallback((orderItem: OrderItem) => {
+    setDialog({ open: true, editOrderItem: orderItem });
     setError(null);
   }, []);
 
   const closeDialog = useCallback(() => {
-    setDialog({ open: false, editLineItem: null });
+    setDialog({ open: false, editOrderItem: null });
   }, []);
 
   const handleDialogSubmit = useCallback(
     async (input: CreateOrderItemInput) => {
       setError(null);
       try {
-        if (dialog.editLineItem) {
-          await updateLineItem.mutateAsync({
+        if (dialog.editOrderItem) {
+          await updateOrderItem.mutateAsync({
             orderId: order.id,
-            orderItemId: dialog.editLineItem.id,
+            orderItemId: dialog.editOrderItem.id,
             productId: input.productId,
             productName: input.productName,
             productSku: input.productSku,
@@ -81,7 +81,7 @@ export function LineItemsCard({
             unitPrice: input.unitPrice,
           });
         } else {
-          await addLineItem.mutateAsync({
+          await addOrderItem.mutateAsync({
             orderId: order.id,
             productId: input.productId,
             productName: input.productName,
@@ -95,14 +95,14 @@ export function LineItemsCard({
         setError(err instanceof Error ? err.message : "操作失敗");
       }
     },
-    [dialog.editLineItem, order.id, addLineItem, updateLineItem],
+    [dialog.editOrderItem, order.id, addOrderItem, updateOrderItem],
   );
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
     setError(null);
     try {
-      await deleteLineItem.mutateAsync({
+      await deleteOrderItem.mutateAsync({
         orderId: order.id,
         orderItemId: deleteTarget.id,
       });
@@ -111,16 +111,16 @@ export function LineItemsCard({
       setError(err instanceof Error ? err.message : "刪除明細失敗");
       setDeleteTarget(null);
     }
-  }, [deleteTarget, order.id, deleteLineItem]);
+  }, [deleteTarget, order.id, deleteOrderItem]);
 
-  const editData: LineItemEditData | null = dialog.editLineItem
+  const editData: OrderItemEditData | null = dialog.editOrderItem
     ? {
-        productId: dialog.editLineItem.productId,
-        productName: dialog.editLineItem.productName,
-        productSku: dialog.editLineItem.productSku ?? "",
-        variantLabel: dialog.editLineItem.variantLabel,
-        quantity: dialog.editLineItem.quantity,
-        unitPrice: dialog.editLineItem.unitPrice,
+        productId: dialog.editOrderItem.productId,
+        productName: dialog.editOrderItem.productName,
+        productSku: dialog.editOrderItem.productSku ?? "",
+        variantLabel: dialog.editOrderItem.variantLabel,
+        quantity: dialog.editOrderItem.quantity,
+        unitPrice: dialog.editOrderItem.unitPrice,
       }
     : null;
 
@@ -170,14 +170,14 @@ export function LineItemsCard({
             </TableRow>
           </TableHead>
           <TableBody>
-            {order.items.map((lineItem) => (
-              <LineItemRow
-                key={lineItem.id}
-                lineItem={lineItem}
+            {order.items.map((orderItem) => (
+              <OrderItemRow
+                key={orderItem.id}
+                orderItem={orderItem}
                 order={order}
                 canEdit={canEdit}
-                onEdit={() => openEditDialog(lineItem)}
-                onDelete={() => setDeleteTarget(lineItem)}
+                onEdit={() => openEditDialog(orderItem)}
+                onDelete={() => setDeleteTarget(orderItem)}
               />
             ))}
           </TableBody>
@@ -198,7 +198,7 @@ export function LineItemsCard({
         </Typography>
       </Box>
 
-      <LineItemDialog
+      <OrderItemDialog
         open={dialog.open}
         editData={editData}
         onClose={closeDialog}

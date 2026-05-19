@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Product, ProductVariant } from "@shared/models";
 import {
-  buildLineItemFormData,
-  createDefaultLineItemDraft,
-  getLineItemDraftError,
+  buildOrderItemFormData,
+  createDefaultOrderItemDraft,
+  getOrderItemDraftError,
   resolveDraftUnitPrice,
-} from "./lineItemDraft";
+} from "./orderItemDraft";
 
 const baseVariant: ProductVariant = {
   id: "variant-1",
@@ -30,9 +30,9 @@ const baseProduct: Product = {
   updatedAt: "2026-05-11T00:00:00.000Z",
 };
 
-describe("lineItemDraft", () => {
+describe("orderItemDraft", () => {
   it("creates the default draft for add dialog", () => {
-    expect(createDefaultLineItemDraft()).toEqual({
+    expect(createDefaultOrderItemDraft()).toEqual({
       product: null,
       variant: null,
       quantity: 1,
@@ -42,7 +42,7 @@ describe("lineItemDraft", () => {
 
   it("requires variant selection when product has variants", () => {
     expect(
-      getLineItemDraftError({
+      getOrderItemDraftError({
         product: baseProduct,
         variant: null,
         quantity: 1,
@@ -53,7 +53,7 @@ describe("lineItemDraft", () => {
 
   it("builds line item data from a valid draft", () => {
     expect(
-      buildLineItemFormData({
+      buildOrderItemFormData({
         product: baseProduct,
         variant: baseVariant,
         quantity: 2,

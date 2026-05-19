@@ -13,7 +13,7 @@ import type { OrderStatus } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { InfoCard } from "./-components/detail/InfoCard";
-import { LineItemsCard } from "./-components/detail/LineItemsCard";
+import { OrderItemsCard } from "./-components/detail/OrderItemsCard";
 
 export const Route = createFileRoute("/orders/$orderId")({
   beforeLoad: requireAuth,
@@ -118,7 +118,7 @@ function OrderDetailPage(): React.ReactElement {
           statusPending={updateStatus.isPending}
           onStatusChange={(status) => void handleStatusChange(status)}
         />
-        <LineItemsCard order={order} />
+        <OrderItemsCard order={order} />
       </Stack>
     </Box>
   );

@@ -7,21 +7,21 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { calculateLineItemSubtotal } from "@shared/logic/order-calculations";
-import type { LineItemFormData } from "./formTypes";
+import type { OrderItemFormData } from "./formTypes";
 
-export interface LineItemRowProps {
-  item: LineItemFormData;
+export interface OrderItemRowProps {
+  item: OrderItemFormData;
   index: number;
   onEdit: () => void;
   onRemove: () => void;
 }
 
-export function LineItemRow({
+export function OrderItemRow({
   item,
   index,
   onEdit,
   onRemove,
-}: LineItemRowProps): React.ReactElement {
+}: OrderItemRowProps): React.ReactElement {
   const subtotal = calculateLineItemSubtotal(item.quantity, item.unitPrice);
 
   return (

@@ -42,12 +42,12 @@ export function buildPackingSlipHtml(orders: readonly Order[]): string {
 
   const slips = orders
     .map((order) => {
-      const shippingLineItems = order.items.filter((item) =>
+      const shippingOrderItems = order.items.filter((item) =>
         Boolean(item.shippedAt),
       );
       const rows =
-        shippingLineItems.length > 0
-          ? shippingLineItems
+        shippingOrderItems.length > 0
+          ? shippingOrderItems
               .map((item) => {
                 const productLabel = item.variantLabel
                   ? `${item.productName} (${item.variantLabel})`
@@ -73,11 +73,11 @@ export function buildPackingSlipHtml(orders: readonly Order[]): string {
             </tr>
           `;
 
-      const totalQuantity = shippingLineItems.reduce(
+      const totalQuantity = shippingOrderItems.reduce(
         (sum, item) => sum + item.quantity,
         0,
       );
-      const totalAmount = shippingLineItems.reduce(
+      const totalAmount = shippingOrderItems.reduce(
         (sum, item) => sum + item.subtotal,
         0,
       );
@@ -118,7 +118,7 @@ export function buildPackingSlipHtml(orders: readonly Order[]): string {
               <div class="printed-at">列印日期：${escapeHtml(printedAt)}</div>
             </div>
             <div class="summary-right">
-              <div>品項數：${shippingLineItems.length.toLocaleString("zh-TW")}</div>
+              <div>品項數：${shippingOrderItems.length.toLocaleString("zh-TW")}</div>
               <div>總數量：${totalQuantity.toLocaleString("zh-TW")}</div>
               <div>訂單金額：${escapeHtml(formatCurrency(totalAmount))}</div>
             </div>

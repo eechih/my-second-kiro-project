@@ -11,11 +11,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { CustomerSection } from "./-components/create/CustomerSection";
 import { FormActions } from "./-components/create/FormActions";
-import { LineItemsSection } from "./-components/create/LineItemsSection";
+import { OrderItemsSection } from "./-components/create/OrderItemsSection";
 import {
   generateTempId,
   type CreateOrderItemInput,
-  type LineItemFormData,
+  type OrderItemFormData,
 } from "./-components/create/formTypes";
 
 export const Route = createFileRoute("/orders/new")({
@@ -27,7 +27,7 @@ function OrderNewPage() {
   const navigate = useNavigate();
   const createMutation = useCreateOrder();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItemFormData[]>([]);
 
   const form = useForm({
     defaultValues: {
@@ -44,14 +44,14 @@ function OrderNewPage() {
       }
 
       // Validate line items
-      if (lineItems.length === 0) {
+      if (orderItems.length === 0) {
         setSubmitError("請至少新增一筆明細項目");
         return;
       }
 
       // Validate each line item
-      for (let i = 0; i < lineItems.length; i++) {
-        const item = lineItems[i]!;
+      for (let i = 0; i < orderItems.length; i++) {
+        const item = orderItems[i]!;
         if (!item.productId) {
           setSubmitError(`第 ${i + 1} 筆明細項目未選取商品`);
           return;
@@ -66,7 +66,7 @@ function OrderNewPage() {
         await createMutation.mutateAsync({
           customerId: value.customerId,
           customerName: value.customerName,
-          lineItems: lineItems.map((item) => ({
+          lineItems: orderItems.map((item) => ({
             productId: item.productId,
             productName: item.productName,
             productSku: item.productSku,
@@ -100,8 +100,8 @@ function OrderNewPage() {
     [form],
   );
 
-  const handleAddLineItem = useCallback((input: CreateOrderItemInput) => {
-    setLineItems((prev) => [
+  const handleAddOrderItem = useCallback((input: CreateOrderItemInput) => {
+    setOrderItems((prev) => [
       ...prev,
       {
         tempId: generateTempId(),
@@ -110,13 +110,13 @@ function OrderNewPage() {
     ]);
   }, []);
 
-  const handleRemoveLineItem = useCallback((index: number) => {
-    setLineItems((prev) => prev.filter((_, i) => i !== index));
+  const handleRemoveOrderItem = useCallback((index: number) => {
+    setOrderItems((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const handleUpdateLineItem = useCallback(
+  const handleUpdateOrderItem = useCallback(
     (index: number, input: CreateOrderItemInput) => {
-      setLineItems((prev) =>
+      setOrderItems((prev) =>
         prev.map((item, i) => (i === index ? { ...item, ...input } : item)),
       );
     },
@@ -124,7 +124,7 @@ function OrderNewPage() {
   );
 
   // Calculate total amount
-  const totalAmount = lineItems.reduce(
+  const totalAmount = orderItems.reduce(
     (sum, item) =>
       sum + calculateLineItemSubtotal(item.quantity, item.unitPrice),
     0,
@@ -158,12 +158,12 @@ function OrderNewPage() {
             onCustomerChange={handleCustomerChange}
           />
 
-          <LineItemsSection
-            lineItems={lineItems}
+          <OrderItemsSection
+            orderItems={orderItems}
             totalAmount={totalAmount}
-            onAddLineItem={handleAddLineItem}
-            onRemoveLineItem={handleRemoveLineItem}
-            onUpdateLineItem={handleUpdateLineItem}
+            onAddOrderItem={handleAddOrderItem}
+            onRemoveOrderItem={handleRemoveOrderItem}
+            onUpdateOrderItem={handleUpdateOrderItem}
           />
 
           <FormActions
