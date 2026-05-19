@@ -1,5 +1,5 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
-import { LINE_ITEM_STATUSES, ORDER_STATUSES } from "@shared/models/order";
+import { ORDER_ITEM_STATUSES, ORDER_STATUSES } from "@shared/models/order";
 import { cancelOutOfStock } from "../functions/cancel-out-of-stock/resource";
 import { cancelPurchase } from "../functions/cancel-purchase/resource";
 import { cancelReceived } from "../functions/cancel-received/resource";
@@ -72,7 +72,7 @@ const schema = a.schema({
   // 訂單流程狀態（沿用 shared/models/order.ts 的狀態值）
   OrderStatus: a.enum(ORDER_STATUSES),
   // 訂單明細流程狀態（沿用 shared/models/order.ts 的狀態值）
-  OrderItemStatus: a.enum(LINE_ITEM_STATUSES),
+  OrderItemStatus: a.enum(ORDER_ITEM_STATUSES),
 
   Customer: a
     .model({

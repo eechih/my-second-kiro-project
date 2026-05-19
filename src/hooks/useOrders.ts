@@ -7,7 +7,7 @@ import { validateMergeOrders } from "@shared/logic/order-merge";
 import { validateSplitOrder } from "@shared/logic/order-split";
 import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 import {
-  normalizeLineItemStatus,
+  normalizeOrderItemStatus,
   normalizeOrderStatus,
   type ConfirmShipmentInput,
   type CreateOrderInput,
@@ -121,7 +121,7 @@ type ConfirmShipmentBaseInput = {
 
 type OrderItemStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
-type UpdateLineItemStatusFlagInput = {
+type UpdateOrderItemStatusFlagInput = {
   orderId: string;
   lineItemId: string;
   flag: OrderItemStatusFlag;
@@ -279,7 +279,7 @@ function mapToOrder(raw: Record<string, unknown>): Order {
   };
 }
 
-/** 將 Amplify Data 回傳的原始資料映射為 LineItem 型別 */
+/** 將 Amplify Data 回傳的原始資料映射為 OrderItem 型別 */
 function mapToLineItem(raw: Record<string, unknown>): OrderItem {
   return {
     id: String(raw.id ?? ""),
@@ -297,7 +297,7 @@ function mapToLineItem(raw: Record<string, unknown>): OrderItem {
     quantity: Number(raw.quantity ?? 0),
     unitPrice: Number(raw.unitPrice ?? 0),
     subtotal: Number(raw.subtotalAmount ?? raw.subtotal ?? 0),
-    status: normalizeLineItemStatus(raw.status),
+    status: normalizeOrderItemStatus(raw.status),
     purchasedAt: raw.purchasedAt ? String(raw.purchasedAt) : null,
     receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
     shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
@@ -542,7 +542,7 @@ async function fetchLineItemAfterCustomMutation(
 }
 
 async function confirmOutOfStock(
-  input: Pick<UpdateLineItemStatusFlagInput, "lineItemId">,
+  input: Pick<UpdateOrderItemStatusFlagInput, "lineItemId">,
 ): Promise<OrderItem> {
   const { data: result, errors } = await client.mutations.confirmOutOfStock({
     lineItemId: input.lineItemId,
@@ -561,7 +561,7 @@ async function confirmOutOfStock(
 }
 
 async function cancelOutOfStock(
-  input: Pick<UpdateLineItemStatusFlagInput, "lineItemId">,
+  input: Pick<UpdateOrderItemStatusFlagInput, "lineItemId">,
 ): Promise<OrderItem> {
   const { data: result, errors } = await client.mutations.cancelOutOfStock({
     lineItemId: input.lineItemId,
@@ -621,7 +621,7 @@ async function cancelProcurement(
   );
 }
 
-function buildLineItemStatusFlagOptimisticUpdate(
+function buildOrderItemStatusFlagOptimisticUpdate(
   lineItem: OrderItem,
   flag: OrderItemStatusFlag,
   checked: boolean,
@@ -671,8 +671,8 @@ function buildLineItemStatusFlagOptimisticUpdate(
       };
 }
 
-async function updateLineItemStatusFlag(
-  input: UpdateLineItemStatusFlagInput,
+async function updateOrderItemStatusFlag(
+  input: UpdateOrderItemStatusFlagInput,
 ): Promise<OrderItem> {
   if (input.flag === "ordered") {
     return input.checked ? confirmPurchase(input) : cancelProcurement(input);
@@ -935,7 +935,7 @@ export function useUpdateOrderStatus(): UseMutationResult<
  * 入庫確認 mutation hook
  *
  * 呼叫 confirmReceived custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems）。
- * 實作樂觀更新：立即更新快取中的 LineItem 狀態為「已收到」。
+ * 實作樂觀更新：立即更新快取中的 OrderItem 狀態為「已收到」。
  *
  * 需求：4.7, 6.5, 6.6, 6.8, 6.10
  */
@@ -1045,17 +1045,17 @@ export function useCancelProcurement(): UseMutationResult<
 /**
  * 更新明細快速狀態旗標。
  *
- * 用於訂單列表內的快速 checkbox 操作，更新 LineItem 的日期與狀態。
+ * 用於訂單列表內的快速 checkbox 操作，更新 OrderItem 的日期與狀態。
  */
-export function useUpdateLineItemStatusFlag(): UseMutationResult<
+export function useUpdateOrderItemStatusFlag(): UseMutationResult<
   OrderItem,
   Error,
-  UpdateLineItemStatusFlagInput
+  UpdateOrderItemStatusFlagInput
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: updateLineItemStatusFlag,
+    mutationFn: updateOrderItemStatusFlag,
     onMutate: async (input) => {
       const orderKey = ORDER_KEYS.detail(input.orderId);
       await queryClient.cancelQueries({ queryKey: orderKey });
@@ -1069,7 +1069,7 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
         );
 
         if (targetOrderItem) {
-          const update = buildLineItemStatusFlagOptimisticUpdate(
+          const update = buildOrderItemStatusFlagOptimisticUpdate(
             targetOrderItem,
             input.flag,
             input.checked,
@@ -1116,7 +1116,7 @@ export function useUpdateLineItemStatusFlag(): UseMutationResult<
  * 出貨操作 mutation hook
  *
  * 呼叫 confirmShipment custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems）。
- * 實作樂觀更新：立即更新快取中的 LineItem 狀態為「已出貨」、扣減庫存。
+ * 實作樂觀更新：立即更新快取中的 OrderItem 狀態為「已出貨」、扣減庫存。
  *
  * 需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5
  */

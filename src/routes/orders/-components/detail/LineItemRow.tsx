@@ -12,12 +12,12 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import {
-  LINE_ITEM_STATUS_LABEL,
+  ORDER_ITEM_STATUS_LABEL,
   type OrderItem,
   type Order,
 } from "@shared/models";
 import { useState } from "react";
-import { formatDate, LINE_ITEM_STATUS_COLOR_MAP } from "./detailUtils";
+import { formatDate, ORDER_ITEM_STATUS_COLOR_MAP } from "./detailUtils";
 
 export interface LineItemRowProps {
   lineItem: OrderItem;
@@ -76,8 +76,8 @@ export function LineItemRow({
         <TableCell align="center">
           <StatusChip
             status={lineItem.status}
-            label={LINE_ITEM_STATUS_LABEL[lineItem.status]}
-            colorMap={LINE_ITEM_STATUS_COLOR_MAP}
+            label={ORDER_ITEM_STATUS_LABEL[lineItem.status]}
+            colorMap={ORDER_ITEM_STATUS_COLOR_MAP}
           />
         </TableCell>
         <TableCell align="center">

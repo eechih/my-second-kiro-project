@@ -5,16 +5,16 @@ import {
   TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { isValidLineItemStatusTransition } from "@shared/logic/line-item-status";
+import { isValidOrderItemStatusTransition } from "@shared/logic/order-item-status";
 import {
   deriveOrderStatusFromLineItems,
   isValidOrderStatusTransition,
 } from "@shared/logic/order-status";
 import { validateShipment } from "@shared/logic/shipment";
 import {
-  normalizeLineItemStatus,
+  normalizeOrderItemStatus,
   normalizeOrderStatus,
-  type LineItemStatus,
+  type OrderItemStatus,
 } from "@shared/models/order";
 import type { Schema } from "../../data/resource";
 import {
@@ -33,11 +33,11 @@ const FUNCTION_NAME = "confirmShipment";
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
  * - 扣減 Product 的 stockQuantity（庫存統一在商品層級管理）
- * - 更新 LineItem 狀態為 shipped，記錄 shippedAt
+ * - 更新 OrderItem 狀態為 shipped，記錄 shippedAt
  * - 條件性更新 Order 狀態（任一明細已出貨 → shipping，全部已出貨 → completed）
  *
  * 不支援分批出貨——出貨即為明細的全部數量。
- * orderId 從 LineItem 記錄中讀取，前端只需傳 lineItemId。
+ * orderId 從 OrderItem 記錄中讀取，前端只需傳 lineItemId。
  */
 export const handler: Schema["confirmShipment"]["functionHandler"] = async (
   event,
@@ -62,7 +62,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 LineItem 資料
+    // 1. 取得 OrderItem 資料
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
@@ -83,7 +83,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     const quantity = lineItem["quantity"] as number;
 
     // 2. 驗證明細狀態——僅「已收到」可出貨
-    const currentStatus = normalizeLineItemStatus(lineItem["status"]);
+    const currentStatus = normalizeOrderItemStatus(lineItem["status"]);
     logDebug(FUNCTION_NAME, "line item loaded", {
       orderId,
       lineItemId,
@@ -92,7 +92,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       orderQuantity: lineItem["quantity"],
       productId: lineItem["productId"],
     });
-    if (!isValidLineItemStatusTransition(currentStatus, "shipped")) {
+    if (!isValidOrderItemStatusTransition(currentStatus, "shipped")) {
       logWarn(FUNCTION_NAME, "invalid line item status", {
         orderId,
         lineItemId,
@@ -170,7 +170,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       if (li["id"] === lineItemId) {
         return { status: "shipped" as const };
       }
-      return { status: normalizeLineItemStatus(li["status"]) };
+      return { status: normalizeOrderItemStatus(li["status"]) };
     });
 
     const derivedOrderStatus =
@@ -213,8 +213,8 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       },
     });
 
-    // 7b. 更新 LineItem
-    const lineItemUpdateStatus: LineItemStatus = "shipped";
+    // 7b. 更新 OrderItem
+    const lineItemUpdateStatus: OrderItemStatus = "shipped";
     transactItems.push({
       Update: {
         TableName: lineItemTable,

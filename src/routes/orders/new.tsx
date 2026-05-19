@@ -14,7 +14,7 @@ import { FormActions } from "./-components/create/FormActions";
 import { LineItemsSection } from "./-components/create/LineItemsSection";
 import {
   generateTempId,
-  type CreateLineItemInput,
+  type CreateOrderItemInput,
   type LineItemFormData,
 } from "./-components/create/formTypes";
 
@@ -100,7 +100,7 @@ function OrderNewPage() {
     [form],
   );
 
-  const handleAddLineItem = useCallback((input: CreateLineItemInput) => {
+  const handleAddLineItem = useCallback((input: CreateOrderItemInput) => {
     setLineItems((prev) => [
       ...prev,
       {
@@ -115,7 +115,7 @@ function OrderNewPage() {
   }, []);
 
   const handleUpdateLineItem = useCallback(
-    (index: number, input: CreateLineItemInput) => {
+    (index: number, input: CreateOrderItemInput) => {
       setLineItems((prev) =>
         prev.map((item, i) => (i === index ? { ...item, ...input } : item)),
       );

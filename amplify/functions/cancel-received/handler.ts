@@ -5,7 +5,7 @@ import {
   TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { normalizeLineItemStatus } from "@shared/models/order";
+import { normalizeOrderItemStatus } from "@shared/models/order";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -21,7 +21,7 @@ const FUNCTION_NAME = "cancelReceived";
  * 撤銷入庫確認 Lambda 函式
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
- * - LineItem status 從 received 改回 ordered，移除 receivedAt
+ * - OrderItem status 從 received 改回 ordered，移除 receivedAt
  * - 扣回 Product.stockQuantity（扣回 lineItem.quantity）
  *
  * 僅允許狀態為 received 的明細撤銷（shipped 狀態不可撤銷）。
@@ -47,7 +47,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 LineItem 資料
+    // 1. 取得 OrderItem 資料
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
@@ -64,7 +64,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
     }
 
     const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeLineItemStatus(lineItem["status"]);
+    const status = normalizeOrderItemStatus(lineItem["status"]);
     const quantity = Number(lineItem["quantity"] ?? 0);
     const productId = String(lineItem["productId"] ?? "");
     logDebug(FUNCTION_NAME, "line item loaded", {
@@ -97,7 +97,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
 
     const now = new Date().toISOString();
 
-    // 3. 執行交易：LineItem 狀態回 ordered + 庫存扣回
+    // 3. 執行交易：OrderItem 狀態回 ordered + 庫存扣回
     logDebug(FUNCTION_NAME, "executing transaction", {
       lineItemId,
       productId,

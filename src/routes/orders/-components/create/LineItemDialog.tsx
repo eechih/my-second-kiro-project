@@ -11,7 +11,7 @@ import TextField from "@mui/material/TextField";
 import { useEffect, useState } from "react";
 import type { Product, ProductVariant } from "@shared/models";
 import { useProduct } from "@/hooks/useProducts";
-import type { CreateLineItemInput } from "./formTypes";
+import type { CreateOrderItemInput } from "./formTypes";
 import {
   buildLineItemFormData,
   createDefaultLineItemDraft,
@@ -35,7 +35,7 @@ export interface LineItemDialogProps {
   /** 傳入既有資料時為編輯模式，null 時為新增模式 */
   editData: LineItemEditData | null;
   onClose: () => void;
-  onSubmit: (input: CreateLineItemInput) => void;
+  onSubmit: (input: CreateOrderItemInput) => void;
 }
 
 export function LineItemDialog({

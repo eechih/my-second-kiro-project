@@ -12,7 +12,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { useCallback, useState } from "react";
 import { LineItemDialog, type LineItemEditData } from "./LineItemDialog";
-import type { CreateLineItemInput, LineItemFormData } from "./formTypes";
+import type { CreateOrderItemInput, LineItemFormData } from "./formTypes";
 import { LineItemRow } from "./LineItemRow";
 
 interface DialogState {
@@ -25,9 +25,9 @@ interface DialogState {
 export interface LineItemsSectionProps {
   lineItems: LineItemFormData[];
   totalAmount: number;
-  onAddLineItem: (input: CreateLineItemInput) => void;
+  onAddLineItem: (input: CreateOrderItemInput) => void;
   onRemoveLineItem: (index: number) => void;
-  onUpdateLineItem: (index: number, input: CreateLineItemInput) => void;
+  onUpdateLineItem: (index: number, input: CreateOrderItemInput) => void;
 }
 
 export function LineItemsSection({
@@ -72,7 +72,7 @@ export function LineItemsSection({
   }, []);
 
   const handleDialogSubmit = useCallback(
-    (input: CreateLineItemInput) => {
+    (input: CreateOrderItemInput) => {
       if (dialog.editIndex !== null) {
         onUpdateLineItem(dialog.editIndex, input);
       } else {

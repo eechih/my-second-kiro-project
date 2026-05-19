@@ -28,15 +28,15 @@ import {
   validateProcurementReceive,
   validateProcurementCancel,
 } from "../procurement";
-import type { LineItemStatus } from "../../models/order";
+import type { OrderItemStatus } from "../../models/order";
 
 // ---------------------------------------------------------------------------
 // 輔助常數與 Arbitrary
 // ---------------------------------------------------------------------------
 
 /** fast-check Arbitrary：產生非「待處理」的狀態 */
-const nonPendingStatusArb: fc.Arbitrary<LineItemStatus> =
-  fc.constantFrom<LineItemStatus>(
+const nonPendingStatusArb: fc.Arbitrary<OrderItemStatus> =
+  fc.constantFrom<OrderItemStatus>(
     "ordered",
     "received",
     "shipped",
@@ -44,8 +44,8 @@ const nonPendingStatusArb: fc.Arbitrary<LineItemStatus> =
   );
 
 /** fast-check Arbitrary：產生非「已訂購」的狀態 */
-const nonOrderedStatusArb: fc.Arbitrary<LineItemStatus> =
-  fc.constantFrom<LineItemStatus>(
+const nonOrderedStatusArb: fc.Arbitrary<OrderItemStatus> =
+  fc.constantFrom<OrderItemStatus>(
     "pending",
     "received",
     "shipped",
@@ -53,12 +53,12 @@ const nonOrderedStatusArb: fc.Arbitrary<LineItemStatus> =
   );
 
 /** fast-check Arbitrary：產生不可取消的狀態（已收到、已出貨、缺貨） */
-const nonCancellableStatusArb: fc.Arbitrary<LineItemStatus> =
-  fc.constantFrom<LineItemStatus>("received", "shipped", "out_of_stock");
+const nonCancellableStatusArb: fc.Arbitrary<OrderItemStatus> =
+  fc.constantFrom<OrderItemStatus>("received", "shipped", "out_of_stock");
 
 /** fast-check Arbitrary：產生可取消的狀態（待處理、已訂購） */
-const cancellableStatusArb: fc.Arbitrary<LineItemStatus> =
-  fc.constantFrom<LineItemStatus>("pending", "ordered");
+const cancellableStatusArb: fc.Arbitrary<OrderItemStatus> =
+  fc.constantFrom<OrderItemStatus>("pending", "ordered");
 
 /** fast-check Arbitrary：產生非空字串（供應商 ID） */
 const nonEmptyStringArb: fc.Arbitrary<string> = fc

@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { validateProcurementReceive } from "@shared/logic/procurement";
-import { normalizeLineItemStatus } from "@shared/models/order";
+import { normalizeOrderItemStatus } from "@shared/models/order";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -22,13 +22,13 @@ const FUNCTION_NAME = "confirmReceived";
  * 入庫確認操作 Lambda 函式（簡化版）
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
- * - 更新 LineItem 狀態為「已收到」並記錄 receivedAt
+ * - 更新 OrderItem 狀態為「已收到」並記錄 receivedAt
  * - 增加 Product 的 stockQuantity（庫存統一在商品層級管理）
  *
- * 不再查詢 PurchaseRecord 表，直接從 LineItem 讀取 status 判斷是否可入庫。
+ * 不再查詢 PurchaseRecord 表，直接從 OrderItem 讀取 status 判斷是否可入庫。
  *
  * 包含驗證邏輯：
- * - LineItem status 必須為「已訂購」（使用 validateProcurementReceive 共用驗證）
+ * - OrderItem status 必須為「已訂購」（使用 validateProcurementReceive 共用驗證）
  * - 庫存更新使用 DynamoDB 原子操作，避免前端維護版本欄位
  *
  * 需求：4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
@@ -54,7 +54,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 LineItem 資料
+    // 1. 取得 OrderItem 資料
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
@@ -71,7 +71,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     }
 
     const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeLineItemStatus(lineItem["status"]);
+    const status = normalizeOrderItemStatus(lineItem["status"]);
     const quantity = lineItem["quantity"] as number;
     const productId = lineItem["productId"] as string;
     logDebug(FUNCTION_NAME, "line item loaded", {
@@ -120,12 +120,12 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
 
     const now = new Date().toISOString();
 
-    // 4. 建立交易項目（僅 2 個操作：LineItem 更新 + 庫存更新）
+    // 4. 建立交易項目（僅 2 個操作：OrderItem 更新 + 庫存更新）
     const transactItems: NonNullable<
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]
     >["TransactItems"] = [];
 
-    // 4a. 更新 LineItem：status → "received"、receivedAt
+    // 4a. 更新 OrderItem：status → "received"、receivedAt
     transactItems.push({
       Update: {
         TableName: lineItemTable,

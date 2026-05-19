@@ -169,7 +169,7 @@ export function splitOrder(
   order: Order,
   allocations: SplitAllocation[],
 ): SplitOrderData[] {
-  // 建立明細項目 ID → LineItem 的查找表
+  // 建立明細項目 ID → OrderItem 的查找表
   const lineItemMap = new Map<string, OrderItem>();
   for (const lineItem of order.lineItems) {
     lineItemMap.set(lineItem.id, lineItem);

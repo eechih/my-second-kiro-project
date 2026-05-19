@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
-  normalizeLineItemStatus,
+  normalizeOrderItemStatus,
   normalizeOrderStatus,
 } from "@shared/models/order";
 import {
@@ -23,8 +23,8 @@ const FUNCTION_NAME = "confirmOutOfStock";
 /**
  * 確認缺貨 Lambda 函式
  *
- * 將可處理中的 LineItem 標記為 out_of_stock 並記錄 outOfStockAt。
- * orderId 從 LineItem 記錄中讀取，前端只需傳 lineItemId。
+ * 將可處理中的 OrderItem 標記為 out_of_stock 並記錄 outOfStockAt。
+ * orderId 從 OrderItem 記錄中讀取，前端只需傳 lineItemId。
  */
 export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
   event,
@@ -47,7 +47,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 LineItem 資料（含 orderId）
+    // 1. 取得 OrderItem 資料（含 orderId）
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
@@ -64,7 +64,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
     }
 
     const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeLineItemStatus(lineItem["status"]);
+    const status = normalizeOrderItemStatus(lineItem["status"]);
     const orderId = String(lineItem["orderId"] ?? "");
     logDebug(FUNCTION_NAME, "line item loaded", {
       lineItemId,

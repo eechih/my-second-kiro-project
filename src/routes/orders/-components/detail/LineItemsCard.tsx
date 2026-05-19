@@ -23,7 +23,7 @@ import {
   LineItemDialog,
   type LineItemEditData,
 } from "../create/LineItemDialog";
-import type { CreateLineItemInput } from "../create/formTypes";
+import type { CreateOrderItemInput } from "../create/formTypes";
 import { LineItemRow } from "./LineItemRow";
 
 interface DialogState {
@@ -66,7 +66,7 @@ export function LineItemsCard({
   }, []);
 
   const handleDialogSubmit = useCallback(
-    async (input: CreateLineItemInput) => {
+    async (input: CreateOrderItemInput) => {
       setError(null);
       try {
         if (dialog.editLineItem) {

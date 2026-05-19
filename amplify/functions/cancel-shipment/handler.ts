@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
-  normalizeLineItemStatus,
+  normalizeOrderItemStatus,
   normalizeOrderStatus,
   type OrderStatus,
 } from "@shared/models/order";
@@ -41,7 +41,7 @@ function parseStatusHistory(raw: unknown): Record<string, unknown>[] {
 
 function deriveOrderStatusAfterShipmentCancel(
   lineItems: ReadonlyArray<{
-    status: ReturnType<typeof normalizeLineItemStatus>;
+    status: ReturnType<typeof normalizeOrderItemStatus>;
   }>,
 ): OrderStatus {
   const allShipped = lineItems.every((item) => item.status === "shipped");
@@ -63,10 +63,10 @@ function deriveOrderStatusAfterShipmentCancel(
  *
  * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
  * - 將明細數量加回 Product.stockQuantity
- * - LineItem 移除 shippedAt、status 回到 received
+ * - OrderItem 移除 shippedAt、status 回到 received
  * - 依撤銷後所有明細狀態回推 Order.status
  *
- * orderId 從 LineItem 記錄中讀取，前端只需傳 lineItemId。
+ * orderId 從 OrderItem 記錄中讀取，前端只需傳 lineItemId。
  */
 export const handler: Schema["cancelShipment"]["functionHandler"] = async (
   event,
@@ -107,7 +107,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
     }
 
     const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeLineItemStatus(lineItem["status"]);
+    const status = normalizeOrderItemStatus(lineItem["status"]);
     const quantity = Number(lineItem["quantity"] ?? 0);
     const productId = String(lineItem["productId"] ?? "");
     const orderId = String(lineItem["orderId"] ?? "");
@@ -157,7 +157,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       status:
         item["id"] === lineItemId
           ? ("received" as const)
-          : normalizeLineItemStatus(item["status"]),
+          : normalizeOrderItemStatus(item["status"]),
     }));
     const derivedOrderStatus =
       deriveOrderStatusAfterShipmentCancel(simulatedLineItems);

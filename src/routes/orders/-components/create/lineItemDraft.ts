@@ -1,6 +1,6 @@
 import { resolveEffectivePrice, validateVariantRequired } from "@shared/logic/product-variant";
 import type { Product, ProductVariant } from "@shared/models";
-import type { CreateLineItemInput } from "./formTypes";
+import type { CreateOrderItemInput } from "./formTypes";
 
 export interface LineItemDraft {
   product: Product | null;
@@ -44,7 +44,7 @@ export function getLineItemDraftError(draft: LineItemDraft): string | null {
 
 export function buildLineItemFormData(
   draft: LineItemDraft,
-): CreateLineItemInput {
+): CreateOrderItemInput {
   if (!draft.product) {
     throw new Error("請選取商品");
   }

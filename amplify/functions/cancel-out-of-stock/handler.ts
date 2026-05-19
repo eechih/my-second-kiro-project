@@ -6,9 +6,9 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
-  normalizeLineItemStatus,
+  normalizeOrderItemStatus,
   normalizeOrderStatus,
-  type LineItemStatus,
+  type OrderItemStatus,
 } from "@shared/models/order";
 import {
   getTransactionCancellationReasons,
@@ -21,7 +21,7 @@ import {
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "cancelOutOfStock";
 
-function restoreStatus(lineItem: Record<string, unknown>): LineItemStatus {
+function restoreStatus(lineItem: Record<string, unknown>): OrderItemStatus {
   if (lineItem["receivedAt"]) {
     return "received";
   }
@@ -39,7 +39,7 @@ function restoreStatus(lineItem: Record<string, unknown>): LineItemStatus {
  * - 否則有 purchasedAt 則回 ordered
  * - 否則回 pending
  *
- * orderId 從 LineItem 記錄中讀取，前端只需傳 lineItemId。
+ * orderId 從 OrderItem 記錄中讀取，前端只需傳 lineItemId。
  */
 export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
   event,
@@ -62,7 +62,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 LineItem 資料（含 orderId）
+    // 1. 取得 OrderItem 資料（含 orderId）
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
@@ -79,7 +79,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     }
 
     const lineItem = unmarshall(lineItemResult.Item);
-    const status = normalizeLineItemStatus(lineItem["status"]);
+    const status = normalizeOrderItemStatus(lineItem["status"]);
     const orderId = String(lineItem["orderId"] ?? "");
     logDebug(FUNCTION_NAME, "line item loaded", {
       lineItemId,

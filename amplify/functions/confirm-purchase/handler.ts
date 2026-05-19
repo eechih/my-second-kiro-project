@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
-  normalizeLineItemStatus,
+  normalizeOrderItemStatus,
   normalizeOrderStatus,
 } from "@shared/models/order";
 import {
@@ -24,8 +24,8 @@ const FUNCTION_NAME = "confirmPurchase";
  * 確認採購 Lambda 函式
  *
  * 將 pending 明細標記為 ordered 並記錄 purchasedAt。
- * 供應商名稱與成本由前端事先透過標準 LineItem.update 寫入。
- * orderId 從 LineItem 記錄中讀取，前端只需傳 lineItemId。
+ * 供應商名稱與成本由前端事先透過標準 OrderItem.update 寫入。
+ * orderId 從 OrderItem 記錄中讀取，前端只需傳 lineItemId。
  */
 export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
   event,
@@ -48,7 +48,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 LineItem 資料
+    // 1. 取得 OrderItem 資料
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
@@ -66,7 +66,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
 
     const lineItem = unmarshall(lineItemResult.Item);
     const orderId = String(lineItem["orderId"] ?? "");
-    const status = normalizeLineItemStatus(lineItem["status"]);
+    const status = normalizeOrderItemStatus(lineItem["status"]);
     logDebug(FUNCTION_NAME, "line item loaded", {
       lineItemId,
       orderId,

@@ -15,7 +15,7 @@ export const ORDER_STATUS_COLOR_MAP: Record<
 
 export { ORDER_STATUS_LABEL };
 
-export const LINE_ITEM_STATUS_COLOR_MAP: Record<
+export const ORDER_ITEM_STATUS_COLOR_MAP: Record<
   string,
   "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"
 > = {

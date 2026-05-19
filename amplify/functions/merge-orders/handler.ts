@@ -9,7 +9,7 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { validateMergeOrders } from "@shared/logic/order-merge";
 import {
-  normalizeLineItemStatus,
+  normalizeOrderItemStatus,
   normalizeOrderStatus,
   type OrderItem,
   type Order,
@@ -67,7 +67,7 @@ function mapLineItem(raw: DdbRecord): OrderItem {
     quantity: Number(raw["quantity"] ?? 0),
     unitPrice: Number(raw["unitPrice"] ?? 0),
     subtotal: Number(raw["subtotal"] ?? 0),
-    status: normalizeLineItemStatus(raw["status"]),
+    status: normalizeOrderItemStatus(raw["status"]),
     purchasedAt: raw["purchasedAt"] ? String(raw["purchasedAt"]) : null,
     receivedAt: raw["receivedAt"] ? String(raw["receivedAt"]) : null,
     shippedAt: raw["shippedAt"] ? String(raw["shippedAt"]) : null,

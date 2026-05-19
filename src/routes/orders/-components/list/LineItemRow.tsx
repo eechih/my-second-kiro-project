@@ -1,14 +1,14 @@
 import { StatusChip } from "@/components/StatusChip";
 import { formatCurrency } from "@/lib/currency";
-import { useUpdateLineItemStatusFlag } from "@/hooks/useOrders";
+import { useUpdateOrderItemStatusFlag } from "@/hooks/useOrders";
 import Chip from "@mui/material/Chip";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import { LINE_ITEM_STATUS_LABEL, type OrderItem } from "@shared/models";
-import { LINE_ITEM_STATUS_COLOR } from "./tableUtils";
+import { ORDER_ITEM_STATUS_LABEL, type OrderItem } from "@shared/models";
+import { ORDER_ITEM_STATUS_COLOR } from "./tableUtils";
 
 type EditableStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
@@ -115,7 +115,7 @@ export function LineItemRow({
   item,
   orderId,
 }: LineItemRowProps): React.ReactElement {
-  const updateLineItemStatusFlag = useUpdateLineItemStatusFlag();
+  const updateLineItemStatusFlag = useUpdateOrderItemStatusFlag();
 
   return (
     <TableRow
@@ -145,8 +145,8 @@ export function LineItemRow({
       <TableCell align="center">
         <StatusChip
           status={item.status}
-          label={LINE_ITEM_STATUS_LABEL[item.status]}
-          colorMap={LINE_ITEM_STATUS_COLOR}
+          label={ORDER_ITEM_STATUS_LABEL[item.status]}
+          colorMap={ORDER_ITEM_STATUS_COLOR}
         />
       </TableCell>
       {LINE_ITEM_STATUS_FLAGS.map((flag) => {

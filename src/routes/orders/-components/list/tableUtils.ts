@@ -2,7 +2,7 @@ import { ORDER_STATUS_LABEL } from "@shared/models";
 
 export { ORDER_STATUS_LABEL };
 
-export const LINE_ITEM_STATUS_COLOR: Record<
+export const ORDER_ITEM_STATUS_COLOR: Record<
   string,
   "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"
 > = {

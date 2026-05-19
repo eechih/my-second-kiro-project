@@ -19,8 +19,8 @@ export const ORDER_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-/** 明細項目狀態 */
-export const LINE_ITEM_STATUSES = [
+/** 訂單明細狀態 */
+export const ORDER_ITEM_STATUSES = [
   "pending",
   "ordered",
   "received",
@@ -28,8 +28,7 @@ export const LINE_ITEM_STATUSES = [
   "out_of_stock",
 ] as const;
 
-export type OrderItemStatus = (typeof LINE_ITEM_STATUSES)[number];
-export type LineItemStatus = OrderItemStatus;
+export type OrderItemStatus = (typeof ORDER_ITEM_STATUSES)[number];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "待處理",
@@ -46,15 +45,6 @@ export const ORDER_ITEM_STATUS_LABEL: Record<OrderItemStatus, string> = {
   shipped: "已出貨",
   out_of_stock: "缺貨",
 };
-export const LINE_ITEM_STATUS_LABEL = ORDER_ITEM_STATUS_LABEL;
-
-const LEGACY_LINE_ITEM_STATUS_MAP: Record<string, OrderItemStatus> = {
-  待處理: "pending",
-  已訂購: "ordered",
-  已收到: "received",
-  已出貨: "shipped",
-  缺貨: "out_of_stock",
-};
 
 export function isOrderStatus(value: unknown): value is OrderStatus {
   return (
@@ -70,27 +60,16 @@ export function normalizeOrderStatus(value: unknown): OrderStatus {
 export function isOrderItemStatus(value: unknown): value is OrderItemStatus {
   return (
     typeof value === "string" &&
-    (LINE_ITEM_STATUSES as readonly string[]).includes(value)
+    (ORDER_ITEM_STATUSES as readonly string[]).includes(value)
   );
-}
-
-export function isLineItemStatus(value: unknown): value is LineItemStatus {
-  return isOrderItemStatus(value);
 }
 
 export function normalizeOrderItemStatus(value: unknown): OrderItemStatus {
   if (isOrderItemStatus(value)) {
     return value;
   }
-
-  if (typeof value === "string") {
-    if (value in LEGACY_LINE_ITEM_STATUS_MAP) {
-      return LEGACY_LINE_ITEM_STATUS_MAP[value]!;
-    }
-  }
   return "pending";
 }
-export const normalizeLineItemStatus = normalizeOrderItemStatus;
 
 // ---------------------------------------------------------------------------
 // 共用型別
@@ -171,7 +150,6 @@ export interface OrderItem {
   /** 採購單位成本（尚未採購時為 null） */
   unitCost: number | null;
 }
-export type LineItem = OrderItem;
 
 // ---------------------------------------------------------------------------
 // 訂單（Order）
@@ -230,7 +208,6 @@ export interface CreateOrderInput {
   /** 明細項目列表（必填，至少一筆） */
   lineItems: CreateOrderItemInput[];
 }
-export type CreateLineItemInput = CreateOrderItemInput;
 
 /** 確認出貨輸入 */
 export interface ConfirmShipmentInput {

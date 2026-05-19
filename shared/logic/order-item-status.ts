@@ -11,21 +11,21 @@
  * 需求：4.10, 7.1
  */
 
-import type { LineItemStatus } from "../models/order";
+import type { OrderItemStatus } from "../models/order";
 
 /**
  * 合法的明細項目狀態轉換對照表。
  * key 為來源狀態，value 為該狀態可轉換至的目標狀態集合。
  */
 const ALLOWED_TRANSITIONS: Record<
-  LineItemStatus,
-  ReadonlySet<LineItemStatus>
+  OrderItemStatus,
+  ReadonlySet<OrderItemStatus>
 > = {
-  pending: new Set<LineItemStatus>(["ordered", "out_of_stock"]),
-  ordered: new Set<LineItemStatus>(["received", "out_of_stock"]),
-  received: new Set<LineItemStatus>(["shipped"]),
-  shipped: new Set<LineItemStatus>([]),
-  out_of_stock: new Set<LineItemStatus>([]),
+  pending: new Set<OrderItemStatus>(["ordered", "out_of_stock"]),
+  ordered: new Set<OrderItemStatus>(["received", "out_of_stock"]),
+  received: new Set<OrderItemStatus>(["shipped"]),
+  shipped: new Set<OrderItemStatus>([]),
+  out_of_stock: new Set<OrderItemStatus>([]),
 };
 
 /**
@@ -35,9 +35,9 @@ const ALLOWED_TRANSITIONS: Record<
  * @param to - 目標明細項目狀態
  * @returns 若轉換合法回傳 `true`，否則回傳 `false`
  */
-export function isValidLineItemStatusTransition(
-  from: LineItemStatus,
-  to: LineItemStatus,
+export function isValidOrderItemStatusTransition(
+  from: OrderItemStatus,
+  to: OrderItemStatus,
 ): boolean {
   const allowed = ALLOWED_TRANSITIONS[from];
   if (!allowed) {
@@ -52,9 +52,9 @@ export function isValidLineItemStatusTransition(
  * @param current - 目前明細項目狀態
  * @returns 可轉換至的目標狀態陣列
  */
-export function getNextAllowedLineItemStatuses(
-  current: LineItemStatus,
-): LineItemStatus[] {
+export function getNextAllowedOrderItemStatuses(
+  current: OrderItemStatus,
+): OrderItemStatus[] {
   const allowed = ALLOWED_TRANSITIONS[current];
   if (!allowed) {
     return [];

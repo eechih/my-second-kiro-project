@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
-  normalizeLineItemStatus,
+  normalizeOrderItemStatus,
   normalizeOrderStatus,
 } from "@shared/models/order";
 import {
@@ -63,7 +63,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
 
     const lineItem = unmarshall(lineItemResult.Item);
     const orderId = String(lineItem["orderId"] ?? "");
-    const status = normalizeLineItemStatus(lineItem["status"]);
+    const status = normalizeOrderItemStatus(lineItem["status"]);
     logDebug(FUNCTION_NAME, "line item loaded", {
       orderId,
       lineItemId,
