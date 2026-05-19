@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/PageHeader";
+import { useUploadProductImagesBatch } from "@/hooks/useProductImages";
 import { useCreateProduct, useCreateVariant } from "@/hooks/useProducts";
 import { client } from "@/lib/amplify-client";
 import { requireAuth } from "@/lib/route-guards";
@@ -44,6 +45,7 @@ function ProductNewPage() {
   const { fromPost } = Route.useSearch();
   const createMutation = useCreateProduct();
   const createVariantMutation = useCreateVariant();
+  const uploadImagesMutation = useUploadProductImagesBatch();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<ProductCreateFormPrefill | null>(null);
 
@@ -72,6 +74,10 @@ function ProductNewPage() {
           }),
         ),
       );
+      await uploadImagesMutation.mutateAsync({
+        productId: product.id,
+        files: values.imageFiles,
+      });
       void navigate({
         to: "/products/$productId",
         params: { productId: product.id },
@@ -85,7 +91,11 @@ function ProductNewPage() {
     <ProductCreateForm
       layout={fromPost ? "splitDescription" : "default"}
       prefill={prefill}
-      isSubmitting={createMutation.isPending || createVariantMutation.isPending}
+      isSubmitting={
+        createMutation.isPending ||
+        createVariantMutation.isPending ||
+        uploadImagesMutation.isPending
+      }
       onCancel={() => void navigate({ to: "/products" })}
       onSubmit={handleSubmit}
     />

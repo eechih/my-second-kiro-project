@@ -2,6 +2,8 @@ import { FormField } from "@/components/FormField";
 import { client } from "@/lib/amplify-client";
 import { isTranslationSupplier } from "@shared/logic/translation-parser";
 import { parseVariantLabels } from "@shared/logic/variant-labels";
+import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
+import DeleteIcon from "@mui/icons-material/Delete";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -16,10 +18,14 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import IconButton from "@mui/material/IconButton";
+import ImageList from "@mui/material/ImageList";
+import ImageListItem from "@mui/material/ImageListItem";
+import ImageListItemBar from "@mui/material/ImageListItemBar";
 import type { CreateVariantInput, Supplier } from "@shared/models";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "@tanstack/react-form";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface ProductCreateFormValues {
   name: string;
@@ -29,6 +35,7 @@ export interface ProductCreateFormValues {
   stockQuantity: number;
   defaultSupplierId: string | null;
   variants: CreateVariantInput[];
+  imageFiles: File[];
 }
 
 export interface ProductCreateFormPrefill {
@@ -149,6 +156,10 @@ export function ProductCreateForm({
     null,
   );
   const [variantInput, setVariantInput] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const variantLabels = parseVariantLabels(variantInput);
   const suppliersQuery = useSupplierOptions();
 
@@ -173,9 +184,21 @@ export function ProductCreateForm({
           priceOffset: null,
           costOffset: null,
         })),
+        imageFiles,
       });
     },
   });
+
+  useEffect(() => {
+    const nextUrls = imageFiles.map((file) => URL.createObjectURL(file));
+    setImagePreviewUrls(nextUrls);
+
+    return () => {
+      for (const url of nextUrls) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [imageFiles]);
 
   useEffect(() => {
     if (!prefill) return;
@@ -202,6 +225,60 @@ export function ProductCreateForm({
       setSelectedSupplier(prefill.supplier);
     }
   }, [form, prefill]);
+
+  const appendImageFiles = (files: FileList | File[]): void => {
+    const nextFiles = Array.from(files).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (nextFiles.length === 0) return;
+
+    setImageFiles((prev) => {
+      const existingKeys = new Set(
+        prev.map((file) => `${file.name}-${file.size}-${file.lastModified}`),
+      );
+      const deduped = nextFiles.filter((file) => {
+        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        return !existingKeys.has(key);
+      });
+      return [...prev, ...deduped];
+    });
+  };
+
+  const removeImageFile = (index: number): void => {
+    setImageFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index));
+  };
+
+  const handleImageInputChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ): void => {
+    if (!event.target.files || event.target.files.length === 0) return;
+    appendImageFiles(event.target.files);
+    event.target.value = "";
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isDragActive) {
+      setIsDragActive(true);
+    }
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(false);
+    if (!event.dataTransfer.files || event.dataTransfer.files.length === 0) {
+      return;
+    }
+    appendImageFiles(event.dataTransfer.files);
+  };
 
   const productFields = (
     <>
@@ -299,14 +376,110 @@ export function ProductCreateForm({
     </Paper>
   );
 
-  const photoNotice = (
+  const photoSection = (
     <Paper sx={{ p: 2 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <InfoOutlinedIcon color="info" fontSize="small" />
-        <Typography variant="body2" color="text.secondary">
-          商品照片可在建立商品後於編輯頁面管理。
-        </Typography>
-      </Box>
+      <Stack spacing={1.5}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <InfoOutlinedIcon color="info" fontSize="small" />
+          <Typography variant="body2" color="text.secondary">
+            可一次拖拉多張圖片，商品建立後會自動上傳並綁定到商品。
+          </Typography>
+        </Box>
+
+        <Box
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          sx={{
+            border: "2px dashed",
+            borderColor: isDragActive ? "primary.main" : "divider",
+            bgcolor: isDragActive ? "action.hover" : "background.default",
+            borderRadius: 2,
+            px: 3,
+            py: 4,
+            textAlign: "center",
+            cursor: "pointer",
+            transition: "border-color 0.2s ease, background-color 0.2s ease",
+          }}
+        >
+          <Stack spacing={1} sx={{ alignItems: "center" }}>
+            <CloudUploadOutlinedIcon color="primary" fontSize="large" />
+            <Typography variant="subtitle1">
+              拖拉圖片到這裡，或點擊選取多張照片
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              支援一次加入多張圖片，建立商品後會自動上傳。
+            </Typography>
+          </Stack>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={handleImageInputChange}
+          />
+        </Box>
+
+        {imageFiles.length > 0 && (
+          <Stack spacing={1}>
+            <Typography variant="body2" color="text.secondary">
+              已選擇 {imageFiles.length} 張照片
+            </Typography>
+            <ImageList cols={4} gap={8} sx={{ mt: 0 }}>
+              {imagePreviewUrls.map((previewUrl, index) => {
+                const file = imageFiles[index];
+                if (!file) return null;
+
+                return (
+                  <ImageListItem
+                    key={`${file.name}-${file.size}-${file.lastModified}`}
+                    sx={{
+                      borderRadius: 1,
+                      overflow: "hidden",
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  >
+                    <img
+                      src={previewUrl}
+                      alt={`待上傳商品照片 ${index + 1}`}
+                      loading="lazy"
+                      style={{
+                        width: "100%",
+                        height: 150,
+                        objectFit: "cover",
+                      }}
+                    />
+                    <ImageListItemBar
+                      title={file.name}
+                      subtitle={`${Math.round(file.size / 1024)} KB`}
+                      actionIcon={
+                        <IconButton
+                          size="small"
+                          sx={{
+                            color: "white",
+                            bgcolor: "rgba(0,0,0,0.45)",
+                            mr: 0.5,
+                            "&:hover": { bgcolor: "rgba(211,47,47,0.8)" },
+                          }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeImageFile(index);
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      }
+                    />
+                  </ImageListItem>
+                );
+              })}
+            </ImageList>
+          </Stack>
+        )}
+      </Stack>
     </Paper>
   );
 
@@ -366,7 +539,7 @@ export function ProductCreateForm({
               <Stack spacing={2}>{productFields}</Stack>
             </Paper>
             {variantSection}
-            {photoNotice}
+            {photoSection}
           </Stack>
 
           <Paper
@@ -408,7 +581,7 @@ export function ProductCreateForm({
           <Stack spacing={2}>{productFields}</Stack>
         </Paper>
         {variantSection}
-        {photoNotice}
+        {photoSection}
         <Paper sx={{ p: 2 }}>{descriptionField}</Paper>
         {formActions}
       </Stack>

@@ -15,6 +15,7 @@ import { PRODUCT_KEYS } from "@/hooks/useProducts";
 
 /** staleTime 設為預簽名 URL 有效期（1 小時）的 80%，避免重複產生 URL */
 const PRESIGNED_URL_STALE_TIME = 48 * 60 * 1000;
+const DEFAULT_UPLOAD_CONCURRENCY = 4;
 
 // ---------------------------------------------------------------------------
 // Query Keys
@@ -107,6 +108,26 @@ async function updateProductImageUrls(
   }
 }
 
+async function uploadProductImageFile(
+  productId: string,
+  file: File,
+): Promise<string> {
+  const timestamp = Date.now();
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const key = `product-images/${productId}/${timestamp}-${sanitizedName}`;
+
+  const result = await uploadData({
+    path: key,
+    data: file,
+    options: {
+      contentType: file.type,
+      metadata: { productId },
+    },
+  }).result;
+
+  return result.path;
+}
+
 // ---------------------------------------------------------------------------
 // Query Hooks
 // ---------------------------------------------------------------------------
@@ -190,24 +211,58 @@ export function useUploadProductImage(): UseMutationResult<
       productId: string;
       file: File;
     }): Promise<string> => {
-      const timestamp = Date.now();
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const key = `product-images/${productId}/${timestamp}-${sanitizedName}`;
-
-      const result = await uploadData({
-        path: key,
-        data: file,
-        options: {
-          contentType: file.type,
-          metadata: { productId },
-        },
-      }).result;
-
-      const uploadedKey = result.path;
+      const uploadedKey = await uploadProductImageFile(productId, file);
       const currentUrls = await fetchProductImageUrls(productId);
       await updateProductImageUrls(productId, [...currentUrls, uploadedKey]);
 
       return uploadedKey;
+    },
+    onSuccess: (_, { productId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: PRODUCT_KEYS.detail(productId),
+      });
+      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
+      void queryClient.invalidateQueries({ queryKey: IMAGE_KEYS.all });
+    },
+  });
+}
+
+/** 批次上傳商品照片，完成後一次更新 imageUrls，避免並行覆寫 */
+export function useUploadProductImagesBatch(): UseMutationResult<
+  string[],
+  Error,
+  { productId: string; files: File[]; concurrency?: number }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      files,
+      concurrency = DEFAULT_UPLOAD_CONCURRENCY,
+    }: {
+      productId: string;
+      files: File[];
+      concurrency?: number;
+    }): Promise<string[]> => {
+      if (files.length === 0) {
+        return [];
+      }
+
+      const uploadedKeys: string[] = [];
+
+      for (let startIndex = 0; startIndex < files.length; startIndex += concurrency) {
+        const batch = files.slice(startIndex, startIndex + concurrency);
+        const batchKeys = await Promise.all(
+          batch.map((file) => uploadProductImageFile(productId, file)),
+        );
+        uploadedKeys.push(...batchKeys);
+      }
+
+      const currentUrls = await fetchProductImageUrls(productId);
+      await updateProductImageUrls(productId, [...currentUrls, ...uploadedKeys]);
+
+      return uploadedKeys;
     },
     onSuccess: (_, { productId }) => {
       void queryClient.invalidateQueries({
