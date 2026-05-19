@@ -172,7 +172,7 @@ export function LineItemRow({
                       ? (_event, nextChecked) => {
                           updateLineItemStatusFlag.mutate({
                             orderId,
-                            lineItemId: item.id,
+                            orderItemId: item.id,
                             flag: editableFlag,
                             checked: nextChecked,
                           });

@@ -66,13 +66,13 @@ function deriveOrderStatusAfterShipmentCancel(
  * - OrderItem 移除 shippedAt、status 回到 received
  * - 依撤銷後所有明細狀態回推 Order.status
  *
- * orderId 從 OrderItem 記錄中讀取，前端只需傳 lineItemId。
+ * orderId 從 OrderItem 記錄中讀取，前端只需傳 orderItemId。
  */
 export const handler: Schema["cancelShipment"]["functionHandler"] = async (
   event,
 ) => {
-  const { lineItemId } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { lineItemId });
+  const { orderItemId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { orderItemId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
@@ -94,12 +94,12 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
-        Key: marshall({ id: lineItemId }),
+        Key: marshall({ id: orderItemId }),
       }),
     );
 
     if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { lineItemId });
+      logWarn(FUNCTION_NAME, "line item not found", { orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
@@ -113,7 +113,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
     const orderId = String(lineItem["orderId"] ?? "");
     logDebug(FUNCTION_NAME, "line item loaded", {
       orderId,
-      lineItemId,
+      orderItemId,
       status,
       rawStatus: lineItem["status"],
       quantity,
@@ -155,7 +155,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
     );
     const simulatedLineItems = allLineItems.map((item) => ({
       status:
-        item["id"] === lineItemId
+        item["id"] === orderItemId
           ? ("received" as const)
           : normalizeOrderItemStatus(item["status"]),
     }));
@@ -170,7 +170,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
     );
 
     if (!orderResult.Item) {
-      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
+      logWarn(FUNCTION_NAME, "order not found", { orderId, orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的訂單",
@@ -181,7 +181,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
     const currentOrderStatus = normalizeOrderStatus(order["status"]);
     logDebug(FUNCTION_NAME, "order status derived", {
       orderId,
-      lineItemId,
+      orderItemId,
       currentOrderStatus,
       derivedOrderStatus,
       lineItemCount: allLineItems.length,
@@ -213,7 +213,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       {
         Update: {
           TableName: lineItemTable,
-          Key: marshall({ id: lineItemId }),
+          Key: marshall({ id: orderItemId }),
           UpdateExpression:
             "SET #st = :received, updatedAt = :now REMOVE shippedAt",
           ConditionExpression: "orderId = :orderId AND #st = :shipped",
@@ -258,7 +258,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
 
     logDebug(FUNCTION_NAME, "executing transaction", {
       orderId,
-      lineItemId,
+      orderItemId,
       productId,
       quantity,
       currentOrderStatus,
@@ -271,7 +271,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
       orderId,
-      lineItemId,
+      orderItemId,
       productId,
       restoredQuantity: quantity,
       lineItemStatus: "received",
@@ -281,7 +281,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       success: true,
       message: "取消出貨成功",
       data: {
-        lineItemId,
+        orderItemId,
         restoredQuantity: quantity,
         lineItemStatus: "received",
         orderStatus: derivedOrderStatus,
@@ -291,7 +291,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        lineItemId,
+        orderItemId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
       return JSON.stringify({
@@ -300,7 +300,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       });
     }
 
-    logError(FUNCTION_NAME, "handler failed", error, { lineItemId });
+    logError(FUNCTION_NAME, "handler failed", error, { orderItemId });
     return JSON.stringify({
       success: false,
       message: `取消出貨失敗：${err.message ?? "未知錯誤"}`,

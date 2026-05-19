@@ -97,32 +97,32 @@ export function validateSplitOrder(
 
   // 規則 4：分配列表中的明細 ID 必須存在於原訂單
   const invalidAllocation = allocations.find(
-    (a) => !orderLineItemIds.has(a.lineItemId),
+    (a) => !orderLineItemIds.has(a.orderItemId),
   );
   if (invalidAllocation) {
     return {
       valid: false,
-      error: `明細項目 ${invalidAllocation.lineItemId} 不存在於此訂單中`,
+      error: `明細項目 ${invalidAllocation.orderItemId} 不存在於此訂單中`,
     };
   }
 
   // 規則 6：每筆明細項目只能分配一次
   const allocatedLineItemIds = new Set<string>();
   for (const allocation of allocations) {
-    if (allocatedLineItemIds.has(allocation.lineItemId)) {
+    if (allocatedLineItemIds.has(allocation.orderItemId)) {
       return {
         valid: false,
-        error: `明細項目 ${allocation.lineItemId} 重複分配`,
+        error: `明細項目 ${allocation.orderItemId} 重複分配`,
       };
     }
-    allocatedLineItemIds.add(allocation.lineItemId);
+    allocatedLineItemIds.add(allocation.orderItemId);
   }
 
   // 規則 3：所有明細項目皆必須有分配目標
   const unallocatedIds: string[] = [];
-  for (const lineItemId of orderLineItemIds) {
-    if (!allocatedLineItemIds.has(lineItemId)) {
-      unallocatedIds.push(lineItemId);
+  for (const orderItemId of orderLineItemIds) {
+    if (!allocatedLineItemIds.has(orderItemId)) {
+      unallocatedIds.push(orderItemId);
     }
   }
   if (unallocatedIds.length > 0) {
@@ -178,7 +178,7 @@ export function splitOrder(
   // 依 targetOrderIndex 分組明細項目
   const groupedLineItems = new Map<number, OrderItem[]>();
   for (const allocation of allocations) {
-    const lineItem = lineItemMap.get(allocation.lineItemId);
+    const lineItem = lineItemMap.get(allocation.orderItemId);
     if (!lineItem) {
       continue; // 理論上不會發生（已通過驗證）
     }

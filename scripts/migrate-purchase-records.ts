@@ -50,7 +50,7 @@ const ddb = new DynamoDBClient({});
 
 interface PurchaseRecordData {
   id: string;
-  lineItemId: string;
+  orderItemId: string;
   supplierId: string;
   supplierName: string;
   unitCost: number;
@@ -90,7 +90,7 @@ async function scanAllPurchaseRecords(): Promise<PurchaseRecordData[]> {
         const record = unmarshall(item);
         records.push({
           id: record["id"] as string,
-          lineItemId: record["lineItemId"] as string,
+          orderItemId: record["orderItemId"] as string,
           supplierId: record["supplierId"] as string,
           supplierName: record["supplierName"] as string,
           unitCost: record["unitCost"] as number,
@@ -110,11 +110,11 @@ async function scanAllPurchaseRecords(): Promise<PurchaseRecordData[]> {
 /**
  * 檢查 LineItem 是否已遷移（supplierId 已有值）
  */
-async function isAlreadyMigrated(lineItemId: string): Promise<boolean> {
+async function isAlreadyMigrated(orderItemId: string): Promise<boolean> {
   const result = await ddb.send(
     new GetItemCommand({
       TableName: LINEITEM_TABLE_NAME,
-      Key: marshall({ id: lineItemId }),
+      Key: marshall({ id: orderItemId }),
       ProjectionExpression: "supplierId",
     }),
   );
@@ -136,7 +136,7 @@ async function migrateRecord(
 ): Promise<"updated" | "skipped" | "error"> {
   try {
     // 先檢查是否已遷移，避免不必要的寫入
-    const alreadyMigrated = await isAlreadyMigrated(record.lineItemId);
+    const alreadyMigrated = await isAlreadyMigrated(record.orderItemId);
     if (alreadyMigrated) {
       return "skipped";
     }
@@ -145,7 +145,7 @@ async function migrateRecord(
     await ddb.send(
       new UpdateItemCommand({
         TableName: LINEITEM_TABLE_NAME,
-        Key: marshall({ id: record.lineItemId }),
+        Key: marshall({ id: record.orderItemId }),
         UpdateExpression:
           "SET supplierId = :supplierId, supplierName = :supplierName, unitCost = :unitCost",
         ConditionExpression:
@@ -169,7 +169,7 @@ async function migrateRecord(
     }
 
     console.error(
-      `  錯誤：遷移 PurchaseRecord ${record.id} (LineItem: ${record.lineItemId}) 失敗：${err.message ?? "未知錯誤"}`,
+      `  錯誤：遷移 PurchaseRecord ${record.id} (LineItem: ${record.orderItemId}) 失敗：${err.message ?? "未知錯誤"}`,
     );
     return "error";
   }

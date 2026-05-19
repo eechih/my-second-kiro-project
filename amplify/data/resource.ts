@@ -42,16 +42,16 @@ function sortFields(partition: SortPartition) {
   };
 }
 
-function lineItemIdArgument() {
+function orderItemIdArgument() {
   return {
-    lineItemId: a.string().required(),
+    orderItemId: a.string().required(),
   };
 }
 
 function authenticatedLineItemMutation(resource: FunctionResource) {
   return a
     .mutation()
-    .arguments(lineItemIdArgument())
+    .arguments(orderItemIdArgument())
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
     .handler(a.handler.function(resource));

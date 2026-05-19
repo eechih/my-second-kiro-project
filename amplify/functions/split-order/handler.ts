@@ -24,7 +24,7 @@ const FUNCTION_NAME = "splitOrder";
 
 /** 分配方式（前端傳入的 JSON 結構） */
 interface SplitAllocationInput {
-  lineItemId: string;
+  orderItemId: string;
   targetOrderIndex: number;
 }
 
@@ -141,31 +141,31 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     }
 
     // 5. 驗證所有明細項目皆有分配目標
-    const allocatedIds = new Set(allocations.map((a) => a.lineItemId));
+    const allocatedIds = new Set(allocations.map((a) => a.orderItemId));
     const orderLineItemIds = new Set(
       allLineItems.map((li) => li["id"] as string),
     );
 
     // 檢查分配列表中的明細 ID 是否存在於原訂單
     for (const allocation of allocations) {
-      if (!orderLineItemIds.has(allocation.lineItemId)) {
+      if (!orderLineItemIds.has(allocation.orderItemId)) {
         logWarn(FUNCTION_NAME, "allocation references missing line item", {
           orderId,
-          lineItemId: allocation.lineItemId,
+          orderItemId: allocation.orderItemId,
         });
         return JSON.stringify({
           success: false,
-          message: `明細項目 ${allocation.lineItemId} 不存在於此訂單中`,
+          message: `明細項目 ${allocation.orderItemId} 不存在於此訂單中`,
         });
       }
     }
 
     // 檢查所有明細項目皆有分配目標
-    for (const lineItemId of orderLineItemIds) {
-      if (!allocatedIds.has(lineItemId)) {
+    for (const orderItemId of orderLineItemIds) {
+      if (!allocatedIds.has(orderItemId)) {
         logWarn(FUNCTION_NAME, "line item missing allocation", {
           orderId,
-          lineItemId,
+          orderItemId,
         });
         return JSON.stringify({
           success: false,
@@ -190,7 +190,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     // 7. 依 targetOrderIndex 分組明細項目
     const groupedLineItems = new Map<number, Record<string, unknown>[]>();
     for (const allocation of allocations) {
-      const lineItem = lineItemMap.get(allocation.lineItemId);
+      const lineItem = lineItemMap.get(allocation.orderItemId);
       if (!lineItem) continue;
 
       const group = groupedLineItems.get(allocation.targetOrderIndex);

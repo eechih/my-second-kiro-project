@@ -44,7 +44,7 @@ export function ShipDialog({
     try {
       await confirmShipment.mutateAsync({
         orderId: order.id,
-        lineItemId: lineItem.id,
+        orderItemId: lineItem.id,
       });
       onClose();
     } catch (err) {

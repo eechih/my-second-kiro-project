@@ -84,7 +84,7 @@ describe("migrate-purchase-records logic", () => {
           Items: [
             {
               id: { S: "pr-001" },
-              lineItemId: { S: "li-001" },
+              orderItemId: { S: "li-001" },
               supplierId: { S: "sup-001" },
               supplierName: { S: "供應商A" },
               unitCost: { N: "50" },
@@ -119,7 +119,7 @@ describe("migrate-purchase-records logic", () => {
       const getResult = await client.send(
         new GetItemCommand({
           TableName: "LineItem-table",
-          Key: { id: { S: record["lineItemId"] as string } } as never,
+          Key: { id: { S: record["orderItemId"] as string } } as never,
           ProjectionExpression: "supplierId",
         }),
       );
@@ -130,7 +130,7 @@ describe("migrate-purchase-records logic", () => {
       await client.send(
         new UpdateItemCommand({
           TableName: "LineItem-table",
-          Key: { id: { S: record["lineItemId"] as string } } as never,
+          Key: { id: { S: record["orderItemId"] as string } } as never,
           UpdateExpression:
             "SET supplierId = :supplierId, supplierName = :supplierName, unitCost = :unitCost",
           ConditionExpression:
@@ -148,7 +148,7 @@ describe("migrate-purchase-records logic", () => {
           Items: [
             {
               id: { S: "pr-001" },
-              lineItemId: { S: "li-001" },
+              orderItemId: { S: "li-001" },
               supplierId: { S: "sup-001" },
               supplierName: { S: "供應商A" },
               unitCost: { N: "50" },
@@ -161,7 +161,7 @@ describe("migrate-purchase-records logic", () => {
           Items: [
             {
               id: { S: "pr-002" },
-              lineItemId: { S: "li-002" },
+              orderItemId: { S: "li-002" },
               supplierId: { S: "sup-002" },
               supplierName: { S: "供應商B" },
               unitCost: { N: "75" },
@@ -201,8 +201,8 @@ describe("migrate-purchase-records logic", () => {
       } while (lastKey);
 
       expect(allRecords).toHaveLength(2);
-      expect(allRecords[0]!["lineItemId"]).toBe("li-001");
-      expect(allRecords[1]!["lineItemId"]).toBe("li-002");
+      expect(allRecords[0]!["orderItemId"]).toBe("li-001");
+      expect(allRecords[1]!["orderItemId"]).toBe("li-002");
       expect(mockSend).toHaveBeenCalledTimes(2);
     });
   });

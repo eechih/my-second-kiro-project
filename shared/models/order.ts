@@ -106,7 +106,7 @@ export interface PaginatedResult<T> {
 /** 訂單分拆分配方式 */
 export interface SplitAllocation {
   /** 明細項目 ID */
-  lineItemId: string;
+  orderItemId: string;
   /** 分配到第幾筆新訂單（0-based） */
   targetOrderIndex: number;
 }
@@ -212,7 +212,7 @@ export interface CreateOrderInput {
 /** 確認出貨輸入 */
 export interface ConfirmShipmentInput {
   /** 明細項目 ID（必填） */
-  lineItemId: string;
+  orderItemId: string;
 }
 
 /** 分拆訂單輸入 */

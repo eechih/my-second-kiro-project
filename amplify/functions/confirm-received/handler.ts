@@ -36,8 +36,8 @@ const FUNCTION_NAME = "confirmReceived";
 export const handler: Schema["confirmReceived"]["functionHandler"] = async (
   event,
 ) => {
-  const { lineItemId } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { lineItemId });
+  const { orderItemId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { orderItemId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
@@ -58,12 +58,12 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
-        Key: marshall({ id: lineItemId }),
+        Key: marshall({ id: orderItemId }),
       }),
     );
 
     if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { lineItemId });
+      logWarn(FUNCTION_NAME, "line item not found", { orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
@@ -75,7 +75,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     const quantity = lineItem["quantity"] as number;
     const productId = lineItem["productId"] as string;
     logDebug(FUNCTION_NAME, "line item loaded", {
-      lineItemId,
+      orderItemId,
       productId,
       status,
       quantity,
@@ -86,7 +86,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     const validation = validateProcurementReceive({ status });
     if (!validation.valid) {
       logWarn(FUNCTION_NAME, "validation failed", {
-        lineItemId,
+        orderItemId,
         productId,
         status,
         validationError: validation.error,
@@ -105,7 +105,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       }),
     );
     if (!productResult.Item) {
-      logWarn(FUNCTION_NAME, "product not found", { lineItemId, productId });
+      logWarn(FUNCTION_NAME, "product not found", { orderItemId, productId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的商品",
@@ -113,7 +113,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     }
     const product = unmarshall(productResult.Item);
     logDebug(FUNCTION_NAME, "product loaded", {
-      lineItemId,
+      orderItemId,
       productId,
       stockQuantity: product["stockQuantity"],
     });
@@ -129,7 +129,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     transactItems.push({
       Update: {
         TableName: lineItemTable,
-        Key: marshall({ id: lineItemId }),
+        Key: marshall({ id: orderItemId }),
         UpdateExpression:
           "SET #st = :newStatus, receivedAt = :now, updatedAt = :now",
         ConditionExpression:
@@ -161,7 +161,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
 
     // 5. 執行交易
     logDebug(FUNCTION_NAME, "executing transaction", {
-      lineItemId,
+      orderItemId,
       productId,
       quantity,
       transactItemCount: transactItems.length,
@@ -171,7 +171,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     );
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
-      lineItemId,
+      orderItemId,
       productId,
       quantity,
       lineItemStatus: "received",
@@ -180,7 +180,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       success: true,
       message: "入庫確認成功",
       data: {
-        lineItemId,
+        orderItemId,
         quantity,
         lineItemStatus: "received",
       },
@@ -189,7 +189,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        lineItemId,
+        orderItemId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
       return JSON.stringify({
@@ -197,7 +197,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
         message: "入庫確認失敗，請重新取得最新資料後重試",
       });
     }
-    logError(FUNCTION_NAME, "handler failed", error, { lineItemId });
+    logError(FUNCTION_NAME, "handler failed", error, { orderItemId });
     return JSON.stringify({
       success: false,
       message: `入庫確認失敗：${err.message ?? "未知錯誤"}`,

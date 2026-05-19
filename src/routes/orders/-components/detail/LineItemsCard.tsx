@@ -72,7 +72,7 @@ export function LineItemsCard({
         if (dialog.editLineItem) {
           await updateLineItem.mutateAsync({
             orderId: order.id,
-            lineItemId: dialog.editLineItem.id,
+            orderItemId: dialog.editLineItem.id,
             productId: input.productId,
             productName: input.productName,
             productSku: input.productSku,
@@ -104,7 +104,7 @@ export function LineItemsCard({
     try {
       await deleteLineItem.mutateAsync({
         orderId: order.id,
-        lineItemId: deleteTarget.id,
+        orderItemId: deleteTarget.id,
       });
       setDeleteTarget(null);
     } catch (err) {

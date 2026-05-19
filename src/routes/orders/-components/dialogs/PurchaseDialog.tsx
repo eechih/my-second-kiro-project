@@ -70,7 +70,7 @@ export function PurchaseDialog({
       // 2. 再呼叫 confirmPurchase 做狀態轉換 pending → ordered
       await markProcurement.mutateAsync({
         orderId: order.id,
-        lineItemId: lineItem.id,
+        orderItemId: lineItem.id,
       });
       onClose();
     } catch (err) {

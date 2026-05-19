@@ -16,7 +16,7 @@ export interface SplitAllocationTableProps {
   order: Order;
   allocations: Map<string, number>;
   maxNewOrders: number;
-  onAllocationChange: (lineItemId: string, targetIndex: number) => void;
+  onAllocationChange: (orderItemId: string, targetIndex: number) => void;
 }
 
 export function SplitAllocationTable({

@@ -24,13 +24,13 @@ const FUNCTION_NAME = "confirmOutOfStock";
  * 確認缺貨 Lambda 函式
  *
  * 將可處理中的 OrderItem 標記為 out_of_stock 並記錄 outOfStockAt。
- * orderId 從 OrderItem 記錄中讀取，前端只需傳 lineItemId。
+ * orderId 從 OrderItem 記錄中讀取，前端只需傳 orderItemId。
  */
 export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
   event,
 ) => {
-  const { lineItemId } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { lineItemId });
+  const { orderItemId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { orderItemId });
 
   const lineItemTable = process.env["LINEITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
@@ -51,12 +51,12 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
     const lineItemResult = await ddb.send(
       new GetItemCommand({
         TableName: lineItemTable,
-        Key: marshall({ id: lineItemId }),
+        Key: marshall({ id: orderItemId }),
       }),
     );
 
     if (!lineItemResult.Item) {
-      logWarn(FUNCTION_NAME, "line item not found", { lineItemId });
+      logWarn(FUNCTION_NAME, "line item not found", { orderItemId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的明細項目",
@@ -67,7 +67,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
     const status = normalizeOrderItemStatus(lineItem["status"]);
     const orderId = String(lineItem["orderId"] ?? "");
     logDebug(FUNCTION_NAME, "line item loaded", {
-      lineItemId,
+      orderItemId,
       orderId,
       status,
       rawStatus: lineItem["status"],
@@ -89,7 +89,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
     );
 
     if (!orderResult.Item) {
-      logWarn(FUNCTION_NAME, "order not found", { orderId, lineItemId });
+      logWarn(FUNCTION_NAME, "order not found", { orderId, orderItemId });
       return JSON.stringify({ success: false, message: "找不到指定的訂單" });
     }
 
@@ -113,7 +113,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
 
     // 4. 執行交易
     logDebug(FUNCTION_NAME, "executing transaction", {
-      lineItemId,
+      orderItemId,
       orderId,
       previousStatus: status,
       transactItemCount: 1,
@@ -124,7 +124,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
           {
             Update: {
               TableName: lineItemTable,
-              Key: marshall({ id: lineItemId }),
+              Key: marshall({ id: orderItemId }),
               UpdateExpression:
                 "SET #st = :outOfStock, outOfStockAt = :now, updatedAt = :now",
               ConditionExpression:
@@ -145,7 +145,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
     );
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
-      lineItemId,
+      orderItemId,
       orderId,
       lineItemStatus: "out_of_stock",
     });
@@ -153,7 +153,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
       success: true,
       message: "確認缺貨成功",
       data: {
-        lineItemId,
+        orderItemId,
         lineItemStatus: "out_of_stock",
         outOfStockAt: now,
       },
@@ -162,7 +162,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        lineItemId,
+        orderItemId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
       return JSON.stringify({
@@ -171,7 +171,7 @@ export const handler: Schema["confirmOutOfStock"]["functionHandler"] = async (
       });
     }
 
-    logError(FUNCTION_NAME, "handler failed", error, { lineItemId });
+    logError(FUNCTION_NAME, "handler failed", error, { orderItemId });
     return JSON.stringify({
       success: false,
       message: `確認缺貨失敗：${err.message ?? "未知錯誤"}`,

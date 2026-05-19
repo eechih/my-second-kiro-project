@@ -44,12 +44,12 @@ function OrderSplitPage() {
 
   // 更新分配
   const handleAllocationChange = (
-    lineItemId: string,
+    orderItemId: string,
     targetIndex: number,
   ): void => {
     setAllocations((prev) => {
       const next = new Map(prev);
-      next.set(lineItemId, targetIndex);
+      next.set(orderItemId, targetIndex);
       return next;
     });
     setError(null);
@@ -58,8 +58,8 @@ function OrderSplitPage() {
   // 建立 SplitAllocation 陣列
   const splitAllocations: SplitAllocation[] = useMemo(() => {
     return Array.from(allocations.entries()).map(
-      ([lineItemId, targetOrderIndex]) => ({
-        lineItemId,
+      ([orderItemId, targetOrderIndex]) => ({
+        orderItemId,
         targetOrderIndex,
       }),
     );
@@ -70,8 +70,8 @@ function OrderSplitPage() {
     if (!order) return [];
 
     const groups = new Map<number, OrderItem[]>();
-    for (const [lineItemId, targetIndex] of allocations.entries()) {
-      const lineItem = order.lineItems.find((li) => li.id === lineItemId);
+    for (const [orderItemId, targetIndex] of allocations.entries()) {
+      const lineItem = order.lineItems.find((li) => li.id === orderItemId);
       if (lineItem) {
         const group = groups.get(targetIndex);
         if (group) {
