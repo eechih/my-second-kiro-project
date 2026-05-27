@@ -1,118 +1,84 @@
-# Codex Agent Guide
+# AGENTS.md
 
-## 目的
+## 角色定位
 
-此文件為專案內部的 Codex Agent 指南，匯整 `.kiro/steering` 中的產品、結構與技術規範。AI 助手應依據此指南進行修改與開發，並保持與專案現有風格一致。
+本檔是 AI agent 進入此專案時的導航文件。
 
-## 專案概述
+- `.ai-rules.md`：硬性紅線與高風險檢查
+- `agents.md`：專案脈絡、閱讀順序與工作方式
+- `.kiro/steering/*.md`：產品、結構、技術與前後端細節
 
-- 本專案為基於 AWS Amplify Gen2 的 React SPA 電子商務訂單管理系統。UI 文字皆為繁體中文。
-- 核心流程：客戶下單 → 進貨採購 → 入庫確認 → 出貨扣減庫存 → 訂單完成。
-- 主要模組：客戶管理、供應商管理、商品管理、訂單管理、儀表板與驗證。
+若與 `.ai-rules.md` 衝突，以 `.ai-rules.md` 為準。
 
-## 核心業務概念
+## 建議閱讀順序
 
-- 商品管理支援 CRUD、搜尋、多張照片上傳（S3）、多維度規格組合。
-- 訂單與明細狀態自動同步；出貨後明細、訂單狀態會依規則更新。
-- 庫存追蹤以商品規格組合為主，無規格組合時以商品本身管理庫存。
-- 同一客戶的未出貨訂單可合併或分拆，並保持數量守恆。
+1. `.ai-rules.md`
+2. 本檔 `agents.md`
+3. `.kiro/steering/product.md`
+4. `.kiro/steering/structure.md`
+5. `.kiro/steering/tech.md`
+6. 依任務補讀：
+   - 前端：`.kiro/steering/frontend.md`
+   - 後端：`.kiro/steering/backend.md`
 
-## 專案結構
+## 專案定位
 
-- `shared/`
-  - `models/`：共用資料模型型別與序列化。
-  - `logic/`：純業務函式，無 React 依賴，供前端與 Lambda 共用。
-- `amplify/`
-  - `auth/`：Cognito 認證設定。
-  - `data/`：AppSync + DynamoDB 資料模型。
-  - `storage/`：S3 儲存設定。
-  - `backend.ts`：註冊所有後端資源。
-- `src/`
-  - `auth/`：`AuthProvider` 與認證上下文。
-  - `routes/`：檔案式路由頁面。
-  - `hooks/`：自訂 React Hooks（主要與 TanStack Query 整合）。
-  - `components/`：共用 UI 元件。
-  - `lib/`：Amplify client、工具函式、CSV 產生器等。
-  - `test/`：Vitest 全域測試設定。
-- 根目錄：`package.json`、`tsconfig.json`、`vite.config.ts`、`amplify_outputs.json`。
+- 本專案是基於 AWS Amplify Gen 2 的 React SPA 電子商務訂單管理系統
+- UI 文案一律使用繁體中文
+- 核心流程：客戶下單 -> 進貨採購 -> 入庫確認 -> 出貨扣減庫存 -> 訂單完成
+- 主要模組：客戶管理、供應商管理、商品管理、訂單管理、儀表板、驗證
 
-## 路由規則
+## 先找哪裡
 
-- 管理模組置於 `src/routes/<module>/`。
-  - `index.tsx`：列表頁。
-  - `new.tsx`：新增頁。
-  - `$<entityId>.tsx`：詳細或編輯頁。
-- 路由樹由 TanStack Router Vite 外掛自動產生，`src/routeTree.gen.ts` 不可手動編輯。
-- 受保護路由須在 `beforeLoad` 中檢查 `context.auth.isAuthenticated`，未驗證則導向 `/`。
+依任務類型，優先閱讀：
 
-## 欄位與檔案規則
+- 路由與頁面：`src/routes/`
+- 認證：`src/auth/AuthProvider.tsx`
+- 路由守衛：`src/lib/route-guards.ts`
+- 共用資料抓取：`src/hooks/`
+- 共用元件：`src/components/`
+- 共享業務邏輯：`shared/logic/`
+- 共享模型與常數：`shared/models/`
+- Amplify schema 與授權：`amplify/data/resource.ts`
+- 後端資源註冊：`amplify/backend.ts`
+- 檔案儲存：`amplify/storage/resource.ts`
+- 訂單流程 Lambda：`amplify/functions/*/handler.ts`
 
-- 新頁面 / 路由：`src/routes/`。
-- 可重用 UI 元件：`src/components/`。
-- 自訂 Hook：`src/hooks/`。
-- 純業務邏輯：`shared/logic/`。
-- 資料模型型別：`shared/models/`。
-- 測試檔案：與原始碼同層，命名為 `<source>.test.ts(x)` 或 `<source>.property.test.ts`。
+## 工作方式
 
-## 技術棧
+- 優先延續既有結構與命名，不額外建立新的資料夾慣例
+- 新增功能時，先判斷應放在 route、component、hook、lib 還是 shared logic
+- 與 UI 無關且可重用的規則，優先抽到 `shared/logic/`
+- 修改 UI 時，不只看畫面，也要同步確認資料來源、授權與狀態流
+- 涉及 schema、庫存、訂單狀態、IAM 或 Lambda 交易流程時，回頭檢查 `.ai-rules.md`
 
-- React 19 + TypeScript（`strict: true`）
-- Vite 6
-- AWS Amplify Gen2：Cognito、AppSync + DynamoDB、S3
-- TanStack Router
-- TanStack Query
-- TanStack Table
-- TanStack Form
-- MUI v6 + Emotion
-- Vitest + React Testing Library + fast-check
+## 檔案放置速查
 
-## 開發慣例
+- 路由頁面：`src/routes/`
+- 路由私有元件：`src/routes/<module>/-components/`
+- 共用 UI 元件：`src/components/`
+- 資料 hooks：`src/hooks/`
+- 前端工具：`src/lib/`
+- 純業務邏輯：`shared/logic/`
+- 共用資料模型：`shared/models/`
+- 後端資源：`amplify/`
+- 測試：與原始碼同層，命名為 `<source>.test.ts(x)` 或 `<source>.property.test.ts`
 
-- UI 文案皆使用繁體中文。
-- MUI 樣式使用 `sx` prop，不使用 `styled()` 或外部 CSS 檔案。
-- 路徑別名：`@` 指向 `./src`。
-- 不引入 Redux、Zustand 或其他全域狀態管理庫。
-- 伺服器狀態使用 TanStack Query，透過 `useQuery` / `useMutation`。
-- 業務邏輯放在 `shared/logic/`，避免 React 依賴。
-- 錯誤處理從 `catch` 區塊提取 `Error.message`，並以中文顯示在 MUI `Alert`。
-- `AuthProvider` 為唯一認證上下文來源。
-- 專案中若新增後端資源，須在 `amplify/backend.ts` 註冊。
+## 常用指令
 
-## Agent 開發指南
+| 指令 | 用途 |
+| --- | --- |
+| `npm run dev` | 啟動開發伺服器 |
+| `npm run build` | TypeScript + Vite 生產建置 |
+| `npm run check` | 型別檢查 |
+| `npm run lint` | ESLint 檢查 |
+| `npm run test` | 單次執行測試 |
+| `npm run test:watch` | 監聽模式測試 |
+| `npm run sandbox` | 啟動 Amplify sandbox |
 
-### 一致性優先
+## 交付時要說明
 
-- 依照既有專案結構新增檔案，避免額外建立無必要的目錄。
-- 路由頁面放 `src/routes/`，元件放 `src/components/`，Hook 放 `src/hooks/`。
-- 若新增純業務邏輯，放 `shared/logic/`，並補上對應測試。
-
-### UI 與文案
-
-- 介面文字皆為繁體中文。
-- 使用 MUI 元件與 `sx` prop 佈局。
-- 按鈕、提示、錯誤訊息的文案應與專案現有風格一致。
-
-### 認證與存取
-
-- 受保護頁面必須在 `beforeLoad` 進行 `context.auth.isAuthenticated` 檢查。
-- 未驗證使用者需重新導向 `/`。
-
-### 自動產生檔案
-
-- 不要手動編輯 `src/routeTree.gen.ts`。
-- 不要手動編輯 `amplify_outputs.json`。
-
-### 測試要求
-
-- 新功能建議新增對應測試。
-- 純業務邏輯應新增 `shared/logic/` 測試。
-
-## 重要提醒
-
-- `AuthProvider` 是唯一認證狀態來源，請勿引入其他 auth context。
-- 新增路由時務必保留現有檔案式路由習慣。
-- `src/routeTree.gen.ts` 與 `amplify_outputs.json` 均為自動產生，禁止手動修改。
-
----
-
-此檔案為 Codex Agent 專用說明，請依據現有規範與工程慣例進行修改與開發。
+- 改了什麼
+- 有沒有驗證
+- 是否有殘留風險
+- 若屬高風險任務，是否已回答 `.ai-rules.md` 的收尾檢查項目

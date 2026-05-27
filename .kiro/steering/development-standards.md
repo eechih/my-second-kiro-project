@@ -5,50 +5,42 @@ inclusion: always
 
 # Development Standards
 
-## Dependency Management
-- Use latest stable versions of all libraries and dependencies
-- Leverage Context7 MCP server to verify compatibility before adding dependencies
-- Justify each new dependency with clear business or technical value
-- Prefer well-maintained libraries with active communities
-- Document version constraints in project files
-- Remove unused dependencies regularly
-- Use lock files to ensure consistent installations across environments
+本檔描述專案共通的開發原則。涉及前端細節時優先參考 `frontend.md`，涉及後端與 Amplify 細節時優先參考 `backend.md`。
 
-## Code Quality Standards
-- Never create duplicate files with suffixes like `_fixed`, `_clean`, `_backup`, etc.
-- Work iteratively on existing files (hooks handle commits automatically)
-- Include relevant documentation links in code comments
-- Follow language-specific conventions (TypeScript for CDK, Python for Lambda)
-- Use meaningful variable and function names
-- Keep functions small and focused on single responsibilities
-- Implement proper error handling and logging
+## 一致性優先
 
-## File Management
-- Maintain clean directory structures
-- Use consistent naming conventions across the project
-- Avoid temporary or backup files in version control
-- Organize code logically by feature or domain
-- Keep configuration files at appropriate levels (project vs user)
+- 優先延續既有結構、命名與檔案放置方式，不為單次任務建立新的資料夾慣例
+- 不建立 `_new`、`_fixed`、`_backup`、`copy` 這類重複檔案
+- 修改現有功能時，先理解既有流程，再決定要擴充、抽取或重組
+- 需要跨前後端共用的規則，優先放到 `shared/`，不要在 UI 與 Lambda 各寫一份
 
-## Documentation Approach
-- Maintain single comprehensive README covering all aspects including deployment
-- Reference official sources through MCP servers when available
-- Update documentation when upgrading dependencies
-- Keep documentation close to relevant code
-- Use inline comments for complex business logic
-- Document API endpoints and data structures
-- Include setup and deployment instructions
+## 業務邏輯原則
 
-## Version Control Integration
-- Commit frequently with meaningful messages
-- Use feature branches for development
-- Keep main branch deployable at all times
-- Tag releases appropriately
-- Use .gitignore to exclude generated files and secrets
+- 訂單狀態、明細狀態、庫存驗證、金額計算、合併與分拆規則應集中於 `shared/logic/`
+- 前端頁面負責互動與呈現；不要把核心商業規則藏在 component event handler
+- Lambda 主要負責授權、資料存取、交易控制與呼叫共用業務邏輯
+- 若規則已存在於 `shared/logic/`，優先重用，不重寫平行版本
 
-## Quality Assurance
-- Write tests for new functionality
-- Run tests before committing changes
-- Use linting and formatting tools consistently
-- Perform code reviews for all changes
-- Monitor code coverage and maintain high standards
+## UI 與文案
+
+- 所有使用者可見文案一律使用繁體中文
+- 錯誤訊息、成功提示、表單欄位與按鈕文案要與現有頁面語氣一致
+- 複雜邏輯可以加簡短註解，但只解釋為什麼，不解釋顯而易見的程式步驟
+
+## 錯誤處理與可觀測性
+
+- 前端從 `catch` 中提取 `Error.message`，並以繁體中文顯示於 UI
+- 後端應明確區分可預期失敗與真正異常，避免把所有錯誤都包成模糊訊息
+- 修改高風險流程時，應保留足夠的 log 與上下文，方便追查狀態錯亂與資料不一致
+
+## 文件與規格
+
+- 修改流程、欄位語意、授權模型或部署行為時，同步更新相關文件
+- `.kiro/specs/` 下的規格文件以繁體中文撰寫；技術術語、型別名與函式名保留英文
+- README 適合放 setup、執行與部署說明；steering 適合放長期維持的工程規則
+
+## 交付品質
+
+- 新功能與修正應補上相稱的測試或至少說明未補測原因
+- 變更完成前，至少執行與改動範圍相符的型別檢查、測試或建置
+- 若任務涉及 schema、庫存、訂單流程或後端資源授權，交付時要明確說明風險與驗證方式
