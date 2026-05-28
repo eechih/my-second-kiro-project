@@ -1,11 +1,8 @@
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageHeader } from "@/components/PageHeader";
 import {
-  useCreateVariant,
-  useDeleteVariant,
   useProduct,
+  useSyncProductOptions,
   useUpdateProduct,
-  useUpdateVariant,
 } from "@/hooks/useProducts";
 import { client } from "@/lib/amplify-client";
 import { requireAuth } from "@/lib/route-guards";
@@ -15,11 +12,7 @@ import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import { validateProduct } from "@shared/logic/validation";
-import type {
-  CreateVariantInput,
-  Supplier,
-  UpdateVariantInput,
-} from "@shared/models";
+import type { Supplier } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -41,20 +34,12 @@ function ProductEditPage() {
     error: loadError,
   } = useProduct(productId);
   const updateMutation = useUpdateProduct();
-  const createVariantMutation = useCreateVariant();
-  const updateVariantMutation = useUpdateVariant();
-  const deleteVariantMutation = useDeleteVariant();
+  const syncProductOptionsMutation = useSyncProductOptions();
 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
     null,
   );
-  const [deleteConfirm, setDeleteConfirm] = useState<{
-    open: boolean;
-    variantId: string | null;
-    variantLabel: string;
-  }>({ open: false, variantId: null, variantLabel: "" });
-
   // Load supplier when product data is available
   useEffect(() => {
     if (product?.defaultSupplierId) {
@@ -107,56 +92,13 @@ function ProductEditPage() {
         defaultSupplierId: values.defaultSupplierId,
         stockQuantity: values.stockQuantity,
       });
+      await syncProductOptionsMutation.mutateAsync({
+        productId,
+        options: values.options,
+      });
       void navigate({ to: "/products" });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "更新商品失敗");
-    }
-  };
-
-  const handleCreateVariant = (variant: CreateVariantInput): void => {
-    void createVariantMutation
-      .mutateAsync({
-        productId,
-        variant,
-      })
-      .catch((err: unknown) => {
-        setSubmitError(
-          err instanceof Error ? err.message : "新增規格選項失敗",
-        );
-      });
-  };
-
-  const handleUpdateVariant = (
-    variantId: string,
-    updates: UpdateVariantInput,
-  ): void => {
-    void updateVariantMutation.mutateAsync({
-      productId,
-      variantId,
-      updates,
-    });
-  };
-
-  const handleDeleteVariantClick = (variantId: string): void => {
-    const variant = product?.variants.find((v) => v.id === variantId);
-    setDeleteConfirm({
-      open: true,
-      variantId,
-      variantLabel: variant?.label ?? "",
-    });
-  };
-
-  const handleConfirmDeleteVariant = async (): Promise<void> => {
-    if (!deleteConfirm.variantId) return;
-    try {
-      await deleteVariantMutation.mutateAsync({
-        productId,
-        variantId: deleteConfirm.variantId,
-      });
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "刪除規格組合失敗");
-    } finally {
-      setDeleteConfirm({ open: false, variantId: null, variantLabel: "" });
     }
   };
 
@@ -211,30 +153,12 @@ function ProductEditPage() {
         product={product}
         productId={productId}
         selectedSupplier={selectedSupplier}
-        isSubmitting={updateMutation.isPending}
-        isVariantMutating={
-          createVariantMutation.isPending ||
-          updateVariantMutation.isPending ||
-          deleteVariantMutation.isPending
+        isSubmitting={
+          updateMutation.isPending || syncProductOptionsMutation.isPending
         }
         onCancel={() => void navigate({ to: "/products" })}
         onSubmit={handleSubmit}
         onSupplierChange={setSelectedSupplier}
-        onCreateVariant={handleCreateVariant}
-        onUpdateVariant={handleUpdateVariant}
-        onDeleteVariant={handleDeleteVariantClick}
-      />
-
-      <ConfirmDialog
-        open={deleteConfirm.open}
-        title="刪除規格組合"
-        message={`確定要刪除規格組合「${deleteConfirm.variantLabel}」嗎？此操作無法復原。`}
-        confirmLabel="刪除"
-        confirmColor="error"
-        onConfirm={() => void handleConfirmDeleteVariant()}
-        onCancel={() =>
-          setDeleteConfirm({ open: false, variantId: null, variantLabel: "" })
-        }
       />
     </Box>
   );

@@ -33,6 +33,7 @@ function createProduct(overrides: Partial<Product> = {}): Product {
     cost: 50,
     defaultSupplierId: null,
     stockQuantity: 0,
+    options: [],
     variants: [],
     imageUrls: [],
     isActive: true,

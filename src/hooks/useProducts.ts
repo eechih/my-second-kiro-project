@@ -8,8 +8,11 @@ import {
 import { client } from "@/lib/amplify-client";
 import type {
   Product,
+  ProductOption,
+  ProductOptionValue,
   ProductVariant,
   CreateProductInput,
+  CreateProductOptionInput,
   UpdateProductInput,
   CreateVariantInput,
   UpdateVariantInput,
@@ -63,6 +66,8 @@ const PRODUCT_SELECTION_SET = [
   "createdAt",
   "createdAtForSort",
   "updatedAt",
+  "options.*",
+  "options.values.*",
   "variants.*",
 ] as const;
 
@@ -421,6 +426,207 @@ export function useUpdateProduct(): UseMutationResult<
 }
 
 // ---------------------------------------------------------------------------
+// Product Option / Variant Sync Hooks
+// ---------------------------------------------------------------------------
+
+function normalizeOptionInputs(
+  options: CreateProductOptionInput[],
+): CreateProductOptionInput[] {
+  return options
+    .map((option, optionIndex) => ({
+      name: option.name.trim(),
+      sortOrder: option.sortOrder ?? optionIndex,
+      values: option.values
+        .map((value, valueIndex) => ({
+          name: value.name.trim(),
+          priceOffset: value.priceOffset ?? 0,
+          costOffset: value.costOffset ?? 0,
+          sortOrder: value.sortOrder ?? valueIndex,
+        }))
+        .filter((value) => value.name.length > 0),
+    }))
+    .filter((option) => option.name.length > 0 && option.values.length > 0);
+}
+
+function buildVariantsFromOptions(
+  options: CreateProductOptionInput[],
+): CreateVariantInput[] {
+  const normalizedOptions = normalizeOptionInputs(options);
+  if (normalizedOptions.length === 0) {
+    return [];
+  }
+
+  let combinations: Array<{
+    labelParts: string[];
+    priceOffset: number;
+    costOffset: number;
+  }> = [{ labelParts: [], priceOffset: 0, costOffset: 0 }];
+
+  for (const option of normalizedOptions) {
+    combinations = combinations.flatMap((combination) =>
+      option.values.map((value) => ({
+        labelParts: [...combination.labelParts, value.name],
+        priceOffset: combination.priceOffset + (value.priceOffset ?? 0),
+        costOffset: combination.costOffset + (value.costOffset ?? 0),
+      })),
+    );
+  }
+
+  return combinations.map((combination) => ({
+    label: combination.labelParts.join(" / "),
+    priceOffset: combination.priceOffset,
+    costOffset: combination.costOffset,
+  }));
+}
+
+async function replaceProductOptionsAndVariants({
+  productId,
+  options,
+}: {
+  productId: string;
+  options: CreateProductOptionInput[];
+}): Promise<void> {
+  const normalizedOptions = normalizeOptionInputs(options);
+
+  const existingOptionsResponse = await client.models.ProductOption.listOptionsByProduct(
+    { productId },
+    {
+      selectionSet: ["id", "values.*"],
+      limit: 200,
+    } as Record<string, unknown>,
+  );
+
+  if (existingOptionsResponse.errors && existingOptionsResponse.errors.length > 0) {
+    throw new Error(
+      existingOptionsResponse.errors[0]?.message ?? "查詢商品規格失敗",
+    );
+  }
+
+  const existingOptions = (existingOptionsResponse.data ?? []) as Array<
+    Record<string, unknown>
+  >;
+
+  for (const option of existingOptions) {
+    const values = Array.isArray(option.values)
+      ? (option.values as Array<Record<string, unknown>>)
+      : [];
+
+    for (const value of values) {
+      if (!value.id) continue;
+      const { errors } = await client.models.ProductOptionValue.delete({
+        id: String(value.id),
+      });
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "刪除商品規格值失敗");
+      }
+    }
+
+    if (!option.id) continue;
+    const { errors } = await client.models.ProductOption.delete({
+      id: String(option.id),
+    });
+    if (errors && errors.length > 0) {
+      throw new Error(errors[0]?.message ?? "刪除商品規格失敗");
+    }
+  }
+
+  for (const [optionIndex, option] of normalizedOptions.entries()) {
+    const { data, errors } = await client.models.ProductOption.create({
+      productId,
+      name: option.name,
+      sortOrder: option.sortOrder ?? optionIndex,
+    });
+
+    if (errors && errors.length > 0) {
+      throw new Error(errors[0]?.message ?? "建立商品規格失敗");
+    }
+
+    if (!data?.id) {
+      throw new Error("建立商品規格失敗：未回傳資料");
+    }
+
+    for (const [valueIndex, value] of option.values.entries()) {
+      const { errors: valueErrors } = await client.models.ProductOptionValue.create(
+        {
+          optionId: String(data.id),
+          name: value.name,
+          priceOffset: value.priceOffset ?? 0,
+          costOffset: value.costOffset ?? 0,
+          sortOrder: value.sortOrder ?? valueIndex,
+        },
+      );
+
+      if (valueErrors && valueErrors.length > 0) {
+        throw new Error(valueErrors[0]?.message ?? "建立商品規格值失敗");
+      }
+    }
+  }
+
+  const existingVariantsResponse = await client.models.ProductVariant.listVariantsByProduct(
+    { productId },
+    {
+      limit: 500,
+    } as Record<string, unknown>,
+  );
+
+  if (existingVariantsResponse.errors && existingVariantsResponse.errors.length > 0) {
+    throw new Error(
+      existingVariantsResponse.errors[0]?.message ?? "查詢舊規格組合失敗",
+    );
+  }
+
+  for (const variant of (existingVariantsResponse.data ?? []) as Array<
+    Record<string, unknown>
+  >) {
+    if (!variant.id) continue;
+    const { errors } = await client.models.ProductVariant.delete({
+      id: String(variant.id),
+    });
+    if (errors && errors.length > 0) {
+      throw new Error(errors[0]?.message ?? "刪除舊規格組合失敗");
+    }
+  }
+
+  const variants = buildVariantsFromOptions(normalizedOptions);
+  for (const [variantIndex, variant] of variants.entries()) {
+    const { errors } = await client.models.ProductVariant.create({
+      productId,
+      label: variant.label.trim(),
+      priceOffset: variant.priceOffset ?? 0,
+      costOffset: variant.costOffset ?? 0,
+      sortOrder: variantIndex,
+      isActive: true,
+      createdAtForSort: new Date().toISOString(),
+    });
+
+    if (errors && errors.length > 0) {
+      throw new Error(errors[0]?.message ?? "同步舊規格組合失敗");
+    }
+  }
+}
+
+export function useSyncProductOptions(): UseMutationResult<
+  void,
+  Error,
+  { productId: string; options: CreateProductOptionInput[] }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: replaceProductOptionsAndVariants,
+    onSuccess: (_data, { productId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: PRODUCT_KEYS.detail(productId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: PRODUCT_KEYS.variants(productId),
+      });
+      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Variant Hooks
 // ---------------------------------------------------------------------------
 
@@ -583,6 +789,13 @@ export function useDeleteVariant(): UseMutationResult<
 
 /** 將 Amplify Data 回傳的原始資料映射為 Product 型別 */
 function mapToProduct(raw: Record<string, unknown>): Product {
+  let options: ProductOption[] = [];
+  if (raw.options && Array.isArray(raw.options)) {
+    options = (raw.options as Record<string, unknown>[]).map(mapToOption);
+  }
+
+  options.sort((a, b) => a.sortOrder - b.sortOrder);
+
   // 解析 variants（hasMany 關聯回傳的陣列）
   let variants: ProductVariant[] = [];
   if (raw.variants && Array.isArray(raw.variants)) {
@@ -605,6 +818,7 @@ function mapToProduct(raw: Record<string, unknown>): Product {
       ? String(raw.defaultSupplierId)
       : null,
     stockQuantity,
+    options,
     variants,
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
@@ -628,6 +842,32 @@ function mapToVariant(raw: Record<string, unknown>): ProductVariant {
       raw.costOffset !== null && raw.costOffset !== undefined
         ? Number(raw.costOffset)
         : null,
+  };
+}
+
+function mapToOptionValue(raw: Record<string, unknown>): ProductOptionValue {
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? ""),
+    priceOffset: Number(raw.priceOffset ?? 0),
+    costOffset: Number(raw.costOffset ?? 0),
+    sortOrder: Number(raw.sortOrder ?? 0),
+  };
+}
+
+function mapToOption(raw: Record<string, unknown>): ProductOption {
+  let values: ProductOptionValue[] = [];
+  if (raw.values && Array.isArray(raw.values)) {
+    values = (raw.values as Record<string, unknown>[]).map(mapToOptionValue);
+  }
+
+  values.sort((a, b) => a.sortOrder - b.sortOrder);
+
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? ""),
+    sortOrder: Number(raw.sortOrder ?? 0),
+    values,
   };
 }
 

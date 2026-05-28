@@ -63,6 +63,7 @@ function createSampleProduct(): Product {
     cost: 50,
     defaultSupplierId: "sup-001",
     stockQuantity: 200,
+    options: [],
     variants: [
       {
         id: "var-001",
@@ -213,6 +214,7 @@ describe("serializeProduct / deserializeProduct", () => {
   it("無規格組合的商品往返序列化應正確", () => {
     const original: Product = {
       ...createSampleProduct(),
+      options: [],
       variants: [],
       defaultSupplierId: null,
     };

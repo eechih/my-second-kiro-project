@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/PageHeader";
 import { useUploadProductImagesBatch } from "@/hooks/useProductImages";
-import { useCreateProduct, useCreateVariant } from "@/hooks/useProducts";
+import { useCreateProduct, useSyncProductOptions } from "@/hooks/useProducts";
 import { requireAuth } from "@/lib/route-guards";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -25,7 +25,7 @@ const productCreateFormId = "product-create-form";
 function ProductNewPage() {
   const navigate = useNavigate();
   const createMutation = useCreateProduct();
-  const createVariantMutation = useCreateVariant();
+  const syncProductOptionsMutation = useSyncProductOptions();
   const uploadImagesMutation = useUploadProductImagesBatch();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -49,14 +49,10 @@ function ProductNewPage() {
 
     try {
       const product = await createMutation.mutateAsync(values);
-      await Promise.all(
-        values.variants.map((variant) =>
-          createVariantMutation.mutateAsync({
-            productId: product.id,
-            variant,
-          }),
-        ),
-      );
+      await syncProductOptionsMutation.mutateAsync({
+        productId: product.id,
+        options: values.options,
+      });
       await uploadImagesMutation.mutateAsync({
         productId: product.id,
         files: values.imageFiles,
@@ -121,7 +117,7 @@ function ProductNewPage() {
             formId={productCreateFormId}
             isSubmitting={
               createMutation.isPending ||
-              createVariantMutation.isPending ||
+              syncProductOptionsMutation.isPending ||
               uploadImagesMutation.isPending
             }
             onCancel={() => void navigate({ to: "/products" })}

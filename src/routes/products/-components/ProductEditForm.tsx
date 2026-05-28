@@ -1,7 +1,5 @@
 import { FormField } from "@/components/FormField";
 import { ImageUploader } from "@/components/ImageUploader";
-import { VariantTable } from "@/components/VariantTable";
-import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -10,10 +8,9 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import type {
-  CreateVariantInput,
+  CreateProductOptionInput,
   Product,
   Supplier,
-  UpdateVariantInput,
 } from "@shared/models";
 import { useForm } from "@tanstack/react-form";
 import { useEffect, useState } from "react";
@@ -22,6 +19,11 @@ import {
   SupplierSelect,
   useSupplierOptions,
 } from "./ProductFormShared";
+import {
+  mapEditableOptionsToCreateInput,
+  ProductOptionEditor,
+  type EditableProductOption,
+} from "./ProductOptionEditor";
 
 export interface ProductEditFormValues {
   name: string;
@@ -30,6 +32,7 @@ export interface ProductEditFormValues {
   cost: number;
   stockQuantity: number;
   defaultSupplierId: string | null;
+  options: CreateProductOptionInput[];
 }
 
 export interface ProductEditFormProps {
@@ -37,13 +40,37 @@ export interface ProductEditFormProps {
   productId: string;
   selectedSupplier: Supplier | null;
   isSubmitting: boolean;
-  isVariantMutating: boolean;
   onCancel: () => void;
   onSubmit: (values: ProductEditFormValues) => Promise<void>;
   onSupplierChange: (supplier: Supplier | null) => void;
-  onCreateVariant: (variant: CreateVariantInput) => void;
-  onUpdateVariant: (variantId: string, updates: UpdateVariantInput) => void;
-  onDeleteVariant: (variantId: string) => void;
+}
+
+function mapProductToEditableOptions(product: Product): EditableProductOption[] {
+  if (product.options.length > 0) {
+    return product.options.map((option) => ({
+      name: option.name,
+      values: option.values.map((value) => ({
+        name: value.name,
+        priceOffset: value.priceOffset,
+        costOffset: value.costOffset,
+      })),
+    }));
+  }
+
+  if (product.variants.length > 0) {
+    return [
+      {
+        name: "規格",
+        values: product.variants.map((variant) => ({
+          name: variant.label,
+          priceOffset: variant.priceOffset ?? 0,
+          costOffset: variant.costOffset ?? 0,
+        })),
+      },
+    ];
+  }
+
+  return [];
 }
 
 export function ProductEditForm({
@@ -51,19 +78,13 @@ export function ProductEditForm({
   productId,
   selectedSupplier,
   isSubmitting,
-  isVariantMutating,
   onCancel,
   onSubmit,
   onSupplierChange,
-  onCreateVariant,
-  onUpdateVariant,
-  onDeleteVariant,
 }: ProductEditFormProps): React.ReactElement {
-  const [newVariant, setNewVariant] = useState({
-    label: "",
-    priceOffset: "",
-    costOffset: "",
-  });
+  const [options, setOptions] = useState<EditableProductOption[]>(
+    mapProductToEditableOptions(product),
+  );
   const suppliersQuery = useSupplierOptions();
 
   const form = useForm({
@@ -82,6 +103,7 @@ export function ProductEditForm({
         cost: Math.trunc(value.cost),
         stockQuantity: value.stockQuantity,
         defaultSupplierId: selectedSupplier?.id ?? null,
+        options: mapEditableOptionsToCreateInput(options),
       });
     },
   });
@@ -94,36 +116,8 @@ export function ProductEditForm({
       cost: product.cost,
       stockQuantity: product.stockQuantity,
     });
+    setOptions(mapProductToEditableOptions(product));
   }, [form, product]);
-
-  const handleCreateVariant = (): void => {
-    const label = newVariant.label.trim();
-    if (!label) return;
-
-    const priceOffset =
-      newVariant.priceOffset === ""
-        ? null
-        : Math.trunc(Number(newVariant.priceOffset));
-    const costOffset =
-      newVariant.costOffset === ""
-        ? null
-        : Math.trunc(Number(newVariant.costOffset));
-
-    onCreateVariant({
-      label,
-      priceOffset:
-        priceOffset !== null && Number.isFinite(priceOffset)
-          ? priceOffset
-          : null,
-      costOffset:
-        costOffset !== null && Number.isFinite(costOffset) ? costOffset : null,
-    });
-    setNewVariant({
-      label: "",
-      priceOffset: "",
-      costOffset: "",
-    });
-  };
 
   return (
     <form
@@ -221,79 +215,10 @@ export function ProductEditForm({
         </ProductFormSection>
 
         <ProductFormSection
-          title="規格選項"
-          description="每個規格以單一標籤管理，例如「黑色」或「XL」。"
+          title="規格設定"
+          description="定義規格名稱與每個規格值的加價、成本增加。系統會同步產生舊版規格組合供訂單流程使用。"
         >
-          <Stack spacing={2}>
-            <Box
-              sx={{
-                display: "grid",
-                gap: 2,
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  md: "2fr 1fr 1fr auto",
-                },
-              }}
-            >
-              <TextField
-                label="規格標籤"
-                size="small"
-                value={newVariant.label}
-                onChange={(event) =>
-                  setNewVariant({ ...newVariant, label: event.target.value })
-                }
-                required
-              />
-              <TextField
-                label="單價偏移"
-                size="small"
-                type="number"
-                value={newVariant.priceOffset}
-                onChange={(event) =>
-                  setNewVariant({
-                    ...newVariant,
-                    priceOffset: event.target.value,
-                  })
-                }
-                placeholder="0"
-                slotProps={{ htmlInput: { step: 1 } }}
-              />
-              <TextField
-                label="成本偏移"
-                size="small"
-                type="number"
-                value={newVariant.costOffset}
-                onChange={(event) =>
-                  setNewVariant({
-                    ...newVariant,
-                    costOffset: event.target.value,
-                  })
-                }
-                placeholder="0"
-                slotProps={{ htmlInput: { step: 1 } }}
-              />
-              <Button
-                type="button"
-                variant="outlined"
-                startIcon={<AddIcon />}
-                disabled={isVariantMutating || !newVariant.label.trim()}
-                onClick={handleCreateVariant}
-                sx={{ minWidth: 96 }}
-              >
-                新增
-              </Button>
-            </Box>
-
-            <VariantTable
-              productId={productId}
-              variants={product.variants}
-              defaultUnitPrice={product.price}
-              defaultCost={product.cost}
-              onUpdateVariant={onUpdateVariant}
-              onDeleteVariant={onDeleteVariant}
-              isLoading={isVariantMutating}
-            />
-          </Stack>
+          <ProductOptionEditor value={options} onChange={setOptions} />
         </ProductFormSection>
 
         <ProductFormSection

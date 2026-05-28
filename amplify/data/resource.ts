@@ -136,6 +136,7 @@ const schema = a.schema({
       preorderCloseAt: a.datetime(),
       deletedAt: a.datetime(),
       ...sortFields(SORT_PARTITIONS.product),
+      options: a.hasMany("ProductOption", "productId"),
       variants: a.hasMany("ProductVariant", "productId"),
       orderItems: a.hasMany("OrderItem", "productId"),
     })
@@ -150,6 +151,39 @@ const schema = a.schema({
         .sortKeys(["preorderCloseAt"])
         .queryField("listProductsByPreorderStatusAndCloseDate")
         .name("byPreorderStatusAndCloseDate"),
+    ])
+    .authorization((allow) => [allow.authenticated()]),
+
+  ProductOption: a
+    .model({
+      productId: a.id().required(),
+      product: a.belongsTo("Product", "productId"),
+      name: a.string().required(),
+      sortOrder: a.integer().required().default(0),
+      values: a.hasMany("ProductOptionValue", "optionId"),
+    })
+    .secondaryIndexes((index) => [
+      index("productId")
+        .sortKeys(["sortOrder"])
+        .queryField("listOptionsByProduct")
+        .name("byProduct"),
+    ])
+    .authorization((allow) => [allow.authenticated()]),
+
+  ProductOptionValue: a
+    .model({
+      optionId: a.id().required(),
+      option: a.belongsTo("ProductOption", "optionId"),
+      name: a.string().required(),
+      priceOffset: a.integer().required().default(0),
+      costOffset: a.integer().required().default(0),
+      sortOrder: a.integer().required().default(0),
+    })
+    .secondaryIndexes((index) => [
+      index("optionId")
+        .sortKeys(["sortOrder"])
+        .queryField("listOptionValuesByOption")
+        .name("byOption"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 

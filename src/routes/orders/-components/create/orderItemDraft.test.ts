@@ -23,6 +23,7 @@ const baseProduct: Product = {
   cost: 120,
   defaultSupplierId: null,
   stockQuantity: 10,
+  options: [],
   variants: [baseVariant],
   imageUrls: [],
   isActive: true,

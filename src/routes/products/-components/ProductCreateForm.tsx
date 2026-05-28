@@ -6,7 +6,6 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import ImageList from "@mui/material/ImageList";
 import ImageListItem from "@mui/material/ImageListItem";
@@ -16,8 +15,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { parseSupplierTranslationPost } from "@shared/logic/translation-parser";
-import { parseVariantLabels } from "@shared/logic/variant-labels";
-import type { CreateVariantInput, Supplier } from "@shared/models";
+import type { CreateProductOptionInput, Supplier } from "@shared/models";
 import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -25,6 +23,11 @@ import {
   SupplierSelect,
   useSupplierOptions,
 } from "./ProductFormShared";
+import {
+  mapEditableOptionsToCreateInput,
+  ProductOptionEditor,
+  type EditableProductOption,
+} from "./ProductOptionEditor";
 
 export interface ProductCreateFormValues {
   name: string;
@@ -33,7 +36,7 @@ export interface ProductCreateFormValues {
   cost: number;
   stockQuantity: number;
   defaultSupplierId: string | null;
-  variants: CreateVariantInput[];
+  options: CreateProductOptionInput[];
   imageFiles: File[];
 }
 
@@ -44,16 +47,26 @@ export interface ProductCreateFormProps {
   onSubmit: (values: ProductCreateFormValues) => Promise<void>;
 }
 
-function formatParsedOptions(options?: string[][]): string {
+function mapParsedOptionsToEditableOptions(
+  options?: string[][],
+): EditableProductOption[] {
   if (!options || options.length === 0) {
-    return "";
+    return [];
   }
 
   return options
-    .map((group) => group.map((option) => option.trim()).filter(Boolean))
-    .filter((group) => group.length > 0)
-    .map((group) => group.join("，"))
-    .join("/");
+    .map((group, groupIndex) => ({
+      name: `選項 ${groupIndex + 1}`,
+      values: group
+        .map((option) => option.trim())
+        .filter(Boolean)
+        .map((option) => ({
+          name: option,
+          priceOffset: 0,
+          costOffset: 0,
+        })),
+    }))
+    .filter((option) => option.values.length > 0);
 }
 
 export function ProductCreateForm({
@@ -65,14 +78,13 @@ export function ProductCreateForm({
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
     null,
   );
-  const [variantInput, setVariantInput] = useState("");
+  const [options, setOptions] = useState<EditableProductOption[]>([]);
   const [parserPostContent, setParserPostContent] = useState("");
   const [parserError, setParserError] = useState<string | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const variantLabels = parseVariantLabels(variantInput);
   const suppliersQuery = useSupplierOptions();
 
   const form = useForm({
@@ -91,11 +103,7 @@ export function ProductCreateForm({
         cost: Math.trunc(value.cost),
         stockQuantity: value.stockQuantity,
         defaultSupplierId: selectedSupplier?.id ?? null,
-        variants: variantLabels.map((label) => ({
-          label,
-          priceOffset: null,
-          costOffset: null,
-        })),
+        options: mapEditableOptionsToCreateInput(options),
         imageFiles,
       });
     },
@@ -120,7 +128,7 @@ export function ProductCreateForm({
       cost: 0,
       stockQuantity: 0,
     });
-    setVariantInput("");
+    setOptions([]);
     setParserPostContent("");
     setParserError(null);
     setImageFiles([]);
@@ -238,23 +246,12 @@ export function ProductCreateForm({
   );
 
   const variantSection = (
-    <ProductFormSection title="快速規格定義" sx={{ p: 2 }}>
-      <Stack spacing={1.5}>
-        <TextField
-          label="規格選項"
-          value={variantInput}
-          onChange={(event) => setVariantInput(event.target.value)}
-          placeholder="[黑，白，藍/M，L，XL，2L，3L]"
-          helperText="使用 / 分隔規格層級，使用逗號分隔選項；會帶入產品預設單價與預設成本。"
-        />
-        {variantLabels.length > 0 && (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-            {variantLabels.map((label) => (
-              <Chip key={label} label={label} size="small" />
-            ))}
-          </Box>
-        )}
-      </Stack>
+    <ProductFormSection
+      title="規格設定"
+      description="先定義規格名稱，再為每個規格值設定加價與成本增加。"
+      sx={{ p: 2 }}
+    >
+      <ProductOptionEditor value={options} onChange={setOptions} />
     </ProductFormSection>
   );
 
@@ -435,7 +432,7 @@ export function ProductCreateForm({
         "cost",
         result.cost && result.cost > 0 ? result.cost : 0,
       );
-      setVariantInput(formatParsedOptions(result.option));
+      setOptions(mapParsedOptionsToEditableOptions(result.option));
     } catch (error) {
       setParserError(
         error instanceof Error ? error.message : "解析 FB 貼文失敗",

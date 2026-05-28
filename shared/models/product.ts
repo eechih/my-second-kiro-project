@@ -1,8 +1,25 @@
 /**
- * 商品（Product）、規格選項（ProductVariant）資料模型
+ * 商品（Product）、規格選項（ProductOption / ProductOptionValue / ProductVariant）資料模型
  *
  * 需求：3.1, 3.2, 3.3, 3.9, 3.10, 3.12, 3.13, 3.14, 3.15
  */
+
+/** 商品規格值（如「紅色」、「XL」） */
+export interface ProductOptionValue {
+  id: string;
+  name: string;
+  priceOffset: number;
+  costOffset: number;
+  sortOrder: number;
+}
+
+/** 商品規格維度（如「顏色」、「尺寸」） */
+export interface ProductOption {
+  id: string;
+  name: string;
+  sortOrder: number;
+  values: ProductOptionValue[];
+}
 
 /** 商品規格選項（如「黑」、「L」、「黑 L」） */
 export interface ProductVariant {
@@ -34,6 +51,8 @@ export interface Product {
   defaultSupplierId: string | null;
   /** 庫存數量（>= 0，無規格組合時使用此欄位追蹤庫存） */
   stockQuantity: number;
+  /** 規格維度與規格值列表 */
+  options: ProductOption[];
   /** 規格選項列表 */
   variants: ProductVariant[];
   /** 商品照片 S3 key 列表（存放於 product-images/{productId}/ 路徑下） */
@@ -64,6 +83,19 @@ export interface CreateProductInput {
   stockQuantity?: number;
   /** 商品照片 S3 key 列表（選填） */
   imageUrls?: string[];
+}
+
+export interface CreateProductOptionValueInput {
+  name: string;
+  priceOffset?: number;
+  costOffset?: number;
+  sortOrder?: number;
+}
+
+export interface CreateProductOptionInput {
+  name: string;
+  sortOrder?: number;
+  values: CreateProductOptionValueInput[];
 }
 
 /** 更新商品輸入 */
