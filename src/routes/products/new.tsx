@@ -6,20 +6,12 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
-import { useTheme } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
 import { validateProduct } from "@shared/logic/validation";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ProductCreateActions } from "./-components/ProductCreateActions";
 import {
-  ProductPostParserDrawer,
-  parserDrawerGap,
-  parserDrawerWidth,
-} from "./-components/ProductPostParserDrawer";
-import {
   ProductCreateForm,
-  type ProductCreateFormPrefill,
   type ProductCreateFormValues,
 } from "./-components/ProductCreateForm";
 
@@ -31,8 +23,6 @@ export const Route = createFileRoute("/products/new")({
 const productCreateFormId = "product-create-form";
 
 function ProductNewPage() {
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const navigate = useNavigate();
   const createMutation = useCreateProduct();
   const createVariantMutation = useCreateVariant();
@@ -40,9 +30,6 @@ function ProductNewPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formInstanceKey, setFormInstanceKey] = useState(0);
-  const [parserResetKey, setParserResetKey] = useState(0);
-  const [prefill, setPrefill] = useState<ProductCreateFormPrefill | null>(null);
-  const [isParserOpen, setIsParserOpen] = useState(false);
 
   const handleSubmit = async (
     values: ProductCreateFormValues,
@@ -83,10 +70,7 @@ function ProductNewPage() {
   const handleContinueCreate = (): void => {
     setSubmitSuccess(false);
     setSubmitError(null);
-    setPrefill(null);
     setFormInstanceKey((prev) => prev + 1);
-    setParserResetKey((prev) => prev + 1);
-    setIsParserOpen(false);
   };
 
   return (
@@ -96,14 +80,12 @@ function ProductNewPage() {
       <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
         <ProductCreateActions
           formId={productCreateFormId}
-          isParserOpen={isParserOpen}
           isSubmitting={
             createMutation.isPending ||
             createVariantMutation.isPending ||
             uploadImagesMutation.isPending
           }
           onCancel={() => void navigate({ to: "/products" })}
-          onOpenParser={() => setIsParserOpen(true)}
         />
       </Box>
 
@@ -144,56 +126,14 @@ function ProductNewPage() {
           商品已新增完成。
         </Alert>
       )}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "stretch",
-          columnGap: { md: isParserOpen ? `${parserDrawerGap}px` : "0px" },
-          transition: (muiTheme) =>
-            muiTheme.transitions.create("column-gap", {
-              duration: muiTheme.transitions.duration.standard,
-              easing: muiTheme.transitions.easing.easeInOut,
-            }),
-        }}
-      >
-        <ProductPostParserDrawer
-          isDesktop={isDesktop}
-          open={isParserOpen}
-          resetKey={parserResetKey}
-          onApply={(values) => {
-            setSubmitError(null);
-            setPrefill(values);
-          }}
-          onClose={() => setIsParserOpen(false)}
+      <Stack spacing={3}>
+        <ProductCreateForm
+          key={formInstanceKey}
+          formId={productCreateFormId}
+          layout="splitDescription"
+          onSubmit={handleSubmit}
         />
-
-        <Box
-          sx={{
-            flexGrow: 1,
-            minWidth: 0,
-            width: {
-              md: isParserOpen
-                ? `calc(100% - ${parserDrawerWidth}px - ${parserDrawerGap}px)`
-                : "100%",
-            },
-            transition: (muiTheme) =>
-              muiTheme.transitions.create("width", {
-                duration: muiTheme.transitions.duration.standard,
-                easing: muiTheme.transitions.easing.easeInOut,
-              }),
-          }}
-        >
-          <Stack spacing={3}>
-            <ProductCreateForm
-              key={formInstanceKey}
-              formId={productCreateFormId}
-              layout="splitDescription"
-              prefill={prefill}
-              onSubmit={handleSubmit}
-            />
-          </Stack>
-        </Box>
-      </Box>
+      </Stack>
     </Box>
   );
 }

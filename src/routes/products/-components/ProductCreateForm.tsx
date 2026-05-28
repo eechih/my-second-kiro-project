@@ -1,15 +1,20 @@
 import { FormField } from "@/components/FormField";
 import { client } from "@/lib/amplify-client";
-import { isTranslationSupplier } from "@shared/logic/translation-parser";
-import { parseVariantLabels } from "@shared/logic/variant-labels";
+import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import FormControl from "@mui/material/FormControl";
 import FormHelperText from "@mui/material/FormHelperText";
+import IconButton from "@mui/material/IconButton";
+import ImageList from "@mui/material/ImageList";
+import ImageListItem from "@mui/material/ImageListItem";
+import ImageListItemBar from "@mui/material/ImageListItemBar";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -17,13 +22,14 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import IconButton from "@mui/material/IconButton";
-import ImageList from "@mui/material/ImageList";
-import ImageListItem from "@mui/material/ImageListItem";
-import ImageListItemBar from "@mui/material/ImageListItemBar";
+import {
+  isTranslationSupplier,
+  parseSupplierTranslationPost,
+} from "@shared/logic/translation-parser";
+import { parseVariantLabels } from "@shared/logic/variant-labels";
 import type { CreateVariantInput, Supplier } from "@shared/models";
-import { useQuery } from "@tanstack/react-query";
 import { useForm } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 export interface ProductCreateFormValues {
@@ -37,19 +43,8 @@ export interface ProductCreateFormValues {
   imageFiles: File[];
 }
 
-export interface ProductCreateFormPrefill {
-  name?: string;
-  description?: string;
-  price?: number;
-  cost?: number;
-  stockQuantity?: number;
-  variantInput?: string;
-  supplier?: Supplier | null;
-}
-
 export interface ProductCreateFormProps {
   formId: string;
-  prefill?: ProductCreateFormPrefill | null;
   layout?: "default" | "splitDescription";
   onSubmit: (values: ProductCreateFormValues) => Promise<void>;
 }
@@ -71,6 +66,18 @@ function mapSupplier(raw: Record<string, unknown>): Supplier {
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };
+}
+
+function formatParsedOptions(options?: string[][]): string {
+  if (!options || options.length === 0) {
+    return "";
+  }
+
+  return options
+    .map((group) => group.map((option) => option.trim()).filter(Boolean))
+    .filter((group) => group.length > 0)
+    .map((group) => group.join("，"))
+    .join("/");
 }
 
 function useSupplierOptions() {
@@ -145,7 +152,6 @@ function SupplierSelect({
 
 export function ProductCreateForm({
   formId,
-  prefill,
   layout = "default",
   onSubmit,
 }: ProductCreateFormProps): React.ReactElement {
@@ -153,6 +159,9 @@ export function ProductCreateForm({
     null,
   );
   const [variantInput, setVariantInput] = useState("");
+  const [parserPostContent, setParserPostContent] = useState("");
+  const [parserError, setParserError] = useState<string | null>(null);
+  const [parserMessage, setParserMessage] = useState<string | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -196,32 +205,6 @@ export function ProductCreateForm({
       }
     };
   }, [imageFiles]);
-
-  useEffect(() => {
-    if (!prefill) return;
-
-    if (prefill.name !== undefined) {
-      form.setFieldValue("name", prefill.name);
-    }
-    if (prefill.price !== undefined) {
-      form.setFieldValue("price", prefill.price);
-    }
-    if (prefill.description !== undefined) {
-      form.setFieldValue("description", prefill.description);
-    }
-    if (prefill.cost !== undefined) {
-      form.setFieldValue("cost", prefill.cost);
-    }
-    if (prefill.stockQuantity !== undefined) {
-      form.setFieldValue("stockQuantity", prefill.stockQuantity);
-    }
-    if (prefill.variantInput !== undefined) {
-      setVariantInput(prefill.variantInput);
-    }
-    if (prefill.supplier !== undefined) {
-      setSelectedSupplier(prefill.supplier);
-    }
-  }, [form, prefill]);
 
   const appendImageFiles = (files: FileList | File[]): void => {
     const nextFiles = Array.from(files).filter((file) =>
@@ -282,8 +265,7 @@ export function ProductCreateForm({
       <form.Field
         name="name"
         validators={{
-          onBlur: ({ value }) =>
-            !value.trim() ? "商品名稱為必填" : undefined,
+          onBlur: ({ value }) => (!value.trim() ? "商品名稱為必填" : undefined),
         }}
       >
         {(field) => <FormField field={field} label="商品名稱" required />}
@@ -296,20 +278,14 @@ export function ProductCreateForm({
         }}
       >
         {(field) => (
-          <FormField
-            field={field}
-            label="預設單價"
-            type="number"
-            required
-          />
+          <FormField field={field} label="預設單價" type="number" required />
         )}
       </form.Field>
 
       <form.Field
         name="cost"
         validators={{
-          onBlur: ({ value }) =>
-            value < 0 ? "進貨成本不可為負數" : undefined,
+          onBlur: ({ value }) => (value < 0 ? "進貨成本不可為負數" : undefined),
         }}
       >
         {(field) => (
@@ -494,57 +470,209 @@ export function ProductCreateForm({
     void form.handleSubmit();
   };
 
+  const parserTranslation = selectedSupplier?.translationParser ?? null;
+  const parserSupplierError =
+    selectedSupplier && !parserTranslation
+      ? "此供應商尚未設定貼文解析器，請先到供應商資料設定後再解析。"
+      : null;
+
+  const handleParserClear = (): void => {
+    setParserPostContent("");
+    setParserError(null);
+    setParserMessage(null);
+  };
+
+  const handleParserApply = (): void => {
+    setParserError(null);
+    setParserMessage(null);
+
+    if (!selectedSupplier) {
+      setParserError("請先選擇供應商");
+      return;
+    }
+
+    if (!parserTranslation) {
+      setParserError("此供應商尚未設定貼文解析器");
+      return;
+    }
+
+    if (!parserPostContent.trim()) {
+      setParserError("請先貼上 FB 貼文內容");
+      return;
+    }
+
+    try {
+      const result = parseSupplierTranslationPost(
+        parserTranslation,
+        parserPostContent,
+      );
+
+      form.setFieldValue("name", result.name ?? "");
+      form.setFieldValue("description", result.description ?? "");
+      form.setFieldValue(
+        "price",
+        result.price && result.price > 0 ? result.price : 0,
+      );
+      form.setFieldValue(
+        "cost",
+        result.cost && result.cost > 0 ? result.cost : 0,
+      );
+      setVariantInput(formatParsedOptions(result.option));
+
+      setParserMessage(
+        result.name
+          ? "已解析貼文並填入商品表單，請確認欄位後送出；SKU 會在建立時自動產生。"
+          : "已完成解析，但未抓到商品名稱，請手動補上表單欄位。",
+      );
+    } catch (error) {
+      setParserError(
+        error instanceof Error ? error.message : "解析 FB 貼文失敗",
+      );
+    }
+  };
+
+  const parserSection = (
+    <Paper sx={{ p: 2 }}>
+      <Stack spacing={1.5}>
+        {parserError && (
+          <Alert severity="error" onClose={() => setParserError(null)}>
+            {parserError}
+          </Alert>
+        )}
+        {parserSupplierError && (
+          <Alert severity="warning">{parserSupplierError}</Alert>
+        )}
+        {parserMessage && (
+          <Alert severity="success" onClose={() => setParserMessage(null)}>
+            {parserMessage}
+          </Alert>
+        )}
+
+        <Typography variant="body2" color="text.secondary">
+          選擇供應商後貼上貼文內容，系統會用對應的解析器預填商品資料。
+        </Typography>
+
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 1.5,
+            flexWrap: "wrap",
+          }}
+        >
+          <Button
+            variant="text"
+            startIcon={<CleaningServicesIcon />}
+            onClick={handleParserClear}
+            disabled={!parserPostContent}
+          >
+            清除貼文內容
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleParserApply}
+            disabled={
+              !selectedSupplier ||
+              !parserTranslation ||
+              !parserPostContent.trim()
+            }
+          >
+            解析並填入表單
+          </Button>
+        </Box>
+
+        <SupplierSelect
+          label="解析供應商"
+          value={selectedSupplier}
+          onChange={(supplier) => {
+            setSelectedSupplier(supplier);
+            setParserError(null);
+            setParserMessage(null);
+          }}
+          suppliers={suppliersQuery.data ?? []}
+          isLoading={suppliersQuery.isLoading}
+          isFetching={suppliersQuery.isFetching}
+          error={suppliersQuery.error}
+        />
+
+        <TextField
+          label="FB 貼文內容"
+          value={parserPostContent}
+          onChange={(event) => {
+            setParserPostContent(event.target.value);
+            setParserError(null);
+            setParserMessage(null);
+          }}
+          multiline
+          minRows={8}
+          fullWidth
+        />
+      </Stack>
+    </Paper>
+  );
+
   if (layout === "splitDescription") {
     return (
       <form id={formId} onSubmit={handleFormSubmit}>
         <Box
           sx={{
             display: "grid",
-            gap: 2,
+            gap: { xs: 2, md: 3 },
             alignItems: "start",
             gridTemplateColumns: {
               xs: "1fr",
-              lg: "minmax(0, 1fr) minmax(0, 1fr)",
-            },
-            gridTemplateAreas: {
-              xs: '"main" "description" "actions"',
-              lg: '"main description" "actions actions"',
+              md: "repeat(3, minmax(0, 1fr))",
             },
           }}
         >
-          <Stack spacing={2} sx={{ gridArea: "main" }}>
-            {skuNotice}
-            <Paper sx={{ p: 2 }}>
-              <Stack spacing={2}>{productFields}</Stack>
-            </Paper>
-            {variantSection}
-            {photoSection}
-          </Stack>
+          <Box sx={{ gridColumn: { xs: "auto", md: "span 1" } }}>
+            {parserSection}
+          </Box>
 
-          <Paper
-            sx={{
-              p: 2,
-              gridArea: "description",
-              alignSelf: { lg: "stretch" },
-            }}
-          >
-            <Stack spacing={2} sx={{ height: { lg: "100%" } }}>
-              <Typography variant="h6">產品描述</Typography>
-              <Box
+          <Box sx={{ gridColumn: { xs: "auto", md: "span 2" } }}>
+            <Box
+              sx={{
+                display: "grid",
+                gap: { xs: 2, md: 3 },
+                alignItems: "start",
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  lg: "minmax(0, 1fr) minmax(0, 1fr)",
+                },
+                gridTemplateAreas: {
+                  xs: '"main" "description" "actions"',
+                  lg: '"main description" "actions actions"',
+                },
+              }}
+            >
+              <Stack spacing={2} sx={{ gridArea: "main" }}>
+                {skuNotice}
+                <Paper sx={{ p: 2 }}>
+                  <Stack spacing={2}>{productFields}</Stack>
+                </Paper>
+                {variantSection}
+                {photoSection}
+              </Stack>
+
+              <Paper
                 sx={{
-                  flex: { lg: 1 },
-                  "& .MuiFormControl-root": { height: { lg: "100%" } },
-                  "& .MuiInputBase-root": {
-                    alignItems: "flex-start",
-                    height: { lg: "100%" },
-                  },
-                  "& textarea": { height: { lg: "100% !important" } },
+                  p: 2,
+                  gridArea: "description",
                 }}
               >
-                {descriptionField}
-              </Box>
-            </Stack>
-          </Paper>
+                <Stack spacing={2}>
+                  <Typography variant="h6">產品描述</Typography>
+                  <Box
+                    sx={{
+                      "& .MuiInputBase-root": { alignItems: "flex-start" },
+                    }}
+                  >
+                    {descriptionField}
+                  </Box>
+                </Stack>
+              </Paper>
+            </Box>
+          </Box>
         </Box>
       </form>
     );
