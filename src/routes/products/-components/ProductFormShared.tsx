@@ -109,7 +109,7 @@ export function ProductFormSection({
   children,
   sx,
 }: {
-  title: string;
+  title?: string;
   description?: string;
   children: ReactNode;
   sx?: object;
@@ -117,14 +117,16 @@ export function ProductFormSection({
   return (
     <Paper sx={{ p: 2.5, ...sx }}>
       <Stack spacing={2}>
-        <Stack spacing={0.5}>
-          <Typography variant="h6">{title}</Typography>
-          {description && (
-            <Typography variant="body2" color="text.secondary">
-              {description}
-            </Typography>
-          )}
-        </Stack>
+        {(title || description) && (
+          <Stack spacing={0.5}>
+            {title && <Typography variant="h6">{title}</Typography>}
+            {description && (
+              <Typography variant="body2" color="text.secondary">
+                {description}
+              </Typography>
+            )}
+          </Stack>
+        )}
         {children}
       </Stack>
     </Paper>

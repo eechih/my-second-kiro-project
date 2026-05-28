@@ -29,7 +29,7 @@ function ProductNewPage() {
   const uploadImagesMutation = useUploadProductImagesBatch();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [formInstanceKey, setFormInstanceKey] = useState(0);
+  const [formResetToken, setFormResetToken] = useState(0);
 
   const handleSubmit = async (
     values: ProductCreateFormValues,
@@ -70,24 +70,12 @@ function ProductNewPage() {
   const handleContinueCreate = (): void => {
     setSubmitSuccess(false);
     setSubmitError(null);
-    setFormInstanceKey((prev) => prev + 1);
+    setFormResetToken((prev) => prev + 1);
   };
 
   return (
     <Box>
       <PageHeader section="商品" current="新增" title="新增商品" />
-
-      <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
-        <ProductCreateActions
-          formId={productCreateFormId}
-          isSubmitting={
-            createMutation.isPending ||
-            createVariantMutation.isPending ||
-            uploadImagesMutation.isPending
-          }
-          onCancel={() => void navigate({ to: "/products" })}
-        />
-      </Box>
 
       {submitError && (
         <Alert
@@ -126,11 +114,26 @@ function ProductNewPage() {
           商品已新增完成。
         </Alert>
       )}
+
+      {!submitSuccess && (
+        <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
+          <ProductCreateActions
+            formId={productCreateFormId}
+            isSubmitting={
+              createMutation.isPending ||
+              createVariantMutation.isPending ||
+              uploadImagesMutation.isPending
+            }
+            onCancel={() => void navigate({ to: "/products" })}
+          />
+        </Box>
+      )}
+
       <Stack spacing={3}>
         <ProductCreateForm
-          key={formInstanceKey}
           formId={productCreateFormId}
           layout="splitDescription"
+          resetToken={formResetToken}
           onSubmit={handleSubmit}
         />
       </Stack>

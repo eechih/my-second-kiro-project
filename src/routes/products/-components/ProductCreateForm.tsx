@@ -40,6 +40,7 @@ export interface ProductCreateFormValues {
 export interface ProductCreateFormProps {
   formId: string;
   layout?: "default" | "splitDescription";
+  resetToken?: number;
   onSubmit: (values: ProductCreateFormValues) => Promise<void>;
 }
 
@@ -58,6 +59,7 @@ function formatParsedOptions(options?: string[][]): string {
 export function ProductCreateForm({
   formId,
   layout = "default",
+  resetToken = 0,
   onSubmit,
 }: ProductCreateFormProps): React.ReactElement {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
@@ -66,7 +68,6 @@ export function ProductCreateForm({
   const [variantInput, setVariantInput] = useState("");
   const [parserPostContent, setParserPostContent] = useState("");
   const [parserError, setParserError] = useState<string | null>(null);
-  const [parserMessage, setParserMessage] = useState<string | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -110,6 +111,21 @@ export function ProductCreateForm({
       }
     };
   }, [imageFiles]);
+
+  useEffect(() => {
+    form.reset({
+      name: "",
+      description: "",
+      price: 0,
+      cost: 0,
+      stockQuantity: 0,
+    });
+    setVariantInput("");
+    setParserPostContent("");
+    setParserError(null);
+    setImageFiles([]);
+    setIsDragActive(false);
+  }, [form, resetToken]);
 
   const appendImageFiles = (files: FileList | File[]): void => {
     const nextFiles = Array.from(files).filter((file) =>
@@ -383,12 +399,10 @@ export function ProductCreateForm({
   const handleParserClear = (): void => {
     setParserPostContent("");
     setParserError(null);
-    setParserMessage(null);
   };
 
   const handleParserApply = (): void => {
     setParserError(null);
-    setParserMessage(null);
 
     if (!selectedSupplier) {
       setParserError("請先選擇供應商");
@@ -422,12 +436,6 @@ export function ProductCreateForm({
         result.cost && result.cost > 0 ? result.cost : 0,
       );
       setVariantInput(formatParsedOptions(result.option));
-
-      setParserMessage(
-        result.name
-          ? "已解析貼文並填入商品表單，請確認欄位後送出；SKU 會在建立時自動產生。"
-          : "已完成解析，但未抓到商品名稱，請手動補上表單欄位。",
-      );
     } catch (error) {
       setParserError(
         error instanceof Error ? error.message : "解析 FB 貼文失敗",
@@ -436,7 +444,7 @@ export function ProductCreateForm({
   };
 
   const parserSection = (
-    <ProductFormSection title="FB 貼文解析" sx={{ p: 2 }}>
+    <ProductFormSection sx={{ p: 2 }}>
       <Stack spacing={1.5}>
         {parserError && (
           <Alert severity="error" onClose={() => setParserError(null)}>
@@ -445,11 +453,6 @@ export function ProductCreateForm({
         )}
         {parserSupplierError && (
           <Alert severity="warning">{parserSupplierError}</Alert>
-        )}
-        {parserMessage && (
-          <Alert severity="success" onClose={() => setParserMessage(null)}>
-            {parserMessage}
-          </Alert>
         )}
 
         <Typography variant="body2" color="text.secondary">
@@ -491,7 +494,6 @@ export function ProductCreateForm({
           onChange={(supplier) => {
             setSelectedSupplier(supplier);
             setParserError(null);
-            setParserMessage(null);
           }}
           suppliers={suppliersQuery.data ?? []}
           isLoading={suppliersQuery.isLoading}
@@ -505,7 +507,6 @@ export function ProductCreateForm({
           onChange={(event) => {
             setParserPostContent(event.target.value);
             setParserError(null);
-            setParserMessage(null);
           }}
           multiline
           minRows={8}
@@ -525,7 +526,7 @@ export function ProductCreateForm({
             alignItems: "start",
             gridTemplateColumns: {
               xs: "1fr",
-              sm: "repeat(3, minmax(0, 1fr))",
+              lg: "repeat(3, minmax(0, 1fr))",
             },
           }}
         >
@@ -542,7 +543,6 @@ export function ProductCreateForm({
 
           <Paper sx={{ p: 2 }}>
             <Stack spacing={2}>
-              <Typography variant="h6">產品描述</Typography>
               <Box
                 sx={{
                   "& .MuiInputBase-root": { alignItems: "flex-start" },

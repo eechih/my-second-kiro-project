@@ -17,12 +17,12 @@ export function ProductCreateActions({
     <Stack
       direction="row"
       spacing={1}
-      sx={{ width: "100%", justifyContent: "space-between" }}
+      sx={{ width: "100%", justifyContent: "flex-end" }}
     >
-      <Button color="inherit" onClick={onCancel}>
-        取消
-      </Button>
       <Stack direction="row" spacing={1}>
+        <Button variant="outlined" onClick={onCancel}>
+          取消
+        </Button>
         <Button
           type="submit"
           form={formId}
