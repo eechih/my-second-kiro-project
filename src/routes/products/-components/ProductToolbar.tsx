@@ -3,9 +3,7 @@ import {
   type ListToolbarOption,
 } from "@/components/ListToolbar";
 import AddIcon from "@mui/icons-material/Add";
-import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import Button from "@mui/material/Button";
-import Stack from "@mui/material/Stack";
 import type { ProductStatusFilter } from "@/hooks/useProducts";
 
 const STATUS_OPTIONS = [
@@ -21,7 +19,6 @@ export interface ProductToolbarProps {
   statusFilter: ProductStatusFilter;
   onStatusFilterChange: (value: ProductStatusFilter) => void;
   onAddClick: () => void;
-  onAddFromPostClick: () => void;
 }
 
 export function ProductToolbar({
@@ -31,7 +28,6 @@ export function ProductToolbar({
   statusFilter,
   onStatusFilterChange,
   onAddClick,
-  onAddFromPostClick,
 }: ProductToolbarProps): React.ReactElement {
   return (
     <ListToolbar
@@ -45,22 +41,9 @@ export function ProductToolbar({
         ariaLabel: "狀態篩選",
       }}
       actions={
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            startIcon={<AutoFixHighIcon />}
-            onClick={onAddFromPostClick}
-          >
-            從 FB 貼文新增
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={onAddClick}
-          >
-            新增商品
-          </Button>
-        </Stack>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={onAddClick}>
+          新增商品
+        </Button>
       }
     />
   );

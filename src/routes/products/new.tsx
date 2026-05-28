@@ -3,20 +3,25 @@ import { useUploadProductImagesBatch } from "@/hooks/useProductImages";
 import { useCreateProduct, useCreateVariant } from "@/hooks/useProducts";
 import { client } from "@/lib/amplify-client";
 import { requireAuth } from "@/lib/route-guards";
+import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
+import CloseIcon from "@mui/icons-material/Close";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import CleaningServicesIcon from "@mui/icons-material/CleaningServices";
 import CircularProgress from "@mui/material/CircularProgress";
+import Drawer from "@mui/material/Drawer";
 import FormControl from "@mui/material/FormControl";
 import FormHelperText from "@mui/material/FormHelperText";
+import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import {
   isTranslationSupplier,
   parseSupplierTranslationPost,
@@ -34,23 +39,26 @@ import {
 
 export const Route = createFileRoute("/products/new")({
   beforeLoad: requireAuth,
-  validateSearch: (search: Record<string, unknown>) => ({
-    fromPost: search.fromPost === true || search.fromPost === "true",
-  }),
   component: ProductNewPage,
 });
 
+const parserDrawerWidth = 440;
+const parserDrawerGap = 16;
+const productCreateFormId = "product-create-form";
+
 function ProductNewPage() {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const navigate = useNavigate();
-  const { fromPost } = Route.useSearch();
   const createMutation = useCreateProduct();
   const createVariantMutation = useCreateVariant();
   const uploadImagesMutation = useUploadProductImagesBatch();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formInstanceKey, setFormInstanceKey] = useState(0);
-  const [postPanelResetKey, setPostPanelResetKey] = useState(0);
+  const [parserResetKey, setParserResetKey] = useState(0);
   const [prefill, setPrefill] = useState<ProductCreateFormPrefill | null>(null);
+  const [isParserOpen, setIsParserOpen] = useState(false);
 
   const handleSubmit = async (
     values: ProductCreateFormValues,
@@ -93,31 +101,52 @@ function ProductNewPage() {
     setSubmitError(null);
     setPrefill(null);
     setFormInstanceKey((prev) => prev + 1);
-    setPostPanelResetKey((prev) => prev + 1);
+    setParserResetKey((prev) => prev + 1);
+    setIsParserOpen(false);
   };
 
-  const productForm = (
-    <ProductCreateForm
-      key={formInstanceKey}
-      layout={fromPost ? "splitDescription" : "default"}
-      prefill={prefill}
-      isSubmitting={
-        createMutation.isPending ||
-        createVariantMutation.isPending ||
-        uploadImagesMutation.isPending
-      }
-      onCancel={() => void navigate({ to: "/products" })}
-      onSubmit={handleSubmit}
-    />
-  );
-
   return (
-    <Box sx={{ maxWidth: fromPost ? "none" : 900 }}>
-      <PageHeader
-        section="商品"
-        current="新增"
-        title={fromPost ? "從 FB 貼文新增" : "新增商品"}
-      />
+    <Box>
+      <PageHeader section="商品" current="新增" title="新增商品" />
+
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            onClick={() => void navigate({ to: "/products" })}
+          >
+            取消
+          </Button>
+          <Button
+            type="submit"
+            form={productCreateFormId}
+            variant="contained"
+            disabled={
+              createMutation.isPending ||
+              createVariantMutation.isPending ||
+              uploadImagesMutation.isPending
+            }
+            startIcon={
+              createMutation.isPending ||
+              createVariantMutation.isPending ||
+              uploadImagesMutation.isPending ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : undefined
+            }
+          >
+            建立
+          </Button>
+          {!isParserOpen && (
+            <Button
+              variant="outlined"
+              startIcon={<AutoFixHighIcon />}
+              onClick={() => setIsParserOpen(true)}
+            >
+              FB 貼文解析
+            </Button>
+          )}
+        </Stack>
+      </Box>
 
       {submitError && (
         <Alert
@@ -156,32 +185,164 @@ function ProductNewPage() {
           商品已新增完成。
         </Alert>
       )}
-
-      {fromPost ? (
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "stretch",
+          columnGap: { md: isParserOpen ? `${parserDrawerGap}px` : "0px" },
+          transition: (muiTheme) =>
+            muiTheme.transitions.create("column-gap", {
+              duration: muiTheme.transitions.duration.standard,
+              easing: muiTheme.transitions.easing.easeInOut,
+            }),
+        }}
+      >
         <Box
           sx={{
-            display: "grid",
-            gap: 2,
-            alignItems: { xs: "start", lg: "stretch" },
-            gridTemplateColumns: {
-              xs: "1fr",
-              lg: "minmax(320px, 0.8fr) minmax(900px, 2.2fr)",
+            display: { xs: "none", md: "flex" },
+            width: { md: isParserOpen ? parserDrawerWidth : 0 },
+            flexShrink: 0,
+            overflow: "hidden",
+            transition: (muiTheme) =>
+              muiTheme.transitions.create("width", {
+                duration: muiTheme.transitions.duration.standard,
+                easing: muiTheme.transitions.easing.easeInOut,
+              }),
+          }}
+        >
+          <Drawer
+            variant="permanent"
+            open={isParserOpen}
+            slotProps={{
+              paper: {
+                sx: {
+                  width: parserDrawerWidth,
+                  boxSizing: "border-box",
+                  position: "relative",
+                  borderRight: 1,
+                  borderColor: "divider",
+                  bgcolor: "background.paper",
+                  backgroundImage: "none",
+                  transform: isParserOpen
+                    ? "translateX(0)"
+                    : `translateX(-${parserDrawerWidth}px)`,
+                  transition: (muiTheme) =>
+                    muiTheme.transitions.create("transform", {
+                      duration: muiTheme.transitions.duration.standard,
+                      easing: muiTheme.transitions.easing.easeInOut,
+                    }),
+                },
+              },
+            }}
+            sx={{
+              width: parserDrawerWidth,
+              flexShrink: 0,
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                px: 2,
+                py: 1.5,
+                borderBottom: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Typography variant="h6">FB 貼文解析</Typography>
+              <IconButton
+                aria-label="關閉 FB 貼文解析"
+                onClick={() => setIsParserOpen(false)}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          <Box sx={{ p: 2, overflowY: "auto", height: "100%" }}>
+            <ProductPostParserPanel
+              resetKey={parserResetKey}
+              onApply={(values) => {
+                setSubmitError(null);
+                  setPrefill(values);
+                  setIsParserOpen(false);
+                }}
+              />
+            </Box>
+          </Drawer>
+        </Box>
+
+        <Box
+          sx={{
+            flexGrow: 1,
+            minWidth: 0,
+            width: {
+              md: isParserOpen
+                ? `calc(100% - ${parserDrawerWidth}px - ${parserDrawerGap}px)`
+                : "100%",
+            },
+            transition: (muiTheme) =>
+              muiTheme.transitions.create("width", {
+                duration: muiTheme.transitions.duration.standard,
+                easing: muiTheme.transitions.easing.easeInOut,
+              }),
+          }}
+        >
+          <Stack spacing={3}>
+            <ProductCreateForm
+              key={formInstanceKey}
+              formId={productCreateFormId}
+              layout="splitDescription"
+              prefill={prefill}
+              onSubmit={handleSubmit}
+            />
+          </Stack>
+        </Box>
+      </Box>
+
+      {!isDesktop && (
+        <Drawer
+          anchor="right"
+          open={isParserOpen}
+          onClose={() => setIsParserOpen(false)}
+          slotProps={{
+            paper: {
+              sx: {
+                width: { xs: "100%", sm: 440 },
+                maxWidth: "100%",
+              },
             },
           }}
         >
-          <Box sx={{ alignSelf: { lg: "stretch" } }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              px: 2,
+              py: 1.5,
+              borderBottom: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            <Typography variant="h6">FB 貼文解析</Typography>
+            <IconButton
+              aria-label="關閉 FB 貼文解析"
+              onClick={() => setIsParserOpen(false)}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          <Box sx={{ p: 2 }}>
             <ProductPostParserPanel
-              resetKey={postPanelResetKey}
+              resetKey={parserResetKey}
               onApply={(values) => {
                 setSubmitError(null);
                 setPrefill(values);
+                setIsParserOpen(false);
               }}
             />
           </Box>
-          {productForm}
-        </Box>
-      ) : (
-        <Stack spacing={3}>{productForm}</Stack>
+        </Drawer>
       )}
     </Box>
   );
@@ -237,6 +398,7 @@ function ProductPostParserPanel({
   };
 
   useEffect(() => {
+    setSelectedSupplier(null);
     setPostContent("");
     setParseError(null);
     setParseMessage(null);
@@ -266,7 +428,7 @@ function ProductPostParserPanel({
         translationParser,
         postContent,
       );
-      const prefill: ProductCreateFormPrefill = {
+      const nextPrefill: ProductCreateFormPrefill = {
         name: result.name ?? "",
         description: result.description ?? "",
         price: result.price && result.price > 0 ? result.price : 0,
@@ -275,7 +437,7 @@ function ProductPostParserPanel({
         supplier: selectedSupplier,
       };
 
-      onApply(prefill);
+      onApply(nextPrefill);
       setParseMessage(
         result.name
           ? "已解析貼文並填入商品表單，請確認欄位後送出；SKU 會在建立時自動產生。"
@@ -287,14 +449,11 @@ function ProductPostParserPanel({
   };
 
   return (
-    <Paper sx={{ p: 2, height: { lg: "100%" } }}>
-      <Stack spacing={1.5} sx={{ height: { lg: "100%" } }}>
-        <Stack spacing={0.5}>
-          <Typography variant="h6">FB 貼文解析</Typography>
-          <Typography variant="body2" color="text.secondary">
-            選擇供應商後貼上貼文內容，系統會用對應的解析器預填商品資料。
-          </Typography>
-        </Stack>
+    <Box sx={{ height: "100%" }}>
+      <Stack spacing={1.5} sx={{ height: "100%" }}>
+        <Typography variant="body2" color="text.secondary">
+          選擇供應商後貼上貼文內容，系統會用對應的解析器預填商品資料。
+        </Typography>
 
         {parseError && (
           <Alert severity="error" onClose={() => setParseError(null)}>
@@ -331,11 +490,7 @@ function ProductPostParserPanel({
             }}
             endAdornment={
               suppliersQuery.isFetching ? (
-                <CircularProgress
-                  color="inherit"
-                  size={20}
-                  sx={{ mr: 3 }}
-                />
+                <CircularProgress color="inherit" size={20} sx={{ mr: 3 }} />
               ) : undefined
             }
           >
@@ -359,13 +514,13 @@ function ProductPostParserPanel({
 
         <Box
           sx={{
-            flex: { lg: 1 },
-            "& .MuiFormControl-root": { height: { lg: "100%" } },
+            flex: 1,
+            "& .MuiFormControl-root": { height: "100%" },
             "& .MuiInputBase-root": {
               alignItems: "flex-start",
-              height: { lg: "100%" },
+              height: "100%",
             },
-            "& textarea": { height: { lg: "100% !important" } },
+            "& textarea": { height: "100% !important" },
           }}
         >
           <TextField
@@ -405,7 +560,7 @@ function ProductPostParserPanel({
           </Button>
         </Box>
       </Stack>
-    </Paper>
+    </Box>
   );
 }
 

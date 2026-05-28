@@ -6,7 +6,6 @@ import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import FormControl from "@mui/material/FormControl";
@@ -49,10 +48,9 @@ export interface ProductCreateFormPrefill {
 }
 
 export interface ProductCreateFormProps {
-  isSubmitting: boolean;
+  formId: string;
   prefill?: ProductCreateFormPrefill | null;
   layout?: "default" | "splitDescription";
-  onCancel: () => void;
   onSubmit: (values: ProductCreateFormValues) => Promise<void>;
 }
 
@@ -146,10 +144,9 @@ function SupplierSelect({
 }
 
 export function ProductCreateForm({
-  isSubmitting,
+  formId,
   prefill,
   layout = "default",
-  onCancel,
   onSubmit,
 }: ProductCreateFormProps): React.ReactElement {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
@@ -491,24 +488,6 @@ export function ProductCreateForm({
     </form.Field>
   );
 
-  const formActions = (
-    <Paper sx={{ p: 1.5 }}>
-      <Box sx={{ display: "flex", gap: 1.5, justifyContent: "flex-end" }}>
-        <Button variant="outlined" onClick={onCancel}>
-          取消
-        </Button>
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={isSubmitting}
-          startIcon={isSubmitting ? <CircularProgress size={16} /> : undefined}
-        >
-          建立
-        </Button>
-      </Box>
-    </Paper>
-  );
-
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     event.stopPropagation();
@@ -517,7 +496,7 @@ export function ProductCreateForm({
 
   if (layout === "splitDescription") {
     return (
-      <form onSubmit={handleFormSubmit}>
+      <form id={formId} onSubmit={handleFormSubmit}>
         <Box
           sx={{
             display: "grid",
@@ -566,15 +545,13 @@ export function ProductCreateForm({
               </Box>
             </Stack>
           </Paper>
-
-          <Box sx={{ gridArea: "actions" }}>{formActions}</Box>
         </Box>
       </form>
     );
   }
 
   return (
-    <form onSubmit={handleFormSubmit}>
+    <form id={formId} onSubmit={handleFormSubmit}>
       <Stack spacing={2}>
         {skuNotice}
         <Paper sx={{ p: 2 }}>
@@ -583,7 +560,6 @@ export function ProductCreateForm({
         {variantSection}
         {photoSection}
         <Paper sx={{ p: 2 }}>{descriptionField}</Paper>
-        {formActions}
       </Stack>
     </form>
   );
