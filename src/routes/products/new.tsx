@@ -49,14 +49,16 @@ function ProductNewPage() {
 
     try {
       const product = await createMutation.mutateAsync(values);
-      await syncProductOptionsMutation.mutateAsync({
-        productId: product.id,
-        options: values.options,
-      });
-      await uploadImagesMutation.mutateAsync({
-        productId: product.id,
-        files: values.imageFiles,
-      });
+      await Promise.all([
+        syncProductOptionsMutation.mutateAsync({
+          productId: product.id,
+          options: values.options,
+        }),
+        uploadImagesMutation.mutateAsync({
+          productId: product.id,
+          files: values.imageFiles,
+        }),
+      ]);
       setSubmitSuccess(true);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "建立商品失敗");

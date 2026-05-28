@@ -506,61 +506,76 @@ async function replaceProductOptionsAndVariants({
     Record<string, unknown>
   >;
 
-  for (const option of existingOptions) {
+  const existingOptionValueIds = existingOptions.flatMap((option) => {
     const values = Array.isArray(option.values)
       ? (option.values as Array<Record<string, unknown>>)
       : [];
+    return values
+      .map((value) => value.id)
+      .filter((valueId): valueId is unknown => valueId !== undefined && valueId !== null)
+      .map((valueId) => String(valueId));
+  });
 
-    for (const value of values) {
-      if (!value.id) continue;
+  await Promise.all(
+    existingOptionValueIds.map(async (valueId) => {
       const { errors } = await client.models.ProductOptionValue.delete({
-        id: String(value.id),
+        id: valueId,
       });
       if (errors && errors.length > 0) {
         throw new Error(errors[0]?.message ?? "刪除商品規格值失敗");
       }
-    }
+    }),
+  );
 
-    if (!option.id) continue;
-    const { errors } = await client.models.ProductOption.delete({
-      id: String(option.id),
-    });
-    if (errors && errors.length > 0) {
-      throw new Error(errors[0]?.message ?? "刪除商品規格失敗");
-    }
-  }
+  await Promise.all(
+    existingOptions
+      .map((option) => option.id)
+      .filter((optionId): optionId is unknown => optionId !== undefined && optionId !== null)
+      .map(async (optionId) => {
+        const { errors } = await client.models.ProductOption.delete({
+          id: String(optionId),
+        });
+        if (errors && errors.length > 0) {
+          throw new Error(errors[0]?.message ?? "刪除商品規格失敗");
+        }
+      }),
+  );
 
-  for (const [optionIndex, option] of normalizedOptions.entries()) {
-    const { data, errors } = await client.models.ProductOption.create({
-      productId,
-      name: option.name,
-      sortOrder: option.sortOrder ?? optionIndex,
-    });
+  await Promise.all(
+    normalizedOptions.map(async (option, optionIndex) => {
+      const { data, errors } = await client.models.ProductOption.create({
+        productId,
+        name: option.name,
+        sortOrder: option.sortOrder ?? optionIndex,
+      });
 
-    if (errors && errors.length > 0) {
-      throw new Error(errors[0]?.message ?? "建立商品規格失敗");
-    }
-
-    if (!data?.id) {
-      throw new Error("建立商品規格失敗：未回傳資料");
-    }
-
-    for (const [valueIndex, value] of option.values.entries()) {
-      const { errors: valueErrors } = await client.models.ProductOptionValue.create(
-        {
-          optionId: String(data.id),
-          name: value.name,
-          priceOffset: value.priceOffset ?? 0,
-          costOffset: value.costOffset ?? 0,
-          sortOrder: value.sortOrder ?? valueIndex,
-        },
-      );
-
-      if (valueErrors && valueErrors.length > 0) {
-        throw new Error(valueErrors[0]?.message ?? "建立商品規格值失敗");
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "建立商品規格失敗");
       }
-    }
-  }
+
+      if (!data?.id) {
+        throw new Error("建立商品規格失敗：未回傳資料");
+      }
+
+      await Promise.all(
+        option.values.map(async (value, valueIndex) => {
+          const { errors: valueErrors } = await client.models.ProductOptionValue.create(
+            {
+              optionId: String(data.id),
+              name: value.name,
+              priceOffset: value.priceOffset ?? 0,
+              costOffset: value.costOffset ?? 0,
+              sortOrder: value.sortOrder ?? valueIndex,
+            },
+          );
+
+          if (valueErrors && valueErrors.length > 0) {
+            throw new Error(valueErrors[0]?.message ?? "建立商品規格值失敗");
+          }
+        }),
+      );
+    }),
+  );
 
   const existingVariantsResponse = await client.models.ProductVariant.listVariantsByProduct(
     { productId },
@@ -575,34 +590,38 @@ async function replaceProductOptionsAndVariants({
     );
   }
 
-  for (const variant of (existingVariantsResponse.data ?? []) as Array<
-    Record<string, unknown>
-  >) {
-    if (!variant.id) continue;
-    const { errors } = await client.models.ProductVariant.delete({
-      id: String(variant.id),
-    });
-    if (errors && errors.length > 0) {
-      throw new Error(errors[0]?.message ?? "刪除舊規格組合失敗");
-    }
-  }
+  await Promise.all(
+    ((existingVariantsResponse.data ?? []) as Array<Record<string, unknown>>)
+      .map((variant) => variant.id)
+      .filter((variantId): variantId is unknown => variantId !== undefined && variantId !== null)
+      .map(async (variantId) => {
+        const { errors } = await client.models.ProductVariant.delete({
+          id: String(variantId),
+        });
+        if (errors && errors.length > 0) {
+          throw new Error(errors[0]?.message ?? "刪除舊規格組合失敗");
+        }
+      }),
+  );
 
   const variants = buildVariantsFromOptions(normalizedOptions);
-  for (const [variantIndex, variant] of variants.entries()) {
-    const { errors } = await client.models.ProductVariant.create({
-      productId,
-      label: variant.label.trim(),
-      priceOffset: variant.priceOffset ?? 0,
-      costOffset: variant.costOffset ?? 0,
-      sortOrder: variantIndex,
-      isActive: true,
-      createdAtForSort: new Date().toISOString(),
-    });
+  await Promise.all(
+    variants.map(async (variant, variantIndex) => {
+      const { errors } = await client.models.ProductVariant.create({
+        productId,
+        label: variant.label.trim(),
+        priceOffset: variant.priceOffset ?? 0,
+        costOffset: variant.costOffset ?? 0,
+        sortOrder: variantIndex,
+        isActive: true,
+        createdAtForSort: new Date().toISOString(),
+      });
 
-    if (errors && errors.length > 0) {
-      throw new Error(errors[0]?.message ?? "同步舊規格組合失敗");
-    }
-  }
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "同步舊規格組合失敗");
+      }
+    }),
+  );
 }
 
 export function useSyncProductOptions(): UseMutationResult<
