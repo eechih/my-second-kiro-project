@@ -11,7 +11,6 @@ import IconButton from "@mui/material/IconButton";
 import ImageList from "@mui/material/ImageList";
 import ImageListItem from "@mui/material/ImageListItem";
 import ImageListItemBar from "@mui/material/ImageListItemBar";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -29,6 +28,14 @@ import {
   ProductOptionEditor,
   type EditableProductOption,
 } from "./ProductOptionEditor";
+
+const defaultFormValues = {
+  name: "",
+  description: "",
+  price: 0,
+  cost: 0,
+  stockQuantity: 0,
+};
 
 export interface ProductCreateFormValues {
   name: string;
@@ -69,6 +76,14 @@ function mapParsedOptionsToEditableOptions(
     .filter((option) => option.values.length > 0);
 }
 
+function getImageFileKey(file: File): string {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function filterImageFiles(files: FileList | File[]): File[] {
+  return Array.from(files).filter((file) => file.type.startsWith("image/"));
+}
+
 export function ProductCreateForm({
   formId,
   resetToken = 0,
@@ -85,15 +100,15 @@ export function ProductCreateForm({
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const suppliersQuery = useSupplierOptions();
+  const supplierSelectProps = {
+    suppliers: suppliersQuery.data ?? [],
+    isLoading: suppliersQuery.isLoading,
+    isFetching: suppliersQuery.isFetching,
+    error: suppliersQuery.error,
+  };
 
   const form = useForm({
-    defaultValues: {
-      name: "",
-      description: "",
-      price: 0,
-      cost: 0,
-      stockQuantity: 0,
-    },
+    defaultValues: defaultFormValues,
     onSubmit: async ({ value }) => {
       await onSubmit({
         name: value.name,
@@ -120,13 +135,7 @@ export function ProductCreateForm({
   }, [imageFiles]);
 
   useEffect(() => {
-    form.reset({
-      name: "",
-      description: "",
-      price: 0,
-      cost: 0,
-      stockQuantity: 0,
-    });
+    form.reset(defaultFormValues);
     setOptions([]);
     setParserPostContent("");
     setParserError(null);
@@ -135,18 +144,13 @@ export function ProductCreateForm({
   }, [form, resetToken]);
 
   const appendImageFiles = (files: FileList | File[]): void => {
-    const nextFiles = Array.from(files).filter((file) =>
-      file.type.startsWith("image/"),
-    );
+    const nextFiles = filterImageFiles(files);
     if (nextFiles.length === 0) return;
 
     setImageFiles((prev) => {
-      const existingKeys = new Set(
-        prev.map((file) => `${file.name}-${file.size}-${file.lastModified}`),
-      );
+      const existingKeys = new Set(prev.map(getImageFileKey));
       const deduped = nextFiles.filter((file) => {
-        const key = `${file.name}-${file.size}-${file.lastModified}`;
-        return !existingKeys.has(key);
+        return !existingKeys.has(getImageFileKey(file));
       });
       return [...prev, ...deduped];
     });
@@ -189,30 +193,22 @@ export function ProductCreateForm({
   };
 
   const variantSection = (
-    <Paper sx={{ p: 2 }}>
-      <Stack spacing={1.5}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Typography variant="h6">規格設定</Typography>
-          <Typography variant="body2" color="text.secondary">
-            先定義規格名稱，再為每個規格值設定加價與成本增加。
-          </Typography>
-        </Box>
-
-        <ProductOptionEditor value={options} onChange={setOptions} />
-      </Stack>
-    </Paper>
+    <ProductFormSection
+      title="規格設定"
+      description="先定義規格名稱，再為每個規格值設定加價與成本增加。"
+      sx={{ p: 2 }}
+    >
+      <ProductOptionEditor value={options} onChange={setOptions} />
+    </ProductFormSection>
   );
 
   const photoSection = (
-    <Paper sx={{ p: 2 }}>
+    <ProductFormSection
+      title="商品照片"
+      description="可一次拖拉多張圖片，商品建立後會自動上傳並綁定到商品。"
+      sx={{ p: 2 }}
+    >
       <Stack spacing={1.5}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <InfoOutlinedIcon color="info" fontSize="small" />
-          <Typography variant="body2" color="text.secondary">
-            可一次拖拉多張圖片，商品建立後會自動上傳並綁定到商品。
-          </Typography>
-        </Box>
-
         <Box
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -261,7 +257,7 @@ export function ProductCreateForm({
 
                 return (
                   <ImageListItem
-                    key={`${file.name}-${file.size}-${file.lastModified}`}
+                    key={getImageFileKey(file)}
                     sx={{
                       borderRadius: 1,
                       overflow: "hidden",
@@ -307,15 +303,23 @@ export function ProductCreateForm({
           </Stack>
         )}
       </Stack>
-    </Paper>
+    </ProductFormSection>
   );
 
-  const descriptionField = (
-    <form.Field name="description">
-      {(field) => (
-        <FormField field={field} label="產品描述" multiline minRows={10} />
-      )}
-    </form.Field>
+  const descriptionSection = (
+    <ProductFormSection
+      title="產品描述"
+      sx={{
+        p: 2,
+        width: "100%",
+      }}
+    >
+      <form.Field name="description">
+        {(field) => (
+          <FormField field={field} label="產品描述" multiline rows={16} />
+        )}
+      </form.Field>
+    </ProductFormSection>
   );
 
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
@@ -378,7 +382,7 @@ export function ProductCreateForm({
   };
 
   const productSection = (
-    <Paper sx={{ p: 2 }}>
+    <ProductFormSection title="基本資料" sx={{ p: 2, width: "100%" }}>
       <Stack spacing={2}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <InfoOutlinedIcon color="info" fontSize="small" />
@@ -386,7 +390,16 @@ export function ProductCreateForm({
             SKU 會在建立商品後自動產生，格式為 SKU-000001，並依建立順序遞增。
           </Typography>
         </Box>
-        <Box>
+
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: {
+              xs: "1fr",
+            },
+          }}
+        >
           <form.Field
             name="name"
             validators={{
@@ -440,18 +453,19 @@ export function ProductCreateForm({
             label="預設供應商"
             value={selectedSupplier}
             onChange={setSelectedSupplier}
-            suppliers={suppliersQuery.data ?? []}
-            isLoading={suppliersQuery.isLoading}
-            isFetching={suppliersQuery.isFetching}
-            error={suppliersQuery.error}
+            {...supplierSelectProps}
           />
         </Box>
       </Stack>
-    </Paper>
+    </ProductFormSection>
   );
 
   const parserSection = (
-    <ProductFormSection sx={{ p: 2 }}>
+    <ProductFormSection
+      title="貼文解析"
+      description="選擇供應商後貼上貼文內容，系統會用對應的解析器預填商品資料。"
+      sx={{ p: 2 }}
+    >
       <Stack spacing={1.5}>
         {parserError && (
           <Alert severity="error" onClose={() => setParserError(null)}>
@@ -461,10 +475,6 @@ export function ProductCreateForm({
         {parserSupplierError && (
           <Alert severity="warning">{parserSupplierError}</Alert>
         )}
-
-        <Typography variant="body2" color="text.secondary">
-          選擇供應商後貼上貼文內容，系統會用對應的解析器預填商品資料。
-        </Typography>
 
         <Box
           sx={{
@@ -502,10 +512,7 @@ export function ProductCreateForm({
             setSelectedSupplier(supplier);
             setParserError(null);
           }}
-          suppliers={suppliersQuery.data ?? []}
-          isLoading={suppliersQuery.isLoading}
-          isFetching={suppliersQuery.isFetching}
-          error={suppliersQuery.error}
+          {...supplierSelectProps}
         />
 
         <TextField
@@ -516,7 +523,7 @@ export function ProductCreateForm({
             setParserError(null);
           }}
           multiline
-          minRows={8}
+          minRows={9}
           fullWidth
         />
       </Stack>
@@ -528,9 +535,11 @@ export function ProductCreateForm({
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 4 }}>{parserSection}</Grid>
         <Grid size={{ xs: 12, lg: 8 }} container>
-          <Grid size={{ xs: 12, lg: 6 }}>{productSection}</Grid>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <Paper sx={{ p: 2 }}>{descriptionField}</Paper>
+          <Grid size={{ xs: 12, lg: 6 }} sx={{ display: "flex" }}>
+            {productSection}
+          </Grid>
+          <Grid size={{ xs: 12, lg: 6 }} sx={{ display: "flex" }}>
+            {descriptionSection}
           </Grid>
 
           <Grid size={12}>{variantSection}</Grid>

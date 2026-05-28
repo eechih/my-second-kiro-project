@@ -1,4 +1,5 @@
 import TextField from "@mui/material/TextField";
+import type { SxProps, Theme } from "@mui/material/styles";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import type { ReactNode } from "react";
 
@@ -40,6 +41,8 @@ export interface FormFieldProps {
   disabled?: boolean;
   /** 是否全寬（預設 true） */
   fullWidth?: boolean;
+  /** 額外樣式 */
+  sx?: SxProps<Theme>;
   /**
    * 自訂渲染函式（render prop）。
    * 用於非 TextField 的元件（如 EntitySelect、VariantSelect）。
@@ -74,6 +77,7 @@ export function FormField({
   minRows,
   disabled = false,
   fullWidth = true,
+  sx,
   children,
 }: FormFieldProps): React.ReactElement {
   const errorMessage = getFieldError(field);
@@ -104,6 +108,7 @@ export function FormField({
       minRows={minRows}
       disabled={disabled}
       fullWidth={fullWidth}
+      sx={sx}
     />
   );
 }
