@@ -6,6 +6,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import ImageList from "@mui/material/ImageList";
 import ImageListItem from "@mui/material/ImageListItem";
@@ -42,7 +43,6 @@ export interface ProductCreateFormValues {
 
 export interface ProductCreateFormProps {
   formId: string;
-  layout?: "default" | "splitDescription";
   resetToken?: number;
   onSubmit: (values: ProductCreateFormValues) => Promise<void>;
 }
@@ -71,7 +71,6 @@ function mapParsedOptionsToEditableOptions(
 
 export function ProductCreateForm({
   formId,
-  layout = "default",
   resetToken = 0,
   onSubmit,
 }: ProductCreateFormProps): React.ReactElement {
@@ -513,58 +512,27 @@ export function ProductCreateForm({
     </ProductFormSection>
   );
 
-  if (layout === "splitDescription") {
-    return (
-      <form id={formId} onSubmit={handleFormSubmit}>
-        <Box
-          sx={{
-            display: "grid",
-            gap: { xs: 2, sm: 3 },
-            alignItems: "start",
-            gridTemplateColumns: {
-              xs: "1fr",
-              lg: "repeat(3, minmax(0, 1fr))",
-            },
-          }}
-        >
-          {parserSection}
-
-          <Stack spacing={2}>
-            {skuNotice}
-            <Paper sx={{ p: 2 }}>
-              <Stack spacing={2}>{productFields}</Stack>
-            </Paper>
-            {variantSection}
-            {photoSection}
-          </Stack>
-
-          <Paper sx={{ p: 2 }}>
-            <Stack spacing={2}>
-              <Box
-                sx={{
-                  "& .MuiInputBase-root": { alignItems: "flex-start" },
-                }}
-              >
-                {descriptionField}
-              </Box>
-            </Stack>
-          </Paper>
-        </Box>
-      </form>
-    );
-  }
-
   return (
     <form id={formId} onSubmit={handleFormSubmit}>
-      <Stack spacing={2}>
-        {skuNotice}
-        <Paper sx={{ p: 2 }}>
-          <Stack spacing={2}>{productFields}</Stack>
-        </Paper>
-        {variantSection}
-        {photoSection}
-        <Paper sx={{ p: 2 }}>{descriptionField}</Paper>
-      </Stack>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, lg: 4 }}>{parserSection}</Grid>
+        <Grid size={{ xs: 12, lg: 8 }} container>
+          <Grid size={{ xs: 12, lg: 6 }}>
+            <Stack spacing={2}>
+              {skuNotice}
+              <Paper sx={{ p: 2 }}>
+                <Stack spacing={2}>{productFields}</Stack>
+              </Paper>
+            </Stack>
+          </Grid>
+          <Grid size={{ xs: 12, lg: 6 }}>
+            <Paper sx={{ p: 2 }}>{descriptionField}</Paper>
+          </Grid>
+
+          <Grid size={12}>{variantSection}</Grid>
+          <Grid size={12}>{photoSection}</Grid>
+        </Grid>
+      </Grid>
     </form>
   );
 }

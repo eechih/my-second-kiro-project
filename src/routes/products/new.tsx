@@ -130,7 +130,6 @@ function ProductNewPage() {
       <Stack spacing={3}>
         <ProductCreateForm
           formId={productCreateFormId}
-          layout="splitDescription"
           resetToken={formResetToken}
           onSubmit={handleSubmit}
         />
