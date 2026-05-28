@@ -1,5 +1,11 @@
 import { client } from "@/lib/amplify-client";
-import type { Customer, Product, ProductVariant } from "@shared/models";
+import type {
+  Customer,
+  Product,
+  ProductOption,
+  ProductOptionValue,
+  ProductVariant,
+} from "@shared/models";
 
 const SEARCH_LIMIT = 20;
 
@@ -16,6 +22,8 @@ const PRODUCT_SELECTION_SET = [
   "isActive",
   "createdAt",
   "updatedAt",
+  "options.*",
+  "options.values.*",
   "variants.*",
 ] as const;
 
@@ -80,6 +88,13 @@ function mapCustomer(raw: Record<string, unknown>): Customer {
 }
 
 function mapProduct(raw: Record<string, unknown>): Product {
+  let options: ProductOption[] = [];
+  if (raw.options && Array.isArray(raw.options)) {
+    options = (raw.options as Record<string, unknown>[]).map(mapOption);
+  }
+
+  options.sort((a, b) => a.sortOrder - b.sortOrder);
+
   let variants: ProductVariant[] = [];
   if (raw.variants && Array.isArray(raw.variants)) {
     variants = (raw.variants as Record<string, unknown>[]).map(mapVariant);
@@ -96,7 +111,7 @@ function mapProduct(raw: Record<string, unknown>): Product {
     cost: Number(raw.cost ?? 0),
     defaultSupplierId: raw.defaultSupplierId ? String(raw.defaultSupplierId) : null,
     stockQuantity: Number(raw.stockQuantity ?? 0),
-    options: [],
+    options,
     variants,
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
@@ -104,6 +119,32 @@ function mapProduct(raw: Record<string, unknown>): Product {
     isActive: raw.isActive !== false,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
+  };
+}
+
+function mapOptionValue(raw: Record<string, unknown>): ProductOptionValue {
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? ""),
+    priceOffset: Number(raw.priceOffset ?? 0),
+    costOffset: Number(raw.costOffset ?? 0),
+    sortOrder: Number(raw.sortOrder ?? 0),
+  };
+}
+
+function mapOption(raw: Record<string, unknown>): ProductOption {
+  let values: ProductOptionValue[] = [];
+  if (raw.values && Array.isArray(raw.values)) {
+    values = (raw.values as Record<string, unknown>[]).map(mapOptionValue);
+  }
+
+  values.sort((a, b) => a.sortOrder - b.sortOrder);
+
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? ""),
+    sortOrder: Number(raw.sortOrder ?? 0),
+    values,
   };
 }
 

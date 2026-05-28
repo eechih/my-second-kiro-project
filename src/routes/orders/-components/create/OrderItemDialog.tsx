@@ -1,4 +1,5 @@
 import { EntitySelect } from "@/components/EntitySelect";
+import { ProductOptionValueSelects } from "@/components/ProductOptionValueSelects";
 import { VariantSelect } from "@/components/VariantSelect";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
@@ -9,7 +10,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { useEffect, useState } from "react";
-import type { Product, ProductVariant } from "@shared/models";
+import type { Product, ProductOptionValue, ProductVariant } from "@shared/models";
 import { useProduct } from "@/hooks/useProducts";
 import type { CreateOrderItemInput } from "./formTypes";
 import {
@@ -48,6 +49,9 @@ export function OrderItemDialog({
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     null,
   );
+  const [selectedOptionValues, setSelectedOptionValues] = useState<
+    Record<string, ProductOptionValue | null>
+  >({});
   const [quantity, setQuantity] = useState(1);
   const [unitPrice, setUnitPrice] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +76,7 @@ export function OrderItemDialog({
       const draft = createDefaultOrderItemDraft();
       setSelectedProduct(draft.product);
       setSelectedVariant(draft.variant);
+      setSelectedOptionValues({});
       setQuantity(draft.quantity);
       setUnitPrice(draft.unitPrice);
     } else {
@@ -80,6 +85,7 @@ export function OrderItemDialog({
       setUnitPrice(editData.unitPrice);
       setSelectedProduct(null);
       setSelectedVariant(null);
+      setSelectedOptionValues({});
     }
     setError(null);
   }, [open, editData]);
@@ -92,23 +98,42 @@ export function OrderItemDialog({
 
     setSelectedProduct(productDetail);
 
-    if (editData.variantLabel) {
+    if (productDetail.options.length > 0 && editData.variantLabel) {
+      const tokens = editData.variantLabel
+        .split("/")
+        .map((token) => token.trim())
+        .filter(Boolean);
+
+      const nextSelectedValues = Object.fromEntries(
+        productDetail.options.map((option, index) => {
+          const matchedValue =
+            option.values.find((value) => value.name === tokens[index]) ?? null;
+          return [option.id, matchedValue];
+        }),
+      );
+
+      setSelectedOptionValues(nextSelectedValues);
+      setSelectedVariant(null);
+    } else if (editData.variantLabel) {
       const matchedVariant = productDetail.variants.find(
         (v) => v.label === editData.variantLabel,
       );
       setSelectedVariant(matchedVariant ?? null);
+      setSelectedOptionValues({});
     } else {
       setSelectedVariant(null);
+      setSelectedOptionValues({});
     }
   }, [open, editData, productDetail]);
 
   const handleProductChange = (product: Product | null): void => {
     setSelectedProduct(product);
     setSelectedVariant(null);
+    setSelectedOptionValues({});
     setError(null);
 
     if (product) {
-      setUnitPrice(resolveDraftUnitPrice(product, null));
+      setUnitPrice(resolveDraftUnitPrice(product, null, []));
       return;
     }
 
@@ -117,19 +142,45 @@ export function OrderItemDialog({
 
   const handleVariantChange = (variant: ProductVariant | null): void => {
     setSelectedVariant(variant);
+    setSelectedOptionValues({});
     setError(null);
 
     if (!selectedProduct) {
       return;
     }
 
-    setUnitPrice(resolveDraftUnitPrice(selectedProduct, variant));
+    setUnitPrice(resolveDraftUnitPrice(selectedProduct, variant, []));
+  };
+
+  const handleOptionValueChange = (
+    optionId: string,
+    value: ProductOptionValue | null,
+  ): void => {
+    const nextSelectedOptionValues = {
+      ...selectedOptionValues,
+      [optionId]: value,
+    };
+    setSelectedOptionValues(nextSelectedOptionValues);
+    setError(null);
+
+    if (!selectedProduct) {
+      return;
+    }
+
+    const selectedValues = selectedProduct.options
+      .map((option) => nextSelectedOptionValues[option.id] ?? null)
+      .filter((optionValue): optionValue is ProductOptionValue => optionValue !== null);
+
+    setUnitPrice(resolveDraftUnitPrice(selectedProduct, null, selectedValues));
   };
 
   const handleSubmit = (): void => {
     const draft = {
       product: selectedProduct,
       variant: selectedVariant,
+      selectedOptionValues: Object.values(selectedOptionValues).filter(
+        (value): value is ProductOptionValue => value !== null,
+      ),
       quantity,
       unitPrice,
     };
@@ -144,7 +195,8 @@ export function OrderItemDialog({
     onClose();
   };
 
-  const hasVariants = (selectedProduct?.variants.length ?? 0) > 0;
+  const hasOptions = (selectedProduct?.options.length ?? 0) > 0;
+  const hasVariants = !hasOptions && (selectedProduct?.variants.length ?? 0) > 0;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -161,6 +213,14 @@ export function OrderItemDialog({
             getOptionLabel={(product) => `${product.name}（${product.sku}）`}
             required
           />
+          {hasOptions ? (
+            <ProductOptionValueSelects
+              options={selectedProduct?.options ?? []}
+              value={selectedOptionValues}
+              onChange={handleOptionValueChange}
+              error={error === "請選取所有規格選項" ? error : undefined}
+            />
+          ) : null}
           {hasVariants ? (
             <VariantSelect
               productId={selectedProduct?.id ?? ""}

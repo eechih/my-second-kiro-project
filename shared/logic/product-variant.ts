@@ -13,7 +13,11 @@
  */
 
 import type { ValidationResult } from "../models/order";
-import type { Product, ProductVariant } from "../models/product";
+import type {
+  Product,
+  ProductOptionValue,
+  ProductVariant,
+} from "../models/product";
 
 /**
  * 解析規格組合的有效單價。
@@ -62,11 +66,73 @@ export function validateVariantRequired(
   product: Product,
   variantLabel: string | null,
 ): ValidationResult {
+  if (product.options.length > 0) {
+    return { valid: true };
+  }
+
   if (
     product.variants.length > 0 &&
     (variantLabel === null || variantLabel.trim() === "")
   ) {
     return { valid: false, error: "請選取規格組合" };
   }
+  return { valid: true };
+}
+
+export function buildOptionVariantLabel(
+  selectedValues: ProductOptionValue[],
+): string | null {
+  if (selectedValues.length === 0) {
+    return null;
+  }
+
+  return selectedValues
+    .map((value) => value.name.trim())
+    .filter(Boolean)
+    .join(" / ");
+}
+
+export function resolveEffectivePriceFromOptions(
+  product: Product,
+  selectedValues: ProductOptionValue[],
+): number {
+  return (
+    product.price +
+    selectedValues.reduce((total, value) => total + (value.priceOffset ?? 0), 0)
+  );
+}
+
+export function resolveEffectiveCostFromOptions(
+  product: Product,
+  selectedValues: ProductOptionValue[],
+): number {
+  return (
+    product.cost +
+    selectedValues.reduce((total, value) => total + (value.costOffset ?? 0), 0)
+  );
+}
+
+export function validateOptionValuesRequired(
+  product: Product,
+  selectedValues: ProductOptionValue[],
+): ValidationResult {
+  if (product.options.length === 0) {
+    return { valid: true };
+  }
+
+  if (selectedValues.length !== product.options.length) {
+    return { valid: false, error: "請選取所有規格選項" };
+  }
+
+  const allSelected = product.options.every((option) =>
+    selectedValues.some((value) =>
+      option.values.some((candidate) => candidate.id === value.id),
+    ),
+  );
+
+  if (!allSelected) {
+    return { valid: false, error: "請選取所有規格選項" };
+  }
+
   return { valid: true };
 }

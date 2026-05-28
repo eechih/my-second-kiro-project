@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Product, ProductVariant } from "@shared/models";
+import type { Product, ProductOptionValue, ProductVariant } from "@shared/models";
 import {
   buildOrderItemFormData,
   createDefaultOrderItemDraft,
@@ -12,6 +12,22 @@ const baseVariant: ProductVariant = {
   label: "黑 L",
   priceOffset: 50,
   costOffset: null,
+};
+
+const colorValue: ProductOptionValue = {
+  id: "option-value-color",
+  name: "黑",
+  priceOffset: 20,
+  costOffset: 10,
+  sortOrder: 0,
+};
+
+const sizeValue: ProductOptionValue = {
+  id: "option-value-size",
+  name: "L",
+  priceOffset: 30,
+  costOffset: 5,
+  sortOrder: 0,
 };
 
 const baseProduct: Product = {
@@ -36,6 +52,7 @@ describe("orderItemDraft", () => {
     expect(createDefaultOrderItemDraft()).toEqual({
       product: null,
       variant: null,
+      selectedOptionValues: [],
       quantity: 1,
       unitPrice: 0,
     });
@@ -46,6 +63,7 @@ describe("orderItemDraft", () => {
       getOrderItemDraftError({
         product: baseProduct,
         variant: null,
+        selectedOptionValues: [],
         quantity: 1,
         unitPrice: 300,
       }),
@@ -57,6 +75,7 @@ describe("orderItemDraft", () => {
       buildOrderItemFormData({
         product: baseProduct,
         variant: baseVariant,
+        selectedOptionValues: [],
         quantity: 2,
         unitPrice: 350,
       }),
@@ -71,7 +90,69 @@ describe("orderItemDraft", () => {
   });
 
   it("resolves unit price from product or selected variant", () => {
-    expect(resolveDraftUnitPrice(baseProduct, null)).toBe(300);
-    expect(resolveDraftUnitPrice(baseProduct, baseVariant)).toBe(350);
+    expect(resolveDraftUnitPrice(baseProduct, null, [])).toBe(300);
+    expect(resolveDraftUnitPrice(baseProduct, baseVariant, [])).toBe(350);
+  });
+
+  it("resolves unit price from selected option values when product uses options", () => {
+    const optionProduct: Product = {
+      ...baseProduct,
+      options: [
+        {
+          id: "option-color",
+          name: "顏色",
+          sortOrder: 0,
+          values: [colorValue],
+        },
+        {
+          id: "option-size",
+          name: "尺寸",
+          sortOrder: 1,
+          values: [sizeValue],
+        },
+      ],
+    };
+
+    expect(resolveDraftUnitPrice(optionProduct, null, [colorValue, sizeValue])).toBe(
+      350,
+    );
+  });
+
+  it("builds order item data from selected option values", () => {
+    const optionProduct: Product = {
+      ...baseProduct,
+      variants: [],
+      options: [
+        {
+          id: "option-color",
+          name: "顏色",
+          sortOrder: 0,
+          values: [colorValue],
+        },
+        {
+          id: "option-size",
+          name: "尺寸",
+          sortOrder: 1,
+          values: [sizeValue],
+        },
+      ],
+    };
+
+    expect(
+      buildOrderItemFormData({
+        product: optionProduct,
+        variant: null,
+        selectedOptionValues: [colorValue, sizeValue],
+        quantity: 1,
+        unitPrice: 350,
+      }),
+    ).toEqual({
+      productId: "product-1",
+      productName: "測試商品",
+      productSku: "SKU-001",
+      variantLabel: "黑 / L",
+      quantity: 1,
+      unitPrice: 350,
+    });
   });
 });
