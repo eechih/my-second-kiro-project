@@ -188,80 +188,18 @@ export function ProductCreateForm({
     appendImageFiles(event.dataTransfer.files);
   };
 
-  const productFields = (
-    <>
-      <form.Field
-        name="name"
-        validators={{
-          onBlur: ({ value }) => (!value.trim() ? "商品名稱為必填" : undefined),
-        }}
-      >
-        {(field) => <FormField field={field} label="商品名稱" required />}
-      </form.Field>
-
-      <form.Field
-        name="price"
-        validators={{
-          onBlur: ({ value }) => (value < 0 ? "單價不可為負數" : undefined),
-        }}
-      >
-        {(field) => (
-          <FormField field={field} label="預設單價" type="number" required />
-        )}
-      </form.Field>
-
-      <form.Field
-        name="cost"
-        validators={{
-          onBlur: ({ value }) => (value < 0 ? "進貨成本不可為負數" : undefined),
-        }}
-      >
-        {(field) => (
-          <FormField
-            field={field}
-            label="預設進貨成本"
-            type="number"
-            required
-          />
-        )}
-      </form.Field>
-
-      <form.Field name="stockQuantity">
-        {(field) => (
-          <FormField field={field} label="初始庫存數量" type="number" />
-        )}
-      </form.Field>
-
-      <SupplierSelect
-        label="預設供應商"
-        value={selectedSupplier}
-        onChange={setSelectedSupplier}
-        suppliers={suppliersQuery.data ?? []}
-        isLoading={suppliersQuery.isLoading}
-        isFetching={suppliersQuery.isFetching}
-        error={suppliersQuery.error}
-      />
-    </>
-  );
-
   const variantSection = (
-    <ProductFormSection
-      title="規格設定"
-      description="先定義規格名稱，再為每個規格值設定加價與成本增加。"
-      sx={{ p: 2 }}
-    >
-      <ProductOptionEditor value={options} onChange={setOptions} />
-    </ProductFormSection>
-  );
-
-  const skuNotice = (
     <Paper sx={{ p: 2 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <InfoOutlinedIcon color="info" fontSize="small" />
-        <Typography variant="body2" color="text.secondary">
-          SKU 會在建立商品後自動產生，格式為 SKU-000001，並依建立順序遞增。
-        </Typography>
-      </Box>
+      <Stack spacing={1.5}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography variant="h6">規格設定</Typography>
+          <Typography variant="body2" color="text.secondary">
+            先定義規格名稱，再為每個規格值設定加價與成本增加。
+          </Typography>
+        </Box>
+
+        <ProductOptionEditor value={options} onChange={setOptions} />
+      </Stack>
     </Paper>
   );
 
@@ -439,6 +377,79 @@ export function ProductCreateForm({
     }
   };
 
+  const productSection = (
+    <Paper sx={{ p: 2 }}>
+      <Stack spacing={2}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <InfoOutlinedIcon color="info" fontSize="small" />
+          <Typography variant="body2" color="text.secondary">
+            SKU 會在建立商品後自動產生，格式為 SKU-000001，並依建立順序遞增。
+          </Typography>
+        </Box>
+        <Box>
+          <form.Field
+            name="name"
+            validators={{
+              onBlur: ({ value }) =>
+                !value.trim() ? "商品名稱為必填" : undefined,
+            }}
+          >
+            {(field) => <FormField field={field} label="商品名稱" required />}
+          </form.Field>
+
+          <form.Field
+            name="price"
+            validators={{
+              onBlur: ({ value }) => (value < 0 ? "單價不可為負數" : undefined),
+            }}
+          >
+            {(field) => (
+              <FormField
+                field={field}
+                label="預設單價"
+                type="number"
+                required
+              />
+            )}
+          </form.Field>
+
+          <form.Field
+            name="cost"
+            validators={{
+              onBlur: ({ value }) =>
+                value < 0 ? "進貨成本不可為負數" : undefined,
+            }}
+          >
+            {(field) => (
+              <FormField
+                field={field}
+                label="預設進貨成本"
+                type="number"
+                required
+              />
+            )}
+          </form.Field>
+
+          <form.Field name="stockQuantity">
+            {(field) => (
+              <FormField field={field} label="初始庫存數量" type="number" />
+            )}
+          </form.Field>
+
+          <SupplierSelect
+            label="預設供應商"
+            value={selectedSupplier}
+            onChange={setSelectedSupplier}
+            suppliers={suppliersQuery.data ?? []}
+            isLoading={suppliersQuery.isLoading}
+            isFetching={suppliersQuery.isFetching}
+            error={suppliersQuery.error}
+          />
+        </Box>
+      </Stack>
+    </Paper>
+  );
+
   const parserSection = (
     <ProductFormSection sx={{ p: 2 }}>
       <Stack spacing={1.5}>
@@ -517,14 +528,7 @@ export function ProductCreateForm({
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 4 }}>{parserSection}</Grid>
         <Grid size={{ xs: 12, lg: 8 }} container>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <Stack spacing={2}>
-              {skuNotice}
-              <Paper sx={{ p: 2 }}>
-                <Stack spacing={2}>{productFields}</Stack>
-              </Paper>
-            </Stack>
-          </Grid>
+          <Grid size={{ xs: 12, lg: 6 }}>{productSection}</Grid>
           <Grid size={{ xs: 12, lg: 6 }}>
             <Paper sx={{ p: 2 }}>{descriptionField}</Paper>
           </Grid>
