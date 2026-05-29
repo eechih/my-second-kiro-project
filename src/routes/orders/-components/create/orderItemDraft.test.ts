@@ -1,18 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Product, ProductOptionValue, ProductVariant } from "@shared/models";
+import type { Product, ProductOptionValue } from "@shared/models";
 import {
   buildOrderItemFormData,
   createDefaultOrderItemDraft,
   getOrderItemDraftError,
   resolveDraftUnitPrice,
 } from "./orderItemDraft";
-
-const baseVariant: ProductVariant = {
-  id: "variant-1",
-  label: "黑 L",
-  priceOffset: 50,
-  costOffset: null,
-};
 
 const colorValue: ProductOptionValue = {
   id: "option-value-color",
@@ -40,7 +33,7 @@ const baseProduct: Product = {
   defaultSupplierId: null,
   stockQuantity: 10,
   options: [],
-  variants: [baseVariant],
+  variants: [],
   imageUrls: [],
   isActive: true,
   createdAt: "2026-05-11T00:00:00.000Z",
@@ -51,47 +44,34 @@ describe("orderItemDraft", () => {
   it("creates the default draft for add dialog", () => {
     expect(createDefaultOrderItemDraft()).toEqual({
       product: null,
-      variant: null,
       selectedOptionValues: [],
+      legacyVariantLabel: null,
       quantity: 1,
       unitPrice: 0,
     });
   });
 
-  it("requires variant selection when product has variants", () => {
-    expect(
-      getOrderItemDraftError({
-        product: baseProduct,
-        variant: null,
-        selectedOptionValues: [],
-        quantity: 1,
-        unitPrice: 300,
-      }),
-    ).toBe("請選取規格組合");
-  });
-
-  it("builds order item data from a valid draft", () => {
+  it("builds order item data from a simple draft", () => {
     expect(
       buildOrderItemFormData({
         product: baseProduct,
-        variant: baseVariant,
         selectedOptionValues: [],
+        legacyVariantLabel: null,
         quantity: 2,
-        unitPrice: 350,
+        unitPrice: 300,
       }),
     ).toEqual({
       productId: "product-1",
       productName: "測試商品",
       productSku: "SKU-001",
-      variantLabel: "黑 L",
+      variantLabel: null,
       quantity: 2,
-      unitPrice: 350,
+      unitPrice: 300,
     });
   });
 
-  it("resolves unit price from product or selected variant", () => {
-    expect(resolveDraftUnitPrice(baseProduct, null, [])).toBe(300);
-    expect(resolveDraftUnitPrice(baseProduct, baseVariant, [])).toBe(350);
+  it("resolves unit price from product base price when no options are selected", () => {
+    expect(resolveDraftUnitPrice(baseProduct, [])).toBe(300);
   });
 
   it("resolves unit price from selected option values when product uses options", () => {
@@ -113,7 +93,7 @@ describe("orderItemDraft", () => {
       ],
     };
 
-    expect(resolveDraftUnitPrice(optionProduct, null, [colorValue, sizeValue])).toBe(
+    expect(resolveDraftUnitPrice(optionProduct, [colorValue, sizeValue])).toBe(
       350,
     );
   });
@@ -141,8 +121,8 @@ describe("orderItemDraft", () => {
     expect(
       buildOrderItemFormData({
         product: optionProduct,
-        variant: null,
         selectedOptionValues: [colorValue, sizeValue],
+        legacyVariantLabel: null,
         quantity: 1,
         unitPrice: 350,
       }),
@@ -151,6 +131,25 @@ describe("orderItemDraft", () => {
       productName: "測試商品",
       productSku: "SKU-001",
       variantLabel: "黑 / L",
+      quantity: 1,
+      unitPrice: 350,
+    });
+  });
+
+  it("preserves legacy variant label when editing old order items", () => {
+    expect(
+      buildOrderItemFormData({
+        product: baseProduct,
+        selectedOptionValues: [],
+        legacyVariantLabel: "黑 L",
+        quantity: 1,
+        unitPrice: 350,
+      }),
+    ).toEqual({
+      productId: "product-1",
+      productName: "測試商品",
+      productSku: "SKU-001",
+      variantLabel: "黑 L",
       quantity: 1,
       unitPrice: 350,
     });

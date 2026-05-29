@@ -1,17 +1,15 @@
 import {
   buildOptionVariantLabel,
-  resolveEffectivePrice,
   resolveEffectivePriceFromOptions,
   validateOptionValuesRequired,
-  validateVariantRequired,
 } from "@shared/logic/product-variant";
-import type { Product, ProductOptionValue, ProductVariant } from "@shared/models";
+import type { Product, ProductOptionValue } from "@shared/models";
 import type { CreateOrderItemInput } from "./formTypes";
 
 export interface OrderItemDraft {
   product: Product | null;
-  variant: ProductVariant | null;
   selectedOptionValues: ProductOptionValue[];
+  legacyVariantLabel: string | null;
   quantity: number;
   unitPrice: number;
 }
@@ -19,8 +17,8 @@ export interface OrderItemDraft {
 export function createDefaultOrderItemDraft(): OrderItemDraft {
   return {
     product: null,
-    variant: null,
     selectedOptionValues: [],
+    legacyVariantLabel: null,
     quantity: 1,
     unitPrice: 0,
   };
@@ -31,10 +29,6 @@ export function getOrderItemDraftError(draft: OrderItemDraft): string | null {
     return "請選取商品";
   }
 
-  const variantValidation = validateVariantRequired(
-    draft.product,
-    draft.variant?.label ?? null,
-  );
   const optionValidation = validateOptionValuesRequired(
     draft.product,
     draft.selectedOptionValues,
@@ -42,10 +36,6 @@ export function getOrderItemDraftError(draft: OrderItemDraft): string | null {
 
   if (!optionValidation.valid) {
     return optionValidation.error ?? "請選取所有規格選項";
-  }
-
-  if (!variantValidation.valid) {
-    return variantValidation.error ?? "請選取規格組合";
   }
 
   if (draft.quantity <= 0) {
@@ -72,7 +62,7 @@ export function buildOrderItemFormData(
     productSku: draft.product.sku,
     variantLabel:
       buildOptionVariantLabel(draft.selectedOptionValues) ??
-      draft.variant?.label ??
+      draft.legacyVariantLabel ??
       null,
     quantity: draft.quantity,
     unitPrice: draft.unitPrice,
@@ -81,16 +71,11 @@ export function buildOrderItemFormData(
 
 export function resolveDraftUnitPrice(
   product: Product,
-  variant: ProductVariant | null,
   selectedOptionValues: ProductOptionValue[] = [],
 ): number {
   if (product.options.length > 0) {
     return resolveEffectivePriceFromOptions(product, selectedOptionValues);
   }
 
-  if (!variant) {
-    return product.price;
-  }
-
-  return resolveEffectivePrice(variant, product);
+  return product.price;
 }

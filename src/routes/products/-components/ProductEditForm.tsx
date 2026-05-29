@@ -48,31 +48,14 @@ export interface ProductEditFormProps {
 function mapProductToEditableOptions(
   product: Product,
 ): EditableProductOption[] {
-  if (product.options.length > 0) {
-    return product.options.map((option) => ({
-      name: option.name,
-      values: option.values.map((value) => ({
-        name: value.name,
-        priceOffset: value.priceOffset,
-        costOffset: value.costOffset,
-      })),
-    }));
-  }
-
-  if (product.variants.length > 0) {
-    return [
-      {
-        name: "規格",
-        values: product.variants.map((variant) => ({
-          name: variant.label,
-          priceOffset: variant.priceOffset ?? 0,
-          costOffset: variant.costOffset ?? 0,
-        })),
-      },
-    ];
-  }
-
-  return [];
+  return product.options.map((option) => ({
+    name: option.name,
+    values: option.values.map((value) => ({
+      name: value.name,
+      priceOffset: value.priceOffset,
+      costOffset: value.costOffset,
+    })),
+  }));
 }
 
 export function ProductEditForm({
