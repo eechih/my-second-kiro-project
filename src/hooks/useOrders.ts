@@ -5,15 +5,23 @@ import {
 } from "@shared/logic/order-calculations";
 import { validateMergeOrders } from "@shared/logic/order-merge";
 import { validateSplitOrder } from "@shared/logic/order-split";
-import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 import {
+  deriveFulfillmentStatusFromOrderItems,
+  deriveOrderStatusFromSummary,
+  isValidOrderStatusTransition,
+} from "@shared/logic/order-status";
+import {
+  normalizeFulfillmentStatus,
   normalizeOrderItemStatus,
   normalizeOrderStatus,
+  normalizePaymentStatus,
   type ConfirmShipmentInput,
   type CreateOrderInput,
+  type FulfillmentStatus,
   type OrderItem,
   type OrderItemSelectedOptionSnapshot,
   type Order,
+  type PaymentStatus,
   type OrderStatus,
   type PaginatedResult,
   type SplitAllocation,
@@ -67,6 +75,12 @@ const ORDER_DETAIL_SELECTION_SET = [
   "totalAmount",
   "subtotalAmount",
   "status",
+  "paymentStatus",
+  "fulfillmentStatus",
+  "paidAt",
+  "cancelledAt",
+  "refundedAt",
+  "completedAt",
   "statusHistory",
   "createdAt",
   "updatedAt",
@@ -82,6 +96,12 @@ const ORDER_VALIDATION_SELECTION_SET = [
   "totalAmount",
   "subtotalAmount",
   "status",
+  "paymentStatus",
+  "fulfillmentStatus",
+  "paidAt",
+  "cancelledAt",
+  "refundedAt",
+  "completedAt",
   "statusHistory",
   "createdAt",
   "updatedAt",
@@ -97,6 +117,8 @@ type UpdateOrderStatusInput = {
   orderId: string;
   currentStatus: OrderStatus;
   newStatus: OrderStatus;
+  currentPaymentStatus: PaymentStatus;
+  currentFulfillmentStatus: FulfillmentStatus;
   statusHistory: StatusChange[];
 };
 
@@ -274,6 +296,12 @@ function mapToOrder(raw: Record<string, unknown>): Order {
     items,
     totalAmount: Number(raw.totalAmount ?? 0),
     status: normalizeOrderStatus(raw.status),
+    paymentStatus: normalizePaymentStatus(raw.paymentStatus),
+    fulfillmentStatus: normalizeFulfillmentStatus(raw.fulfillmentStatus),
+    paidAt: raw.paidAt ? String(raw.paidAt) : null,
+    cancelledAt: raw.cancelledAt ? String(raw.cancelledAt) : null,
+    refundedAt: raw.refundedAt ? String(raw.refundedAt) : null,
+    completedAt: raw.completedAt ? String(raw.completedAt) : null,
     statusHistory,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
@@ -403,11 +431,13 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       customerId: input.customerId,
       orderNumber,
       customerNameSnapshot: input.customerName,
+      paymentStatus: "UNPAID",
+      fulfillmentStatus: "UNFULFILLED",
       subtotalAmount: totalAmount,
       totalAmount,
-      shippingFee: 0,
+      shippingAmount: 0,
       discountAmount: 0,
-      status: "pending",
+      status: "PENDING_PAYMENT",
       statusHistory: JSON.stringify([]),
       isActive: true,
       gsiPartition: "Order",
@@ -467,7 +497,13 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     customerName: input.customerName,
     items: createdOrderItems,
     totalAmount,
-    status: "pending",
+    status: "PENDING_PAYMENT",
+    paymentStatus: "UNPAID",
+    fulfillmentStatus: "UNFULFILLED",
+    paidAt: null,
+    cancelledAt: null,
+    refundedAt: null,
+    completedAt: null,
     statusHistory: [],
     createdAt: now,
     updatedAt: now,
@@ -477,7 +513,14 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
 async function updateOrderStatus(
   input: UpdateOrderStatusInput,
 ): Promise<Order> {
-  const { orderId, currentStatus, newStatus, statusHistory } = input;
+  const {
+    orderId,
+    currentStatus,
+    newStatus,
+    currentPaymentStatus,
+    currentFulfillmentStatus,
+    statusHistory,
+  } = input;
 
   if (!isValidOrderStatusTransition(currentStatus, newStatus)) {
     throw new Error(
@@ -491,9 +534,54 @@ async function updateOrderStatus(
     { fromStatus: currentStatus, toStatus: newStatus, changedAt: now },
   ];
 
+  let paymentStatus = currentPaymentStatus;
+  let fulfillmentStatus = currentFulfillmentStatus;
+  let paidAt: string | null | undefined;
+  let cancelledAt: string | null | undefined;
+  let refundedAt: string | null | undefined;
+  let completedAt: string | null | undefined;
+
+  switch (newStatus) {
+    case "PENDING_PAYMENT":
+      paymentStatus = "UNPAID";
+      fulfillmentStatus = "UNFULFILLED";
+      paidAt = null;
+      cancelledAt = null;
+      refundedAt = null;
+      completedAt = null;
+      break;
+    case "PAID":
+      paymentStatus = "PAID";
+      paidAt = now;
+      cancelledAt = null;
+      refundedAt = null;
+      break;
+    case "COMPLETED":
+      paymentStatus = "PAID";
+      fulfillmentStatus = "COMPLETED";
+      paidAt = paidAt ?? null;
+      cancelledAt = null;
+      completedAt = now;
+      break;
+    case "REFUNDED":
+      paymentStatus = "REFUNDED";
+      cancelledAt = null;
+      refundedAt = now;
+      break;
+    case "CANCELLED":
+      cancelledAt = now;
+      break;
+  }
+
   const { data, errors } = await client.models.Order.update({
     id: orderId,
     status: newStatus,
+    paymentStatus,
+    fulfillmentStatus,
+    paidAt,
+    cancelledAt,
+    refundedAt,
+    completedAt,
     statusHistory: JSON.stringify(newHistory),
   });
 
@@ -1219,18 +1307,13 @@ export function useConfirmShipment(): UseMutationResult<
           return li;
         });
 
-        // Derive order status
-        const allShipped = updatedOrder.items.every(
-          (li) => li.status === "shipped",
+        updatedOrder.fulfillmentStatus = deriveFulfillmentStatusFromOrderItems(
+          updatedOrder.items,
         );
-        const someShipped = updatedOrder.items.some(
-          (li) => li.status === "shipped",
-        );
-        if (allShipped) {
-          updatedOrder.status = "completed";
-        } else if (someShipped) {
-          updatedOrder.status = "shipping";
-        }
+        updatedOrder.status = deriveOrderStatusFromSummary({
+          paymentStatus: updatedOrder.paymentStatus,
+          fulfillmentStatus: updatedOrder.fulfillmentStatus,
+        });
 
         queryClient.setQueryData(orderKey, updatedOrder);
       }

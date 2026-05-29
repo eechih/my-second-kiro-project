@@ -1,5 +1,10 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
-import { ORDER_ITEM_STATUSES, ORDER_STATUSES } from "@shared/models/order";
+import {
+  FULFILLMENT_STATUSES,
+  ORDER_ITEM_STATUSES,
+  ORDER_STATUSES,
+  PAYMENT_STATUSES,
+} from "@shared/models/order";
 import { cancelOutOfStock } from "../functions/cancel-out-of-stock/resource";
 import { cancelPurchase } from "../functions/cancel-purchase/resource";
 import { cancelReceived } from "../functions/cancel-received/resource";
@@ -194,20 +199,14 @@ const schema = a.schema({
       customerPhoneSnapshot: a.string(),
       customerEmailSnapshot: a.string(),
       shippingAddressSnapshot: a.string(),
-      // 付款狀態：未付款 / 已付款 / 已退款
-      paymentStatus: a.enum(["UNPAID", "PAID", "REFUNDED"]),
-      // 履約狀態：待處理 / 部分到貨 / 可出貨 / 部分出貨 / 全部出貨 / 完成
-      fulfillmentStatus: a.enum([
-        "PENDING",
-        "PARTIALLY_RECEIVED",
-        "READY_TO_SHIP",
-        "PARTIALLY_SHIPPED",
-        "SHIPPED",
-        "COMPLETED",
-      ]),
+      paymentStatus: a.enum(PAYMENT_STATUSES),
+      fulfillmentStatus: a.enum(FULFILLMENT_STATUSES),
+      paidAt: a.datetime(),
       cancelledAt: a.datetime(),
+      refundedAt: a.datetime(),
+      completedAt: a.datetime(),
       subtotalAmount: a.integer().required(),
-      shippingFee: a.integer().required().default(0),
+      shippingAmount: a.integer().required().default(0),
       discountAmount: a.integer().required().default(0),
       totalAmount: a.integer().required(),
       note: a.string(),
