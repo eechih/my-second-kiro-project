@@ -9,7 +9,11 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { useEffect, useState } from "react";
-import type { Product, ProductOptionValue } from "@shared/models";
+import type {
+  OrderItemSelectedOptionSnapshot,
+  Product,
+  ProductOptionValue,
+} from "@shared/models";
 import { useProduct } from "@/hooks/useProducts";
 import type { CreateOrderItemInput } from "./formTypes";
 import {
@@ -24,10 +28,13 @@ import { searchProducts } from "./search";
 export interface OrderItemEditData {
   productId: string;
   productName: string;
+  productImageUrl?: string | null;
   productSku: string;
   variantLabel: string | null;
+  selectedOptionsSnapshot?: OrderItemSelectedOptionSnapshot[];
   quantity: number;
   unitPrice: number;
+  unitCost?: number | null;
 }
 
 export interface OrderItemDialogProps {
@@ -97,16 +104,25 @@ export function OrderItemDialog({
 
     setSelectedProduct(productDetail);
 
-    if (productDetail.options.length > 0 && editData.variantLabel) {
-      const tokens = editData.variantLabel
-        .split("/")
-        .map((token) => token.trim())
-        .filter(Boolean);
+    if (productDetail.options.length > 0) {
+      const fallbackTokens =
+        editData.variantLabel
+          ?.split("/")
+          .map((token) => token.trim())
+          .filter(Boolean) ?? [];
 
       const nextSelectedValues = Object.fromEntries(
         productDetail.options.map((option, index) => {
+          const matchedSnapshot =
+            editData.selectedOptionsSnapshot?.find(
+              (snapshot) => snapshot.optionName === option.name,
+            ) ?? null;
           const matchedValue =
-            option.values.find((value) => value.name === tokens[index]) ?? null;
+            option.values.find(
+              (value) =>
+                value.name === matchedSnapshot?.valueName ||
+                value.name === fallbackTokens[index],
+            ) ?? null;
           return [option.id, matchedValue];
         }),
       );

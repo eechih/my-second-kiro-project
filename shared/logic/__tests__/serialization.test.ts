@@ -118,10 +118,27 @@ function createSampleOrder(): Order {
         id: "li-001",
         productId: "prod-001",
         productName: "測試商品",
+        productImageUrl: "product-images/prod-001/photo1.jpg",
         variantLabel: "紅 L",
+        selectedOptionsSnapshot: [
+          {
+            optionName: "顏色",
+            valueName: "紅",
+            priceOffset: 0,
+            costOffset: 0,
+          },
+          {
+            optionName: "尺寸",
+            valueName: "L",
+            priceOffset: 0,
+            costOffset: 0,
+          },
+        ],
         quantity: 10,
         unitPrice: 100,
+        unitCostSnapshot: 50,
         subtotal: 1000,
+        totalCostSnapshot: 500,
         status: "pending",
         purchasedAt: null,
         receivedAt: null,
@@ -134,10 +151,14 @@ function createSampleOrder(): Order {
         id: "li-002",
         productId: "prod-002",
         productName: "無規格商品",
+        productImageUrl: null,
         variantLabel: null,
+        selectedOptionsSnapshot: [],
         quantity: 5,
         unitPrice: 200,
+        unitCostSnapshot: null,
         subtotal: 1000,
+        totalCostSnapshot: null,
         status: "ordered",
         purchasedAt: "2025-01-02T00:00:00.000Z",
         receivedAt: null,
@@ -288,6 +309,7 @@ describe("serializeOrder / deserializeOrder", () => {
 
     // 第二筆明細的 unitCost 為 null
     expect(restored.items[1]!.unitCost).toBeNull();
+    expect(restored.items[0]!.selectedOptionsSnapshot).toHaveLength(2);
   });
 
   it("空明細項目的訂單往返序列化應正確", () => {

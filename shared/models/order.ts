@@ -111,6 +111,14 @@ export interface SplitAllocation {
   targetOrderIndex: number;
 }
 
+/** 訂單明細中單一規格選取快照 */
+export interface OrderItemSelectedOptionSnapshot {
+  optionName: string;
+  valueName: string;
+  priceOffset: number;
+  costOffset: number;
+}
+
 // ---------------------------------------------------------------------------
 // 訂單明細（OrderItem）
 // ---------------------------------------------------------------------------
@@ -123,16 +131,24 @@ export interface OrderItem {
   productId: string;
   /** 商品名稱（反正規化） */
   productName: string;
+  /** 商品圖片（反正規化） */
+  productImageUrl: string | null;
   /** 商品 SKU（反正規化） */
   productSku?: string;
   /** 規格組合顯示標籤（反正規化，如「黑 L」；無規格組合時為 null） */
   variantLabel: string | null;
+  /** 下單當下選取的規格值快照 */
+  selectedOptionsSnapshot: OrderItemSelectedOptionSnapshot[];
   /** 訂購數量（> 0） */
   quantity: number;
   /** 單價（使用規格組合的有效單價） */
   unitPrice: number;
+  /** 單位成本快照 */
+  unitCostSnapshot: number | null;
   /** 小計 = quantity × unitPrice */
   subtotal: number;
+  /** 總成本快照 */
+  totalCostSnapshot: number | null;
   /** 明細狀態 */
   status: OrderItemStatus;
   /** ISO 8601 採購日期時間（尚未採購時為 null） */
@@ -191,12 +207,18 @@ export interface CreateOrderItemInput {
   productName: string;
   /** 商品 SKU（必填，反正規化） */
   productSku: string;
+  /** 商品圖片（反正規化） */
+  productImageUrl?: string | null;
   /** 規格組合顯示標籤（商品有規格組合時必填） */
   variantLabel?: string | null;
+  /** 下單當下選取的規格值快照 */
+  selectedOptionsSnapshot?: OrderItemSelectedOptionSnapshot[];
   /** 訂購數量（必填，> 0） */
   quantity: number;
   /** 單價（必填，>= 0） */
   unitPrice: number;
+  /** 單位成本（選填） */
+  unitCost?: number | null;
 }
 
 /** 建立訂單輸入 */

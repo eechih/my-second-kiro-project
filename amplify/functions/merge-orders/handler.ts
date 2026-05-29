@@ -63,10 +63,24 @@ function mapOrderItem(raw: DdbRecord): OrderItem {
     id: String(raw["id"] ?? ""),
     productId: String(raw["productId"] ?? ""),
     productName: String(raw["productName"] ?? ""),
+    productImageUrl: raw["productImageUrlSnapshot"]
+      ? String(raw["productImageUrlSnapshot"])
+      : null,
     variantLabel: raw["variantLabel"] ? String(raw["variantLabel"]) : null,
+    selectedOptionsSnapshot: [],
     quantity: Number(raw["quantity"] ?? 0),
     unitPrice: Number(raw["unitPrice"] ?? 0),
+    unitCostSnapshot:
+      raw["unitCostSnapshot"] !== null && raw["unitCostSnapshot"] !== undefined
+        ? Number(raw["unitCostSnapshot"])
+        : raw["unitCost"] !== null && raw["unitCost"] !== undefined
+          ? Number(raw["unitCost"])
+          : null,
     subtotal: Number(raw["subtotal"] ?? 0),
+    totalCostSnapshot:
+      raw["totalCostSnapshot"] !== null && raw["totalCostSnapshot"] !== undefined
+        ? Number(raw["totalCostSnapshot"])
+        : null,
     status: normalizeOrderItemStatus(raw["status"]),
     purchasedAt: raw["purchasedAt"] ? String(raw["purchasedAt"]) : null,
     receivedAt: raw["receivedAt"] ? String(raw["receivedAt"]) : null,

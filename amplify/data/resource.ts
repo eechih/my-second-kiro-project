@@ -250,6 +250,12 @@ const schema = a.schema({
       // 保留舊欄位供歷史資料相容；新流程僅依賴 variantLabelSnapshot 顯示規格。
       productVariantId: a.id(),
       quantity: a.integer().required(),
+      productImageUrlSnapshot: a.string(),
+      selectedOptionsSnapshot: a.json(),
+      unitPriceSnapshot: a.integer(),
+      unitCostSnapshot: a.integer(),
+      totalPriceSnapshot: a.integer(),
+      totalCostSnapshot: a.integer(),
       unitPrice: a.integer().required(),
       subtotalAmount: a.integer().required(),
       // 訂單明細狀態（採購 / 入庫 / 出貨流程主要依據）

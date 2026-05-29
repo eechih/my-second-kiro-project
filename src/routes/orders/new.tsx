@@ -69,10 +69,13 @@ function OrderNewPage() {
           orderItems: orderItems.map((item) => ({
             productId: item.productId,
             productName: item.productName,
+            productImageUrl: item.productImageUrl ?? null,
             productSku: item.productSku,
             variantLabel: item.variantLabel,
+            selectedOptionsSnapshot: item.selectedOptionsSnapshot ?? [],
             quantity: item.quantity,
             unitPrice: item.unitPrice,
+            unitCost: item.unitCost ?? null,
           })),
         });
         void navigate({ to: "/orders" });

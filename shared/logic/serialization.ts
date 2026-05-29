@@ -7,7 +7,11 @@
  * 需求：10.1, 10.2, 10.3, 10.4
  */
 
-import type { Order } from "../models/order";
+import type {
+  Order,
+  OrderItem,
+  OrderItemSelectedOptionSnapshot,
+} from "../models/order";
 import type { Product } from "../models/product";
 import type { Customer } from "../models/customer";
 import type { Supplier } from "../models/supplier";
@@ -37,10 +41,17 @@ export function deserializeOrder(json: string): Order {
   assertStringField(order, "status", "Order");
   assertStringField(order, "createdAt", "Order");
   assertStringField(order, "updatedAt", "Order");
-  assertArrayField(order, "orderItems", "Order");
+  const rawItems = order.items ?? order.orderItems;
+  if (!Array.isArray(rawItems)) {
+    throw new Error("反序列化失敗：Order.items 應為 array");
+  }
   assertArrayField(order, "statusHistory", "Order");
 
-  return parsed as unknown as Order;
+  return {
+    ...order,
+    items: rawItems.map(deserializeOrderItem),
+    statusHistory: order.statusHistory as Order["statusHistory"],
+  } as Order;
 }
 
 // ---------------------------------------------------------------------------
@@ -241,4 +252,119 @@ function assertArrayField(
       `反序列化失敗：${typeName}.${field} 應為 array，但收到 ${typeof obj[field]}`,
     );
   }
+}
+
+function deserializeOrderItem(raw: unknown): OrderItem {
+  assertIsObject(raw, "OrderItem");
+
+  const item = raw as Record<string, unknown>;
+
+  assertStringField(item, "id", "OrderItem");
+  assertStringField(item, "productId", "OrderItem");
+  assertStringField(item, "productName", "OrderItem");
+  assertNumberField(item, "quantity", "OrderItem");
+  assertNumberField(item, "unitPrice", "OrderItem");
+  assertNumberField(item, "subtotal", "OrderItem");
+  assertStringField(item, "status", "OrderItem");
+  assertNullableStringField(item, "variantLabel", "OrderItem");
+  assertNullableStringField(item, "productImageUrl", "OrderItem");
+  assertNullableStringField(item, "purchasedAt", "OrderItem");
+  assertNullableStringField(item, "receivedAt", "OrderItem");
+  assertNullableStringField(item, "shippedAt", "OrderItem");
+  assertNullableStringField(item, "outOfStockAt", "OrderItem");
+  assertNullableStringField(item, "supplierName", "OrderItem");
+
+  if (
+    item.unitCost !== undefined &&
+    item.unitCost !== null &&
+    typeof item.unitCost !== "number"
+  ) {
+    throw new Error(
+      `反序列化失敗：OrderItem.unitCost 應為 number 或 null，但收到 ${typeof item.unitCost}`,
+    );
+  }
+
+  if (
+    item.unitCostSnapshot !== undefined &&
+    item.unitCostSnapshot !== null &&
+    typeof item.unitCostSnapshot !== "number"
+  ) {
+    throw new Error(
+      `反序列化失敗：OrderItem.unitCostSnapshot 應為 number 或 null，但收到 ${typeof item.unitCostSnapshot}`,
+    );
+  }
+
+  if (
+    item.totalCostSnapshot !== undefined &&
+    item.totalCostSnapshot !== null &&
+    typeof item.totalCostSnapshot !== "number"
+  ) {
+    throw new Error(
+      `反序列化失敗：OrderItem.totalCostSnapshot 應為 number 或 null，但收到 ${typeof item.totalCostSnapshot}`,
+    );
+  }
+
+  const selectedOptionsSnapshot = Array.isArray(item.selectedOptionsSnapshot)
+    ? item.selectedOptionsSnapshot
+        .filter(
+          (entry): entry is Record<string, unknown> =>
+            typeof entry === "object" && entry !== null,
+        )
+        .map((entry) => deserializeSelectedOptionSnapshot(entry))
+    : [];
+
+  return {
+    ...item,
+    productImageUrl:
+      item.productImageUrl === undefined
+        ? null
+        : (item.productImageUrl as string | null),
+    variantLabel:
+      item.variantLabel === undefined
+        ? null
+        : (item.variantLabel as string | null),
+    selectedOptionsSnapshot,
+    unitCostSnapshot:
+      item.unitCostSnapshot === undefined
+        ? null
+        : (item.unitCostSnapshot as number | null),
+    totalCostSnapshot:
+      item.totalCostSnapshot === undefined
+        ? null
+        : (item.totalCostSnapshot as number | null),
+    purchasedAt:
+      item.purchasedAt === undefined
+        ? null
+        : (item.purchasedAt as string | null),
+    receivedAt:
+      item.receivedAt === undefined ? null : (item.receivedAt as string | null),
+    shippedAt:
+      item.shippedAt === undefined ? null : (item.shippedAt as string | null),
+    outOfStockAt:
+      item.outOfStockAt === undefined
+        ? null
+        : (item.outOfStockAt as string | null),
+    supplierName:
+      item.supplierName === undefined
+        ? null
+        : (item.supplierName as string | null),
+    unitCost:
+      item.unitCost === undefined ? null : (item.unitCost as number | null),
+  } as OrderItem;
+}
+
+function deserializeSelectedOptionSnapshot(
+  raw: Record<string, unknown>,
+): OrderItemSelectedOptionSnapshot {
+  assertStringField(raw, "optionName", "OrderItemSelectedOptionSnapshot");
+  assertStringField(raw, "valueName", "OrderItemSelectedOptionSnapshot");
+  assertNumberField(raw, "priceOffset", "OrderItemSelectedOptionSnapshot");
+  assertNumberField(raw, "costOffset", "OrderItemSelectedOptionSnapshot");
+
+  return {
+    optionName: raw.optionName as string,
+    valueName: raw.valueName as string,
+    priceOffset: raw.priceOffset as number,
+    costOffset: raw.costOffset as number,
+  };
 }

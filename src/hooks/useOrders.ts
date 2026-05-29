@@ -12,6 +12,7 @@ import {
   type ConfirmShipmentInput,
   type CreateOrderInput,
   type OrderItem,
+  type OrderItemSelectedOptionSnapshot,
   type Order,
   type OrderStatus,
   type PaginatedResult,
@@ -279,12 +280,47 @@ function mapToOrder(raw: Record<string, unknown>): Order {
   };
 }
 
+function parseSelectedOptionsSnapshot(
+  raw: unknown,
+): OrderItemSelectedOptionSnapshot[] {
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed =
+      typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter(
+        (item): item is Record<string, unknown> =>
+          typeof item === "object" && item !== null,
+      )
+      .map((item) => ({
+        optionName: String(item.optionName ?? ""),
+        valueName: String(item.valueName ?? ""),
+        priceOffset: Number(item.priceOffset ?? 0),
+        costOffset: Number(item.costOffset ?? 0),
+      }))
+      .filter((item) => item.optionName.length > 0 && item.valueName.length > 0);
+  } catch {
+    return [];
+  }
+}
+
 /** 將 Amplify Data 回傳的原始資料映射為 OrderItem 型別 */
 function mapToOrderItem(raw: Record<string, unknown>): OrderItem {
   return {
     id: String(raw.id ?? ""),
     productId: String(raw.productId ?? ""),
     productName: String(raw.productNameSnapshot ?? raw.productName ?? ""),
+    productImageUrl: raw.productImageUrlSnapshot
+      ? String(raw.productImageUrlSnapshot)
+      : null,
     productSku:
       raw.productSkuSnapshot !== undefined && raw.productSkuSnapshot !== null
         ? String(raw.productSkuSnapshot)
@@ -294,16 +330,34 @@ function mapToOrderItem(raw: Record<string, unknown>): OrderItem {
       : raw.variantLabel
         ? String(raw.variantLabel)
         : null,
+    selectedOptionsSnapshot: parseSelectedOptionsSnapshot(
+      raw.selectedOptionsSnapshot,
+    ),
     quantity: Number(raw.quantity ?? 0),
-    unitPrice: Number(raw.unitPrice ?? 0),
-    subtotal: Number(raw.subtotalAmount ?? raw.subtotal ?? 0),
+    unitPrice: Number(raw.unitPriceSnapshot ?? raw.unitPrice ?? 0),
+    unitCostSnapshot:
+      raw.unitCostSnapshot != null
+        ? Number(raw.unitCostSnapshot)
+        : raw.unitCost != null
+          ? Number(raw.unitCost)
+          : null,
+    subtotal: Number(
+      raw.totalPriceSnapshot ?? raw.subtotalAmount ?? raw.subtotal ?? 0,
+    ),
+    totalCostSnapshot:
+      raw.totalCostSnapshot != null ? Number(raw.totalCostSnapshot) : null,
     status: normalizeOrderItemStatus(raw.status),
     purchasedAt: raw.purchasedAt ? String(raw.purchasedAt) : null,
     receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
     shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
     outOfStockAt: raw.outOfStockAt ? String(raw.outOfStockAt) : null,
     supplierName: raw.supplierName ? String(raw.supplierName) : null,
-    unitCost: raw.unitCost != null ? Number(raw.unitCost) : null,
+    unitCost:
+      raw.unitCostSnapshot != null
+        ? Number(raw.unitCostSnapshot)
+        : raw.unitCost != null
+          ? Number(raw.unitCost)
+          : null,
   };
 }
 
@@ -322,9 +376,14 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       receivedAt: null,
       shippedAt: null,
       outOfStockAt: null,
+      productImageUrl: item.productImageUrl ?? null,
       variantLabel: item.variantLabel ?? null,
+      selectedOptionsSnapshot: item.selectedOptionsSnapshot ?? [],
       supplierName: null,
-      unitCost: null,
+      unitCost: item.unitCost ?? null,
+      unitCostSnapshot: item.unitCost ?? null,
+      totalCostSnapshot:
+        item.unitCost != null ? item.unitCost * item.quantity : null,
     })),
   );
 
@@ -366,8 +425,15 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       orderId,
       productId: item.productId,
       productNameSnapshot: item.productName,
+      productImageUrlSnapshot: item.productImageUrl ?? null,
       productSkuSnapshot: item.productSku,
       quantity: item.quantity,
+      selectedOptionsSnapshot: JSON.stringify(item.selectedOptionsSnapshot ?? []),
+      unitPriceSnapshot: item.unitPrice,
+      unitCostSnapshot: item.unitCost ?? null,
+      totalPriceSnapshot: item.subtotal,
+      totalCostSnapshot:
+        item.unitCost != null ? item.unitCost * item.quantity : null,
       unitPrice: item.unitPrice,
       subtotalAmount: item.subtotal,
       status: "pending",
@@ -1261,10 +1327,13 @@ type AddOrderItemToOrderInput = {
   orderId: string;
   productId: string;
   productName: string;
+  productImageUrl: string | null;
   productSku: string;
   variantLabel: string | null;
+  selectedOptionsSnapshot: OrderItemSelectedOptionSnapshot[];
   quantity: number;
   unitPrice: number;
+  unitCost: number | null;
 };
 
 type UpdateOrderItemInput = {
@@ -1272,10 +1341,13 @@ type UpdateOrderItemInput = {
   orderItemId: string;
   productId: string;
   productName: string;
+  productImageUrl: string | null;
   productSku: string;
   variantLabel: string | null;
+  selectedOptionsSnapshot: OrderItemSelectedOptionSnapshot[];
   quantity: number;
   unitPrice: number;
+  unitCost: number | null;
 };
 
 type DeleteOrderItemInput = {
@@ -1292,8 +1364,15 @@ async function addOrderItemToOrder(
     orderId: input.orderId,
     productId: input.productId,
     productNameSnapshot: input.productName,
+    productImageUrlSnapshot: input.productImageUrl,
     productSkuSnapshot: input.productSku,
+    selectedOptionsSnapshot: JSON.stringify(input.selectedOptionsSnapshot),
     quantity: input.quantity,
+    unitPriceSnapshot: input.unitPrice,
+    unitCostSnapshot: input.unitCost,
+    totalPriceSnapshot: subtotal,
+    totalCostSnapshot:
+      input.unitCost != null ? input.unitCost * input.quantity : null,
     unitPrice: input.unitPrice,
     subtotalAmount: subtotal,
     status: "pending",
@@ -1325,9 +1404,16 @@ async function updateOrderItemInOrder(
     id: input.orderItemId,
     productId: input.productId,
     productNameSnapshot: input.productName,
+    productImageUrlSnapshot: input.productImageUrl,
     productSkuSnapshot: input.productSku,
     variantLabelSnapshot: input.variantLabel ?? null,
+    selectedOptionsSnapshot: JSON.stringify(input.selectedOptionsSnapshot),
     quantity: input.quantity,
+    unitPriceSnapshot: input.unitPrice,
+    unitCostSnapshot: input.unitCost,
+    totalPriceSnapshot: subtotal,
+    totalCostSnapshot:
+      input.unitCost != null ? input.unitCost * input.quantity : null,
     unitPrice: input.unitPrice,
     subtotalAmount: subtotal,
   };
@@ -1375,11 +1461,15 @@ async function recalculateOrderTotal(orderId: string): Promise<void> {
     id: String(li.id ?? ""),
     productId: "",
     productName: "",
+    productImageUrl: null,
     productSku: "",
     variantLabel: null,
+    selectedOptionsSnapshot: [],
     quantity: Number(li.quantity ?? 0),
     unitPrice: Number(li.unitPrice ?? 0),
+    unitCostSnapshot: null,
     subtotal: 0,
+    totalCostSnapshot: null,
     status: "pending" as const,
     purchasedAt: null,
     receivedAt: null,

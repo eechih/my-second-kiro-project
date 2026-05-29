@@ -61,10 +61,13 @@ describe("orderItemDraft", () => {
     ).toEqual({
       productId: "product-1",
       productName: "測試商品",
+      productImageUrl: null,
       productSku: "SKU-001",
       variantLabel: null,
+      selectedOptionsSnapshot: [],
       quantity: 2,
       unitPrice: 300,
+      unitCost: 120,
     });
   });
 
@@ -126,10 +129,26 @@ describe("orderItemDraft", () => {
     ).toEqual({
       productId: "product-1",
       productName: "測試商品",
+      productImageUrl: null,
       productSku: "SKU-001",
       variantLabel: "黑 / L",
+      selectedOptionsSnapshot: [
+        {
+          optionName: "顏色",
+          valueName: "黑",
+          priceOffset: 20,
+          costOffset: 10,
+        },
+        {
+          optionName: "尺寸",
+          valueName: "L",
+          priceOffset: 30,
+          costOffset: 5,
+        },
+      ],
       quantity: 1,
       unitPrice: 350,
+      unitCost: 135,
     });
   });
 
@@ -145,10 +164,13 @@ describe("orderItemDraft", () => {
     ).toEqual({
       productId: "product-1",
       productName: "測試商品",
+      productImageUrl: null,
       productSku: "SKU-001",
       variantLabel: "黑 L",
+      selectedOptionsSnapshot: [],
       quantity: 1,
       unitPrice: 350,
+      unitCost: 120,
     });
   });
 });

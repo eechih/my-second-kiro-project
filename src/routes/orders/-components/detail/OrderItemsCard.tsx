@@ -75,20 +75,26 @@ export function OrderItemsCard({
             orderItemId: dialog.editOrderItem.id,
             productId: input.productId,
             productName: input.productName,
+            productImageUrl: input.productImageUrl ?? null,
             productSku: input.productSku,
             variantLabel: input.variantLabel ?? null,
+            selectedOptionsSnapshot: input.selectedOptionsSnapshot ?? [],
             quantity: input.quantity,
             unitPrice: input.unitPrice,
+            unitCost: input.unitCost ?? null,
           });
         } else {
           await addOrderItem.mutateAsync({
             orderId: order.id,
             productId: input.productId,
             productName: input.productName,
+            productImageUrl: input.productImageUrl ?? null,
             productSku: input.productSku,
             variantLabel: input.variantLabel ?? null,
+            selectedOptionsSnapshot: input.selectedOptionsSnapshot ?? [],
             quantity: input.quantity,
             unitPrice: input.unitPrice,
+            unitCost: input.unitCost ?? null,
           });
         }
       } catch (err) {
@@ -117,10 +123,13 @@ export function OrderItemsCard({
     ? {
         productId: dialog.editOrderItem.productId,
         productName: dialog.editOrderItem.productName,
+        productImageUrl: dialog.editOrderItem.productImageUrl,
         productSku: dialog.editOrderItem.productSku ?? "",
         variantLabel: dialog.editOrderItem.variantLabel,
+        selectedOptionsSnapshot: dialog.editOrderItem.selectedOptionsSnapshot,
         quantity: dialog.editOrderItem.quantity,
         unitPrice: dialog.editOrderItem.unitPrice,
+        unitCost: dialog.editOrderItem.unitCostSnapshot,
       }
     : null;
 

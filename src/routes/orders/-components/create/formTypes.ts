@@ -1,12 +1,17 @@
+import type { OrderItemSelectedOptionSnapshot } from "@shared/models";
+
 export interface OrderItemFormData {
   /** 臨時 ID（用於 React key） */
   tempId: string;
   productId: string;
   productName: string;
+  productImageUrl?: string | null;
   productSku: string;
   variantLabel: string | null;
+  selectedOptionsSnapshot?: OrderItemSelectedOptionSnapshot[];
   quantity: number;
   unitPrice: number;
+  unitCost?: number | null;
 }
 
 export type CreateOrderItemInput = Omit<OrderItemFormData, "tempId">;

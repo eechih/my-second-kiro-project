@@ -1,9 +1,14 @@
 import {
   buildOptionVariantLabel,
+  resolveEffectiveCostFromOptions,
   resolveEffectivePriceFromOptions,
   validateOptionValuesRequired,
 } from "@shared/logic/product-variant";
-import type { Product, ProductOptionValue } from "@shared/models";
+import type {
+  OrderItemSelectedOptionSnapshot,
+  Product,
+  ProductOptionValue,
+} from "@shared/models";
 import type { CreateOrderItemInput } from "./formTypes";
 
 export interface OrderItemDraft {
@@ -49,6 +54,35 @@ export function getOrderItemDraftError(draft: OrderItemDraft): string | null {
   return null;
 }
 
+function buildSelectedOptionsSnapshot(
+  product: Product,
+  selectedValues: ProductOptionValue[],
+): OrderItemSelectedOptionSnapshot[] {
+  if (selectedValues.length === 0) {
+    return [];
+  }
+
+  return product.options.flatMap((option) => {
+    const selectedValue =
+      selectedValues.find((value) =>
+        option.values.some((candidate) => candidate.id === value.id),
+      ) ?? null;
+
+    if (!selectedValue) {
+      return [];
+    }
+
+    return [
+      {
+        optionName: option.name,
+        valueName: selectedValue.name,
+        priceOffset: selectedValue.priceOffset ?? 0,
+        costOffset: selectedValue.costOffset ?? 0,
+      },
+    ];
+  });
+}
+
 export function buildOrderItemFormData(
   draft: OrderItemDraft,
 ): CreateOrderItemInput {
@@ -59,13 +93,25 @@ export function buildOrderItemFormData(
   return {
     productId: draft.product.id,
     productName: draft.product.name,
+    productImageUrl: draft.product.imageUrls[0] ?? null,
     productSku: draft.product.sku,
     variantLabel:
       buildOptionVariantLabel(draft.selectedOptionValues) ??
       draft.legacyVariantLabel ??
       null,
+    selectedOptionsSnapshot: buildSelectedOptionsSnapshot(
+      draft.product,
+      draft.selectedOptionValues,
+    ),
     quantity: draft.quantity,
     unitPrice: draft.unitPrice,
+    unitCost:
+      draft.product.options.length > 0
+        ? resolveEffectiveCostFromOptions(
+            draft.product,
+            draft.selectedOptionValues,
+          )
+        : draft.product.cost,
   };
 }
 

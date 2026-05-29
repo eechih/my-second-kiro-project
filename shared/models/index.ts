@@ -29,6 +29,7 @@ export type {
   CreateOrderItemInput,
   CreateOrderInput,
   OrderItem,
+  OrderItemSelectedOptionSnapshot,
   OrderItemStatus,
   Order,
   OrderStatus,
