@@ -130,11 +130,22 @@ export function ProductOptionEditor({
                     gap: 1.5,
                     gridTemplateColumns: {
                       xs: "1fr",
-                      sm: "minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto",
+                      sm: "auto minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr)",
                     },
                     alignItems: "start",
                   }}
                 >
+                  <IconButton
+                    color="error"
+                    onClick={() => removeValue(optionIndex, valueIndex)}
+                    aria-label="刪除規格值"
+                    sx={{
+                      mt: { sm: 1 },
+                      justifySelf: { sm: "start" },
+                    }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
                   <TextField
                     label="規格值"
                     value={optionValue.name}
@@ -189,22 +200,19 @@ export function ProductOptionEditor({
                       }))
                     }
                   />
-                  <IconButton
-                    color="error"
-                    onClick={() => removeValue(optionIndex, valueIndex)}
-                    aria-label="刪除規格值"
-                    sx={{ mt: { sm: 1 } }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
                 </Box>
               ))}
             </Stack>
 
-            <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                每個規格值可設定自己的加價與成本增加，例如 XL +60、成本 +20。
-              </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 1,
+                flexWrap: "wrap",
+              }}
+            >
               <Button
                 variant="outlined"
                 size="small"
@@ -213,12 +221,15 @@ export function ProductOptionEditor({
               >
                 新增規格值
               </Button>
+              <Typography variant="body2" color="text.secondary">
+                每個規格值可設定自己的加價與成本增加，例如 XL +60、成本 +20。
+              </Typography>
             </Box>
           </Stack>
         </Box>
       ))}
 
-      <Box>
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
         <Button variant="outlined" startIcon={<AddIcon />} onClick={addOption}>
           新增規格
         </Button>

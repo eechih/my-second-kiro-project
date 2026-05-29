@@ -316,7 +316,7 @@ export function ProductCreateForm({
     >
       <form.Field name="description">
         {(field) => (
-          <FormField field={field} label="產品描述" multiline rows={16} />
+          <FormField field={field} label="產品描述" multiline minRows={16} />
         )}
       </form.Field>
     </ProductFormSection>
@@ -523,7 +523,7 @@ export function ProductCreateForm({
             setParserError(null);
           }}
           multiline
-          minRows={9}
+          minRows={10}
           fullWidth
         />
       </Stack>
