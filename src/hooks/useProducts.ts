@@ -65,6 +65,10 @@ const PRODUCT_SELECTION_SET = [
   "options.values.*",
 ] as const;
 
+function toActiveStatusKey(isActive: boolean): "ACTIVE" | "INACTIVE" {
+  return isActive ? "ACTIVE" : "INACTIVE";
+}
+
 function buildProductFilter({
   search,
   isActive,
@@ -280,7 +284,10 @@ function buildProductUpdatePayload(
   if (input.stockQuantity !== undefined)
     updatePayload.stockQuantity = input.stockQuantity;
   if (input.imageUrls !== undefined) updatePayload.imageUrls = input.imageUrls;
-  if (input.isActive !== undefined) updatePayload.isActive = input.isActive;
+  if (input.isActive !== undefined) {
+    updatePayload.isActive = input.isActive;
+    updatePayload.activeStatusKey = toActiveStatusKey(input.isActive);
+  }
 
   return updatePayload;
 }

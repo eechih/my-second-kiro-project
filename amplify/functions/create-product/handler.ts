@@ -194,6 +194,7 @@ export const handler: Schema["createProductWithAutoSku"]["functionHandler"] =
         stockQuantity: stockQuantity ?? 0,
         imageUrls: imageUrls ?? [],
         isActive: true,
+        activeStatusKey: "ACTIVE",
         gsiPartition: "Product",
         createdAtForSort: now,
         createdAt: now,

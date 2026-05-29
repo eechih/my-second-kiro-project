@@ -1,5 +1,6 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { ProductOptionValueSelects } from "@/components/ProductOptionValueSelects";
+import { useProduct } from "@/hooks/useProducts";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -8,13 +9,12 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import { useEffect, useState } from "react";
 import type {
   OrderItemSelectedOptionSnapshot,
   Product,
   ProductOptionValue,
 } from "@shared/models";
-import { useProduct } from "@/hooks/useProducts";
+import { useEffect, useState } from "react";
 import type { CreateOrderItemInput } from "./formTypes";
 import {
   buildOrderItemFormData,
@@ -207,7 +207,7 @@ export function OrderItemDialog({
             onChange={handleProductChange}
             queryKey={["products", "order-line-item-dialog"]}
             searchFn={searchProducts}
-            getOptionLabel={(product) => `${product.name}（${product.sku}）`}
+            getOptionLabel={(product) => `${product.sku} - ${product.name}`}
             required
           />
           {hasOptions ? (

@@ -140,6 +140,7 @@ const schema = a.schema({
       stockQuantity: a.integer().required().default(0),
       imageUrls: a.string().array(),
       isActive: activeFlagField(),
+      activeStatusKey: a.string().required().default("ACTIVE"),
       preorderStatus: a.enum(PREORDER_STATUSES),
       preorderOpenAt: a.datetime(),
       preorderCloseAt: a.datetime(),
@@ -155,6 +156,10 @@ const schema = a.schema({
         .sortKeys(["createdAtForSort"])
         .queryField("listProductsByCreatedDate")
         .name("byCreatedAt"),
+      index("activeStatusKey")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listActiveProductsByCreatedDate")
+        .name("byActiveStatusAndCreatedAt"),
       index("preorderStatus")
         .sortKeys(["preorderCloseAt"])
         .queryField("listProductsByPreorderStatusAndCloseDate")
