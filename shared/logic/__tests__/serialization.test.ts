@@ -58,6 +58,7 @@ function createSampleProduct(): Product {
     id: "prod-001",
     name: "測試商品",
     sku: "TEST-001",
+    sequenceNumber: 1,
     description: "商品描述",
     price: 100,
     cost: 50,

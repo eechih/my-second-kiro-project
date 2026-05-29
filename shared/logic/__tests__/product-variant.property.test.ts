@@ -47,6 +47,7 @@ function createProduct(overrides: Partial<Product> = {}): Product {
     id: "prod-1",
     name: "測試商品",
     sku: "TEST-001",
+    sequenceNumber: 1,
     description: "",
     price: 100,
     cost: 50,

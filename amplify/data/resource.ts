@@ -133,6 +133,7 @@ const schema = a.schema({
       name: a.string().required(),
       searchName: a.string(),
       sku: a.string().required(),
+      sequenceNumber: a.integer().required(),
       description: a.string(),
       price: a.integer().required(),
       cost: a.integer().required(),
@@ -150,7 +151,6 @@ const schema = a.schema({
       orderItems: a.hasMany("OrderItem", "productId"),
     })
     .secondaryIndexes((index) => [
-      index("name").queryField("productsByName").name("byName"),
       index("sku").queryField("productBySku").name("bySku"),
       index("gsiPartition")
         .sortKeys(["createdAtForSort"])
@@ -160,10 +160,6 @@ const schema = a.schema({
         .sortKeys(["createdAtForSort"])
         .queryField("listActiveProductsByCreatedDate")
         .name("byActiveStatusAndCreatedAt"),
-      index("preorderStatus")
-        .sortKeys(["preorderCloseAt"])
-        .queryField("listProductsByPreorderStatusAndCloseDate")
-        .name("byPreorderStatusAndCloseDate"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 

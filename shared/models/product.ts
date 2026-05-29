@@ -29,6 +29,8 @@ export interface Product {
   name: string;
   /** SKU 編號（必填，唯一） */
   sku: string;
+  /** 純數字流水編號（必填，唯一遞增） */
+  sequenceNumber: number;
   /** 產品描述（選填） */
   description: string;
   /** 預設單價（必填，>= 0） */

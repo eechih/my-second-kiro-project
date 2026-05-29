@@ -187,6 +187,7 @@ export const handler: Schema["createProductWithAutoSku"]["functionHandler"] =
         id,
         name: trimmedName,
         sku,
+        sequenceNumber: sequence,
         description: description ?? "",
         price,
         cost,

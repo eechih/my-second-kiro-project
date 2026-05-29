@@ -26,6 +26,7 @@ const baseProduct: Product = {
   id: "product-1",
   name: "測試商品",
   sku: "SKU-001",
+  sequenceNumber: 1,
   description: "",
   price: 300,
   cost: 120,
