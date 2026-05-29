@@ -24,6 +24,8 @@ const SORT_PARTITIONS = {
   order: "Order",
 } as const;
 
+const PREORDER_STATUSES = ["DRAFT", "OPEN", "CLOSED"] as const;
+
 type SortPartition = (typeof SORT_PARTITIONS)[keyof typeof SORT_PARTITIONS];
 type FunctionResource = Parameters<typeof a.handler.function>[0];
 
@@ -73,8 +75,12 @@ function authenticatedJsonMutation<
 }
 
 const schema = a.schema({
-  // 訂單流程狀態（沿用 shared/models/order.ts 的狀態值）
+  // 訂單主狀態（沿用 shared/models/order.ts 的狀態值）
   OrderStatus: a.enum(ORDER_STATUSES),
+  // 訂單付款狀態（沿用 shared/models/order.ts 的狀態值）
+  PaymentStatus: a.enum(PAYMENT_STATUSES),
+  // 訂單履約狀態（沿用 shared/models/order.ts 的狀態值）
+  FulfillmentStatus: a.enum(FULFILLMENT_STATUSES),
   // 訂單明細流程狀態（沿用 shared/models/order.ts 的狀態值）
   OrderItemStatus: a.enum(ORDER_ITEM_STATUSES),
 
@@ -134,8 +140,7 @@ const schema = a.schema({
       stockQuantity: a.integer().required().default(0),
       imageUrls: a.string().array(),
       isActive: activeFlagField(),
-      // 預購收單狀態：草稿 / 開放收單 / 關閉收單
-      preorderStatus: a.enum(["DRAFT", "OPEN", "CLOSED"]),
+      preorderStatus: a.enum(PREORDER_STATUSES),
       preorderOpenAt: a.datetime(),
       preorderCloseAt: a.datetime(),
       deletedAt: a.datetime(),
@@ -193,25 +198,34 @@ const schema = a.schema({
   Order: a
     .model({
       orderNumber: a.string().required(),
+
+      // 客戶與收件資訊快照
       customerId: a.id(),
       customer: a.belongsTo("Customer", "customerId"),
       customerNameSnapshot: a.string().required(),
       customerPhoneSnapshot: a.string(),
       customerEmailSnapshot: a.string(),
       shippingAddressSnapshot: a.string(),
-      paymentStatus: a.enum(PAYMENT_STATUSES),
-      fulfillmentStatus: a.enum(FULFILLMENT_STATUSES),
+
+      // 訂單狀態摘要
+      status: a.ref("OrderStatus").required(),
+      paymentStatus: a.ref("PaymentStatus"),
+      fulfillmentStatus: a.ref("FulfillmentStatus"),
+
+      // 狀態時間戳記
       paidAt: a.datetime(),
       cancelledAt: a.datetime(),
       refundedAt: a.datetime(),
       completedAt: a.datetime(),
+
+      // 金額快照
       subtotalAmount: a.integer().required(),
       shippingAmount: a.integer().required().default(0),
       discountAmount: a.integer().required().default(0),
       totalAmount: a.integer().required(),
+
+      // 其他訂單資訊
       note: a.string(),
-      // 訂單主狀態（前端流程與 Lambda 判斷主要依據）
-      status: a.ref("OrderStatus").required(),
       statusHistory: a.json(),
       isActive: activeFlagField(),
       deletedAt: a.datetime(),
@@ -244,9 +258,10 @@ const schema = a.schema({
       orderId: a.id().required(),
       productId: a.id().required(),
 
-      // 訂單明細狀態（採購 / 入庫 / 出貨流程主要依據）
+      // 訂單明細流程狀態（採購 / 入庫 / 出貨）
       status: a.ref("OrderItemStatus").required(),
 
+      // 商品快照
       productNameSnapshot: a.string().required(),
       productSkuSnapshot: a.string().required(),
       productImageUrlSnapshot: a.string(),
@@ -259,16 +274,20 @@ const schema = a.schema({
       // ]
       selectedOptionsSnapshot: a.json(),
 
+      // 單價 / 成本快照
       unitPriceSnapshot: a.integer(),
       unitCostSnapshot: a.integer(),
 
       quantity: a.integer().required(),
 
+      // 總額 / 總成本快照
       totalPriceSnapshot: a.integer(),
       totalCostSnapshot: a.integer(),
 
+      // 採購資訊
       supplierName: a.string(),
 
+      // 明細流程時間戳記
       purchasedAt: a.datetime(),
       receivedAt: a.datetime(),
       shippedAt: a.datetime(),
