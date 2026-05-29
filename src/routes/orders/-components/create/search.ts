@@ -6,7 +6,7 @@ import type {
   ProductOptionValue,
 } from "@shared/models";
 
-const SEARCH_LIMIT = 20;
+const SEARCH_LIMIT = 50;
 
 const PRODUCT_SELECTION_SET = [
   "id",
@@ -50,7 +50,7 @@ export async function searchCustomers(query: string): Promise<Customer[]> {
 
 export async function searchProducts(query: string): Promise<Product[]> {
   const trimmedQuery = query.trim();
-  const filter: Record<string, unknown> = { isActive: { eq: true } };
+  const filter: Record<string, unknown> = {};
   if (trimmedQuery) {
     filter.or = [
       { name: { contains: trimmedQuery } },
@@ -58,11 +58,16 @@ export async function searchProducts(query: string): Promise<Product[]> {
     ];
   }
 
-  const { data, errors } = await client.models.Product.list({
-    filter,
-    limit: SEARCH_LIMIT,
-    selectionSet: PRODUCT_SELECTION_SET,
-  });
+  const { data, errors } =
+    await client.models.Product.listActiveProductsByCreatedDate(
+      { activeStatusKey: "ACTIVE" },
+    {
+      sortDirection: "DESC",
+      ...(trimmedQuery ? { filter } : {}),
+      limit: SEARCH_LIMIT,
+      selectionSet: PRODUCT_SELECTION_SET,
+    } as Record<string, unknown>,
+  );
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "搜尋商品失敗");
