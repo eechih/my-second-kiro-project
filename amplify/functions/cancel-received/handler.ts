@@ -2,10 +2,20 @@ import type { Schema } from "../../data/resource";
 import {
   DynamoDBClient,
   GetItemCommand,
+  QueryCommand,
   TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { normalizeOrderItemStatus } from "@shared/models/order";
+import {
+  deriveFulfillmentStatusFromOrderItems,
+  deriveOrderStatusFromSummary,
+} from "@shared/logic/order-status";
+import {
+  normalizeFulfillmentStatus,
+  normalizeOrderItemStatus,
+  normalizeOrderStatus,
+  normalizePaymentStatus,
+} from "@shared/models/order";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -34,11 +44,13 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
 
   const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
+  const orderTable = process.env["ORDER_TABLE_NAME"];
 
-  if (!orderItemTable || !productTable) {
+  if (!orderItemTable || !productTable || !orderTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
       hasOrderItemTable: !!orderItemTable,
       hasProductTable: !!productTable,
+      hasOrderTable: !!orderTable,
     });
     return JSON.stringify({
       success: false,
@@ -67,8 +79,10 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
     const status = normalizeOrderItemStatus(orderItem["status"]);
     const quantity = Number(orderItem["quantity"] ?? 0);
     const productId = String(orderItem["productId"] ?? "");
+    const orderId = String(orderItem["orderId"] ?? "");
     logDebug(FUNCTION_NAME, "order item loaded", {
       orderItemId,
+      orderId,
       productId,
       status,
       rawStatus: orderItem["status"],
@@ -95,57 +109,155 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       });
     }
 
-    const now = new Date().toISOString();
+    if (!orderId) {
+      return JSON.stringify({
+        success: false,
+        message: "明細項目缺少訂單關聯",
+      });
+    }
 
-    // 3. 執行交易：OrderItem 狀態回 ordered + 庫存扣回
+    const now = new Date().toISOString();
+    const orderResult = await ddb.send(
+      new GetItemCommand({
+        TableName: orderTable,
+        Key: marshall({ id: orderId }),
+      }),
+    );
+    if (!orderResult.Item) {
+      return JSON.stringify({
+        success: false,
+        message: "找不到指定的訂單",
+      });
+    }
+    const order = unmarshall(orderResult.Item);
+    const currentOrderStatus = normalizeOrderStatus(order["status"]);
+    const currentPaymentStatus = normalizePaymentStatus(order["paymentStatus"]);
+    const currentFulfillmentStatus = normalizeFulfillmentStatus(
+      order["fulfillmentStatus"],
+    );
+    const allOrderItemsResult = await ddb.send(
+      new QueryCommand({
+        TableName: orderItemTable,
+        IndexName: "byOrderId",
+        KeyConditionExpression: "orderId = :orderId",
+        ExpressionAttributeValues: marshall({ ":orderId": orderId }),
+      }),
+    );
+    const allOrderItems = (allOrderItemsResult.Items ?? []).map((rawItem) =>
+      unmarshall(rawItem),
+    );
+    const simulatedOrderItems = allOrderItems.map((li) => ({
+      status:
+        li["id"] === orderItemId
+          ? ("ordered" as const)
+          : normalizeOrderItemStatus(li["status"]),
+    }));
+    const derivedFulfillmentStatus =
+      deriveFulfillmentStatusFromOrderItems(simulatedOrderItems);
+    const derivedOrderStatus = deriveOrderStatusFromSummary({
+      paymentStatus: currentPaymentStatus,
+      fulfillmentStatus: derivedFulfillmentStatus,
+      cancelledAt: order["cancelledAt"] != null ? String(order["cancelledAt"]) : null,
+    });
+
+    const transactItems: NonNullable<
+      ConstructorParameters<typeof TransactWriteItemsCommand>[0]
+    >["TransactItems"] = [
+      {
+        Update: {
+          TableName: orderItemTable,
+          Key: marshall({ id: orderItemId }),
+          UpdateExpression:
+            "SET #st = :ordered, updatedAt = :now REMOVE receivedAt",
+          ConditionExpression: "#st = :received OR #st = :legacyReceived",
+          ExpressionAttributeNames: { "#st": "status" },
+          ExpressionAttributeValues: marshall({
+            ":ordered": "ordered",
+            ":received": "received",
+            ":legacyReceived": "已收到",
+            ":now": now,
+          }),
+        },
+      },
+      {
+        Update: {
+          TableName: productTable,
+          Key: marshall({ id: productId }),
+          UpdateExpression:
+            "SET stockQuantity = stockQuantity - :qty, updatedAt = :now",
+          ConditionExpression:
+            "attribute_exists(id) AND stockQuantity >= :qty",
+          ExpressionAttributeValues: marshall({
+            ":qty": quantity,
+            ":now": now,
+          }),
+        },
+      },
+    ];
+
+    if (
+      derivedFulfillmentStatus !== currentFulfillmentStatus ||
+      derivedOrderStatus !== currentOrderStatus
+    ) {
+      const existingHistory =
+        Array.isArray(order["statusHistory"])
+          ? (order["statusHistory"] as Record<string, unknown>[])
+          : [];
+      const updatedHistory =
+        derivedOrderStatus !== currentOrderStatus
+          ? [
+              ...existingHistory,
+              {
+                fromStatus: currentOrderStatus,
+                toStatus: derivedOrderStatus,
+                changedAt: now,
+              },
+            ]
+          : existingHistory;
+
+      transactItems.push({
+        Update: {
+          TableName: orderTable,
+          Key: marshall({ id: orderId }),
+          UpdateExpression:
+            "SET #st = :newStatus, fulfillmentStatus = :fulfillmentStatus, statusHistory = :history, updatedAt = :now",
+          ExpressionAttributeNames: { "#st": "status" },
+          ExpressionAttributeValues: marshall({
+            ":newStatus": derivedOrderStatus,
+            ":fulfillmentStatus": derivedFulfillmentStatus,
+            ":history": updatedHistory,
+            ":now": now,
+          }),
+        },
+      });
+    }
+
+    // 3. 執行交易：OrderItem 狀態回 ordered + 庫存扣回 + 同步訂單狀態
     logDebug(FUNCTION_NAME, "executing transaction", {
       orderItemId,
+      orderId,
       productId,
       quantity,
-      transactItemCount: 2,
+      currentOrderStatus,
+      currentFulfillmentStatus,
+      derivedOrderStatus,
+      derivedFulfillmentStatus,
+      transactItemCount: transactItems.length,
     });
     await ddb.send(
       new TransactWriteItemsCommand({
-        TransactItems: [
-          {
-            Update: {
-              TableName: orderItemTable,
-              Key: marshall({ id: orderItemId }),
-              UpdateExpression:
-                "SET #st = :ordered, updatedAt = :now REMOVE receivedAt",
-              ConditionExpression: "#st = :received OR #st = :legacyReceived",
-              ExpressionAttributeNames: { "#st": "status" },
-              ExpressionAttributeValues: marshall({
-                ":ordered": "ordered",
-                ":received": "received",
-                ":legacyReceived": "已收到",
-                ":now": now,
-              }),
-            },
-          },
-          {
-            Update: {
-              TableName: productTable,
-              Key: marshall({ id: productId }),
-              UpdateExpression:
-                "SET stockQuantity = stockQuantity - :qty, updatedAt = :now",
-              ConditionExpression:
-                "attribute_exists(id) AND stockQuantity >= :qty",
-              ExpressionAttributeValues: marshall({
-                ":qty": quantity,
-                ":now": now,
-              }),
-            },
-          },
-        ],
+        TransactItems: transactItems,
       }),
     );
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
       orderItemId,
+      orderId,
       productId,
       quantity,
       orderItemStatus: "ordered",
+      orderStatus: derivedOrderStatus,
+      fulfillmentStatus: derivedFulfillmentStatus,
     });
     return JSON.stringify({
       success: true,
@@ -154,6 +266,8 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
         orderItemId,
         quantity,
         orderItemStatus: "ordered",
+        orderStatus: derivedOrderStatus,
+        fulfillmentStatus: derivedFulfillmentStatus,
       },
     });
   } catch (error: unknown) {

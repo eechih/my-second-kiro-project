@@ -215,6 +215,12 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       customerId: string;
       customerName: string;
       status: OrderStatus;
+      paymentStatus: string;
+      fulfillmentStatus: string;
+      paidAt: string | null;
+      cancelledAt: string | null;
+      refundedAt: string | null;
+      completedAt: string | null;
       statusHistory: Record<string, unknown>[];
       orderItems: Record<string, unknown>[];
       createdAt: string;
@@ -248,11 +254,15 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
             id: newOrderId,
             customerId,
             orderNumber: newOrderNumber,
-            customerName,
+            customerNameSnapshot: customerName,
+            subtotalAmount: totalAmount,
+            shippingAmount: 0,
+            discountAmount: 0,
             totalAmount,
             status: "PENDING_PAYMENT",
             paymentStatus: "UNPAID",
             fulfillmentStatus: "UNFULFILLED",
+            isActive: true,
             gsiPartition: "Order",
             createdAtForSort: now,
             statusHistory: [
@@ -274,6 +284,12 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
         customerId,
         customerName,
         status: "PENDING_PAYMENT",
+        paymentStatus: "UNPAID",
+        fulfillmentStatus: "UNFULFILLED",
+        paidAt: null,
+        cancelledAt: null,
+        refundedAt: null,
+        completedAt: null,
         statusHistory: [],
         orderItems: [],
         createdAt: now,

@@ -211,11 +211,15 @@ function buildNewOrderItem(
         id: newOrderId,
         customerId: order.customerId,
         orderNumber: newOrderNumber,
-        customerName: order.customerName,
+        customerNameSnapshot: order.customerName,
+        subtotalAmount: totalAmount,
+        shippingAmount: 0,
+        discountAmount: 0,
         totalAmount,
         status: "PENDING_PAYMENT",
         paymentStatus: "UNPAID",
         fulfillmentStatus: "UNFULFILLED",
+        isActive: true,
         gsiPartition: "Order",
         createdAtForSort: now,
         statusHistory: [
@@ -379,7 +383,14 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
 
     // 4. 準備合併資料
     const totalAmount = allOrderItemRecords.reduce(
-      (sum, li) => sum + Number(li["subtotal"] ?? 0),
+      (sum, li) =>
+        sum +
+        Number(
+          li["totalPriceSnapshot"] ??
+            li["subtotalAmount"] ??
+            li["subtotal"] ??
+            0,
+        ),
       0,
     );
     const now = new Date().toISOString();
