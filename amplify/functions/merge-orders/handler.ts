@@ -59,24 +59,40 @@ function succeed(message: string, data: Record<string, unknown>): string {
 // ---------------------------------------------------------------------------
 
 function mapOrderItem(raw: DdbRecord): OrderItem {
+  const selectedOptionsSnapshot = Array.isArray(
+    raw["selectedOptionsSnapshot"],
+  )
+    ? (raw["selectedOptionsSnapshot"] as Record<string, unknown>[])
+    : [];
+  const variantLabel =
+    selectedOptionsSnapshot.length > 0
+      ? selectedOptionsSnapshot
+          .map((entry) => String(entry["valueName"] ?? "").trim())
+          .filter(Boolean)
+          .join(" / ")
+      : null;
+
   return {
     id: String(raw["id"] ?? ""),
     productId: String(raw["productId"] ?? ""),
-    productName: String(raw["productName"] ?? ""),
+    productName: String(raw["productNameSnapshot"] ?? raw["productName"] ?? ""),
     productImageUrl: raw["productImageUrlSnapshot"]
       ? String(raw["productImageUrlSnapshot"])
       : null,
-    variantLabel: raw["variantLabel"] ? String(raw["variantLabel"]) : null,
-    selectedOptionsSnapshot: [],
+    variantLabel,
+    selectedOptionsSnapshot: selectedOptionsSnapshot.map((entry) => ({
+      optionName: String(entry["optionName"] ?? ""),
+      valueName: String(entry["valueName"] ?? ""),
+      priceOffset: Number(entry["priceOffset"] ?? 0),
+      costOffset: Number(entry["costOffset"] ?? 0),
+    })),
     quantity: Number(raw["quantity"] ?? 0),
-    unitPrice: Number(raw["unitPrice"] ?? 0),
+    unitPrice: Number(raw["unitPriceSnapshot"] ?? 0),
     unitCostSnapshot:
       raw["unitCostSnapshot"] !== null && raw["unitCostSnapshot"] !== undefined
         ? Number(raw["unitCostSnapshot"])
-        : raw["unitCost"] !== null && raw["unitCost"] !== undefined
-          ? Number(raw["unitCost"])
-          : null,
-    subtotal: Number(raw["subtotal"] ?? 0),
+        : null,
+    subtotal: Number(raw["totalPriceSnapshot"] ?? raw["subtotal"] ?? 0),
     totalCostSnapshot:
       raw["totalCostSnapshot"] !== null && raw["totalCostSnapshot"] !== undefined
         ? Number(raw["totalCostSnapshot"])
@@ -88,8 +104,8 @@ function mapOrderItem(raw: DdbRecord): OrderItem {
     outOfStockAt: raw["outOfStockAt"] ? String(raw["outOfStockAt"]) : null,
     supplierName: raw["supplierName"] ? String(raw["supplierName"]) : null,
     unitCost:
-      raw["unitCost"] !== null && raw["unitCost"] !== undefined
-        ? Number(raw["unitCost"])
+      raw["unitCostSnapshot"] !== null && raw["unitCostSnapshot"] !== undefined
+        ? Number(raw["unitCostSnapshot"])
         : null,
   };
 }

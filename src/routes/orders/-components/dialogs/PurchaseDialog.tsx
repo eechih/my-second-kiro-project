@@ -37,9 +37,9 @@ export function PurchaseDialog({
   useEffect(() => {
     if (!open) return;
     setSupplier(null);
-    setUnitCost(0);
+    setUnitCost(orderItem.unitCostSnapshot ?? 0);
     setError(null);
-  }, [open]);
+  }, [open, orderItem.unitCostSnapshot]);
 
   const handleSubmit = async (): Promise<void> => {
     setError(null);
@@ -64,7 +64,8 @@ export function PurchaseDialog({
       await client.models.OrderItem.update({
         id: orderItem.id,
         supplierName: supplier.name,
-        unitCost,
+        unitCostSnapshot: unitCost,
+        totalCostSnapshot: unitCost * orderItem.quantity,
       });
 
       // 2. 再呼叫 confirmPurchase 做狀態轉換 pending → ordered

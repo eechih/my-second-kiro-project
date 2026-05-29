@@ -19,8 +19,7 @@ const SORT_PARTITIONS = {
   order: "Order",
 } as const;
 
-type SortPartition =
-  (typeof SORT_PARTITIONS)[keyof typeof SORT_PARTITIONS];
+type SortPartition = (typeof SORT_PARTITIONS)[keyof typeof SORT_PARTITIONS];
 type FunctionResource = Parameters<typeof a.handler.function>[0];
 
 function activeFlagField() {
@@ -244,32 +243,42 @@ const schema = a.schema({
   OrderItem: a
     .model({
       orderId: a.id().required(),
-      order: a.belongsTo("Order", "orderId"),
       productId: a.id().required(),
-      product: a.belongsTo("Product", "productId"),
-      // 保留舊欄位供歷史資料相容；新流程僅依賴 variantLabelSnapshot 顯示規格。
-      productVariantId: a.id(),
-      quantity: a.integer().required(),
-      productImageUrlSnapshot: a.string(),
-      selectedOptionsSnapshot: a.json(),
-      unitPriceSnapshot: a.integer(),
-      unitCostSnapshot: a.integer(),
-      totalPriceSnapshot: a.integer(),
-      totalCostSnapshot: a.integer(),
-      unitPrice: a.integer().required(),
-      subtotalAmount: a.integer().required(),
+
       // 訂單明細狀態（採購 / 入庫 / 出貨流程主要依據）
       status: a.ref("OrderItemStatus").required(),
+
       productNameSnapshot: a.string().required(),
       productSkuSnapshot: a.string().required(),
-      variantLabelSnapshot: a.string(),
+      productImageUrlSnapshot: a.string(),
+
+      // 下單當下選到的規格快照
+      // 例如：
+      // [
+      //   { optionName: "顏色", valueName: "紅色", priceOffset: 0, costOffset: 0 },
+      //   { optionName: "尺寸", valueName: "XL", priceOffset: 60, costOffset: 20 }
+      // ]
+      selectedOptionsSnapshot: a.json(),
+
+      unitPriceSnapshot: a.integer(),
+      unitCostSnapshot: a.integer(),
+
+      quantity: a.integer().required(),
+
+      totalPriceSnapshot: a.integer(),
+      totalCostSnapshot: a.integer(),
+
       supplierName: a.string(),
-      unitCost: a.integer(),
+
       purchasedAt: a.datetime(),
       receivedAt: a.datetime(),
       shippedAt: a.datetime(),
       outOfStockAt: a.datetime(),
+
       createdAtForSort: createdAtForSortField(),
+
+      order: a.belongsTo("Order", "orderId"),
+      product: a.belongsTo("Product", "productId"),
     })
     .secondaryIndexes((index) => [
       index("orderId")

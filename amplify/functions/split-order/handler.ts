@@ -233,8 +233,11 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       // 計算新訂單總金額
       let totalAmount = 0;
       for (const li of orderItems) {
-        totalAmount +=
-          (li["quantity"] as number) * (li["unitPrice"] as number);
+        const itemTotal =
+          typeof li["totalPriceSnapshot"] === "number"
+            ? (li["totalPriceSnapshot"] as number)
+            : (li["quantity"] as number) * (li["unitPriceSnapshot"] as number);
+        totalAmount += itemTotal;
       }
 
       // 建立新訂單

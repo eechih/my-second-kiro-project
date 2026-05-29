@@ -312,8 +312,26 @@ function parseSelectedOptionsSnapshot(
   }
 }
 
+function buildVariantLabelFromSnapshot(
+  snapshots: OrderItemSelectedOptionSnapshot[],
+): string | null {
+  if (snapshots.length === 0) {
+    return null;
+  }
+
+  const names = snapshots
+    .map((snapshot) => snapshot.valueName.trim())
+    .filter(Boolean);
+
+  return names.length > 0 ? names.join(" / ") : null;
+}
+
 /** 將 Amplify Data 回傳的原始資料映射為 OrderItem 型別 */
 function mapToOrderItem(raw: Record<string, unknown>): OrderItem {
+  const selectedOptionsSnapshot = parseSelectedOptionsSnapshot(
+    raw.selectedOptionsSnapshot,
+  );
+
   return {
     id: String(raw.id ?? ""),
     productId: String(raw.productId ?? ""),
@@ -325,24 +343,16 @@ function mapToOrderItem(raw: Record<string, unknown>): OrderItem {
       raw.productSkuSnapshot !== undefined && raw.productSkuSnapshot !== null
         ? String(raw.productSkuSnapshot)
         : "",
-    variantLabel: raw.variantLabelSnapshot
-      ? String(raw.variantLabelSnapshot)
-      : raw.variantLabel
-        ? String(raw.variantLabel)
-        : null,
-    selectedOptionsSnapshot: parseSelectedOptionsSnapshot(
-      raw.selectedOptionsSnapshot,
-    ),
+    variantLabel: buildVariantLabelFromSnapshot(selectedOptionsSnapshot),
+    selectedOptionsSnapshot,
     quantity: Number(raw.quantity ?? 0),
-    unitPrice: Number(raw.unitPriceSnapshot ?? raw.unitPrice ?? 0),
+    unitPrice: Number(raw.unitPriceSnapshot ?? 0),
     unitCostSnapshot:
       raw.unitCostSnapshot != null
         ? Number(raw.unitCostSnapshot)
-        : raw.unitCost != null
-          ? Number(raw.unitCost)
-          : null,
+        : null,
     subtotal: Number(
-      raw.totalPriceSnapshot ?? raw.subtotalAmount ?? raw.subtotal ?? 0,
+      raw.totalPriceSnapshot ?? raw.subtotal ?? 0,
     ),
     totalCostSnapshot:
       raw.totalCostSnapshot != null ? Number(raw.totalCostSnapshot) : null,
@@ -355,9 +365,7 @@ function mapToOrderItem(raw: Record<string, unknown>): OrderItem {
     unitCost:
       raw.unitCostSnapshot != null
         ? Number(raw.unitCostSnapshot)
-        : raw.unitCost != null
-          ? Number(raw.unitCost)
-          : null,
+        : null,
   };
 }
 
@@ -434,15 +442,9 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       totalPriceSnapshot: item.subtotal,
       totalCostSnapshot:
         item.unitCost != null ? item.unitCost * item.quantity : null,
-      unitPrice: item.unitPrice,
-      subtotalAmount: item.subtotal,
       status: "pending",
       createdAtForSort: now,
     };
-
-    if (item.variantLabel) {
-      orderItemPayload.variantLabelSnapshot = item.variantLabel;
-    }
 
     const { data: orderItemData, errors: orderItemErrors } =
       await client.models.OrderItem.create(
@@ -1373,15 +1375,9 @@ async function addOrderItemToOrder(
     totalPriceSnapshot: subtotal,
     totalCostSnapshot:
       input.unitCost != null ? input.unitCost * input.quantity : null,
-    unitPrice: input.unitPrice,
-    subtotalAmount: subtotal,
     status: "pending",
     createdAtForSort: new Date().toISOString(),
   };
-
-  if (input.variantLabel) {
-    orderItemPayload.variantLabelSnapshot = input.variantLabel;
-  }
 
   const { errors: orderItemErrors } = await client.models.OrderItem.create(
     orderItemPayload as Parameters<typeof client.models.OrderItem.create>[0],
@@ -1406,7 +1402,6 @@ async function updateOrderItemInOrder(
     productNameSnapshot: input.productName,
     productImageUrlSnapshot: input.productImageUrl,
     productSkuSnapshot: input.productSku,
-    variantLabelSnapshot: input.variantLabel ?? null,
     selectedOptionsSnapshot: JSON.stringify(input.selectedOptionsSnapshot),
     quantity: input.quantity,
     unitPriceSnapshot: input.unitPrice,
@@ -1414,8 +1409,6 @@ async function updateOrderItemInOrder(
     totalPriceSnapshot: subtotal,
     totalCostSnapshot:
       input.unitCost != null ? input.unitCost * input.quantity : null,
-    unitPrice: input.unitPrice,
-    subtotalAmount: subtotal,
   };
 
   const { errors } = await client.models.OrderItem.update(
@@ -1450,7 +1443,7 @@ async function recalculateOrderTotal(orderId: string): Promise<void> {
   const { data: orderItemsData, errors: queryErrors } =
     await client.models.OrderItem.listOrderItemsByOrderId(
       { orderId },
-      { selectionSet: ["id", "quantity", "unitPrice"] },
+      { selectionSet: ["id", "quantity", "unitPriceSnapshot"] },
     );
 
   if (queryErrors && queryErrors.length > 0) {
@@ -1466,7 +1459,7 @@ async function recalculateOrderTotal(orderId: string): Promise<void> {
     variantLabel: null,
     selectedOptionsSnapshot: [],
     quantity: Number(li.quantity ?? 0),
-    unitPrice: Number(li.unitPrice ?? 0),
+    unitPrice: Number(li.unitPriceSnapshot ?? 0),
     unitCostSnapshot: null,
     subtotal: 0,
     totalCostSnapshot: null,

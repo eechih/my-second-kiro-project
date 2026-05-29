@@ -113,7 +113,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
               TableName: orderItemTable,
               Key: marshall({ id: orderItemId }),
               UpdateExpression:
-                "SET #st = :pending, updatedAt = :now REMOVE purchasedAt, supplierName, unitCost",
+                "SET #st = :pending, updatedAt = :now REMOVE purchasedAt, supplierName, unitCostSnapshot, totalCostSnapshot",
               ConditionExpression:
                 "orderId = :orderId AND (#st = :ordered OR #st = :legacyOrdered)",
               ExpressionAttributeNames: { "#st": "status" },
