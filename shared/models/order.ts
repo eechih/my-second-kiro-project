@@ -10,14 +10,34 @@
 
 /** 訂單狀態 */
 export const ORDER_STATUSES = [
-  "pending",
-  "confirmed",
-  "shipping",
-  "completed",
-  "cancelled",
+  "PENDING_PAYMENT",
+  "PAID",
+  "CANCELLED",
+  "REFUNDED",
+  "COMPLETED",
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+/** 付款狀態 */
+export const PAYMENT_STATUSES = [
+  "UNPAID",
+  "PAID",
+  "REFUNDED",
+  "PARTIALLY_REFUNDED",
+] as const;
+
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+/** 履約狀態 */
+export const FULFILLMENT_STATUSES = [
+  "UNFULFILLED",
+  "READY_TO_SHIP",
+  "SHIPPED",
+  "COMPLETED",
+] as const;
+
+export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number];
 
 /** 訂單明細狀態 */
 export const ORDER_ITEM_STATUSES = [
@@ -31,11 +51,25 @@ export const ORDER_ITEM_STATUSES = [
 export type OrderItemStatus = (typeof ORDER_ITEM_STATUSES)[number];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: "待處理",
-  confirmed: "已確認",
-  shipping: "出貨中",
-  completed: "已完成",
-  cancelled: "已取消",
+  PENDING_PAYMENT: "待付款",
+  PAID: "已付款",
+  CANCELLED: "已取消",
+  REFUNDED: "已退款",
+  COMPLETED: "已完成",
+};
+
+export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
+  UNPAID: "未付款",
+  PAID: "已付款",
+  REFUNDED: "已退款",
+  PARTIALLY_REFUNDED: "部分退款",
+};
+
+export const FULFILLMENT_STATUS_LABEL: Record<FulfillmentStatus, string> = {
+  UNFULFILLED: "未履約",
+  READY_TO_SHIP: "可出貨",
+  SHIPPED: "已出貨",
+  COMPLETED: "已完成",
 };
 
 export const ORDER_ITEM_STATUS_LABEL: Record<OrderItemStatus, string> = {
@@ -54,7 +88,84 @@ export function isOrderStatus(value: unknown): value is OrderStatus {
 }
 
 export function normalizeOrderStatus(value: unknown): OrderStatus {
-  return isOrderStatus(value) ? value : "pending";
+  if (isOrderStatus(value)) {
+    return value;
+  }
+
+  switch (value) {
+    case "pending":
+      return "PENDING_PAYMENT";
+    case "confirmed":
+    case "shipping":
+      return "PAID";
+    case "completed":
+      return "COMPLETED";
+    case "cancelled":
+      return "CANCELLED";
+    case "refunded":
+      return "REFUNDED";
+    default:
+      return "PENDING_PAYMENT";
+  }
+}
+
+export function isPaymentStatus(value: unknown): value is PaymentStatus {
+  return (
+    typeof value === "string" &&
+    (PAYMENT_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+export function normalizePaymentStatus(value: unknown): PaymentStatus {
+  if (isPaymentStatus(value)) {
+    return value;
+  }
+
+  switch (value) {
+    case "pending":
+      return "UNPAID";
+    case "confirmed":
+    case "shipping":
+    case "completed":
+      return "PAID";
+    case "refunded":
+      return "REFUNDED";
+    default:
+      return "UNPAID";
+  }
+}
+
+export function isFulfillmentStatus(value: unknown): value is FulfillmentStatus {
+  return (
+    typeof value === "string" &&
+    (FULFILLMENT_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+export function normalizeFulfillmentStatus(
+  value: unknown,
+): FulfillmentStatus {
+  if (isFulfillmentStatus(value)) {
+    return value;
+  }
+
+  switch (value) {
+    case "PENDING":
+    case "PARTIALLY_RECEIVED":
+    case "pending":
+      return "UNFULFILLED";
+    case "READY_TO_SHIP":
+      return "READY_TO_SHIP";
+    case "PARTIALLY_SHIPPED":
+    case "SHIPPED":
+    case "shipping":
+      return "SHIPPED";
+    case "COMPLETED":
+    case "completed":
+      return "COMPLETED";
+    default:
+      return "UNFULFILLED";
+  }
 }
 
 export function isOrderItemStatus(value: unknown): value is OrderItemStatus {
@@ -187,6 +298,18 @@ export interface Order {
   totalAmount: number;
   /** 訂單狀態 */
   status: OrderStatus;
+  /** 付款狀態 */
+  paymentStatus: PaymentStatus;
+  /** 履約狀態 */
+  fulfillmentStatus: FulfillmentStatus;
+  /** ISO 8601 付款時間 */
+  paidAt: string | null;
+  /** ISO 8601 取消時間 */
+  cancelledAt: string | null;
+  /** ISO 8601 退款時間 */
+  refundedAt: string | null;
+  /** ISO 8601 完成時間 */
+  completedAt: string | null;
   /** 狀態變更歷史 */
   statusHistory: StatusChange[];
   /** ISO 8601 建立時間 */

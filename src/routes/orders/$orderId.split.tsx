@@ -149,7 +149,9 @@ function OrderSplitPage() {
   }
 
   // 檢查訂單是否可分拆
-  const canSplit = order.status === "pending" || order.status === "confirmed";
+  const canSplit =
+    (order.status === "PENDING_PAYMENT" || order.status === "PAID") &&
+    order.fulfillmentStatus === "UNFULFILLED";
 
   return (
     <Box>
@@ -186,7 +188,7 @@ function OrderSplitPage() {
       {/* 不可分拆提示 */}
       {!canSplit && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          僅能分拆狀態為「待處理」或「已確認」的訂單。目前訂單狀態為「
+          僅能分拆狀態為「待付款」或「已付款」，且尚未進入履約流程的訂單。目前訂單狀態為「
           {order.status}」。
         </Alert>
       )}

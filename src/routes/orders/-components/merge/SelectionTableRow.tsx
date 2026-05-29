@@ -13,8 +13,8 @@ import type { Order } from "@shared/models";
 import { useEffect } from "react";
 
 const MERGEABLE_ORDER_STATUS_COLOR: Record<string, "warning" | "info"> = {
-  pending: "warning",
-  confirmed: "info",
+  PENDING_PAYMENT: "warning",
+  PAID: "info",
 };
 
 export interface SelectionTableRowProps {
@@ -71,7 +71,8 @@ export function SelectionTableRow({
 
   if (
     order.customerId !== selectedCustomerId ||
-    (order.status !== "pending" && order.status !== "confirmed")
+    (order.status !== "PENDING_PAYMENT" && order.status !== "PAID") ||
+    order.fulfillmentStatus !== "UNFULFILLED"
   ) {
     return null;
   }

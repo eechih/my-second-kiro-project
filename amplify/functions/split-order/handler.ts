@@ -96,7 +96,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     });
 
     // 2. 驗證訂單狀態——僅 pending 或 confirmed 可分拆
-    const splittableStatuses = new Set<string>(["pending", "confirmed"]);
+    const splittableStatuses = new Set<string>(["PENDING_PAYMENT", "PAID"]);
     if (!splittableStatuses.has(currentStatus)) {
       logWarn(FUNCTION_NAME, "order status is not splittable", {
         orderId,
@@ -250,13 +250,15 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
             orderNumber: newOrderNumber,
             customerName,
             totalAmount,
-            status: "pending",
+            status: "PENDING_PAYMENT",
+            paymentStatus: "UNPAID",
+            fulfillmentStatus: "UNFULFILLED",
             gsiPartition: "Order",
             createdAtForSort: now,
             statusHistory: [
               {
                 fromStatus: "created",
-                toStatus: "pending",
+                toStatus: "PENDING_PAYMENT",
                 changedAt: now,
               },
             ],
@@ -271,7 +273,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
         orderNumber: newOrderNumber,
         customerId,
         customerName,
-        status: "pending",
+        status: "PENDING_PAYMENT",
         statusHistory: [],
         orderItems: [],
         createdAt: now,
@@ -297,12 +299,12 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
     }
 
     // 8b. 將原訂單狀態變更為 cancelled
-    if (isValidOrderStatusTransition(currentStatus, "cancelled")) {
+    if (isValidOrderStatusTransition(currentStatus, "CANCELLED")) {
       const existingHistory =
         (order["statusHistory"] as Record<string, unknown>[]) ?? [];
       const newHistoryEntry = {
         fromStatus: currentStatus,
-        toStatus: "cancelled",
+        toStatus: "CANCELLED",
         changedAt: now,
       };
       const updatedHistory = [...existingHistory, newHistoryEntry];
@@ -312,10 +314,10 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
           TableName: orderTable,
           Key: marshall({ id: orderId }),
           UpdateExpression:
-            "SET #st = :cancelled, statusHistory = :history, updatedAt = :now",
+            "SET #st = :cancelled, statusHistory = :history, cancelledAt = :now, updatedAt = :now",
           ExpressionAttributeNames: { "#st": "status" },
           ExpressionAttributeValues: marshall({
-            ":cancelled": "cancelled",
+            ":cancelled": "CANCELLED",
             ":history": updatedHistory,
             ":now": now,
           }),

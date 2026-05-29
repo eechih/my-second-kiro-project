@@ -6,11 +6,11 @@ export const ORDER_STATUS_COLOR_MAP: Record<
   OrderStatus,
   "primary" | "secondary" | "error" | "info" | "success" | "warning"
 > = {
-  pending: "warning",
-  confirmed: "info",
-  shipping: "primary",
-  completed: "success",
-  cancelled: "error",
+  PENDING_PAYMENT: "warning",
+  PAID: "info",
+  CANCELLED: "error",
+  REFUNDED: "secondary",
+  COMPLETED: "success",
 };
 
 export { ORDER_STATUS_LABEL };

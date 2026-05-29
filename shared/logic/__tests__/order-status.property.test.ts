@@ -21,25 +21,24 @@ import type { OrderStatus } from "../../models/order";
 
 /** 所有合法的訂單狀態值 */
 const ALL_ORDER_STATUSES: readonly OrderStatus[] = [
-  "pending",
-  "confirmed",
-  "shipping",
-  "completed",
-  "cancelled",
+  "PENDING_PAYMENT",
+  "PAID",
+  "CANCELLED",
+  "REFUNDED",
+  "COMPLETED",
 ] as const;
 
 /**
  * 明確列舉所有合法的狀態轉換對。
- * 允許路徑：pending → confirmed → shipping → completed，任何狀態 → cancelled
+ * 允許路徑：PENDING_PAYMENT → PAID → COMPLETED；PENDING_PAYMENT/PAID/COMPLETED 可進 CANCELLED/REFUNDED
  */
 const VALID_TRANSITIONS: ReadonlySet<string> = new Set([
-  "pending->confirmed",
-  "pending->cancelled",
-  "confirmed->shipping",
-  "confirmed->cancelled",
-  "shipping->completed",
-  "shipping->cancelled",
-  "completed->cancelled",
+  "PENDING_PAYMENT->PAID",
+  "PENDING_PAYMENT->CANCELLED",
+  "PAID->COMPLETED",
+  "PAID->REFUNDED",
+  "PAID->CANCELLED",
+  "COMPLETED->REFUNDED",
 ]);
 
 /** fast-check Arbitrary：產生任意合法的 OrderStatus */
@@ -74,38 +73,31 @@ describe("屬性 2：訂單狀態轉換——僅允許合法轉換", () => {
     );
   });
 
-  it("cancelled 狀態不可轉換至任何其他狀態", () => {
+  it("CANCELLED 狀態不可轉換至任何其他狀態", () => {
     fc.assert(
       fc.property(orderStatusArb, (to) => {
-        expect(isValidOrderStatusTransition("cancelled", to)).toBe(false);
+        expect(isValidOrderStatusTransition("CANCELLED", to)).toBe(false);
       }),
       { numRuns: 100 },
     );
   });
 
-  it("任何非 cancelled 狀態皆可轉換至 cancelled", () => {
+  it("PENDING_PAYMENT 與 PAID 可轉換至 CANCELLED", () => {
     const nonCancelledArb = fc.constantFrom<OrderStatus>(
-      "pending",
-      "confirmed",
-      "shipping",
-      "completed",
+      "PENDING_PAYMENT",
+      "PAID",
     );
 
     fc.assert(
       fc.property(nonCancelledArb, (from) => {
-        expect(isValidOrderStatusTransition(from, "cancelled")).toBe(true);
+        expect(isValidOrderStatusTransition(from, "CANCELLED")).toBe(true);
       }),
       { numRuns: 100 },
     );
   });
 
-  it("正向路徑 pending → confirmed → shipping → completed 每一步皆合法", () => {
-    const happyPath: OrderStatus[] = [
-      "pending",
-      "confirmed",
-      "shipping",
-      "completed",
-    ];
+  it("正向路徑 PENDING_PAYMENT → PAID → COMPLETED 每一步皆合法", () => {
+    const happyPath: OrderStatus[] = ["PENDING_PAYMENT", "PAID", "COMPLETED"];
 
     for (let i = 0; i < happyPath.length - 1; i++) {
       expect(
@@ -114,12 +106,11 @@ describe("屬性 2：訂單狀態轉換——僅允許合法轉換", () => {
     }
   });
 
-  it("不允許反向轉換（completed → shipping → confirmed → pending）", () => {
+  it("不允許反向轉換（COMPLETED → PAID → PENDING_PAYMENT）", () => {
     const reversePath: OrderStatus[] = [
-      "completed",
-      "shipping",
-      "confirmed",
-      "pending",
+      "COMPLETED",
+      "PAID",
+      "PENDING_PAYMENT",
     ];
 
     for (let i = 0; i < reversePath.length - 1; i++) {
@@ -129,10 +120,14 @@ describe("屬性 2：訂單狀態轉換——僅允許合法轉換", () => {
     }
   });
 
-  it("不允許跳躍轉換（pending → shipping, pending → completed）", () => {
-    expect(isValidOrderStatusTransition("pending", "shipping")).toBe(false);
-    expect(isValidOrderStatusTransition("pending", "completed")).toBe(false);
-    expect(isValidOrderStatusTransition("confirmed", "completed")).toBe(false);
+  it("不允許跳躍轉換（PENDING_PAYMENT → COMPLETED）", () => {
+    expect(isValidOrderStatusTransition("PENDING_PAYMENT", "COMPLETED")).toBe(
+      false,
+    );
+    expect(isValidOrderStatusTransition("PENDING_PAYMENT", "REFUNDED")).toBe(
+      false,
+    );
+    expect(isValidOrderStatusTransition("COMPLETED", "CANCELLED")).toBe(false);
   });
 });
 
@@ -181,8 +176,8 @@ describe("getNextAllowedOrderStatuses 屬性測試", () => {
     );
   });
 
-  it("cancelled 狀態的可轉換列表應為空", () => {
-    const allowed = getNextAllowedOrderStatuses("cancelled");
+  it("CANCELLED 狀態的可轉換列表應為空", () => {
+    const allowed = getNextAllowedOrderStatuses("CANCELLED");
     expect(allowed).toEqual([]);
   });
 });

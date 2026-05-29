@@ -169,11 +169,17 @@ function createSampleOrder(): Order {
       },
     ],
     totalAmount: 2000,
-    status: "pending",
+    status: "PENDING_PAYMENT",
+    paymentStatus: "UNPAID",
+    fulfillmentStatus: "UNFULFILLED",
+    paidAt: null,
+    cancelledAt: null,
+    refundedAt: null,
+    completedAt: null,
     statusHistory: [
       {
         fromStatus: "",
-        toStatus: "pending",
+        toStatus: "PENDING_PAYMENT",
         changedAt: "2025-01-01T00:00:00.000Z",
       },
     ],
@@ -329,7 +335,7 @@ describe("serializeOrder / deserializeOrder", () => {
     const json = serializeOrder(original);
     const restored = deserializeOrder(json);
     expect(restored.statusHistory).toHaveLength(1);
-    expect(restored.statusHistory[0]!.toStatus).toBe("pending");
+    expect(restored.statusHistory[0]!.toStatus).toBe("PENDING_PAYMENT");
   });
 
   it("反序列化無效 JSON 應拋出錯誤", () => {

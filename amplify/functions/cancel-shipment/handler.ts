@@ -7,10 +7,17 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
+  normalizeFulfillmentStatus,
   normalizeOrderItemStatus,
   normalizeOrderStatus,
+  normalizePaymentStatus,
   type OrderStatus,
 } from "@shared/models/order";
+import {
+  deriveFulfillmentStatusFromOrderItems,
+  deriveOrderStatusFromSummary,
+} from "@shared/logic/order-status";
+import type { FulfillmentStatus } from "@shared/models/order";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -37,25 +44,6 @@ function parseStatusHistory(raw: unknown): Record<string, unknown>[] {
   } catch {
     return [];
   }
-}
-
-function deriveOrderStatusAfterShipmentCancel(
-  orderItems: ReadonlyArray<{
-    status: ReturnType<typeof normalizeOrderItemStatus>;
-  }>,
-): OrderStatus {
-  const allShipped = orderItems.every((item) => item.status === "shipped");
-  const someShipped = orderItems.some((item) => item.status === "shipped");
-
-  if (allShipped) {
-    return "completed";
-  }
-
-  if (someShipped) {
-    return "shipping";
-  }
-
-  return "confirmed";
 }
 
 /**
@@ -159,8 +147,8 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
           ? ("received" as const)
           : normalizeOrderItemStatus(item["status"]),
     }));
-    const derivedOrderStatus =
-      deriveOrderStatusAfterShipmentCancel(simulatedOrderItems);
+    const derivedFulfillmentStatus: FulfillmentStatus =
+      deriveFulfillmentStatusFromOrderItems(simulatedOrderItems);
 
     const orderResult = await ddb.send(
       new GetItemCommand({
@@ -179,6 +167,16 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
 
     const order = unmarshall(orderResult.Item);
     const currentOrderStatus = normalizeOrderStatus(order["status"]);
+    const currentPaymentStatus = normalizePaymentStatus(order["paymentStatus"]);
+    const currentFulfillmentStatus = normalizeFulfillmentStatus(
+      order["fulfillmentStatus"],
+    );
+    const derivedOrderStatus: OrderStatus = deriveOrderStatusFromSummary({
+      paymentStatus: currentPaymentStatus,
+      fulfillmentStatus: derivedFulfillmentStatus,
+      cancelledAt:
+        order["cancelledAt"] != null ? String(order["cancelledAt"]) : null,
+    });
     logDebug(FUNCTION_NAME, "order status derived", {
       orderId,
       orderItemId,
@@ -186,7 +184,7 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       derivedOrderStatus,
       orderItemCount: allOrderItems.length,
     });
-    if (currentOrderStatus === "cancelled") {
+    if (currentOrderStatus === "CANCELLED") {
       return JSON.stringify({
         success: false,
         message: "已取消訂單不可取消出貨",
@@ -243,11 +241,12 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
           TableName: orderTable,
           Key: marshall({ id: orderId }),
           UpdateExpression:
-            "SET #st = :newStatus, statusHistory = :history, updatedAt = :now",
+            "SET #st = :newStatus, fulfillmentStatus = :fulfillmentStatus, statusHistory = :history, updatedAt = :now",
           ConditionExpression: "#st = :currentStatus",
           ExpressionAttributeNames: { "#st": "status" },
           ExpressionAttributeValues: marshall({
             ":newStatus": derivedOrderStatus,
+            ":fulfillmentStatus": derivedFulfillmentStatus,
             ":currentStatus": currentOrderStatus,
             ":history": updatedHistory,
             ":now": now,
@@ -262,6 +261,8 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       productId,
       quantity,
       currentOrderStatus,
+      currentFulfillmentStatus,
+      derivedFulfillmentStatus,
       derivedOrderStatus,
       transactItemCount: transactItems.length,
     });

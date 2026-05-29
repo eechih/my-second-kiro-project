@@ -41,6 +41,10 @@ export function deserializeOrder(json: string): Order {
   assertStringField(order, "status", "Order");
   assertStringField(order, "createdAt", "Order");
   assertStringField(order, "updatedAt", "Order");
+  assertOptionalNullableStringField(order, "paidAt", "Order");
+  assertOptionalNullableStringField(order, "cancelledAt", "Order");
+  assertOptionalNullableStringField(order, "refundedAt", "Order");
+  assertOptionalNullableStringField(order, "completedAt", "Order");
   const rawItems = order.items ?? order.orderItems;
   if (!Array.isArray(rawItems)) {
     throw new Error("反序列化失敗：Order.items 應為 array");
@@ -50,6 +54,19 @@ export function deserializeOrder(json: string): Order {
   return {
     ...order,
     items: rawItems.map(deserializeOrderItem),
+    paidAt: order.paidAt === undefined ? null : (order.paidAt as string | null),
+    cancelledAt:
+      order.cancelledAt === undefined
+        ? null
+        : (order.cancelledAt as string | null),
+    refundedAt:
+      order.refundedAt === undefined
+        ? null
+        : (order.refundedAt as string | null),
+    completedAt:
+      order.completedAt === undefined
+        ? null
+        : (order.completedAt as string | null),
     statusHistory: order.statusHistory as Order["statusHistory"],
   } as Order;
 }
@@ -214,6 +231,22 @@ function assertNullableStringField(
   ) {
     throw new Error(
       `反序列化失敗：${typeName}.${field} 應為 string 或 null，但收到 ${typeof obj[field]}`,
+    );
+  }
+}
+
+function assertOptionalNullableStringField(
+  obj: Record<string, unknown>,
+  field: string,
+  typeName: string,
+): void {
+  if (
+    obj[field] !== undefined &&
+    obj[field] !== null &&
+    typeof obj[field] !== "string"
+  ) {
+    throw new Error(
+      `反序列化失敗：${typeName}.${field} 應為 string、null 或 undefined，但收到 ${typeof obj[field]}`,
     );
   }
 }

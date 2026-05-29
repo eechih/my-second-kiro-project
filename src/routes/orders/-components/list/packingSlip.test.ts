@@ -3,12 +3,18 @@ import { describe, expect, it } from "vitest";
 import { buildPackingSlipHtml } from "./packingSlip";
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
-  return {
+  const order: Order = {
     id: "order-1",
     orderNumber: "ORD-001",
     customerId: "customer-1",
     customerName: "王小明 & Co",
-    status: "shipping",
+    status: "PAID",
+    paymentStatus: "PAID",
+    fulfillmentStatus: "SHIPPED",
+    paidAt: null,
+    cancelledAt: null,
+    refundedAt: null,
+    completedAt: null,
     statusHistory: [],
     totalAmount: 1200,
     createdAt: "2026-05-14T01:23:00.000Z",
@@ -35,7 +41,15 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
         unitCost: null,
       },
     ],
+  };
+
+  return {
+    ...order,
     ...overrides,
+    paidAt: overrides.paidAt ?? order.paidAt,
+    cancelledAt: overrides.cancelledAt ?? order.cancelledAt,
+    refundedAt: overrides.refundedAt ?? order.refundedAt,
+    completedAt: overrides.completedAt ?? order.completedAt,
   };
 }
 

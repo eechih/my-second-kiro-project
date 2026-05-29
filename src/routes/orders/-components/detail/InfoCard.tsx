@@ -6,7 +6,11 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import { isOrderStatus } from "@shared/models";
+import {
+  FULFILLMENT_STATUS_LABEL,
+  PAYMENT_STATUS_LABEL,
+  isOrderStatus,
+} from "@shared/models";
 import type { Order, OrderStatus } from "@shared/models";
 import {
   formatDate,
@@ -50,6 +54,12 @@ export function InfoCard({
           </Typography>
           <Typography variant="body2" color="text.secondary">
             總金額：{formatCurrency(order.totalAmount)}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            付款狀態：{PAYMENT_STATUS_LABEL[order.paymentStatus]}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            履約狀態：{FULFILLMENT_STATUS_LABEL[order.fulfillmentStatus]}
           </Typography>
         </Box>
         <Box

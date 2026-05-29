@@ -5,7 +5,7 @@
  * 此模組為純函式，前端與 Lambda 共用同一份邏輯（Single Source of Truth）。
  *
  * 分拆規則：
- * - 原訂單狀態必須為 pending 或 confirmed
+ * - 原訂單狀態必須為 PENDING_PAYMENT 或 PAID
  * - 所有明細項目皆必須有分配目標
  * - 至少需要分配到兩筆新訂單
  * - 分拆後所有新訂單的明細項目總和等於原訂單（數量守恆）
@@ -49,8 +49,8 @@ export interface SplitOrderData {
 
 /** 允許分拆的訂單狀態集合 */
 const SPLITTABLE_STATUSES: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
-  "pending",
-  "confirmed",
+  "PENDING_PAYMENT",
+  "PAID",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ const SPLITTABLE_STATUSES: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
  * 驗證訂單是否可以依指定的分配方式進行分拆。
  *
  * 驗證規則：
- * 1. 訂單狀態必須為 pending 或 confirmed（需求 9.7）
+ * 1. 訂單狀態必須為 PENDING_PAYMENT 或 PAID（需求 9.7）
  * 2. 分配列表不可為空
  * 3. 所有明細項目皆必須有分配目標（不可遺漏）
  * 4. 分配列表中的明細項目 ID 必須存在於原訂單中（不可包含不存在的明細）
@@ -80,7 +80,7 @@ export function validateSplitOrder(
   if (!SPLITTABLE_STATUSES.has(order.status)) {
     return {
       valid: false,
-      error: "僅能分拆待處理或已確認的訂單",
+      error: "僅能分拆待付款或已付款的訂單",
     };
   }
 
@@ -156,7 +156,7 @@ export function validateSplitOrder(
  * 分拆邏輯：
  * - 依 targetOrderIndex 將明細項目分組至對應的新訂單
  * - 每筆新訂單的總金額由其包含的明細項目重新計算（需求 9.6 數量守恆）
- * - 每筆新訂單初始狀態為 pending
+ * - 每筆新訂單初始狀態為 PENDING_PAYMENT
  * - 記錄原訂單 ID，供呼叫端將原訂單標記為 cancelled
  *
  * 注意：此函式不執行驗證，呼叫前應先呼叫 `validateSplitOrder` 確認合法性。
@@ -203,7 +203,7 @@ export function splitOrder(
       customerName: order.customerName,
       items,
       totalAmount,
-      status: "pending" as OrderStatus,
+      status: "PENDING_PAYMENT" as OrderStatus,
       sourceOrderId: order.id,
     };
   });

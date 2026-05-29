@@ -36,6 +36,8 @@ function OrderDetailPage(): React.ReactElement {
           orderId: order.id,
           currentStatus: order.status,
           newStatus,
+          currentPaymentStatus: order.paymentStatus,
+          currentFulfillmentStatus: order.fulfillmentStatus,
           statusHistory: order.statusHistory,
         });
       } catch (err) {
@@ -82,7 +84,8 @@ function OrderDetailPage(): React.ReactElement {
               返回
             </Button>
             <Chip label={order.orderNumber} variant="outlined" />
-            {(order.status === "pending" || order.status === "confirmed") &&
+            {(order.status === "PENDING_PAYMENT" || order.status === "PAID") &&
+              order.fulfillmentStatus === "UNFULFILLED" &&
               order.items.length >= 2 && (
                 <Button
                   size="small"

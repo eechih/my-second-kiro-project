@@ -37,14 +37,14 @@ function OrderMergePage() {
   const [error, setError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // 查詢選定客戶的 pending/confirmed 訂單
+  // 查詢選定客戶的可合併訂單
   const { data: ordersData, isLoading: orderIdsLoading } = useOrderList({
     pageSize: 100,
     search: selectedCustomer?.name,
   });
   const orderIds = useMemo(() => ordersData?.items ?? [], [ordersData?.items]);
 
-  // 篩選出屬於選定客戶且狀態為 pending 或 confirmed 的訂單
+  // 篩選出屬於選定客戶且尚未進入履約流程的待付款/已付款訂單
   const mergeableOrders = useMemo(() => {
     if (!selectedCustomer) return [];
     return orderIds
@@ -53,7 +53,8 @@ function OrderMergePage() {
       .filter(
         (order) =>
           order.customerId === selectedCustomer.id &&
-          (order.status === "pending" || order.status === "confirmed"),
+          (order.status === "PENDING_PAYMENT" || order.status === "PAID") &&
+          order.fulfillmentStatus === "UNFULFILLED",
       );
   }, [selectedCustomer, orderIds, loadedOrders]);
 

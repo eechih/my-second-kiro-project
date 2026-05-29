@@ -9,8 +9,10 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { validateMergeOrders } from "@shared/logic/order-merge";
 import {
+  normalizeFulfillmentStatus,
   normalizeOrderItemStatus,
   normalizeOrderStatus,
+  normalizePaymentStatus,
   type OrderItem,
   type Order,
 } from "@shared/models/order";
@@ -123,6 +125,17 @@ function mapOrderRecordToOrder(input: {
     items: orderItems,
     totalAmount: Number(rawOrder["totalAmount"] ?? 0),
     status: normalizeOrderStatus(rawOrder["status"]),
+    paymentStatus: normalizePaymentStatus(rawOrder["paymentStatus"]),
+    fulfillmentStatus: normalizeFulfillmentStatus(
+      rawOrder["fulfillmentStatus"],
+    ),
+    paidAt: rawOrder["paidAt"] != null ? String(rawOrder["paidAt"]) : null,
+    cancelledAt:
+      rawOrder["cancelledAt"] != null ? String(rawOrder["cancelledAt"]) : null,
+    refundedAt:
+      rawOrder["refundedAt"] != null ? String(rawOrder["refundedAt"]) : null,
+    completedAt:
+      rawOrder["completedAt"] != null ? String(rawOrder["completedAt"]) : null,
     statusHistory: Array.isArray(rawOrder["statusHistory"])
       ? (rawOrder["statusHistory"] as Order["statusHistory"])
       : [],
@@ -200,11 +213,17 @@ function buildNewOrderItem(
         orderNumber: newOrderNumber,
         customerName: order.customerName,
         totalAmount,
-        status: "pending",
+        status: "PENDING_PAYMENT",
+        paymentStatus: "UNPAID",
+        fulfillmentStatus: "UNFULFILLED",
         gsiPartition: "Order",
         createdAtForSort: now,
         statusHistory: [
-          { fromStatus: "created", toStatus: "pending", changedAt: now },
+          {
+            fromStatus: "created",
+            toStatus: "PENDING_PAYMENT",
+            changedAt: now,
+          },
         ],
         createdAt: now,
         updatedAt: now,
@@ -246,7 +265,7 @@ function buildCancelOrderItems(
       (order["statusHistory"] as Record<string, unknown>[]) ?? [];
     const updatedHistory = [
       ...existingHistory,
-      { fromStatus: currentStatus, toStatus: "cancelled", changedAt: now },
+      { fromStatus: currentStatus, toStatus: "CANCELLED", changedAt: now },
     ];
 
     return {
@@ -254,11 +273,11 @@ function buildCancelOrderItems(
         TableName: orderTable,
         Key: marshall({ id: order["id"] as string }),
         UpdateExpression:
-          "SET #st = :cancelled, statusHistory = :history, updatedAt = :now",
+          "SET #st = :cancelled, statusHistory = :history, cancelledAt = :now, updatedAt = :now",
         ConditionExpression: "#st = :currentStatus",
         ExpressionAttributeNames: { "#st": "status" },
         ExpressionAttributeValues: marshall({
-          ":cancelled": "cancelled",
+          ":cancelled": "CANCELLED",
           ":currentStatus": currentStatus,
           ":history": updatedHistory,
           ":now": now,
@@ -435,9 +454,11 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       customerId: firstOrder.customerId,
       orderNumber: newOrderNumber,
       customerName: firstOrder.customerName,
-      status: "pending",
+      status: "PENDING_PAYMENT",
+      paymentStatus: "UNPAID",
+      fulfillmentStatus: "UNFULFILLED",
       statusHistory: [
-        { fromStatus: "created", toStatus: "pending", changedAt: now },
+        { fromStatus: "created", toStatus: "PENDING_PAYMENT", changedAt: now },
       ],
       orderItems: [],
       createdAt: now,

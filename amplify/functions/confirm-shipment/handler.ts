@@ -7,13 +7,16 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { isValidOrderItemStatusTransition } from "@shared/logic/order-item-status";
 import {
-  deriveOrderStatusFromOrderItems,
+  deriveFulfillmentStatusFromOrderItems,
+  deriveOrderStatusFromSummary,
   isValidOrderStatusTransition,
 } from "@shared/logic/order-status";
 import { validateShipment } from "@shared/logic/shipment";
 import {
+  normalizeFulfillmentStatus,
   normalizeOrderItemStatus,
   normalizeOrderStatus,
+  normalizePaymentStatus,
   type OrderItemStatus,
 } from "@shared/models/order";
 import type { Schema } from "../../data/resource";
@@ -173,8 +176,8 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       return { status: normalizeOrderItemStatus(li["status"]) };
     });
 
-    const derivedOrderStatus =
-      deriveOrderStatusFromOrderItems(simulatedOrderItems);
+    const derivedFulfillmentStatus =
+      deriveFulfillmentStatusFromOrderItems(simulatedOrderItems);
 
     // 6. 取得目前訂單資料（用於狀態轉換驗證）
     const orderResult = await ddb.send(
@@ -191,6 +194,16 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
 
     const order = unmarshall(orderResult.Item);
     const currentOrderStatus = normalizeOrderStatus(order["status"]);
+    const currentPaymentStatus = normalizePaymentStatus(order["paymentStatus"]);
+    const currentFulfillmentStatus = normalizeFulfillmentStatus(
+      order["fulfillmentStatus"],
+    );
+    const derivedOrderStatus = deriveOrderStatusFromSummary({
+      paymentStatus: currentPaymentStatus,
+      fulfillmentStatus: derivedFulfillmentStatus,
+      cancelledAt:
+        order["cancelledAt"] != null ? String(order["cancelledAt"]) : null,
+    });
     const now = new Date().toISOString();
 
     // 7. 建立交易項目
@@ -248,10 +261,11 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
             TableName: orderTable,
             Key: marshall({ id: orderId }),
             UpdateExpression:
-              "SET #st = :newStatus, statusHistory = :history, updatedAt = :now",
+              "SET #st = :newStatus, fulfillmentStatus = :fulfillmentStatus, statusHistory = :history, updatedAt = :now",
             ExpressionAttributeNames: { "#st": "status" },
             ExpressionAttributeValues: marshall({
               ":newStatus": derivedOrderStatus,
+              ":fulfillmentStatus": derivedFulfillmentStatus,
               ":history": updatedHistory,
               ":now": now,
             }),
@@ -268,6 +282,8 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       quantity,
       orderItemUpdateStatus,
       currentOrderStatus,
+      currentFulfillmentStatus,
+      derivedFulfillmentStatus,
       derivedOrderStatus,
       transactItemCount: transactItems.length,
     });
@@ -281,6 +297,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       productId,
       quantity,
       orderItemStatus: orderItemUpdateStatus,
+      fulfillmentStatus: derivedFulfillmentStatus,
       orderStatus: derivedOrderStatus ?? currentOrderStatus,
     });
     return JSON.stringify({
@@ -290,6 +307,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
         orderItemId,
         quantity,
         orderItemStatus: orderItemUpdateStatus,
+        fulfillmentStatus: derivedFulfillmentStatus,
         orderStatus: derivedOrderStatus ?? currentOrderStatus,
       },
     });

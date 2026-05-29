@@ -111,7 +111,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     }
 
     const order = unmarshall(orderResult.Item);
-    if (normalizeOrderStatus(order["status"]) === "cancelled") {
+    if (normalizeOrderStatus(order["status"]) === "CANCELLED") {
       return JSON.stringify({
         success: false,
         message: "已取消訂單不可取消缺貨",
