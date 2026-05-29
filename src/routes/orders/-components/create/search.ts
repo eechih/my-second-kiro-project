@@ -103,7 +103,6 @@ function mapProduct(raw: Record<string, unknown>): Product {
     defaultSupplierId: raw.defaultSupplierId ? String(raw.defaultSupplierId) : null,
     stockQuantity: Number(raw.stockQuantity ?? 0),
     options,
-    variants: [],
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],

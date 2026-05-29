@@ -47,18 +47,16 @@ const tables = backend.data.resources.tables;
 const orderTable = tables["Order"];
 const orderItemTable = tables["OrderItem"];
 const productTable = tables["Product"];
-const productVariantTable = tables["ProductVariant"];
 const productCounterTable = tables["SequenceCounter"];
 
 if (
   !orderTable ||
   !orderItemTable ||
   !productTable ||
-  !productVariantTable ||
   !productCounterTable
 ) {
   throw new Error(
-    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、Product、ProductVariant、SequenceCounter 模型。",
+    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、Product、SequenceCounter 模型。",
   );
 }
 
@@ -100,10 +98,6 @@ for (const fn of transactionalFunctions) {
   lambdaFn.addEnvironment("ORDER_ITEM_TABLE_NAME", orderItemTable.tableName);
   lambdaFn.addEnvironment("PRODUCT_TABLE_NAME", productTable.tableName);
   lambdaFn.addEnvironment(
-    "PRODUCTVARIANT_TABLE_NAME",
-    productVariantTable.tableName,
-  );
-  lambdaFn.addEnvironment(
     "SEQUENCECOUNTER_TABLE_NAME",
     productCounterTable.tableName,
   );
@@ -112,7 +106,6 @@ for (const fn of transactionalFunctions) {
   orderTable.grantReadWriteData(lambdaFn);
   orderItemTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
-  productVariantTable.grantReadWriteData(lambdaFn);
   productCounterTable.grantReadWriteData(lambdaFn);
 
   // grantReadWriteData does not include GSI ARNs. Several order workflow

@@ -32,7 +32,6 @@ const baseProduct: Product = {
   defaultSupplierId: null,
   stockQuantity: 10,
   options: [],
-  variants: [],
   imageUrls: [],
   isActive: true,
   createdAt: "2026-05-11T00:00:00.000Z",
@@ -100,7 +99,6 @@ describe("orderItemDraft", () => {
   it("builds order item data from selected option values", () => {
     const optionProduct: Product = {
       ...baseProduct,
-      variants: [],
       options: [
         {
           id: "option-color",

@@ -66,7 +66,6 @@ function createProduct(overrides: Partial<Product> = {}): Product {
         values: [sizeValue],
       },
     ],
-    variants: [],
     imageUrls: [],
     isActive: true,
     createdAt: new Date().toISOString(),

@@ -137,7 +137,6 @@ const schema = a.schema({
       deletedAt: a.datetime(),
       ...sortFields(SORT_PARTITIONS.product),
       options: a.hasMany("ProductOption", "productId"),
-      variants: a.hasMany("ProductVariant", "productId"),
       orderItems: a.hasMany("OrderItem", "productId"),
     })
     .secondaryIndexes((index) => [
@@ -184,26 +183,6 @@ const schema = a.schema({
         .sortKeys(["sortOrder"])
         .queryField("listOptionValuesByOption")
         .name("byOption"),
-    ])
-    .authorization((allow) => [allow.authenticated()]),
-
-  ProductVariant: a
-    .model({
-      productId: a.id().required(),
-      product: a.belongsTo("Product", "productId"),
-      label: a.string().required(),
-      priceOffset: a.integer().required().default(0),
-      costOffset: a.integer().required().default(0),
-      sortOrder: a.integer().required().default(0),
-      isActive: activeFlagField(),
-      deletedAt: a.datetime(),
-      createdAtForSort: createdAtForSortField(),
-    })
-    .secondaryIndexes((index) => [
-      index("productId")
-        .sortKeys(["sortOrder"])
-        .queryField("listVariantsByProduct")
-        .name("byProduct"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 
@@ -268,6 +247,7 @@ const schema = a.schema({
       order: a.belongsTo("Order", "orderId"),
       productId: a.id().required(),
       product: a.belongsTo("Product", "productId"),
+      // 保留舊欄位供歷史資料相容；新流程僅依賴 variantLabelSnapshot 顯示規格。
       productVariantId: a.id(),
       quantity: a.integer().required(),
       unitPrice: a.integer().required(),

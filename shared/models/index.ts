@@ -18,13 +18,10 @@ export type {
   CreateProductOptionInput,
   CreateProductOptionValueInput,
   CreateProductInput,
-  CreateVariantInput,
   Product,
   ProductOption,
   ProductOptionValue,
-  ProductVariant,
   UpdateProductInput,
-  UpdateVariantInput,
 } from "./product";
 
 export type {

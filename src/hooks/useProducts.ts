@@ -260,7 +260,7 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
       ? (resultRecord.data as Record<string, unknown>)
       : resultRecord;
 
-  return mapToProduct({ ...productData, variants: [] });
+  return mapToProduct(productData);
 }
 
 function buildProductUpdatePayload(
@@ -587,7 +587,6 @@ function mapToProduct(raw: Record<string, unknown>): Product {
       : null,
     stockQuantity,
     options,
-    variants: [],
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],

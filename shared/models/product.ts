@@ -21,23 +21,6 @@ export interface ProductOption {
   values: ProductOptionValue[];
 }
 
-/**
- * 舊版商品規格組合。
- *
- * @deprecated 新流程請改用 ProductOption / ProductOptionValue；
- * ProductVariant 僅保留給舊資料相容與過渡階段使用。
- */
-export interface ProductVariant {
-  /** 唯一識別碼 */
-  id: string;
-  /** 規格顯示標籤（如「黑」、「L」、「黑 L」） */
-  label: string;
-  /** 單價偏移量（null 或 0 表示沿用商品預設單價，正值加價、負值減價） */
-  priceOffset: number | null;
-  /** 成本偏移量（null 或 0 表示沿用商品預設成本，正值加價、負值減價） */
-  costOffset: number | null;
-}
-
 /** 商品基本資料 */
 export interface Product {
   /** 唯一識別碼 */
@@ -58,12 +41,6 @@ export interface Product {
   stockQuantity: number;
   /** 規格維度與規格值列表 */
   options: ProductOption[];
-  /**
-   * 舊版規格組合列表。
-   *
-   * @deprecated 新流程請改用 options；variants 僅保留給舊資料相容使用。
-   */
-  variants: ProductVariant[];
   /** 商品照片 S3 key 列表（存放於 product-images/{productId}/ 路徑下） */
   imageUrls: string[];
   /** 啟用狀態（預設 true，false 表示已停用） */
@@ -129,30 +106,4 @@ export interface UpdateProductInput {
   imageUrls?: string[];
   /** 啟用狀態 */
   isActive?: boolean;
-}
-
-/**
- * 建立舊版規格組合輸入。
- *
- * @deprecated 新流程請改用 CreateProductOptionInput。
- */
-export interface CreateVariantInput {
-  /** 規格顯示標籤（如「黑」、「L」、「黑 L」） */
-  label: string;
-  /** 單價偏移量（選填，null 或 0 表示無偏移） */
-  priceOffset?: number | null;
-  /** 成本偏移量（選填，null 或 0 表示無偏移） */
-  costOffset?: number | null;
-}
-
-/**
- * 更新舊版規格組合輸入。
- *
- * @deprecated 新流程請改用 ProductOption / ProductOptionValue。
- */
-export interface UpdateVariantInput {
-  /** 單價偏移量（null 表示無偏移） */
-  priceOffset?: number | null;
-  /** 成本偏移量（null 表示無偏移） */
-  costOffset?: number | null;
 }

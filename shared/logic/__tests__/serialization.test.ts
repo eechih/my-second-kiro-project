@@ -100,7 +100,6 @@ function createSampleProduct(): Product {
         ],
       },
     ],
-    variants: [],
     imageUrls: ["product-images/prod-001/photo1.jpg"],
     isActive: true,
     createdAt: "2025-01-01T00:00:00.000Z",
@@ -238,14 +237,12 @@ describe("serializeProduct / deserializeProduct", () => {
     const original: Product = {
       ...createSampleProduct(),
       options: [],
-      variants: [],
       defaultSupplierId: null,
     };
     const json = serializeProduct(original);
     const restored = deserializeProduct(json);
     expect(restored).toEqual(original);
     expect(restored.defaultSupplierId).toBeNull();
-    expect(restored.variants).toEqual([]);
   });
 
   it("規格值的加價與成本增加應正確保留", () => {
@@ -256,16 +253,6 @@ describe("serializeProduct / deserializeProduct", () => {
     expect(restored.options[0]!.values[0]!.costOffset).toBe(0);
     expect(restored.options[0]!.values[1]!.priceOffset).toBe(20);
     expect(restored.options[0]!.values[1]!.costOffset).toBe(10);
-  });
-
-  it("缺少 variants 欄位時會以空陣列補齊舊版相容欄位", () => {
-    const productWithoutVariants = JSON.stringify({
-      ...createSampleProduct(),
-      variants: undefined,
-    });
-
-    const restored = deserializeProduct(productWithoutVariants);
-    expect(restored.variants).toEqual([]);
   });
 
   it("反序列化無效 JSON 應拋出錯誤", () => {

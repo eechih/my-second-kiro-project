@@ -89,9 +89,6 @@ export function deserializeProduct(json: string): Product {
         ? null
         : (product.defaultSupplierId as string | null),
     options: product.options as Product["options"],
-    variants: Array.isArray(product.variants)
-      ? (product.variants as Product["variants"])
-      : [],
     imageUrls: product.imageUrls as Product["imageUrls"],
   } as Product;
 }
