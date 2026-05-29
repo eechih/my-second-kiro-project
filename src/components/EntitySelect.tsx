@@ -9,6 +9,7 @@ export interface EntitySelectProps<T> {
   value: T | null;
   onChange: (value: T | null) => void;
   queryKey: readonly unknown[];
+  listFn?: () => Promise<T[]>;
   searchFn: (query: string) => Promise<T[]>;
   getOptionLabel: (option: T) => string;
   filterActive?: boolean;
@@ -27,6 +28,7 @@ export function EntitySelect<T>({
   value,
   onChange,
   queryKey,
+  listFn,
   searchFn,
   getOptionLabel,
   filterActive: _filterActive = true,
@@ -37,10 +39,14 @@ export function EntitySelect<T>({
   const [inputValue, setInputValue] = useState("");
   const debouncedInputValue = useDebouncedValue(inputValue, 300);
   const searchQuery = debouncedInputValue.trim();
+  const hasSearchQuery = searchQuery.length > 0;
 
   const searchResult = useQuery({
-    queryKey: [...queryKey, searchQuery],
-    queryFn: () => searchFn(searchQuery),
+    queryKey: hasSearchQuery
+      ? [...queryKey, "search", searchQuery]
+      : [...queryKey, "list"],
+    queryFn: () =>
+      hasSearchQuery ? searchFn(searchQuery) : (listFn?.() ?? searchFn("")),
     enabled: !disabled,
     staleTime: 60_000,
   });

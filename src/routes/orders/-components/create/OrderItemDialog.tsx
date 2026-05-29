@@ -22,7 +22,7 @@ import {
   getOrderItemDraftError,
   resolveDraftUnitPrice,
 } from "./orderItemDraft";
-import { searchProducts } from "./search";
+import { listProducts, searchProducts } from "./search";
 
 /** 編輯模式時傳入的既有明細資料 */
 export interface OrderItemEditData {
@@ -206,8 +206,11 @@ export function OrderItemDialog({
             value={selectedProduct}
             onChange={handleProductChange}
             queryKey={["products", "order-line-item-dialog"]}
+            listFn={listProducts}
             searchFn={searchProducts}
-            getOptionLabel={(product) => `${product.sku} - ${product.name}`}
+            getOptionLabel={(product) =>
+              `#${product.sequenceNumber} / ${product.sku} - ${product.name}`
+            }
             required
           />
           {hasOptions ? (

@@ -51,30 +51,82 @@ export async function searchCustomers(query: string): Promise<Customer[]> {
 
 export async function searchProducts(query: string): Promise<Product[]> {
   const trimmedQuery = query.trim();
-  const filter: Record<string, unknown> = {};
-  if (trimmedQuery) {
-    filter.or = [
-      { name: { contains: trimmedQuery } },
-      { sku: { contains: trimmedQuery } },
-    ];
+  if (!trimmedQuery) {
+    return listProducts();
   }
 
+  const normalizedSkuQuery = trimmedQuery.toUpperCase();
+  const exactSequenceMatches = await searchProductsBySequenceNumber(trimmedQuery);
+  const fuzzyMatches = await queryActiveProducts({
+    filter: {
+      or: [
+        { sku: { eq: normalizedSkuQuery } },
+        { name: { contains: trimmedQuery } },
+        { sku: { contains: trimmedQuery } },
+      ],
+    },
+  });
+
+  return dedupeProductsById([...exactSequenceMatches, ...fuzzyMatches]).slice(
+    0,
+    SEARCH_LIMIT,
+  );
+}
+
+export async function searchProductsBySequenceNumber(
+  query: string | number,
+): Promise<Product[]> {
+  const normalizedQuery =
+    typeof query === "number" ? String(query) : query.trim();
+
+  if (!/^\d+$/.test(normalizedQuery)) {
+    return [];
+  }
+
+  return queryActiveProducts({
+    filter: {
+      sequenceNumber: {
+        eq: Number.parseInt(normalizedQuery, 10),
+      },
+    },
+  });
+}
+
+export async function listProducts(): Promise<Product[]> {
+  return queryActiveProducts();
+}
+
+async function queryActiveProducts(options?: {
+  filter?: Record<string, unknown>;
+  limit?: number;
+}): Promise<Product[]> {
   const { data, errors } =
     await client.models.Product.listActiveProductsByCreatedDate(
       { activeStatusKey: "ACTIVE" },
-    {
-      sortDirection: "DESC",
-      ...(trimmedQuery ? { filter } : {}),
-      limit: SEARCH_LIMIT,
-      selectionSet: PRODUCT_SELECTION_SET,
-    } as Record<string, unknown>,
-  );
+      {
+        sortDirection: "DESC",
+        limit: options?.limit ?? SEARCH_LIMIT,
+        selectionSet: PRODUCT_SELECTION_SET,
+        ...(options?.filter ? { filter: options.filter } : {}),
+      } as Record<string, unknown>,
+    );
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "搜尋商品失敗");
   }
 
   return (data ?? []).map(mapProduct);
+}
+
+function dedupeProductsById(products: Product[]): Product[] {
+  const seen = new Set<string>();
+  return products.filter((product) => {
+    if (seen.has(product.id)) {
+      return false;
+    }
+    seen.add(product.id);
+    return true;
+  });
 }
 
 function mapCustomer(raw: Record<string, unknown>): Customer {
