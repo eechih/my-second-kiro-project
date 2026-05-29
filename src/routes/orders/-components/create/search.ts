@@ -4,7 +4,6 @@ import type {
   Product,
   ProductOption,
   ProductOptionValue,
-  ProductVariant,
 } from "@shared/models";
 
 const SEARCH_LIMIT = 20;
@@ -24,7 +23,6 @@ const PRODUCT_SELECTION_SET = [
   "updatedAt",
   "options.*",
   "options.values.*",
-  "variants.*",
 ] as const;
 
 export async function searchCustomers(query: string): Promise<Customer[]> {
@@ -95,13 +93,6 @@ function mapProduct(raw: Record<string, unknown>): Product {
 
   options.sort((a, b) => a.sortOrder - b.sortOrder);
 
-  let variants: ProductVariant[] = [];
-  if (raw.variants && Array.isArray(raw.variants)) {
-    variants = (raw.variants as Record<string, unknown>[]).map(mapVariant);
-  }
-
-  variants.sort((a, b) => a.label.localeCompare(b.label, "zh-TW"));
-
   return {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
@@ -112,7 +103,7 @@ function mapProduct(raw: Record<string, unknown>): Product {
     defaultSupplierId: raw.defaultSupplierId ? String(raw.defaultSupplierId) : null,
     stockQuantity: Number(raw.stockQuantity ?? 0),
     options,
-    variants,
+    variants: [],
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],
@@ -145,20 +136,5 @@ function mapOption(raw: Record<string, unknown>): ProductOption {
     name: String(raw.name ?? ""),
     sortOrder: Number(raw.sortOrder ?? 0),
     values,
-  };
-}
-
-function mapVariant(raw: Record<string, unknown>): ProductVariant {
-  return {
-    id: String(raw.id ?? ""),
-    label: String(raw.label ?? ""),
-    priceOffset:
-      raw.priceOffset !== null && raw.priceOffset !== undefined
-        ? Number(raw.priceOffset)
-        : null,
-    costOffset:
-      raw.costOffset !== null && raw.costOffset !== undefined
-        ? Number(raw.costOffset)
-        : null,
   };
 }

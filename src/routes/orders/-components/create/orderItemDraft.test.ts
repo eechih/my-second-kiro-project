@@ -3,7 +3,6 @@ import type { Product, ProductOptionValue } from "@shared/models";
 import {
   buildOrderItemFormData,
   createDefaultOrderItemDraft,
-  getOrderItemDraftError,
   resolveDraftUnitPrice,
 } from "./orderItemDraft";
 

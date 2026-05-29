@@ -10,12 +10,9 @@ import type {
   Product,
   ProductOption,
   ProductOptionValue,
-  ProductVariant,
   CreateProductInput,
   CreateProductOptionInput,
   UpdateProductInput,
-  CreateVariantInput,
-  UpdateVariantInput,
   PaginatedResult,
 } from "@shared/models";
 
@@ -44,8 +41,6 @@ const PRODUCT_KEYS = {
     [...PRODUCT_KEYS.lists(), params] as const,
   details: () => [...PRODUCT_KEYS.all, "detail"] as const,
   detail: (id: string) => [...PRODUCT_KEYS.details(), id] as const,
-  variants: (productId: string) =>
-    [...PRODUCT_KEYS.all, "variants", productId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -68,7 +63,6 @@ const PRODUCT_SELECTION_SET = [
   "updatedAt",
   "options.*",
   "options.values.*",
-  "variants.*",
 ] as const;
 
 function buildProductFilter({
@@ -426,7 +420,7 @@ export function useUpdateProduct(): UseMutationResult<
 }
 
 // ---------------------------------------------------------------------------
-// Product Option / Variant Sync Hooks
+// Product Option Sync Hooks
 // ---------------------------------------------------------------------------
 
 function normalizeOptionInputs(
@@ -448,38 +442,7 @@ function normalizeOptionInputs(
     .filter((option) => option.name.length > 0 && option.values.length > 0);
 }
 
-function buildVariantsFromOptions(
-  options: CreateProductOptionInput[],
-): CreateVariantInput[] {
-  const normalizedOptions = normalizeOptionInputs(options);
-  if (normalizedOptions.length === 0) {
-    return [];
-  }
-
-  let combinations: Array<{
-    labelParts: string[];
-    priceOffset: number;
-    costOffset: number;
-  }> = [{ labelParts: [], priceOffset: 0, costOffset: 0 }];
-
-  for (const option of normalizedOptions) {
-    combinations = combinations.flatMap((combination) =>
-      option.values.map((value) => ({
-        labelParts: [...combination.labelParts, value.name],
-        priceOffset: combination.priceOffset + (value.priceOffset ?? 0),
-        costOffset: combination.costOffset + (value.costOffset ?? 0),
-      })),
-    );
-  }
-
-  return combinations.map((combination) => ({
-    label: combination.labelParts.join(" / "),
-    priceOffset: combination.priceOffset,
-    costOffset: combination.costOffset,
-  }));
-}
-
-async function replaceProductOptionsAndVariants({
+async function replaceProductOptions({
   productId,
   options,
 }: {
@@ -576,52 +539,6 @@ async function replaceProductOptionsAndVariants({
       );
     }),
   );
-
-  const existingVariantsResponse = await client.models.ProductVariant.listVariantsByProduct(
-    { productId },
-    {
-      limit: 500,
-    } as Record<string, unknown>,
-  );
-
-  if (existingVariantsResponse.errors && existingVariantsResponse.errors.length > 0) {
-    throw new Error(
-      existingVariantsResponse.errors[0]?.message ?? "查詢舊規格組合失敗",
-    );
-  }
-
-  await Promise.all(
-    ((existingVariantsResponse.data ?? []) as Array<Record<string, unknown>>)
-      .map((variant) => variant.id)
-      .filter((variantId): variantId is unknown => variantId !== undefined && variantId !== null)
-      .map(async (variantId) => {
-        const { errors } = await client.models.ProductVariant.delete({
-          id: String(variantId),
-        });
-        if (errors && errors.length > 0) {
-          throw new Error(errors[0]?.message ?? "刪除舊規格組合失敗");
-        }
-      }),
-  );
-
-  const variants = buildVariantsFromOptions(normalizedOptions);
-  await Promise.all(
-    variants.map(async (variant, variantIndex) => {
-      const { errors } = await client.models.ProductVariant.create({
-        productId,
-        label: variant.label.trim(),
-        priceOffset: variant.priceOffset ?? 0,
-        costOffset: variant.costOffset ?? 0,
-        sortOrder: variantIndex,
-        isActive: true,
-        createdAtForSort: new Date().toISOString(),
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "同步舊規格組合失敗");
-      }
-    }),
-  );
 }
 
 export function useSyncProductOptions(): UseMutationResult<
@@ -632,170 +549,10 @@ export function useSyncProductOptions(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: replaceProductOptionsAndVariants,
+    mutationFn: replaceProductOptions,
     onSuccess: (_data, { productId }) => {
       void queryClient.invalidateQueries({
         queryKey: PRODUCT_KEYS.detail(productId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.variants(productId),
-      });
-      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
-    },
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Variant Hooks
-// ---------------------------------------------------------------------------
-
-/**
- * 建立規格組合 mutation hook
- *
- * 為指定商品新增單一規格組合。
- *
- * 需求：3.12, 3.13
- */
-export function useCreateVariant(): UseMutationResult<
-  ProductVariant,
-  Error,
-  { productId: string; variant: CreateVariantInput }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      productId,
-      variant,
-    }: {
-      productId: string;
-      variant: CreateVariantInput;
-    }): Promise<ProductVariant> => {
-      const { data, errors } = await client.models.ProductVariant.create({
-        productId,
-        label: variant.label.trim(),
-        priceOffset: variant.priceOffset ?? 0,
-        costOffset: variant.costOffset ?? 0,
-        sortOrder: 0,
-        isActive: true,
-        createdAtForSort: new Date().toISOString(),
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "建立規格組合失敗");
-      }
-
-      if (!data) {
-        throw new Error("建立規格組合失敗：未回傳資料");
-      }
-
-      return mapToVariant(data);
-    },
-    onSuccess: (_, { productId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.detail(productId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.variants(productId),
-      });
-      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
-    },
-  });
-}
-
-/**
- * 更新規格組合 mutation hook
- *
- * 更新規格組合的單價覆寫、成本覆寫或庫存數量。
- *
- * 需求：3.14, 3.15
- */
-export function useUpdateVariant(): UseMutationResult<
-  ProductVariant,
-  Error,
-  { productId: string; variantId: string; updates: UpdateVariantInput }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      variantId,
-      updates,
-    }: {
-      productId: string;
-      variantId: string;
-      updates: UpdateVariantInput;
-    }): Promise<ProductVariant> => {
-      const updatePayload: Record<string, unknown> = { id: variantId };
-
-      if (updates.priceOffset !== undefined)
-        updatePayload.priceOffset = updates.priceOffset ?? 0;
-      if (updates.costOffset !== undefined)
-        updatePayload.costOffset = updates.costOffset ?? 0;
-
-      const { data, errors } = await client.models.ProductVariant.update(
-        updatePayload as Parameters<
-          typeof client.models.ProductVariant.update
-        >[0],
-      );
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "更新規格組合失敗");
-      }
-
-      if (!data) {
-        throw new Error("更新規格組合失敗：未回傳資料");
-      }
-
-      return mapToVariant(data);
-    },
-    onSuccess: (_, { productId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.detail(productId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.variants(productId),
-      });
-      void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
-    },
-  });
-}
-
-/**
- * 刪除規格組合 mutation hook
- *
- * 刪除指定規格組合（僅在該規格組合無關聯的訂單明細時允許）。
- *
- * 需求：3.12
- */
-export function useDeleteVariant(): UseMutationResult<
-  void,
-  Error,
-  { productId: string; variantId: string }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      variantId,
-    }: {
-      productId: string;
-      variantId: string;
-    }): Promise<void> => {
-      const { errors } = await client.models.ProductVariant.delete({
-        id: variantId,
-      });
-
-      if (errors && errors.length > 0) {
-        throw new Error(errors[0]?.message ?? "刪除規格組合失敗");
-      }
-    },
-    onSuccess: (_, { productId }) => {
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.detail(productId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: PRODUCT_KEYS.variants(productId),
       });
       void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
     },
@@ -815,14 +572,6 @@ function mapToProduct(raw: Record<string, unknown>): Product {
 
   options.sort((a, b) => a.sortOrder - b.sortOrder);
 
-  // 解析 variants（hasMany 關聯回傳的陣列）
-  let variants: ProductVariant[] = [];
-  if (raw.variants && Array.isArray(raw.variants)) {
-    variants = (raw.variants as Record<string, unknown>[]).map(mapToVariant);
-  }
-
-  variants.sort((a, b) => a.label.localeCompare(b.label, "zh-TW"));
-
   // 庫存統一在商品層級管理
   const stockQuantity = Number(raw.stockQuantity ?? 0);
 
@@ -838,29 +587,13 @@ function mapToProduct(raw: Record<string, unknown>): Product {
       : null,
     stockQuantity,
     options,
-    variants,
+    variants: [],
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],
     isActive: raw.isActive !== false,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
-  };
-}
-
-/** 將 Amplify Data 回傳的原始資料映射為 ProductVariant 型別 */
-function mapToVariant(raw: Record<string, unknown>): ProductVariant {
-  return {
-    id: String(raw.id ?? ""),
-    label: String(raw.label ?? ""),
-    priceOffset:
-      raw.priceOffset !== null && raw.priceOffset !== undefined
-        ? Number(raw.priceOffset)
-        : null,
-    costOffset:
-      raw.costOffset !== null && raw.costOffset !== undefined
-        ? Number(raw.costOffset)
-        : null,
   };
 }
 
