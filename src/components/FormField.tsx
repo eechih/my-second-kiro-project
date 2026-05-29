@@ -45,7 +45,7 @@ export interface FormFieldProps {
   sx?: SxProps<Theme>;
   /**
    * 自訂渲染函式（render prop）。
-   * 用於非 TextField 的元件（如 EntitySelect、VariantSelect）。
+   * 用於非 TextField 的元件（如 EntitySelect、自訂 Select 元件）。
    * 當提供 children 時，不渲染預設的 TextField，改為渲染 children 的回傳值。
    * children 接收 field 實例及 error 資訊。
    */
@@ -63,7 +63,7 @@ export interface FormFieldProps {
  * - 自動處理 value/onChange 雙向綁定
  * - 自動處理 error 狀態與 helperText 顯示第一個驗證錯誤
  * - 必填欄位自動標記星號（*）
- * - 支援 children render prop 用於自訂渲染（EntitySelect、VariantSelect 等）
+ * - 支援 children render prop 用於自訂渲染（EntitySelect、自訂 Select 等）
  *
  * 所有表單頁面統一使用 FormField 而非直接操作 TanStack Form 的 field API。
  */

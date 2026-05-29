@@ -63,21 +63,44 @@ function createSampleProduct(): Product {
     cost: 50,
     defaultSupplierId: "sup-001",
     stockQuantity: 200,
-    options: [],
-    variants: [
+    options: [
       {
-        id: "var-001",
-        label: "紅 L",
-        priceOffset: null,
-        costOffset: null,
+        id: "option-color",
+        name: "顏色",
+        sortOrder: 0,
+        values: [
+          {
+            id: "value-color-red",
+            name: "紅",
+            priceOffset: 0,
+            costOffset: 0,
+            sortOrder: 0,
+          },
+          {
+            id: "value-color-black",
+            name: "黑",
+            priceOffset: 20,
+            costOffset: 10,
+            sortOrder: 1,
+          },
+        ],
       },
       {
-        id: "var-002",
-        label: "黑 M",
-        priceOffset: 20,
-        costOffset: 10,
+        id: "option-size",
+        name: "尺寸",
+        sortOrder: 1,
+        values: [
+          {
+            id: "value-size-l",
+            name: "L",
+            priceOffset: 0,
+            costOffset: 0,
+            sortOrder: 0,
+          },
+        ],
       },
     ],
+    variants: [],
     imageUrls: ["product-images/prod-001/photo1.jpg"],
     isActive: true,
     createdAt: "2025-01-01T00:00:00.000Z",
@@ -204,14 +227,14 @@ describe("serializeSupplier / deserializeSupplier", () => {
 // ---------------------------------------------------------------------------
 
 describe("serializeProduct / deserializeProduct", () => {
-  it("往返序列化應產生深度相等的物件（含規格組合）", () => {
+  it("往返序列化應產生深度相等的物件（含規格選項）", () => {
     const original = createSampleProduct();
     const json = serializeProduct(original);
     const restored = deserializeProduct(json);
     expect(restored).toEqual(original);
   });
 
-  it("無規格組合的商品往返序列化應正確", () => {
+  it("無規格的商品往返序列化應正確", () => {
     const original: Product = {
       ...createSampleProduct(),
       options: [],
@@ -225,14 +248,24 @@ describe("serializeProduct / deserializeProduct", () => {
     expect(restored.variants).toEqual([]);
   });
 
-  it("規格組合的 null 覆寫值應正確保留", () => {
+  it("規格值的加價與成本增加應正確保留", () => {
     const original = createSampleProduct();
     const json = serializeProduct(original);
     const restored = deserializeProduct(json);
-    expect(restored.variants[0]!.priceOffset).toBeNull();
-    expect(restored.variants[0]!.costOffset).toBeNull();
-    expect(restored.variants[1]!.priceOffset).toBe(20);
-    expect(restored.variants[1]!.costOffset).toBe(10);
+    expect(restored.options[0]!.values[0]!.priceOffset).toBe(0);
+    expect(restored.options[0]!.values[0]!.costOffset).toBe(0);
+    expect(restored.options[0]!.values[1]!.priceOffset).toBe(20);
+    expect(restored.options[0]!.values[1]!.costOffset).toBe(10);
+  });
+
+  it("缺少 variants 欄位時會以空陣列補齊舊版相容欄位", () => {
+    const productWithoutVariants = JSON.stringify({
+      ...createSampleProduct(),
+      variants: undefined,
+    });
+
+    const restored = deserializeProduct(productWithoutVariants);
+    expect(restored.variants).toEqual([]);
   });
 
   it("反序列化無效 JSON 應拋出錯誤", () => {

@@ -70,10 +70,30 @@ export function deserializeProduct(json: string): Product {
   assertStringField(product, "createdAt", "Product");
   assertStringField(product, "updatedAt", "Product");
   assertArrayField(product, "options", "Product");
-  assertArrayField(product, "variants", "Product");
   assertArrayField(product, "imageUrls", "Product");
 
-  return parsed as unknown as Product;
+  if (
+    product.defaultSupplierId !== undefined &&
+    product.defaultSupplierId !== null &&
+    typeof product.defaultSupplierId !== "string"
+  ) {
+    throw new Error(
+      `反序列化失敗：Product.defaultSupplierId 應為 string 或 null，但收到 ${typeof product.defaultSupplierId}`,
+    );
+  }
+
+  return {
+    ...product,
+    defaultSupplierId:
+      product.defaultSupplierId === undefined
+        ? null
+        : (product.defaultSupplierId as string | null),
+    options: product.options as Product["options"],
+    variants: Array.isArray(product.variants)
+      ? (product.variants as Product["variants"])
+      : [],
+    imageUrls: product.imageUrls as Product["imageUrls"],
+  } as Product;
 }
 
 // ---------------------------------------------------------------------------

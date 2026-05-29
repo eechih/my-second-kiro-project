@@ -1,5 +1,5 @@
 /**
- * 商品（Product）、規格選項（ProductOption / ProductOptionValue / ProductVariant）資料模型
+ * 商品（Product）、規格選項（ProductOption / ProductOptionValue）資料模型
  *
  * 需求：3.1, 3.2, 3.3, 3.9, 3.10, 3.12, 3.13, 3.14, 3.15
  */
@@ -21,7 +21,12 @@ export interface ProductOption {
   values: ProductOptionValue[];
 }
 
-/** 商品規格選項（如「黑」、「L」、「黑 L」） */
+/**
+ * 舊版商品規格組合。
+ *
+ * @deprecated 新流程請改用 ProductOption / ProductOptionValue；
+ * ProductVariant 僅保留給舊資料相容與過渡階段使用。
+ */
 export interface ProductVariant {
   /** 唯一識別碼 */
   id: string;
@@ -53,7 +58,11 @@ export interface Product {
   stockQuantity: number;
   /** 規格維度與規格值列表 */
   options: ProductOption[];
-  /** 規格選項列表 */
+  /**
+   * 舊版規格組合列表。
+   *
+   * @deprecated 新流程請改用 options；variants 僅保留給舊資料相容使用。
+   */
   variants: ProductVariant[];
   /** 商品照片 S3 key 列表（存放於 product-images/{productId}/ 路徑下） */
   imageUrls: string[];
@@ -122,7 +131,11 @@ export interface UpdateProductInput {
   isActive?: boolean;
 }
 
-/** 建立規格組合輸入 */
+/**
+ * 建立舊版規格組合輸入。
+ *
+ * @deprecated 新流程請改用 CreateProductOptionInput。
+ */
 export interface CreateVariantInput {
   /** 規格顯示標籤（如「黑」、「L」、「黑 L」） */
   label: string;
@@ -132,7 +145,11 @@ export interface CreateVariantInput {
   costOffset?: number | null;
 }
 
-/** 更新規格組合輸入 */
+/**
+ * 更新舊版規格組合輸入。
+ *
+ * @deprecated 新流程請改用 ProductOption / ProductOptionValue。
+ */
 export interface UpdateVariantInput {
   /** 單價偏移量（null 表示無偏移） */
   priceOffset?: number | null;
