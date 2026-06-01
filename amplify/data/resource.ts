@@ -87,7 +87,6 @@ const schema = a.schema({
   Customer: a
     .model({
       name: a.string().required(),
-      contactPerson: a.string(),
       phone: a.string(),
       email: a.string(),
       address: a.string(),

@@ -10,8 +10,6 @@ export interface Customer {
   id: string;
   /** 客戶名稱（必填） */
   name: string;
-  /** 聯絡人（選填） */
-  contactPerson: string;
   /** 電話（選填） */
   phone: string;
   /** Email（選填） */
@@ -34,8 +32,6 @@ export interface Customer {
 export interface CreateCustomerInput {
   /** 客戶名稱（必填） */
   name: string;
-  /** 聯絡人（選填） */
-  contactPerson?: string;
   /** 電話（選填） */
   phone?: string;
   /** Email（選填） */
@@ -50,8 +46,6 @@ export interface UpdateCustomerInput {
   id: string;
   /** 客戶名稱 */
   name?: string;
-  /** 聯絡人 */
-  contactPerson?: string;
   /** 電話 */
   phone?: string;
   /** Email */

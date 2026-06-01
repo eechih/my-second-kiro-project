@@ -28,7 +28,6 @@ function createSampleCustomer(): Customer {
   return {
     id: "cust-001",
     name: "測試客戶",
-    contactPerson: "王小明",
     phone: "0912345678",
     email: "test@example.com",
     address: "台北市信義區",

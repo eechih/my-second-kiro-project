@@ -35,7 +35,6 @@ async function searchCustomers(query: string): Promise<CustomerOption[]> {
   if (query) {
     filter.or = [
       { name: { contains: query } },
-      { contactPerson: { contains: query } },
     ];
   }
 

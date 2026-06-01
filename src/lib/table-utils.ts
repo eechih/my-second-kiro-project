@@ -4,7 +4,7 @@ import type { Customer } from "@shared/models/customer";
  * 排序欄位型別定義
  * 需求：1.5
  */
-export type SortField = "name" | "contactPerson" | "phone" | "createdAt";
+export type SortField = "name" | "phone" | "createdAt";
 
 /**
  * 計算表格列號

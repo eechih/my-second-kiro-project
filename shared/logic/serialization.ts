@@ -140,7 +140,6 @@ export function deserializeCustomer(json: string): Customer {
 
   assertStringField(customer, "id", "Customer");
   assertStringField(customer, "name", "Customer");
-  assertOptionalStringField(customer, "contactPerson", "Customer");
   assertOptionalStringField(customer, "phone", "Customer");
   assertStringField(customer, "email", "Customer");
   assertStringField(customer, "address", "Customer");

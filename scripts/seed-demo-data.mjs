@@ -60,32 +60,6 @@ const PRODUCT_NOUNS = [
   "便條夾",
 ];
 
-const CUSTOMER_SURNAMES = [
-  "陳",
-  "林",
-  "黃",
-  "張",
-  "李",
-  "王",
-  "吳",
-  "劉",
-  "蔡",
-  "楊",
-];
-
-const CUSTOMER_GIVEN_NAMES = [
-  "雅雯",
-  "家豪",
-  "詠晴",
-  "柏宇",
-  "芷涵",
-  "廷宇",
-  "佩蓉",
-  "佳穎",
-  "志豪",
-  "宜蓁",
-];
-
 const CITY_NAMES = [
   "台北市",
   "新北市",
@@ -207,15 +181,12 @@ function weightedCustomerIndex(orderIndex, customerCount) {
 }
 
 function buildFakeCustomer(index, orderCount, lastOrderedAt) {
-  const surname = CUSTOMER_SURNAMES[index % CUSTOMER_SURNAMES.length];
-  const givenName = CUSTOMER_GIVEN_NAMES[index % CUSTOMER_GIVEN_NAMES.length];
   const city = CITY_NAMES[index % CITY_NAMES.length];
   const createdAt = new Date(Date.now() - (index + 14) * 86400000).toISOString();
 
   return {
     id: randomUUID(),
     name: `測試客戶 ${String(index + 1).padStart(2, "0")}`,
-    contactPerson: `${surname}${givenName}`,
     phone: `09${String(10000000 + index).slice(0, 8)}`,
     email: `demo-customer-${index + 1}@example.com`,
     address: `${city}示範路 ${index + 1} 號`,

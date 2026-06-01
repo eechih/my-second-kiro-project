@@ -3,7 +3,6 @@ import { getAvatarColor, getAvatarLetter } from "@/lib/avatar-utils";
 
 export interface UserInfoCellProps {
   name: string;
-  contactPerson: string;
 }
 
 /**
@@ -12,7 +11,6 @@ export interface UserInfoCellProps {
  */
 export function UserInfoCell({
   name,
-  contactPerson,
 }: UserInfoCellProps): React.ReactElement {
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -29,9 +27,6 @@ export function UserInfoCell({
       <Box>
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           {name}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {contactPerson}
         </Typography>
       </Box>
     </Box>

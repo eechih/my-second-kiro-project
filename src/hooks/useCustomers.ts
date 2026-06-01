@@ -29,7 +29,7 @@ export interface CustomerListParams {
   pageSize: number;
   /** 游標 token（首頁為 undefined） */
   nextToken?: string;
-  /** 搜尋關鍵字（模糊比對 name/contactPerson/phone） */
+  /** 搜尋關鍵字（模糊比對 name/phone） */
   search?: string;
   /** 啟用狀態篩選（undefined 表示全部） */
   isActive?: boolean;
@@ -67,7 +67,6 @@ function buildCustomerFilter({
   if (search) {
     filter.or = [
       { name: { contains: search } },
-      { contactPerson: { contains: search } },
       { phone: { contains: search } },
     ];
   }
@@ -102,9 +101,6 @@ function applyCustomerUpdate(
   return {
     ...customer,
     ...(input.name !== undefined && { name: input.name }),
-    ...(input.contactPerson !== undefined && {
-      contactPerson: input.contactPerson,
-    }),
     ...(input.phone !== undefined && { phone: input.phone }),
     ...(input.email !== undefined && { email: input.email }),
     ...(input.address !== undefined && { address: input.address }),
@@ -154,7 +150,6 @@ async function createCustomer(input: CreateCustomerInput): Promise<Customer> {
   const now = new Date().toISOString();
   const { data, errors } = await client.models.Customer.create({
     name: input.name,
-    contactPerson: input.contactPerson,
     phone: input.phone,
     email: input.email ?? "",
     address: input.address ?? "",
@@ -183,9 +178,6 @@ async function updateCustomer(input: UpdateCustomerInput): Promise<Customer> {
   const { data, errors } = await client.models.Customer.update({
     id: input.id,
     ...(input.name !== undefined && { name: input.name }),
-    ...(input.contactPerson !== undefined && {
-      contactPerson: input.contactPerson,
-    }),
     ...(input.phone !== undefined && { phone: input.phone }),
     ...(input.email !== undefined && { email: input.email }),
     ...(input.address !== undefined && { address: input.address }),
@@ -211,7 +203,6 @@ function mapToCustomer(raw: Record<string, unknown>): Customer {
   return {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
-    contactPerson: String(raw.contactPerson ?? ""),
     phone: String(raw.phone ?? ""),
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),
@@ -231,7 +222,7 @@ function mapToCustomer(raw: Record<string, unknown>): Customer {
  * 客戶列表查詢 hook（游標式分頁）
  *
  * 使用 TanStack Query 搭配 DynamoDB nextToken 實現游標式分頁。
- * 支援搜尋（name/contactPerson/phone 模糊比對）與 isActive 篩選。
+ * 支援搜尋（name/phone 模糊比對）與 isActive 篩選。
  * isActive 為 undefined 時查詢全部狀態。
  *
  * 需求：1.1, 1.5, 1.9

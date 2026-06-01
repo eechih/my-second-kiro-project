@@ -9,7 +9,6 @@ import { useEffect } from "react";
 
 export interface CustomerFormValues {
   name: string;
-  contactPerson: string;
   phone: string;
   email: string;
   address: string;
@@ -25,7 +24,6 @@ export interface CustomerFormProps {
 
 const DEFAULT_CUSTOMER_VALUES: CustomerFormValues = {
   name: "",
-  contactPerson: "",
   phone: "",
   email: "",
   address: "",
@@ -67,10 +65,6 @@ export function CustomerForm({
             }}
           >
             {(field) => <FormField field={field} label="客戶名稱" required />}
-          </form.Field>
-
-          <form.Field name="contactPerson">
-            {(field) => <FormField field={field} label="聯絡人" />}
           </form.Field>
 
           <form.Field name="phone">

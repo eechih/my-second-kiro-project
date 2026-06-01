@@ -34,7 +34,6 @@ function CustomerEditPage() {
     if (!customer) return undefined;
     return {
       name: customer.name,
-      contactPerson: customer.contactPerson,
       phone: customer.phone,
       email: customer.email,
       address: customer.address,
@@ -56,7 +55,6 @@ function CustomerEditPage() {
       await updateMutation.mutateAsync({
         id: customerId,
         name: values.name,
-        contactPerson: values.contactPerson,
         phone: values.phone,
         email: values.email,
         address: values.address,

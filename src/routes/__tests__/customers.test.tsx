@@ -25,7 +25,6 @@ const mockCustomers: Customer[] = [
   {
     id: "c1",
     name: "測試客戶 A",
-    contactPerson: "王小明",
     phone: "0912345678",
     email: "a@example.com",
     address: "台北市信義區",
@@ -38,7 +37,6 @@ const mockCustomers: Customer[] = [
   {
     id: "c2",
     name: "測試客戶 B",
-    contactPerson: "李小華",
     phone: "0987654321",
     email: "b@example.com",
     address: "台中市西屯區",

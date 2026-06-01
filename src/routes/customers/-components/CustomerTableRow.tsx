@@ -19,7 +19,6 @@ import type { Customer } from "@shared/models";
 
 export type EditableCustomerField =
   | "name"
-  | "contactPerson"
   | "phone"
   | "email"
   | "address"
@@ -113,14 +112,6 @@ export function CustomerTableRow({
               value={customer.name}
               onCommit={(value) => onCellEdit(customer, "name", value)}
             />
-            {customer.contactPerson !== customer.name && (
-              <EditableTextCell
-                value={customer.contactPerson}
-                onCommit={(value) =>
-                  onCellEdit(customer, "contactPerson", value)
-                }
-              />
-            )}
           </Box>
         </Box>
       </TableCell>

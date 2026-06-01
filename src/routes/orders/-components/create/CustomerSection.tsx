@@ -27,9 +27,7 @@ export function CustomerSection({
         queryKey={["customers", "order-create-select"]}
         listFn={listCustomers}
         searchFn={searchCustomers}
-        getOptionLabel={(customer) =>
-          `${customer.name}（${customer.contactPerson}）`
-        }
+        getOptionLabel={(customer) => customer.name}
         required
         error={showError ? "請選取客戶" : undefined}
       />

@@ -34,7 +34,6 @@ export async function searchCustomers(query: string): Promise<Customer[]> {
   if (trimmedQuery) {
     filter.or = [
       { name: { contains: trimmedQuery } },
-      { contactPerson: { contains: trimmedQuery } },
       { phone: { contains: trimmedQuery } },
     ];
   }
@@ -152,7 +151,6 @@ function mapCustomer(raw: Record<string, unknown>): Customer {
   return {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
-    contactPerson: String(raw.contactPerson ?? ""),
     phone: String(raw.phone ?? ""),
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),
