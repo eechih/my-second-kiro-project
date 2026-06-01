@@ -5,6 +5,7 @@ import {
   ScanCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
 
 const REQUIRED_CONFIRMATION = "DELETE_ALL_DATA";
 const BATCH_SIZE = 25;
@@ -151,6 +152,7 @@ async function deleteIds(ddb, tableName, ids, dryRun) {
 }
 
 async function main() {
+  await assertLocalDemoScriptEnvironment();
   const args = parseArgs(process.argv.slice(2));
 
   if (!args.confirmed && !args.dryRun) {

@@ -8,6 +8,7 @@ import {
   UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
 
 const DEFAULT_CUSTOMER_COUNT = 32;
 const DEFAULT_PRODUCT_COUNT = 64;
@@ -552,6 +553,7 @@ async function putItems(ddb, tableName, items, dryRun) {
 }
 
 async function main() {
+  await assertLocalDemoScriptEnvironment();
   const args = parseArgs(process.argv.slice(2));
   validateArgs(args);
   const tableNames = await loadTableNames();

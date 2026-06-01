@@ -30,6 +30,14 @@
 npm run seed:demo
 ```
 
+在執行前，請先在專案根目錄建立本機 marker 檔案：
+
+```bash
+touch .demo-scripts.local
+```
+
+沒有這個檔案時，`seed-demo-data` 與 `clear-demo-data` 都會拒絕執行。
+
 直接執行腳本：
 
 ```bash
@@ -105,6 +113,7 @@ node scripts/seed-demo-data.mjs --dry-run
 - 重複執行會再新增一批資料，不會自動清除舊資料
 - 大量寫入前，建議先在 sandbox 或測試環境執行
 - 如果環境無法連到 AWS，會出現類似 `getaddrinfo ENOTFOUND dynamodb...` 的錯誤
+- Demo scripts 只允許在本機環境執行；CI 環境會直接被拒絕
 
 ## 清除全部資料
 

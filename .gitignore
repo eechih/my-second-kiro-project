@@ -12,6 +12,7 @@ amplify_outputs.d.ts
 # Environment
 .env
 .env.local
+.demo-scripts.local
 
 # IDE
 .vscode/
