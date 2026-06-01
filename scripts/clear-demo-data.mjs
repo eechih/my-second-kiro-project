@@ -8,6 +8,7 @@ import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 
 const REQUIRED_CONFIRMATION = "DELETE_ALL_DATA";
 const BATCH_SIZE = 25;
+const MAX_BATCH_RETRIES = 5;
 
 const TABLE_DELETE_ORDER = [
   "OrderItem",
@@ -91,24 +92,61 @@ async function scanIds(ddb, tableName) {
   return ids;
 }
 
+function chunkArray(items, size) {
+  const chunks = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function batchDeleteWithRetry(ddb, tableName, ids) {
+  let pendingRequests = ids.map((id) => ({
+    DeleteRequest: {
+      Key: marshall({ id }),
+    },
+  }));
+
+  for (let attempt = 0; pendingRequests.length > 0; attempt += 1) {
+    if (attempt > MAX_BATCH_RETRIES) {
+      throw new Error(
+        `${tableName} 批次刪除失敗，仍有 ${pendingRequests.length} 筆未完成`,
+      );
+    }
+
+    const result = await ddb.send(
+      new BatchWriteItemCommand({
+        RequestItems: {
+          [tableName]: pendingRequests,
+        },
+      }),
+    );
+
+    pendingRequests = result.UnprocessedItems?.[tableName] ?? [];
+
+    if (pendingRequests.length > 0) {
+      await sleep(100 * 2 ** attempt);
+    }
+  }
+}
+
 async function deleteIds(ddb, tableName, ids, dryRun) {
   if (dryRun || ids.length === 0) {
     return;
   }
 
-  for (let index = 0; index < ids.length; index += BATCH_SIZE) {
-    const chunk = ids.slice(index, index + BATCH_SIZE);
-    await ddb.send(
-      new BatchWriteItemCommand({
-        RequestItems: {
-          [tableName]: chunk.map((id) => ({
-            DeleteRequest: {
-              Key: marshall({ id }),
-            },
-          })),
-        },
-      }),
-    );
+  const chunks = chunkArray(ids, BATCH_SIZE);
+
+  for (const chunk of chunks) {
+    await batchDeleteWithRetry(ddb, tableName, chunk);
   }
 }
 
@@ -127,18 +165,80 @@ async function main() {
 
   const tableNames = await loadTableNames();
   const ddb = new DynamoDBClient({});
-  const summary = [];
+  const scannedEntries = await Promise.all(
+    TABLE_DELETE_ORDER.map(async (logicalName) => {
+      const tableName = tableNames[logicalName];
+      const ids = await scanIds(ddb, tableName);
+      return { logicalName, tableName, ids };
+    }),
+  );
 
-  for (const logicalName of TABLE_DELETE_ORDER) {
-    const tableName = tableNames[logicalName];
-    const ids = await scanIds(ddb, tableName);
-    await deleteIds(ddb, tableName, ids, args.dryRun);
-    summary.push({
-      model: logicalName,
-      tableName,
-      deletedCount: ids.length,
-    });
-  }
+  const entriesByModel = Object.fromEntries(
+    scannedEntries.map((entry) => [entry.logicalName, entry]),
+  );
+
+  await Promise.all([
+    deleteIds(
+      ddb,
+      entriesByModel["OrderItem"].tableName,
+      entriesByModel["OrderItem"].ids,
+      args.dryRun,
+    ),
+    deleteIds(
+      ddb,
+      entriesByModel["ProductOptionValue"].tableName,
+      entriesByModel["ProductOptionValue"].ids,
+      args.dryRun,
+    ),
+  ]);
+
+  await Promise.all([
+    deleteIds(
+      ddb,
+      entriesByModel["Order"].tableName,
+      entriesByModel["Order"].ids,
+      args.dryRun,
+    ),
+    deleteIds(
+      ddb,
+      entriesByModel["ProductOption"].tableName,
+      entriesByModel["ProductOption"].ids,
+      args.dryRun,
+    ),
+  ]);
+
+  await Promise.all([
+    deleteIds(
+      ddb,
+      entriesByModel["Product"].tableName,
+      entriesByModel["Product"].ids,
+      args.dryRun,
+    ),
+    deleteIds(
+      ddb,
+      entriesByModel["Supplier"].tableName,
+      entriesByModel["Supplier"].ids,
+      args.dryRun,
+    ),
+    deleteIds(
+      ddb,
+      entriesByModel["Customer"].tableName,
+      entriesByModel["Customer"].ids,
+      args.dryRun,
+    ),
+    deleteIds(
+      ddb,
+      entriesByModel["SequenceCounter"].tableName,
+      entriesByModel["SequenceCounter"].ids,
+      args.dryRun,
+    ),
+  ]);
+
+  const summary = scannedEntries.map(({ logicalName, tableName, ids }) => ({
+    model: logicalName,
+    tableName,
+    deletedCount: ids.length,
+  }));
 
   console.log(
     JSON.stringify(
