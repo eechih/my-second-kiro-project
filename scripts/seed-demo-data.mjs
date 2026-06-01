@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import {
+  BatchWriteItemCommand,
   DynamoDBClient,
   GetItemCommand,
-  PutItemCommand,
   ScanCommand,
   UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
@@ -117,6 +117,8 @@ const SUPPLIER_NAMES = [
 ];
 
 const MAX_SUPPLIER_COUNT = TRANSLATION_SUPPLIERS.length;
+const BATCH_WRITE_LIMIT = 25;
+const MAX_BATCH_RETRIES = 5;
 
 const OPTION_TEMPLATES = [
   {
@@ -491,18 +493,61 @@ async function upsertSequenceCounter(ddb, tableName, current) {
   );
 }
 
+function chunkArray(items, size) {
+  const chunks = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function batchWriteWithRetry(ddb, tableName, items) {
+  let pendingRequests = items.map((item) => ({
+    PutRequest: {
+      Item: marshall(item, { removeUndefinedValues: true }),
+    },
+  }));
+
+  for (let attempt = 0; pendingRequests.length > 0; attempt += 1) {
+    if (attempt > MAX_BATCH_RETRIES) {
+      throw new Error(
+        `${tableName} 批次寫入失敗，仍有 ${pendingRequests.length} 筆未完成`,
+      );
+    }
+
+    const result = await ddb.send(
+      new BatchWriteItemCommand({
+        RequestItems: {
+          [tableName]: pendingRequests,
+        },
+      }),
+    );
+
+    pendingRequests = result.UnprocessedItems?.[tableName] ?? [];
+
+    if (pendingRequests.length > 0) {
+      await sleep(100 * 2 ** attempt);
+    }
+  }
+}
+
 async function putItems(ddb, tableName, items, dryRun) {
-  if (dryRun) {
+  if (dryRun || items.length === 0) {
     return;
   }
 
-  for (const item of items) {
-    await ddb.send(
-      new PutItemCommand({
-        TableName: tableName,
-        Item: marshall(item, { removeUndefinedValues: true }),
-      }),
-    );
+  const chunks = chunkArray(items, BATCH_WRITE_LIMIT);
+
+  for (const chunk of chunks) {
+    await batchWriteWithRetry(ddb, tableName, chunk);
   }
 }
 
@@ -578,33 +623,44 @@ async function main() {
     })),
   );
 
-  await putItems(ddb, tableNames.customer, customers, args.dryRun);
-  await putItems(ddb, tableNames.supplier, suppliers, args.dryRun);
-  await putItems(
-    ddb,
-    tableNames.product,
-    products.map(({ defaultSupplierName: _ignored, seedOptions: _seedOptions, ...product }) => product),
-    args.dryRun,
-  );
-  await putItems(ddb, tableNames.productOption, productOptions, args.dryRun);
-  await putItems(
-    ddb,
-    tableNames.productOptionValue,
-    productOptionValues,
-    args.dryRun,
-  );
-  await putItems(
-    ddb,
-    tableNames.order,
-    orders.map(({ items, ...order }) => order),
-    args.dryRun,
-  );
-  await putItems(
-    ddb,
-    tableNames.orderItem,
-    orderItems.map(({ defaultSupplierName: _ignored, ...item }) => item),
-    args.dryRun,
-  );
+  await Promise.all([
+    putItems(ddb, tableNames.customer, customers, args.dryRun),
+    putItems(ddb, tableNames.supplier, suppliers, args.dryRun),
+  ]);
+
+  await Promise.all([
+    putItems(
+      ddb,
+      tableNames.product,
+      products.map(
+        ({ defaultSupplierName: _ignored, seedOptions: _seedOptions, ...product }) =>
+          product,
+      ),
+      args.dryRun,
+    ),
+    putItems(ddb, tableNames.productOption, productOptions, args.dryRun),
+    putItems(
+      ddb,
+      tableNames.productOptionValue,
+      productOptionValues,
+      args.dryRun,
+    ),
+  ]);
+
+  await Promise.all([
+    putItems(
+      ddb,
+      tableNames.order,
+      orders.map(({ items, ...order }) => order),
+      args.dryRun,
+    ),
+    putItems(
+      ddb,
+      tableNames.orderItem,
+      orderItems.map(({ defaultSupplierName: _ignored, ...item }) => item),
+      args.dryRun,
+    ),
+  ]);
 
   if (!args.dryRun) {
     await upsertSequenceCounter(
