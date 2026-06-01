@@ -23,7 +23,6 @@ export interface ProductTableProps {
   allSelected: boolean;
   someSelected: boolean;
   isLoading: boolean;
-  statusDisabled: boolean;
   supplierOptions: SupplierOption[];
   onSelectAll: () => void;
   onSelectRow: (productId: string) => void;
@@ -41,42 +40,95 @@ export function ProductTable({
   allSelected,
   someSelected,
   isLoading,
-  statusDisabled,
   supplierOptions,
   onSelectAll,
   onSelectRow,
   onEdit,
   onCellEdit,
 }: ProductTableProps): React.ReactElement {
+  const tableMinWidth = 1320;
   const checkboxCellSx = {
-    width: 44,
-    px: 1,
+    width: 40,
+    px: 0.5,
     whiteSpace: "nowrap",
   } as const;
   const sequenceCellSx = {
-    width: 72,
-    px: 1.5,
-    whiteSpace: "nowrap",
-  } as const;
-  const imageCellSx = {
-    width: 56,
+    width: 64,
     px: 1,
     whiteSpace: "nowrap",
   } as const;
-  const dateCellSx = {
-    width: 108,
-    px: 1.5,
+  const imageCellSx = {
+    width: 64,
+    px: 1,
+    whiteSpace: "nowrap",
+  } as const;
+  const nameCellSx = {
+    minWidth: 256,
+  } as const;
+  const preorderCloseCellSx = {
+    width: 128,
+    px: 1,
+    whiteSpace: "nowrap",
+  } as const;
+  const priceCellSx = {
+    width: 128,
+    px: 1,
+    whiteSpace: "nowrap",
+  } as const;
+  const costCellSx = {
+    width: 128,
+    px: 1,
+    whiteSpace: "nowrap",
+  } as const;
+  const stockCellSx = {
+    width: 128,
+    px: 1,
+    whiteSpace: "nowrap",
+  } as const;
+  const supplierCellSx = {
+    width: 128,
+    px: 1,
+    whiteSpace: "nowrap",
+  } as const;
+  const statusCellSx = {
+    width: 128,
+    px: 1,
+    whiteSpace: "nowrap",
+  } as const;
+  const actionCellSx = {
+    width: 128,
+    px: 0.5,
     whiteSpace: "nowrap",
   } as const;
 
   return (
-    <TableContainer component={Paper} sx={{ mt: 2 }}>
+    <TableContainer component={Paper} sx={{ mt: 2, overflowX: "auto" }}>
       {isLoading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress />
         </Box>
       ) : (
-        <Table sx={listTableBodyTextSx}>
+        <Table
+          sx={{
+            ...listTableBodyTextSx,
+            tableLayout: "fixed",
+            minWidth: tableMinWidth,
+            width: "100%",
+          }}
+        >
+          <colgroup>
+            <col style={{ width: checkboxCellSx.width }} />
+            <col style={{ width: sequenceCellSx.width }} />
+            <col style={{ width: imageCellSx.width }} />
+            <col />
+            <col style={{ width: priceCellSx.width }} />
+            <col style={{ width: stockCellSx.width }} />
+            <col style={{ width: supplierCellSx.width }} />
+            <col style={{ width: costCellSx.width }} />
+            <col style={{ width: preorderCloseCellSx.width }} />
+            <col style={{ width: statusCellSx.width }} />
+            <col style={{ width: actionCellSx.width }} />
+          </colgroup>
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox" sx={checkboxCellSx}>
@@ -90,15 +142,31 @@ export function ProductTable({
               <TableCell align="left" sx={sequenceCellSx}>
                 編號
               </TableCell>
-              <TableCell sx={imageCellSx}>圖片</TableCell>
-              <TableCell>商品名稱</TableCell>
-              <TableCell align="right">單價</TableCell>
-              <TableCell align="right">進貨成本</TableCell>
-              <TableCell align="right">庫存數量</TableCell>
-              <TableCell align="left">供應商</TableCell>
-              <TableCell sx={dateCellSx}>建立日期</TableCell>
-              <TableCell align="center">狀態</TableCell>
-              <TableCell align="center">操作</TableCell>
+              <TableCell align="center" sx={imageCellSx}>
+                圖片
+              </TableCell>
+              <TableCell sx={nameCellSx}>商品名稱</TableCell>
+              <TableCell align="right" sx={priceCellSx}>
+                單價
+              </TableCell>
+              <TableCell align="right" sx={stockCellSx}>
+                庫存數量
+              </TableCell>
+              <TableCell align="center" sx={supplierCellSx}>
+                供應商
+              </TableCell>
+              <TableCell align="right" sx={costCellSx}>
+                進貨成本
+              </TableCell>
+              <TableCell align="center" sx={preorderCloseCellSx}>
+                預購截止日
+              </TableCell>
+              <TableCell align="center" sx={statusCellSx}>
+                預購狀態
+              </TableCell>
+              <TableCell align="center" sx={actionCellSx}>
+                操作
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -116,7 +184,6 @@ export function ProductTable({
                   key={productId}
                   productId={productId}
                   selected={selectedIds.has(productId)}
-                  statusDisabled={statusDisabled}
                   supplierOptions={supplierOptions}
                   onSelect={onSelectRow}
                   onEdit={onEdit}

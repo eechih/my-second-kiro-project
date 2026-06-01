@@ -21,6 +21,10 @@ export interface ProductOption {
   values: ProductOptionValue[];
 }
 
+export const PREORDER_STATUSES = ["DRAFT", "OPEN", "CLOSED"] as const;
+
+export type PreorderStatus = (typeof PREORDER_STATUSES)[number];
+
 /** 商品基本資料 */
 export interface Product {
   /** 唯一識別碼 */
@@ -47,6 +51,10 @@ export interface Product {
   imageUrls: string[];
   /** 啟用狀態（預設 true，false 表示已停用） */
   isActive: boolean;
+  /** 預購狀態 */
+  preorderStatus: PreorderStatus | null;
+  /** ISO 8601 預購截止時間 */
+  preorderCloseAt: string | null;
   /** ISO 8601 建立時間 */
   createdAt: string;
   /** ISO 8601 更新時間 */
@@ -106,6 +114,8 @@ export interface UpdateProductInput {
   stockQuantity?: number;
   /** 商品照片 S3 key 列表 */
   imageUrls?: string[];
+  /** 預購狀態 */
+  preorderStatus?: PreorderStatus | null;
   /** 啟用狀態 */
   isActive?: boolean;
 }

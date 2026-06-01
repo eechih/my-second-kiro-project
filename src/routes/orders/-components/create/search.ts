@@ -185,6 +185,12 @@ function mapProduct(raw: Record<string, unknown>): Product {
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],
     isActive: raw.isActive !== false,
+    preorderStatus: raw.preorderStatus
+      ? String(raw.preorderStatus) as Product["preorderStatus"]
+      : null,
+    preorderCloseAt: raw.preorderCloseAt
+      ? String(raw.preorderCloseAt)
+      : null,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };

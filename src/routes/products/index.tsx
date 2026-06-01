@@ -200,7 +200,6 @@ function ProductListPage(): React.ReactElement {
         allSelected={allSelected}
         someSelected={someSelected}
         isLoading={isLoading}
-        statusDisabled={updateMutation.isPending}
         supplierOptions={supplierOptions}
         onSelectAll={handleSelectAll}
         onSelectRow={handleSelectRow}

@@ -35,6 +35,8 @@ const baseProduct: Product = {
   options: [],
   imageUrls: [],
   isActive: true,
+  preorderStatus: null,
+  preorderCloseAt: null,
   createdAt: "2026-05-11T00:00:00.000Z",
   updatedAt: "2026-05-11T00:00:00.000Z",
 };

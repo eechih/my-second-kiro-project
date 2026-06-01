@@ -69,6 +69,8 @@ function createProduct(overrides: Partial<Product> = {}): Product {
     ],
     imageUrls: [],
     isActive: true,
+    preorderStatus: null,
+    preorderCloseAt: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...overrides,

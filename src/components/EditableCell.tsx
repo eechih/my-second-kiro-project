@@ -10,6 +10,11 @@ import Typography from "@mui/material/Typography";
 import { useEffect, useRef, useState } from "react";
 
 const SAVING_LABEL = "保存中";
+const EDITOR_SX = {
+  width: "100%",
+  minWidth: 0,
+  maxWidth: "100%",
+} as const;
 
 function InlineSavingIndicator(): React.ReactElement {
   return (
@@ -140,6 +145,7 @@ export function EditableTextCell({
         variant="outlined"
         autoFocus
         fullWidth
+        sx={EDITOR_SX}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => {
           if (!isSavingRef.current) {
@@ -238,6 +244,7 @@ export function EditableNumberCell({
         variant="outlined"
         type={isSaving ? "text" : "number"}
         autoFocus
+        fullWidth
         disabled={isSaving}
         slotProps={{
           htmlInput: {
@@ -264,7 +271,7 @@ export function EditableNumberCell({
             setIsEditing(false);
           }
         }}
-        sx={{ width: 96 }}
+        sx={EDITOR_SX}
       />
     );
   }
@@ -324,7 +331,7 @@ export function EditableStatusCell({
             isSaving ? SAVING_LABEL : isActive ? "啟用中" : "已停用"
           }
           sx={{
-            minWidth: 88,
+            ...EDITOR_SX,
             color: isActive ? "success.main" : "error.main",
             "& .MuiSelect-select": {
               fontWeight: 500,
@@ -416,7 +423,7 @@ export function EditableSelectCell({
             );
             return selectedOption?.label ?? placeholder;
           }}
-          sx={{ minWidth: 180 }}
+          sx={EDITOR_SX}
           onClick={(event) => event.stopPropagation()}
           onClose={() => {
             if (!isSavingRef.current) setIsEditing(false);
@@ -574,7 +581,7 @@ export function EditableAutocompleteCell<T extends EditableAutocompleteOption>({
             />
           );
         }}
-        sx={{ minWidth: 180 }}
+        sx={EDITOR_SX}
       />
     );
   }

@@ -103,6 +103,8 @@ function createSampleProduct(): Product {
     ],
     imageUrls: ["product-images/prod-001/photo1.jpg"],
     isActive: true,
+    preorderStatus: null,
+    preorderCloseAt: null,
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2025-01-01T00:00:00.000Z",
   };

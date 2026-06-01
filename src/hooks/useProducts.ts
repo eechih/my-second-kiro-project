@@ -60,6 +60,8 @@ const PRODUCT_SELECTION_SET = [
   "stockQuantity",
   "imageUrls",
   "isActive",
+  "preorderStatus",
+  "preorderCloseAt",
   "createdAt",
   "createdAtForSort",
   "updatedAt",
@@ -130,6 +132,9 @@ function applyProductUpdate(
       stockQuantity: input.stockQuantity,
     }),
     ...(input.imageUrls !== undefined && { imageUrls: input.imageUrls }),
+    ...(input.preorderStatus !== undefined && {
+      preorderStatus: input.preorderStatus,
+    }),
     ...(input.isActive !== undefined && { isActive: input.isActive }),
   };
 }
@@ -282,6 +287,8 @@ function buildProductUpdatePayload(
   if (input.stockQuantity !== undefined)
     updatePayload.stockQuantity = input.stockQuantity;
   if (input.imageUrls !== undefined) updatePayload.imageUrls = input.imageUrls;
+  if (input.preorderStatus !== undefined)
+    updatePayload.preorderStatus = input.preorderStatus;
   if (input.isActive !== undefined) {
     updatePayload.isActive = input.isActive;
     updatePayload.activeStatusKey = toActiveStatusKey(input.isActive);
@@ -597,6 +604,12 @@ function mapToProduct(raw: Record<string, unknown>): Product {
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],
     isActive: raw.isActive !== false,
+    preorderStatus: raw.preorderStatus
+      ? String(raw.preorderStatus) as Product["preorderStatus"]
+      : null,
+    preorderCloseAt: raw.preorderCloseAt
+      ? String(raw.preorderCloseAt)
+      : null,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };
