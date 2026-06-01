@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import Mock from "mockjs";
 import {
   BatchWriteItemCommand,
   DynamoDBClient,
@@ -9,6 +10,8 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
+
+const { Random } = Mock;
 
 const DEFAULT_CUSTOMER_COUNT = 32;
 const DEFAULT_PRODUCT_COUNT = 64;
@@ -67,6 +70,60 @@ const CITY_NAMES = [
   "台中市",
   "台南市",
   "高雄市",
+];
+
+const CUSTOMER_SURNAMES = [
+  "陳",
+  "林",
+  "黃",
+  "張",
+  "李",
+  "王",
+  "吳",
+  "劉",
+  "蔡",
+  "楊",
+  "許",
+  "鄭",
+];
+
+const CUSTOMER_GIVEN_NAMES = [
+  "怡君",
+  "冠廷",
+  "雅婷",
+  "家豪",
+  "欣怡",
+  "柏翰",
+  "詩涵",
+  "宇翔",
+  "佳穎",
+  "俊傑",
+  "佩蓉",
+  "承恩",
+  "宥蓁",
+  "品妤",
+  "彥廷",
+  "思妤",
+];
+
+const CUSTOMER_STORE_PREFIXES = [
+  "小日子",
+  "禾木",
+  "青山",
+  "慢慢來",
+  "日日",
+  "有光",
+  "好好",
+  "木子",
+];
+
+const CUSTOMER_STORE_SUFFIXES = [
+  "選物",
+  "工作室",
+  "生活館",
+  "小舖",
+  "商行",
+  "雜貨舖",
 ];
 
 const TRANSLATION_SUPPLIERS = [
@@ -180,16 +237,47 @@ function weightedCustomerIndex(orderIndex, customerCount) {
   return orderIndex % favoredPool;
 }
 
+function buildFakeCustomerName(index) {
+  const label = String(index + 1).padStart(3, "0");
+
+  if (index % 5 === 0) {
+    const prefix = Random.pick(CUSTOMER_STORE_PREFIXES);
+    const suffix = Random.pick(CUSTOMER_STORE_SUFFIXES);
+    return `${prefix}${suffix} ${label}`;
+  }
+
+  const surname = Random.pick(CUSTOMER_SURNAMES);
+  const givenName = Random.pick(CUSTOMER_GIVEN_NAMES);
+  return `${surname}${givenName} ${label}`;
+}
+
 function buildFakeCustomer(index, orderCount, lastOrderedAt) {
-  const city = CITY_NAMES[index % CITY_NAMES.length];
+  const city = Random.pick(CITY_NAMES);
   const createdAt = new Date(Date.now() - (index + 14) * 86400000).toISOString();
+  const district = Random.pick([
+    "中正區",
+    "大安區",
+    "板橋區",
+    "西屯區",
+    "東區",
+    "左營區",
+  ]);
+  const roadName = Random.pick([
+    "中山路",
+    "民生路",
+    "忠孝路",
+    "文化路",
+    "光復路",
+    "和平路",
+  ]);
+  const roadNumber = Random.integer(1, 300);
 
   return {
     id: randomUUID(),
-    name: `測試客戶 ${String(index + 1).padStart(2, "0")}`,
-    phone: `09${String(10000000 + index).slice(0, 8)}`,
+    name: buildFakeCustomerName(index),
+    phone: `09${String(Random.integer(10000000, 99999999))}`,
     email: `demo-customer-${index + 1}@example.com`,
-    address: `${city}示範路 ${index + 1} 號`,
+    address: `${city}${district}${roadName}${roadNumber}號`,
     note: "Seed demo customer",
     isActive: true,
     activeStatusKey: ACTIVE_STATUS.active,
