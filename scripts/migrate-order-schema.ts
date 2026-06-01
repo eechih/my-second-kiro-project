@@ -202,12 +202,12 @@ async function backfillProducts(): Promise<Map<string, string>> {
       fields.searchName = normalizeSearchName(String(item["name"] ?? ""));
     }
     const preorderStatus =
-      typeof item["preorderStatus"] === "string" ? item["preorderStatus"] : "DRAFT";
+      typeof item["preorderStatus"] === "string" ? item["preorderStatus"] : "CLOSED";
     if (item["preorderStatus"] === undefined) fields.preorderStatus = preorderStatus;
     const derivedActiveState = deriveProductActiveState(
-      preorderStatus === "OPEN" || preorderStatus === "DRAFT" || preorderStatus === "CLOSED"
+      preorderStatus === "OPEN" || preorderStatus === "CLOSED"
         ? preorderStatus
-        : "DRAFT",
+        : "CLOSED",
     );
     if (item["isActive"] !== derivedActiveState.isActive) {
       fields.isActive = derivedActiveState.isActive;

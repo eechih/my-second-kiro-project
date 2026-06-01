@@ -184,7 +184,7 @@ export const handler: Schema["createProductWithAutoSku"]["functionHandler"] =
       const sequence = await allocateSkuSequence(counterTable, productTable, now);
       const sku = formatSku(sequence);
       const id = uuidv4();
-      const preorderStatus = "DRAFT";
+      const preorderStatus = "CLOSED";
       const derivedActiveState = deriveProductActiveState(preorderStatus);
       const product = {
         id,

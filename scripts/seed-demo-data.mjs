@@ -525,7 +525,7 @@ function buildFakeProduct(index, sequenceNumber, suppliers, totalProducts) {
     buildProductOption(template, optionIndex),
   );
   const preorderStatus =
-    index % 10 < 7 ? "OPEN" : index % 10 < 9 ? "DRAFT" : "CLOSED";
+    index % 10 < 7 ? "OPEN" : "CLOSED";
   const preorderCloseAt =
     preorderStatus === "OPEN"
       ? offsetIso(createdAt, 24 * 7)

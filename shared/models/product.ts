@@ -22,7 +22,7 @@ export interface ProductOption {
   values: ProductOptionValue[];
 }
 
-export const PREORDER_STATUSES = ["DRAFT", "OPEN", "CLOSED"] as const;
+export const PREORDER_STATUSES = ["OPEN", "CLOSED"] as const;
 
 export type PreorderStatus = (typeof PREORDER_STATUSES)[number];
 

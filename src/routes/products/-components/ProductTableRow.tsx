@@ -56,7 +56,6 @@ export function ProductTableRow({
   onCellEdit,
 }: ProductTableRowProps): React.ReactElement {
   const PREORDER_STATUS_LABEL: Record<string, string> = {
-    DRAFT: "草稿",
     OPEN: "開放中",
     CLOSED: "已截止",
   };
@@ -126,10 +125,10 @@ export function ProductTableRow({
         month: "2-digit",
         day: "2-digit",
       })
-    : "—";
+    : "-";
   const preorderStatusLabel = product.preorderStatus
     ? PREORDER_STATUS_LABEL[product.preorderStatus] ?? product.preorderStatus
-    : "未設定";
+    : "-";
 
   return (
     <TableRow selected={selected} hover>
@@ -216,9 +215,8 @@ export function ProductTableRow({
         <EditableSelectCell
           value={product.preorderStatus}
           valueLabel={preorderStatusLabel}
-          placeholder="未設定"
+          placeholder="-"
           options={[
-            { value: "DRAFT", label: "草稿" },
             { value: "OPEN", label: "開放中" },
             { value: "CLOSED", label: "已截止" },
           ]}

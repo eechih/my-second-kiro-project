@@ -24,7 +24,7 @@ const SORT_PARTITIONS = {
   order: "Order",
 } as const;
 
-const PREORDER_STATUSES = ["DRAFT", "OPEN", "CLOSED"] as const;
+const PREORDER_STATUSES = ["OPEN", "CLOSED"] as const;
 
 type SortPartition = (typeof SORT_PARTITIONS)[keyof typeof SORT_PARTITIONS];
 type FunctionResource = Parameters<typeof a.handler.function>[0];
