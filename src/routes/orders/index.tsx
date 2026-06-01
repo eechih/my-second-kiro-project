@@ -25,7 +25,7 @@ export const Route = createFileRoute("/orders/")({
 
 function OrderListPage(): React.ReactElement {
   const navigate = useNavigate();
-  const pagination = useCursorPagination(10);
+  const pagination = useCursorPagination(25);
   const mergeOrders = useMergeOrders();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>("all");

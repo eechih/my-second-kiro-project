@@ -13,7 +13,7 @@ export interface CursorPaginationActions {
   reset: () => void;
 }
 
-const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 25;
 
 /**
  * 管理游標式分頁的 token 堆疊邏輯。

@@ -33,7 +33,7 @@ function SupplierListPage(): React.ReactElement {
   const [sortField, setSortField] = useState<SupplierSortField>("name");
 
   // --- 分頁狀態 ---
-  const pagination = useCursorPagination(10);
+  const pagination = useCursorPagination(25);
 
   // --- 批次選取狀態 ---
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

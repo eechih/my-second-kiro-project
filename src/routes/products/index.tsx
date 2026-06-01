@@ -27,7 +27,7 @@ export const Route = createFileRoute("/products/")({
 
 function ProductListPage(): React.ReactElement {
   const navigate = useNavigate();
-  const pagination = useCursorPagination(10);
+  const pagination = useCursorPagination(25);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
