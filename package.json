@@ -7,8 +7,10 @@
     "dev": "vite --port 3000",
     "build": "tsc -b && vite build",
     "check": "tsc --noEmit --skipLibCheck",
+    "clear:demo": "node scripts/clear-demo-data.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
+    "seed:demo": "node scripts/seed-demo-data.mjs",
     "test": "vitest --run",
     "test:watch": "vitest",
     "sandbox": "npx ampx sandbox"
