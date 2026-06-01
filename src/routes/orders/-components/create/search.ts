@@ -1,5 +1,5 @@
 import { client } from "@/lib/amplify-client";
-import { ACTIVE_STATUS } from "@shared/models";
+import { ACTIVE_STATUS, deriveProductActiveState } from "@shared/models";
 import type {
   Customer,
   Product,
@@ -22,6 +22,8 @@ const PRODUCT_SELECTION_SET = [
   "stockQuantity",
   "imageUrls",
   "isActive",
+  "preorderStatus",
+  "preorderCloseAt",
   "createdAt",
   "updatedAt",
   "options.*",
@@ -170,6 +172,11 @@ function mapProduct(raw: Record<string, unknown>): Product {
 
   options.sort((a, b) => a.sortOrder - b.sortOrder);
 
+  const preorderStatus = raw.preorderStatus
+    ? (String(raw.preorderStatus) as Product["preorderStatus"])
+    : null;
+  const derivedActiveState = deriveProductActiveState(preorderStatus);
+
   return {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
@@ -184,10 +191,8 @@ function mapProduct(raw: Record<string, unknown>): Product {
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],
-    isActive: raw.isActive !== false,
-    preorderStatus: raw.preorderStatus
-      ? String(raw.preorderStatus) as Product["preorderStatus"]
-      : null,
+    isActive: derivedActiveState.isActive,
+    preorderStatus,
     preorderCloseAt: raw.preorderCloseAt
       ? String(raw.preorderCloseAt)
       : null,

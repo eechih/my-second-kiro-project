@@ -14,6 +14,7 @@ import {
   resolveSortTimestamp,
   type LegacyOrderItemRecord,
 } from "./order-schema-migration-lib";
+import { deriveProductActiveState } from "../shared/models/product";
 
 const TABLE_NAMES = {
   customer: process.env["CUSTOMER_TABLE_NAME"],
@@ -200,7 +201,20 @@ async function backfillProducts(): Promise<Map<string, string>> {
     if (item["searchName"] === undefined) {
       fields.searchName = normalizeSearchName(String(item["name"] ?? ""));
     }
-    if (item["preorderStatus"] === undefined) fields.preorderStatus = "DRAFT";
+    const preorderStatus =
+      typeof item["preorderStatus"] === "string" ? item["preorderStatus"] : "DRAFT";
+    if (item["preorderStatus"] === undefined) fields.preorderStatus = preorderStatus;
+    const derivedActiveState = deriveProductActiveState(
+      preorderStatus === "OPEN" || preorderStatus === "DRAFT" || preorderStatus === "CLOSED"
+        ? preorderStatus
+        : "DRAFT",
+    );
+    if (item["isActive"] !== derivedActiveState.isActive) {
+      fields.isActive = derivedActiveState.isActive;
+    }
+    if (item["activeStatusKey"] !== derivedActiveState.activeStatusKey) {
+      fields.activeStatusKey = derivedActiveState.activeStatusKey;
+    }
     if (item["deletedAt"] === undefined) fields.deletedAt = null;
     if (item["gsiPartition"] === undefined) fields.gsiPartition = "Product";
     if (item["createdAtForSort"] === undefined) {

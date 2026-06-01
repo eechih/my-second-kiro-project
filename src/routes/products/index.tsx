@@ -150,8 +150,6 @@ function ProductListPage(): React.ReactElement {
       field: EditableProductField,
       value: string | number | boolean | null,
     ): Promise<void> => {
-      if (field === "isActive" && value === product.isActive) return;
-
       setError(null);
 
       if (field === "name" && typeof value === "string" && !value.trim()) {

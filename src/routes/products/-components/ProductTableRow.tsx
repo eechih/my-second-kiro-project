@@ -27,8 +27,7 @@ export type EditableProductField =
   | "cost"
   | "stockQuantity"
   | "defaultSupplierId"
-  | "preorderStatus"
-  | "isActive";
+  | "preorderStatus";
 
 export interface SupplierOption {
   id: string;

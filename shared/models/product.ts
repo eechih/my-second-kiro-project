@@ -3,6 +3,7 @@
  *
  * 需求：3.1, 3.2, 3.3, 3.9, 3.10, 3.12, 3.13, 3.14, 3.15
  */
+import { ACTIVE_STATUS, type ActiveStatusKey } from "./active-status";
 
 /** 商品規格值（如「紅色」、「XL」） */
 export interface ProductOptionValue {
@@ -24,6 +25,23 @@ export interface ProductOption {
 export const PREORDER_STATUSES = ["DRAFT", "OPEN", "CLOSED"] as const;
 
 export type PreorderStatus = (typeof PREORDER_STATUSES)[number];
+
+export function deriveProductActiveState(preorderStatus: PreorderStatus | null | undefined): {
+  isActive: boolean;
+  activeStatusKey: ActiveStatusKey;
+} {
+  if (preorderStatus === "OPEN") {
+    return {
+      isActive: true,
+      activeStatusKey: ACTIVE_STATUS.active,
+    };
+  }
+
+  return {
+    isActive: false,
+    activeStatusKey: ACTIVE_STATUS.inactive,
+  };
+}
 
 /** 商品基本資料 */
 export interface Product {

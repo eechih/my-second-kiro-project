@@ -26,6 +26,8 @@ export type {
   ProductOptionValue,
   UpdateProductInput,
 } from "./product";
+export { deriveProductActiveState, PREORDER_STATUSES } from "./product";
+export type { PreorderStatus } from "./product";
 
 export type {
   ConfirmShipmentInput,

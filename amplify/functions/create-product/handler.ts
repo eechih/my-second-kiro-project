@@ -8,7 +8,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { v4 as uuidv4 } from "uuid";
-import { ACTIVE_STATUS } from "../../../shared/models/active-status";
+import { deriveProductActiveState } from "../../../shared/models/product";
 import { logError, logInfo, logWarn } from "../debug-log";
 
 const ddb = new DynamoDBClient({});
@@ -184,6 +184,8 @@ export const handler: Schema["createProductWithAutoSku"]["functionHandler"] =
       const sequence = await allocateSkuSequence(counterTable, productTable, now);
       const sku = formatSku(sequence);
       const id = uuidv4();
+      const preorderStatus = "DRAFT";
+      const derivedActiveState = deriveProductActiveState(preorderStatus);
       const product = {
         id,
         name: trimmedName,
@@ -195,9 +197,9 @@ export const handler: Schema["createProductWithAutoSku"]["functionHandler"] =
         defaultSupplierId: defaultSupplierId ?? null,
         stockQuantity: stockQuantity ?? 0,
         imageUrls: imageUrls ?? [],
-        isActive: true,
-        activeStatusKey: ACTIVE_STATUS.active,
-        preorderStatus: "DRAFT",
+        isActive: derivedActiveState.isActive,
+        activeStatusKey: derivedActiveState.activeStatusKey,
+        preorderStatus,
         gsiPartition: "Product",
         createdAtForSort: now,
         createdAt: now,

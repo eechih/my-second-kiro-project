@@ -6,7 +6,7 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
-import { toActiveStatusKey } from "@shared/models";
+import { deriveProductActiveState } from "@shared/models";
 import type {
   Product,
   ProductOption,
@@ -116,6 +116,15 @@ function applyProductUpdate(
   product: Product,
   input: UpdateProductInput,
 ): Product {
+  const nextPreorderStatus =
+    input.preorderStatus !== undefined
+      ? input.preorderStatus
+      : product.preorderStatus;
+  const derivedActiveState =
+    input.preorderStatus !== undefined
+      ? deriveProductActiveState(nextPreorderStatus)
+      : null;
+
   return {
     ...product,
     ...(input.name !== undefined && { name: input.name }),
@@ -135,7 +144,7 @@ function applyProductUpdate(
     ...(input.preorderStatus !== undefined && {
       preorderStatus: input.preorderStatus,
     }),
-    ...(input.isActive !== undefined && { isActive: input.isActive }),
+    ...(derivedActiveState ?? {}),
   };
 }
 
@@ -289,9 +298,10 @@ function buildProductUpdatePayload(
   if (input.imageUrls !== undefined) updatePayload.imageUrls = input.imageUrls;
   if (input.preorderStatus !== undefined)
     updatePayload.preorderStatus = input.preorderStatus;
-  if (input.isActive !== undefined) {
-    updatePayload.isActive = input.isActive;
-    updatePayload.activeStatusKey = toActiveStatusKey(input.isActive);
+  if (input.preorderStatus !== undefined) {
+    const derivedActiveState = deriveProductActiveState(input.preorderStatus);
+    updatePayload.isActive = derivedActiveState.isActive;
+    updatePayload.activeStatusKey = derivedActiveState.activeStatusKey;
   }
 
   return updatePayload;
@@ -586,6 +596,10 @@ function mapToProduct(raw: Record<string, unknown>): Product {
 
   // 庫存統一在商品層級管理
   const stockQuantity = Number(raw.stockQuantity ?? 0);
+  const preorderStatus = raw.preorderStatus
+    ? (String(raw.preorderStatus) as Product["preorderStatus"])
+    : null;
+  const derivedActiveState = deriveProductActiveState(preorderStatus);
 
   return {
     id: String(raw.id ?? ""),
@@ -603,10 +617,8 @@ function mapToProduct(raw: Record<string, unknown>): Product {
     imageUrls: Array.isArray(raw.imageUrls)
       ? (raw.imageUrls as string[]).filter(Boolean)
       : [],
-    isActive: raw.isActive !== false,
-    preorderStatus: raw.preorderStatus
-      ? String(raw.preorderStatus) as Product["preorderStatus"]
-      : null,
+    isActive: derivedActiveState.isActive,
+    preorderStatus,
     preorderCloseAt: raw.preorderCloseAt
       ? String(raw.preorderCloseAt)
       : null,

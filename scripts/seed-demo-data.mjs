@@ -22,6 +22,20 @@ const ACTIVE_STATUS = {
   inactive: "INACTIVE",
 };
 
+function deriveProductActiveState(preorderStatus) {
+  if (preorderStatus === "OPEN") {
+    return {
+      isActive: true,
+      activeStatusKey: ACTIVE_STATUS.active,
+    };
+  }
+
+  return {
+    isActive: false,
+    activeStatusKey: ACTIVE_STATUS.inactive,
+  };
+}
+
 const ORDER_SCENARIOS = [
   {
     status: "PENDING_PAYMENT",
@@ -510,6 +524,15 @@ function buildFakeProduct(index, sequenceNumber, suppliers, totalProducts) {
   const productOptions = optionTemplates.map((template, optionIndex) =>
     buildProductOption(template, optionIndex),
   );
+  const preorderStatus =
+    index % 10 < 7 ? "OPEN" : index % 10 < 9 ? "DRAFT" : "CLOSED";
+  const preorderCloseAt =
+    preorderStatus === "OPEN"
+      ? offsetIso(createdAt, 24 * 7)
+      : preorderStatus === "CLOSED"
+        ? offsetIso(createdAt, 24 * 3)
+        : null;
+  const activeState = deriveProductActiveState(preorderStatus);
 
   return {
     id: randomUUID(),
@@ -523,8 +546,10 @@ function buildFakeProduct(index, sequenceNumber, suppliers, totalProducts) {
     defaultSupplierName: supplier?.name ?? null,
     stockQuantity: 50 + (index % 8) * 12,
     imageUrls: [],
-    isActive: true,
-    activeStatusKey: ACTIVE_STATUS.active,
+    isActive: activeState.isActive,
+    activeStatusKey: activeState.activeStatusKey,
+    preorderStatus,
+    preorderCloseAt,
     gsiPartition: "Product",
     createdAtForSort: createdAt,
     createdAt,
