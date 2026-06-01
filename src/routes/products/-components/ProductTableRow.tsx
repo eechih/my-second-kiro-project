@@ -1,6 +1,6 @@
 import {
-  EditableAutocompleteCell,
   EditableNumberCell,
+  EditableSelectCell,
   EditableStatusCell,
   EditableTextCell,
 } from "@/components/EditableCell";
@@ -39,7 +39,7 @@ export interface ProductTableRowProps {
   productId: string;
   selected: boolean;
   statusDisabled: boolean;
-  searchSuppliers: (query: string) => Promise<SupplierOption[]>;
+  supplierOptions: SupplierOption[];
   onSelect: (productId: string) => void;
   onEdit: (product: Product) => void;
   onCellEdit: (
@@ -53,7 +53,7 @@ export function ProductTableRow({
   productId,
   selected,
   statusDisabled,
-  searchSuppliers,
+  supplierOptions,
   onSelect,
   onEdit,
   onCellEdit,
@@ -81,7 +81,7 @@ export function ProductTableRow({
   if (isLoading) {
     return (
       <TableRow selected={selected} hover>
-        <TableCell>
+        <TableCell padding="checkbox" sx={{ width: 44, px: 1 }}>
           <Checkbox
             checked={selected}
             onChange={() => onSelect(productId)}
@@ -101,7 +101,7 @@ export function ProductTableRow({
   if (error || !product) {
     return (
       <TableRow selected={selected} hover>
-        <TableCell>
+        <TableCell padding="checkbox" sx={{ width: 44, px: 1 }}>
           <Checkbox
             checked={selected}
             onChange={() => onSelect(productId)}
@@ -127,14 +127,17 @@ export function ProductTableRow({
 
   return (
     <TableRow selected={selected} hover>
-      <TableCell>
+      <TableCell padding="checkbox" sx={{ width: 44, px: 1 }}>
         <Checkbox
           checked={selected}
           onChange={() => onSelect(product.id)}
           size="small"
         />
       </TableCell>
-      <TableCell>
+      <TableCell align="left" sx={{ width: 72, px: 1.5, whiteSpace: "nowrap" }}>
+        {product.sequenceNumber}
+      </TableCell>
+      <TableCell sx={{ width: 56, px: 1, whiteSpace: "nowrap" }}>
         <Avatar
           variant="rounded"
           src={thumbnailUrl}
@@ -144,15 +147,10 @@ export function ProductTableRow({
         </Avatar>
       </TableCell>
       <TableCell>
-        <Box>
-          <EditableTextCell
-            value={product.name}
-            onCommit={(value) => onCellEdit(product, "name", value)}
-          />
-          <Typography variant="body2" color="text.secondary">
-            {product.sku}
-          </Typography>
-        </Box>
+        <EditableTextCell
+          value={product.name}
+          onCommit={(value) => onCellEdit(product, "name", value)}
+        />
       </TableCell>
       <TableCell align="right">
         <EditableNumberCell
@@ -165,24 +163,6 @@ export function ProductTableRow({
       </TableCell>
       <TableCell align="right">
         <EditableNumberCell
-          value={product.stockQuantity}
-          integer
-          align="right"
-          onCommit={(value) => onCellEdit(product, "stockQuantity", value)}
-        />
-      </TableCell>
-      <TableCell align="center">
-        <EditableAutocompleteCell<SupplierOption>
-          valueId={supplierId ?? null}
-          valueLabel={supplierId ? supplierName : undefined}
-          placeholder="搜尋供應商"
-          noOptionsText="無符合供應商"
-          searchOptions={searchSuppliers}
-          onCommit={(value) => onCellEdit(product, "defaultSupplierId", value)}
-        />
-      </TableCell>
-      <TableCell align="right">
-        <EditableNumberCell
           value={product.cost}
           format={(value) => `$${value}`}
           integer
@@ -190,7 +170,29 @@ export function ProductTableRow({
           onCommit={(value) => onCellEdit(product, "cost", value)}
         />
       </TableCell>
-      <TableCell>{createdDate}</TableCell>
+      <TableCell align="right">
+        <EditableNumberCell
+          value={product.stockQuantity}
+          integer
+          align="right"
+          onCommit={(value) => onCellEdit(product, "stockQuantity", value)}
+        />
+      </TableCell>
+      <TableCell align="left">
+        <EditableSelectCell
+          value={supplierId ?? null}
+          valueLabel={supplierId ? supplierName : undefined}
+          placeholder="未指定"
+          options={supplierOptions.map((supplier) => ({
+            value: supplier.id,
+            label: supplier.name,
+          }))}
+          onCommit={(value) => onCellEdit(product, "defaultSupplierId", value)}
+        />
+      </TableCell>
+      <TableCell sx={{ width: 108, px: 1.5, whiteSpace: "nowrap" }}>
+        {createdDate}
+      </TableCell>
       <TableCell align="center">
         <EditableStatusCell
           isActive={product.isActive}

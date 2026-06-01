@@ -11,6 +11,7 @@ import { requireAuth } from "@/lib/route-guards";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import type { Product, UpdateProductInput } from "@shared/models";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -46,26 +47,26 @@ function ProductListPage(): React.ReactElement {
   const productIds = useMemo(() => data?.items ?? [], [data?.items]);
   const nextToken = data?.nextToken;
 
-  const searchSuppliers = useCallback(
-    async (query: string): Promise<SupplierOption[]> => {
-      const filter: Record<string, unknown> = { isActive: { eq: true } };
-      if (query) {
-        filter.or = [{ name: { contains: query } }];
-      }
-
-      const { data: suppliers } = await client.models.Supplier.list({
-        filter,
-        limit: 20,
+  const { data: supplierOptions = [] } = useQuery({
+    queryKey: ["suppliers", "product-table-options"],
+    queryFn: async (): Promise<SupplierOption[]> => {
+      const { data: suppliers, errors } = await client.models.Supplier.list({
+        filter: { isActive: { eq: true } },
+        limit: 200,
         selectionSet: ["id", "name"],
       });
+
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "查詢供應商失敗");
+      }
 
       return (suppliers ?? []).map((supplier) => ({
         id: String(supplier.id ?? ""),
         name: String(supplier.name ?? ""),
       }));
     },
-    [],
-  );
+    staleTime: 60_000,
+  });
 
   const updateMutation = useUpdateProduct();
 
@@ -200,7 +201,7 @@ function ProductListPage(): React.ReactElement {
         someSelected={someSelected}
         isLoading={isLoading}
         statusDisabled={updateMutation.isPending}
-        searchSuppliers={searchSuppliers}
+        supplierOptions={supplierOptions}
         onSelectAll={handleSelectAll}
         onSelectRow={handleSelectRow}
         onEdit={handleEdit}

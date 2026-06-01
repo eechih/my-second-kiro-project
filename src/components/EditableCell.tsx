@@ -360,6 +360,94 @@ export function EditableStatusCell({
   );
 }
 
+interface EditableSelectOption {
+  value: string;
+  label: string;
+}
+
+interface EditableSelectCellProps {
+  value: string | null;
+  valueLabel?: string;
+  emptyLabel?: string;
+  placeholder?: string;
+  options: EditableSelectOption[];
+  onCommit: (value: string | null) => Promise<void>;
+}
+
+export function EditableSelectCell({
+  value,
+  valueLabel,
+  emptyLabel = "—",
+  placeholder = "未指定",
+  options,
+  onCommit,
+}: EditableSelectCellProps): React.ReactElement {
+  const [isEditing, setIsEditing] = useState(false);
+  const { isSaving, isSavingRef, runSavingCommit } = useSavingCommit();
+
+  const commit = async (nextValue: string | null): Promise<void> => {
+    if (isSavingRef.current) return;
+
+    if (nextValue === value) {
+      setIsEditing(false);
+      return;
+    }
+
+    await runSavingCommit(async () => {
+      await onCommit(nextValue);
+      setIsEditing(false);
+    });
+  };
+
+  if (isEditing) {
+    return (
+      <Box>
+        <Select
+          value={value ?? ""}
+          size="small"
+          variant="outlined"
+          autoFocus
+          open
+          disabled={isSaving}
+          renderValue={(selected) => {
+            if (isSaving) return SAVING_LABEL;
+            const selectedOption = options.find(
+              (option) => option.value === selected,
+            );
+            return selectedOption?.label ?? placeholder;
+          }}
+          sx={{ minWidth: 180 }}
+          onClick={(event) => event.stopPropagation()}
+          onClose={() => {
+            if (!isSavingRef.current) setIsEditing(false);
+          }}
+          onChange={(event) => {
+            const nextValue = event.target.value || null;
+            void commit(nextValue);
+          }}
+        >
+          <MenuItem value="">{placeholder}</MenuItem>
+          {options.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </Box>
+    );
+  }
+
+  return (
+    <EditableDisplay
+      variant="body2"
+      color={value ? "text.primary" : "text.secondary"}
+      onOpen={() => setIsEditing(true)}
+    >
+      {valueLabel ?? emptyLabel}
+    </EditableDisplay>
+  );
+}
+
 export interface EditableAutocompleteOption {
   id: string;
   name: string;

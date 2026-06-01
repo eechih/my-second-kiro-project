@@ -24,7 +24,7 @@ export interface ProductTableProps {
   someSelected: boolean;
   isLoading: boolean;
   statusDisabled: boolean;
-  searchSuppliers: (query: string) => Promise<SupplierOption[]>;
+  supplierOptions: SupplierOption[];
   onSelectAll: () => void;
   onSelectRow: (productId: string) => void;
   onEdit: (product: Product) => void;
@@ -42,12 +42,33 @@ export function ProductTable({
   someSelected,
   isLoading,
   statusDisabled,
-  searchSuppliers,
+  supplierOptions,
   onSelectAll,
   onSelectRow,
   onEdit,
   onCellEdit,
 }: ProductTableProps): React.ReactElement {
+  const checkboxCellSx = {
+    width: 44,
+    px: 1,
+    whiteSpace: "nowrap",
+  } as const;
+  const sequenceCellSx = {
+    width: 72,
+    px: 1.5,
+    whiteSpace: "nowrap",
+  } as const;
+  const imageCellSx = {
+    width: 56,
+    px: 1,
+    whiteSpace: "nowrap",
+  } as const;
+  const dateCellSx = {
+    width: 108,
+    px: 1.5,
+    whiteSpace: "nowrap",
+  } as const;
+
   return (
     <TableContainer component={Paper} sx={{ mt: 2 }}>
       {isLoading ? (
@@ -58,7 +79,7 @@ export function ProductTable({
         <Table sx={listTableBodyTextSx}>
           <TableHead>
             <TableRow>
-              <TableCell>
+              <TableCell padding="checkbox" sx={checkboxCellSx}>
                 <Checkbox
                   checked={allSelected}
                   indeterminate={someSelected}
@@ -66,13 +87,16 @@ export function ProductTable({
                   size="small"
                 />
               </TableCell>
-              <TableCell>圖片</TableCell>
+              <TableCell align="left" sx={sequenceCellSx}>
+                編號
+              </TableCell>
+              <TableCell sx={imageCellSx}>圖片</TableCell>
               <TableCell>商品名稱</TableCell>
               <TableCell align="right">單價</TableCell>
-              <TableCell align="right">庫存數量</TableCell>
-              <TableCell align="center">供應商</TableCell>
               <TableCell align="right">進貨成本</TableCell>
-              <TableCell>建立日期</TableCell>
+              <TableCell align="right">庫存數量</TableCell>
+              <TableCell align="left">供應商</TableCell>
+              <TableCell sx={dateCellSx}>建立日期</TableCell>
               <TableCell align="center">狀態</TableCell>
               <TableCell align="center">操作</TableCell>
             </TableRow>
@@ -80,7 +104,7 @@ export function ProductTable({
           <TableBody>
             {productIds.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     目前沒有符合條件的商品資料
                   </Typography>
@@ -93,7 +117,7 @@ export function ProductTable({
                   productId={productId}
                   selected={selectedIds.has(productId)}
                   statusDisabled={statusDisabled}
-                  searchSuppliers={searchSuppliers}
+                  supplierOptions={supplierOptions}
                   onSelect={onSelectRow}
                   onEdit={onEdit}
                   onCellEdit={onCellEdit}
