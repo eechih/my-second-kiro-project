@@ -44,6 +44,24 @@ export const TRANSLATION_SUPPLIERS: TranslationSupplier[] = [
   "apple",
 ];
 
+export const TRANSLATION_SUPPLIER_LABELS: Record<TranslationSupplier, string> =
+  {
+    wish: "Wish",
+    cat: "葉貓子批發",
+    money: "Money",
+    boom: "生意興隆",
+    boom_p4: "生意興隆P4",
+    yoshida: "吉田",
+    mitago: "米塔購",
+    apple: "天魁批發",
+  };
+
+export function getTranslationSupplierLabel(
+  supplier: TranslationSupplier,
+): string {
+  return TRANSLATION_SUPPLIER_LABELS[supplier];
+}
+
 const DATE_PATTERN = String.raw`([0-9]{1,2}(?:[\/／-][0-9]{1,2}|月[0-9]{1,2}日?)|[0-9]{4})`;
 const DEFAULT_STRATEGIES: Record<TranslationSupplier, () => Strategy> = {
   wish: () => new WishStrategy(),
@@ -73,7 +91,7 @@ class ProductParser {
   constructor(private strategy: Strategy) {}
 
   parse(content: string): TranslationParseResult {
-    const data = content.split("\n").map(line => line.trim());
+    const data = content.split("\n").map((line) => line.trim());
     const dueDate = this.strategy.extractDueDate(data).value;
 
     return {
@@ -93,15 +111,15 @@ class ProductParser {
 function strictDescription(description: string): string {
   return description
     .split("\n")
-    .map(line => line.trim())
+    .map((line) => line.trim())
     .filter(
-      line =>
+      (line) =>
         !/批|原價|特價|優惠價|團購價|結單|現貨|到貨|到港|請勿|免運|中標|下單|留言|網址/.test(
           line,
         ),
     )
-    .filter(line => !/[…⋯._=-➖]{4,}/.test(line))
-    .map(line => (line === "." ? "\n" : line))
+    .filter((line) => !/[…⋯._=-➖]{4,}/.test(line))
+    .map((line) => (line === "." ? "\n" : line))
     .join("\n");
 }
 
@@ -134,15 +152,15 @@ export function parseBracketOptions(line: string): string[][] | undefined {
 
   return match[1]
     .split(/[/／]/)
-    .map(group => group.split(/[,，]/).map(option => option.trim()))
-    .filter(group => group.some(Boolean));
+    .map((group) => group.split(/[,，]/).map((option) => option.trim()))
+    .filter((group) => group.some(Boolean));
 }
 
 function extractBracketOptions(
   data: string[],
   optionRegex: RegExp,
 ): ExtractReturn<string[][]> {
-  const index = data.findIndex(line => optionRegex.test(line));
+  const index = data.findIndex((line) => optionRegex.test(line));
   return {
     index,
     value: index > -1 ? parseBracketOptions(data[index] ?? "") : undefined,
@@ -152,15 +170,15 @@ function extractBracketOptions(
 export function parseSlashOptions(value: string): string[][] {
   return value
     .split("@")
-    .map(group => group.split(/[/／]/).map(option => option.trim()))
-    .filter(group => group.some(Boolean));
+    .map((group) => group.split(/[/／]/).map((option) => option.trim()))
+    .filter((group) => group.some(Boolean));
 }
 
 function extractDueDateFromLine(
   data: string[],
   dueDateRegex: RegExp,
 ): ExtractReturn<Date> {
-  const index = data.findIndex(line => dueDateRegex.test(line));
+  const index = data.findIndex((line) => dueDateRegex.test(line));
   if (index < 0) {
     return { index: -1, value: getDefaultDueDate() };
   }
@@ -228,9 +246,9 @@ function descriptionWithout(
   extraReject?: (line: string) => boolean,
 ): ExtractReturn<string> {
   const value = data
-    .filter(line => regexes.every(regex => !regex.test(line)))
-    .filter(line => !extraReject?.(line))
-    .map(line => line.trim())
+    .filter((line) => regexes.every((regex) => !regex.test(line)))
+    .filter((line) => !extraReject?.(line))
+    .map((line) => line.trim())
     .join("\n");
 
   return { index: 0, value };
@@ -242,7 +260,9 @@ const WISH_NAME_REGEX = new RegExp(
 const WISH_PRICE_REGEX = /(?:建議|團購價|建議售價)：?\$?\d+/;
 const WISH_COST_REGEX = /^(?:NT|\$)/;
 const BRACKET_OPTION_REGEX = /(?=.*[[［])(?=.*[\]］]).*/;
-const WISH_DUE_DATE_REGEX = new RegExp(String.raw`${DATE_PATTERN}(收單|結單|結團)`);
+const WISH_DUE_DATE_REGEX = new RegExp(
+  String.raw`${DATE_PATTERN}(收單|結單|結團)`,
+);
 
 class WishStrategy implements Strategy {
   getSupplier(): string {
@@ -250,19 +270,30 @@ class WishStrategy implements Strategy {
   }
 
   extractProductName(data: string[]): ExtractReturn<string> {
-    const index = data.findIndex(line => WISH_NAME_REGEX.test(line));
+    const index = data.findIndex((line) => WISH_NAME_REGEX.test(line));
     return {
       index,
-      value: index > -1 ? data[index]?.match(WISH_NAME_REGEX)?.[5]?.trim() : undefined,
+      value:
+        index > -1
+          ? data[index]?.match(WISH_NAME_REGEX)?.[5]?.trim()
+          : undefined,
     };
   }
 
   extractPrice(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => WISH_PRICE_REGEX.test(line), -1);
+    return extractNumberFromLine(
+      data,
+      (line) => WISH_PRICE_REGEX.test(line),
+      -1,
+    );
   }
 
   extractCost(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => WISH_COST_REGEX.test(line), -1);
+    return extractNumberFromLine(
+      data,
+      (line) => WISH_COST_REGEX.test(line),
+      -1,
+    );
   }
 
   extractOption(data: string[]): ExtractReturn<string[][]> {
@@ -287,7 +318,9 @@ class WishStrategy implements Strategy {
 const CAT_NAME_REGEX = /^\w{2,4}-\d{4,5}\s(.*)/;
 const CAT_PRICE_REGEX = /特價\D*(\d+)/;
 const CAT_COST_REGEX = /批.*(\d+)/;
-const COMMON_DUE_DATE_REGEX = new RegExp(String.raw`\W*${DATE_PATTERN}.*收單\S*`);
+const COMMON_DUE_DATE_REGEX = new RegExp(
+  String.raw`\W*${DATE_PATTERN}.*收單\S*`,
+);
 
 class CatStrategy implements Strategy {
   getSupplier(): string {
@@ -295,7 +328,7 @@ class CatStrategy implements Strategy {
   }
 
   extractProductName(data: string[]): ExtractReturn<string> {
-    const index = data.findIndex(line => CAT_NAME_REGEX.test(line));
+    const index = data.findIndex((line) => CAT_NAME_REGEX.test(line));
     return {
       index,
       value: index > -1 ? data[index]?.match(CAT_NAME_REGEX)?.[1] : undefined,
@@ -305,13 +338,13 @@ class CatStrategy implements Strategy {
   extractPrice(data: string[]): ExtractReturn<number> {
     return extractNumberFromLine(
       data,
-      line => CAT_PRICE_REGEX.test(line) && !line.startsWith("批"),
+      (line) => CAT_PRICE_REGEX.test(line) && !line.startsWith("批"),
       -1,
     );
   }
 
   extractCost(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => CAT_COST_REGEX.test(line), -1);
+    return extractNumberFromLine(data, (line) => CAT_COST_REGEX.test(line), -1);
   }
 
   extractOption(data: string[]): ExtractReturn<string[][]> {
@@ -345,7 +378,7 @@ class MoneyStrategy implements Strategy {
   }
 
   extractProductName(data: string[]): ExtractReturn<string> {
-    const index = data.findIndex(line => MONEY_NAME_REGEX.test(line));
+    const index = data.findIndex((line) => MONEY_NAME_REGEX.test(line));
     return {
       index,
       value: index > -1 ? data[index]?.match(MONEY_NAME_REGEX)?.[1] : undefined,
@@ -353,11 +386,19 @@ class MoneyStrategy implements Strategy {
   }
 
   extractPrice(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => MONEY_PRICE_REGEX.test(line), -1);
+    return extractNumberFromLine(
+      data,
+      (line) => MONEY_PRICE_REGEX.test(line),
+      -1,
+    );
   }
 
   extractCost(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => MONEY_COST_REGEX.test(line), -1);
+    return extractNumberFromLine(
+      data,
+      (line) => MONEY_COST_REGEX.test(line),
+      -1,
+    );
   }
 
   extractOption(data: string[]): ExtractReturn<string[][]> {
@@ -369,8 +410,9 @@ class MoneyStrategy implements Strategy {
   }
 
   extractDescription(data: string[]): ExtractReturn<string> {
-    const separatorIndex = data.findIndex(line => SEPARATOR_REGEX.test(line));
-    const descriptionData = separatorIndex > -1 ? data.slice(separatorIndex + 1) : data;
+    const separatorIndex = data.findIndex((line) => SEPARATOR_REGEX.test(line));
+    const descriptionData =
+      separatorIndex > -1 ? data.slice(separatorIndex + 1) : data;
     return descriptionWithout(descriptionData, [
       MONEY_NAME_REGEX,
       MONEY_PRICE_REGEX,
@@ -391,7 +433,7 @@ class BoomStrategy implements Strategy {
   }
 
   extractProductName(data: string[]): ExtractReturn<string> {
-    const index = data.findIndex(line => BOOM_NAME_REGEX.test(line));
+    const index = data.findIndex((line) => BOOM_NAME_REGEX.test(line));
     const resolvedIndex = index > -1 ? index : 0;
     return {
       index: resolvedIndex,
@@ -402,13 +444,17 @@ class BoomStrategy implements Strategy {
   extractPrice(data: string[]): ExtractReturn<number> {
     return extractNumberFromLine(
       data,
-      line => BOOM_PRICE_REGEX.test(line) && !line.startsWith("批"),
+      (line) => BOOM_PRICE_REGEX.test(line) && !line.startsWith("批"),
       0,
     );
   }
 
   extractCost(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => BOOM_COST_REGEX.test(line), -1);
+    return extractNumberFromLine(
+      data,
+      (line) => BOOM_COST_REGEX.test(line),
+      -1,
+    );
   }
 
   extractOption(data: string[]): ExtractReturn<string[][]> {
@@ -432,11 +478,20 @@ class BoomStrategy implements Strategy {
 
 class BoomP4Strategy extends BoomStrategy {
   extractCost(data: string[]): ExtractReturn<number> {
-    const ret = extractNumberFromLine(data, line => BOOM_COST_REGEX.test(line), -1);
+    const ret = extractNumberFromLine(
+      data,
+      (line) => BOOM_COST_REGEX.test(line),
+      -1,
+    );
     if (!ret.value) {
       return ret;
     }
-    ret.value = ret.value <= 350 ? ret.value + 20 : ret.value <= 500 ? ret.value + 30 : ret.value + 50;
+    ret.value =
+      ret.value <= 350
+        ? ret.value + 20
+        : ret.value <= 500
+          ? ret.value + 30
+          : ret.value + 50;
     return ret;
   }
 
@@ -445,7 +500,12 @@ class BoomP4Strategy extends BoomStrategy {
     if (!ret.value) {
       return ret;
     }
-    ret.value = ret.value <= 350 ? ret.value + 80 : ret.value <= 500 ? ret.value + 90 : ret.value + 100;
+    ret.value =
+      ret.value <= 350
+        ? ret.value + 80
+        : ret.value <= 500
+          ? ret.value + 90
+          : ret.value + 100;
     return ret;
   }
 }
@@ -466,7 +526,11 @@ class YoshidaStrategy implements Strategy {
   }
 
   extractCost(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => YOSHIDA_COST_REGEX.test(line), -1);
+    return extractNumberFromLine(
+      data,
+      (line) => YOSHIDA_COST_REGEX.test(line),
+      -1,
+    );
   }
 
   extractOption(data: string[]): ExtractReturn<string[][]> {
@@ -496,21 +560,29 @@ class MitagoStrategy implements Strategy {
   }
 
   extractProductName(data: string[]): ExtractReturn<string> {
-    const index = data.findIndex(line => MITAGO_NAME_REGEX.test(line));
-    const value = index > -1 ? data[index]?.match(MITAGO_NAME_REGEX)?.[1] : data[0];
-    return { index: index > -1 ? index : 0, value: removeKnownBoomPrefixes(value) };
+    const index = data.findIndex((line) => MITAGO_NAME_REGEX.test(line));
+    const value =
+      index > -1 ? data[index]?.match(MITAGO_NAME_REGEX)?.[1] : data[0];
+    return {
+      index: index > -1 ? index : 0,
+      value: removeKnownBoomPrefixes(value),
+    };
   }
 
   extractPrice(data: string[]): ExtractReturn<number> {
     return extractNumberFromLine(
       data,
-      line => MITAGO_PRICE_REGEX.test(line) && !line.startsWith("批"),
+      (line) => MITAGO_PRICE_REGEX.test(line) && !line.startsWith("批"),
       0,
     );
   }
 
   extractCost(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => MITAGO_COST_REGEX.test(line), -1);
+    return extractNumberFromLine(
+      data,
+      (line) => MITAGO_COST_REGEX.test(line),
+      -1,
+    );
   }
 
   extractOption(data: string[]): ExtractReturn<string[][]> {
@@ -531,7 +603,7 @@ class MitagoStrategy implements Strategy {
         PAREN_OPTION_REGEX,
         COMMON_DUE_DATE_REGEX,
       ],
-      line => line.includes("https://www.mammyup.com/"),
+      (line) => line.includes("https://www.mammyup.com/"),
     );
   }
 }
@@ -548,7 +620,7 @@ class AppleStrategy implements Strategy {
 
   extractProductName(data: string[]): ExtractReturn<string> {
     const index = data.findIndex(
-      line => APPLE_NAME_REGEX.test(line) && !line.includes("下單連結"),
+      (line) => APPLE_NAME_REGEX.test(line) && !line.includes("下單連結"),
     );
     return {
       index,
@@ -557,11 +629,19 @@ class AppleStrategy implements Strategy {
   }
 
   extractPrice(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => APPLE_PRICE_REGEX.test(line), -1);
+    return extractNumberFromLine(
+      data,
+      (line) => APPLE_PRICE_REGEX.test(line),
+      -1,
+    );
   }
 
   extractCost(data: string[]): ExtractReturn<number> {
-    return extractNumberFromLine(data, line => APPLE_COST_REGEX.test(line), -1);
+    return extractNumberFromLine(
+      data,
+      (line) => APPLE_COST_REGEX.test(line),
+      -1,
+    );
   }
 
   extractOption(): ExtractReturn<string[][]> {
@@ -573,7 +653,9 @@ class AppleStrategy implements Strategy {
   }
 
   extractDescription(data: string[]): ExtractReturn<string> {
-    const firstDividerIndex = data.findIndex(row => APPLE_DIVIDER_REGEX.test(row));
+    const firstDividerIndex = data.findIndex((row) =>
+      APPLE_DIVIDER_REGEX.test(row),
+    );
     let lastDividerIndex = -1;
     for (let index = data.length - 1; index >= 0; index -= 1) {
       if (APPLE_DIVIDER_REGEX.test(data[index] ?? "")) {
@@ -581,20 +663,29 @@ class AppleStrategy implements Strategy {
         break;
       }
     }
-    const nameIndex = data.findIndex(row => APPLE_NAME_REGEX.test(row));
-    const topDividerIndex = firstDividerIndex < nameIndex ? firstDividerIndex : -1;
-    const bottomDividerIndex = lastDividerIndex > nameIndex ? lastDividerIndex : data.length;
+    const nameIndex = data.findIndex((row) => APPLE_NAME_REGEX.test(row));
+    const topDividerIndex =
+      firstDividerIndex < nameIndex ? firstDividerIndex : -1;
+    const bottomDividerIndex =
+      lastDividerIndex > nameIndex ? lastDividerIndex : data.length;
 
     return descriptionWithout(
       data.slice(topDividerIndex + 1, bottomDividerIndex),
-      [APPLE_NAME_REGEX, APPLE_PRICE_REGEX, APPLE_COST_REGEX, COMMON_DUE_DATE_REGEX],
-      line => /珍惜製圖文|日本連線/.test(line),
+      [
+        APPLE_NAME_REGEX,
+        APPLE_PRICE_REGEX,
+        APPLE_COST_REGEX,
+        COMMON_DUE_DATE_REGEX,
+      ],
+      (line) => /珍惜製圖文|日本連線/.test(line),
     );
   }
 }
 
-function extractParenthesizedOptions(data: string[]): ExtractReturn<string[][]> {
-  const index = data.findIndex(line => PAREN_OPTION_REGEX.test(line));
+function extractParenthesizedOptions(
+  data: string[],
+): ExtractReturn<string[][]> {
+  const index = data.findIndex((line) => PAREN_OPTION_REGEX.test(line));
   const match = index > -1 ? data[index]?.match(PAREN_OPTION_REGEX) : undefined;
   return {
     index,

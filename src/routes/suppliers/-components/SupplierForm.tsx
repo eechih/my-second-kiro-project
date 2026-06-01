@@ -9,6 +9,7 @@ import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import {
+  getTranslationSupplierLabel,
   TRANSLATION_SUPPLIERS,
   type TranslationSupplier,
 } from "@shared/logic/translation-parser";
@@ -39,17 +40,6 @@ const DEFAULT_SUPPLIER_VALUES: SupplierFormValues = {
   email: "",
   address: "",
   translationParser: "",
-};
-
-const TRANSLATION_PARSER_LABELS: Record<TranslationSupplier, string> = {
-  wish: "Wish",
-  cat: "小貓",
-  money: "Money",
-  boom: "Boom",
-  boom_p4: "Boom P4",
-  yoshida: "吉田",
-  mitago: "Mitago",
-  apple: "Apple",
 };
 
 export function SupplierForm({
@@ -130,7 +120,7 @@ export function SupplierForm({
                   <MenuItem value="">未指定</MenuItem>
                   {TRANSLATION_SUPPLIERS.map((parser) => (
                     <MenuItem key={parser} value={parser}>
-                      {TRANSLATION_PARSER_LABELS[parser]}
+                      {getTranslationSupplierLabel(parser)}
                     </MenuItem>
                   ))}
                 </Select>
