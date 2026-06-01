@@ -254,7 +254,17 @@ function parseArgs(argv) {
 }
 
 function validateArgs(args) {
-  void args;
+  const entries = [
+    ["customers", args.customers],
+    ["products", args.products],
+    ["orders", args.orders],
+  ];
+
+  for (const [key, value] of entries) {
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error(`${key} 必須是大於 0 的整數`);
+    }
+  }
 }
 
 function formatSku(sequenceNumber) {
@@ -557,7 +567,7 @@ function buildOrderItem(
     productNameSnapshot: product.name,
     productSkuSnapshot: product.sku,
     productImageUrlSnapshot: null,
-    selectedOptionsSnapshot: JSON.stringify(selectedOptionsSnapshot),
+    selectedOptionsSnapshot,
     unitPriceSnapshot: unitPrice,
     unitCostSnapshot: unitCost,
     quantity,
@@ -611,12 +621,17 @@ function buildOrder(orderIndex, customer, products) {
     statusConfig,
     timeline,
   );
-  const updatedAt =
-    timeline.refundedAt ??
-    timeline.completedAt ??
-    timeline.cancelledAt ??
-    timeline.paidAt ??
-    createdAt;
+  const updatedAtCandidates = [
+    createdAt,
+    timeline.paidAt,
+    timeline.cancelledAt,
+    timeline.refundedAt,
+    timeline.completedAt,
+    ...items.map((item) => item.updatedAt),
+  ].filter((value) => typeof value === "string");
+  const updatedAt = updatedAtCandidates.reduce((latest, current) =>
+    current > latest ? current : latest,
+  );
 
   return {
     id: randomUUID(),
@@ -638,7 +653,7 @@ function buildOrder(orderIndex, customer, products) {
     discountAmount: 0,
     totalAmount: subtotalAmount,
     note: "Seed demo order",
-    statusHistory: JSON.stringify(statusHistory),
+    statusHistory,
     isActive: true,
     deletedAt: null,
     gsiPartition: "Order",
