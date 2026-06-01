@@ -34,7 +34,6 @@ function SupplierEditPage() {
     if (!supplier) return undefined;
     return {
       name: supplier.name,
-      contactPerson: supplier.contactPerson,
       phone: supplier.phone,
       email: supplier.email,
       address: supplier.address,
@@ -57,7 +56,6 @@ function SupplierEditPage() {
       await updateMutation.mutateAsync({
         id: supplierId,
         name: values.name,
-        contactPerson: values.contactPerson,
         phone: values.phone,
         email: values.email,
         address: values.address,

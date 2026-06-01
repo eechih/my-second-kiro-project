@@ -32,10 +32,7 @@ export async function searchSuppliers(query: string): Promise<Supplier[]> {
 
   if (query) {
     conditions.push({
-      or: [
-        { name: { contains: query } },
-        { contactPerson: { contains: query } },
-      ],
+      or: [{ name: { contains: query } }],
     });
   }
 
@@ -51,7 +48,6 @@ export async function searchSuppliers(query: string): Promise<Supplier[]> {
     selectionSet: [
       "id",
       "name",
-      "contactPerson",
       "phone",
       "email",
       "address",
@@ -63,7 +59,6 @@ export async function searchSuppliers(query: string): Promise<Supplier[]> {
   return (data ?? []).map((raw: Record<string, unknown>) => ({
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
-    contactPerson: String(raw.contactPerson ?? ""),
     phone: String(raw.phone ?? ""),
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),

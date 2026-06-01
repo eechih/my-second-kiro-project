@@ -12,8 +12,6 @@ export interface Supplier {
   id: string;
   /** 供應商名稱（必填） */
   name: string;
-  /** 聯絡人（選填） */
-  contactPerson: string;
   /** 電話（選填） */
   phone: string;
   /** Email（選填） */
@@ -34,8 +32,6 @@ export interface Supplier {
 export interface CreateSupplierInput {
   /** 供應商名稱（必填） */
   name: string;
-  /** 聯絡人（選填） */
-  contactPerson?: string;
   /** 電話（選填） */
   phone?: string;
   /** Email（選填） */
@@ -52,8 +48,6 @@ export interface UpdateSupplierInput {
   id: string;
   /** 供應商名稱 */
   name?: string;
-  /** 聯絡人 */
-  contactPerson?: string;
   /** 電話 */
   phone?: string;
   /** Email */

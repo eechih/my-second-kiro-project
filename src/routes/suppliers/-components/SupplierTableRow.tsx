@@ -19,7 +19,6 @@ import type { Supplier } from "@shared/models";
 
 export type EditableSupplierField =
   | "name"
-  | "contactPerson"
   | "phone"
   | "email"
   | "address"
@@ -113,14 +112,6 @@ export function SupplierTableRow({
               value={supplier.name}
               onCommit={(value) => onCellEdit(supplier, "name", value)}
             />
-            {supplier.contactPerson !== supplier.name && (
-              <EditableTextCell
-                value={supplier.contactPerson}
-                onCommit={(value) =>
-                  onCellEdit(supplier, "contactPerson", value)
-                }
-              />
-            )}
           </Box>
         </Box>
       </TableCell>

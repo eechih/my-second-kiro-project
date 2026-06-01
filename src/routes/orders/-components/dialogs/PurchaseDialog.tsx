@@ -97,7 +97,7 @@ export function PurchaseDialog({
             onChange={setSupplier}
             queryKey={["suppliers", "select"]}
             searchFn={searchSuppliers}
-            getOptionLabel={(s) => `${s.name}（${s.contactPerson}）`}
+            getOptionLabel={(s) => s.name}
             required
           />
           <TextField

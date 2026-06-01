@@ -214,7 +214,6 @@ function buildFakeSupplier(index) {
   return {
     id: randomUUID(),
     name: SUPPLIER_NAMES[index % SUPPLIER_NAMES.length],
-    contactPerson: `窗口 ${index + 1}`,
     phone: `02${String(10000000 + index).slice(0, 8)}`,
     email: `demo-supplier-${index + 1}@example.com`,
     address: `${city}供應路 ${index + 1} 號`,

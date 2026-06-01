@@ -24,7 +24,6 @@ export type StatusFilter = "all" | "active" | "inactive";
 /** 供應商排序欄位 */
 export type SupplierSortField =
   | "name"
-  | "contactPerson"
   | "phone"
   | "createdAt";
 
@@ -34,7 +33,7 @@ export interface SupplierListParams {
   pageSize: number;
   /** 游標 token（首頁為 undefined） */
   nextToken?: string;
-  /** 搜尋關鍵字（模糊比對 name/contactPerson/phone） */
+  /** 搜尋關鍵字（模糊比對 name/phone） */
   search?: string;
   /** 啟用狀態篩選（undefined 表示全部） */
   isActive?: boolean;
@@ -72,7 +71,6 @@ function buildSupplierFilter({
   if (search) {
     filter.or = [
       { name: { contains: search } },
-      { contactPerson: { contains: search } },
       { phone: { contains: search } },
     ];
   }
@@ -107,9 +105,6 @@ function applySupplierUpdate(
   return {
     ...supplier,
     ...(input.name !== undefined && { name: input.name }),
-    ...(input.contactPerson !== undefined && {
-      contactPerson: input.contactPerson,
-    }),
     ...(input.phone !== undefined && { phone: input.phone }),
     ...(input.email !== undefined && { email: input.email }),
     ...(input.address !== undefined && { address: input.address }),
@@ -162,7 +157,6 @@ async function createSupplier(input: CreateSupplierInput): Promise<Supplier> {
   const now = new Date().toISOString();
   const payload: Record<string, unknown> = {
     name: input.name,
-    contactPerson: input.contactPerson,
     phone: input.phone,
     email: input.email ?? "",
     address: input.address ?? "",
@@ -191,9 +185,6 @@ async function updateSupplier(input: UpdateSupplierInput): Promise<Supplier> {
   const payload: Record<string, unknown> = {
     id: input.id,
     ...(input.name !== undefined && { name: input.name }),
-    ...(input.contactPerson !== undefined && {
-      contactPerson: input.contactPerson,
-    }),
     ...(input.phone !== undefined && { phone: input.phone }),
     ...(input.email !== undefined && { email: input.email }),
     ...(input.address !== undefined && { address: input.address }),
@@ -237,7 +228,6 @@ function mapToSupplier(raw: Record<string, unknown>): Supplier {
   return {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
-    contactPerson: String(raw.contactPerson ?? ""),
     phone: String(raw.phone ?? ""),
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),
@@ -260,7 +250,7 @@ function mapToSupplier(raw: Record<string, unknown>): Supplier {
  * 供應商列表查詢 hook（游標式分頁）
  *
  * 使用 TanStack Query 搭配 DynamoDB nextToken 實現游標式分頁。
- * 支援搜尋（name/contactPerson/phone 模糊比對）與 isActive 篩選。
+ * 支援搜尋（name/phone 模糊比對）與 isActive 篩選。
  * isActive 為 undefined 時查詢全部狀態。
  *
  * 需求：2.1, 2.5, 2.9

@@ -43,7 +43,6 @@ function createSampleSupplier(): Supplier {
   return {
     id: "sup-001",
     name: "測試供應商",
-    contactPerson: "李大華",
     phone: "0987654321",
     email: "supplier@example.com",
     address: "新北市板橋區",

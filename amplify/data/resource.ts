@@ -121,7 +121,6 @@ const schema = a.schema({
   Supplier: a
     .model({
       name: a.string().required(),
-      contactPerson: a.string(),
       phone: a.string(),
       email: a.string(),
       address: a.string(),

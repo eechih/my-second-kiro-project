@@ -35,7 +35,6 @@ function SupplierNewPage() {
     try {
       await createMutation.mutateAsync({
         name: values.name,
-        contactPerson: values.contactPerson,
         phone: values.phone,
         email: values.email || undefined,
         address: values.address || undefined,

@@ -17,7 +17,6 @@ function mapSupplier(raw: Record<string, unknown>): Supplier {
   return {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
-    contactPerson: String(raw.contactPerson ?? ""),
     phone: String(raw.phone ?? ""),
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),

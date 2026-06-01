@@ -18,7 +18,6 @@ import { useEffect } from "react";
 
 export interface SupplierFormValues {
   name: string;
-  contactPerson: string;
   phone: string;
   email: string;
   address: string;
@@ -35,7 +34,6 @@ export interface SupplierFormProps {
 
 const DEFAULT_SUPPLIER_VALUES: SupplierFormValues = {
   name: "",
-  contactPerson: "",
   phone: "",
   email: "",
   address: "",
@@ -80,10 +78,6 @@ export function SupplierForm({
             {(field) => (
               <FormField field={field} label="供應商名稱" required />
             )}
-          </form.Field>
-
-          <form.Field name="contactPerson">
-            {(field) => <FormField field={field} label="聯絡人" />}
           </form.Field>
 
           <form.Field name="phone">

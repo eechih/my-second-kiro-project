@@ -52,7 +52,6 @@ function ProductEditPage() {
             setSelectedSupplier({
               id: String(data.id ?? ""),
               name: String(data.name ?? ""),
-              contactPerson: String(data.contactPerson ?? ""),
               phone: String(data.phone ?? ""),
               email: String(data.email ?? ""),
               address: String(data.address ?? ""),

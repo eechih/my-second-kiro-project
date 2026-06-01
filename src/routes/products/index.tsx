@@ -50,10 +50,7 @@ function ProductListPage(): React.ReactElement {
     async (query: string): Promise<SupplierOption[]> => {
       const filter: Record<string, unknown> = { isActive: { eq: true } };
       if (query) {
-        filter.or = [
-          { name: { contains: query } },
-          { contactPerson: { contains: query } },
-        ];
+        filter.or = [{ name: { contains: query } }];
       }
 
       const { data: suppliers } = await client.models.Supplier.list({

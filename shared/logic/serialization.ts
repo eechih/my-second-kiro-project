@@ -168,7 +168,6 @@ export function deserializeSupplier(json: string): Supplier {
 
   assertStringField(supplier, "id", "Supplier");
   assertStringField(supplier, "name", "Supplier");
-  assertOptionalStringField(supplier, "contactPerson", "Supplier");
   assertOptionalStringField(supplier, "phone", "Supplier");
   assertStringField(supplier, "email", "Supplier");
   assertStringField(supplier, "address", "Supplier");

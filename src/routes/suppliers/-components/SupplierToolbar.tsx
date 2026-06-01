@@ -32,7 +32,6 @@ const STATUS_OPTIONS = [
 
 const SORT_OPTIONS = [
   { value: "name", label: "供應商名稱" },
-  { value: "contactPerson", label: "聯絡人" },
   { value: "phone", label: "電話" },
   { value: "createdAt", label: "建立日期" },
 ] as const satisfies readonly ListToolbarOption<SupplierSortField>[];
