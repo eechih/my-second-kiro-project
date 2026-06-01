@@ -22,20 +22,57 @@ const ACTIVE_STATUS = {
   inactive: "INACTIVE",
 };
 
-const ORDER_STATUSES = [
+const ORDER_SCENARIOS = [
   {
     status: "PENDING_PAYMENT",
     paymentStatus: "UNPAID",
     fulfillmentStatus: "UNFULFILLED",
     itemStatus: "pending",
+    timeline: "pending_payment",
   },
   {
     status: "PAID",
     paymentStatus: "PAID",
     fulfillmentStatus: "UNFULFILLED",
     itemStatus: "ordered",
+    timeline: "paid_unfulfilled",
   },
-] ;
+  {
+    status: "PAID",
+    paymentStatus: "PAID",
+    fulfillmentStatus: "READY_TO_SHIP",
+    itemStatus: "received",
+    timeline: "ready_to_ship",
+  },
+  {
+    status: "PAID",
+    paymentStatus: "PAID",
+    fulfillmentStatus: "SHIPPED",
+    itemStatus: "shipped",
+    timeline: "shipped",
+  },
+  {
+    status: "COMPLETED",
+    paymentStatus: "PAID",
+    fulfillmentStatus: "COMPLETED",
+    itemStatus: "shipped",
+    timeline: "completed",
+  },
+  {
+    status: "CANCELLED",
+    paymentStatus: "UNPAID",
+    fulfillmentStatus: "UNFULFILLED",
+    itemStatus: "pending",
+    timeline: "cancelled",
+  },
+  {
+    status: "REFUNDED",
+    paymentStatus: "REFUNDED",
+    fulfillmentStatus: "COMPLETED",
+    itemStatus: "shipped",
+    timeline: "refunded",
+  },
+];
 
 const PRODUCT_PREFIXES = [
   "經典",
@@ -229,6 +266,11 @@ function formatOrderNumber(date, orderIndex) {
   return `ORD-${datePart}-${String(orderIndex).padStart(4, "0")}`;
 }
 
+function offsetIso(dateString, offsetHours) {
+  return new Date(new Date(dateString).getTime() + offsetHours * 3600000)
+    .toISOString();
+}
+
 function weightedCustomerIndex(orderIndex, customerCount) {
   const favoredPool = Math.max(5, Math.floor(customerCount * 0.35));
   if (orderIndex % 5 === 0) {
@@ -291,6 +333,135 @@ function buildFakeCustomer(index, orderCount, lastOrderedAt) {
     createdAt,
     updatedAt: createdAt,
   };
+}
+
+function buildOrderItemTimeline(createdAt, itemStatus) {
+  const purchasedAt =
+    itemStatus === "pending" ? null : offsetIso(createdAt, 6);
+  const receivedAt =
+    itemStatus === "received" || itemStatus === "shipped"
+      ? offsetIso(createdAt, 30)
+      : null;
+  const shippedAt =
+    itemStatus === "shipped" ? offsetIso(createdAt, 54) : null;
+  const outOfStockAt =
+    itemStatus === "out_of_stock" ? offsetIso(createdAt, 12) : null;
+
+  return {
+    purchasedAt,
+    receivedAt,
+    shippedAt,
+    outOfStockAt,
+  };
+}
+
+function buildOrderTimeline(createdAt, scenario) {
+  switch (scenario.timeline) {
+    case "pending_payment":
+      return {
+        paidAt: null,
+        cancelledAt: null,
+        refundedAt: null,
+        completedAt: null,
+      };
+    case "paid_unfulfilled":
+      return {
+        paidAt: offsetIso(createdAt, 2),
+        cancelledAt: null,
+        refundedAt: null,
+        completedAt: null,
+      };
+    case "ready_to_ship":
+      return {
+        paidAt: offsetIso(createdAt, 2),
+        cancelledAt: null,
+        refundedAt: null,
+        completedAt: null,
+      };
+    case "shipped":
+      return {
+        paidAt: offsetIso(createdAt, 2),
+        cancelledAt: null,
+        refundedAt: null,
+        completedAt: null,
+      };
+    case "completed":
+      return {
+        paidAt: offsetIso(createdAt, 2),
+        cancelledAt: null,
+        refundedAt: null,
+        completedAt: offsetIso(createdAt, 72),
+      };
+    case "cancelled":
+      return {
+        paidAt: null,
+        cancelledAt: offsetIso(createdAt, 4),
+        refundedAt: null,
+        completedAt: null,
+      };
+    case "refunded":
+      return {
+        paidAt: offsetIso(createdAt, 2),
+        cancelledAt: null,
+        refundedAt: offsetIso(createdAt, 96),
+        completedAt: null,
+      };
+    default:
+      return {
+        paidAt: null,
+        cancelledAt: null,
+        refundedAt: null,
+        completedAt: null,
+      };
+  }
+}
+
+function buildOrderStatusHistory(createdAt, scenario, timeline) {
+  const history = [
+    {
+      fromStatus: "",
+      toStatus: "PENDING_PAYMENT",
+      changedAt: createdAt,
+    },
+  ];
+
+  if (scenario.status === "PENDING_PAYMENT") {
+    return history;
+  }
+
+  if (timeline.paidAt) {
+    history.push({
+      fromStatus: "PENDING_PAYMENT",
+      toStatus: "PAID",
+      changedAt: timeline.paidAt,
+    });
+  }
+
+  if (scenario.status === "CANCELLED" && timeline.cancelledAt) {
+    history.push({
+      fromStatus: "PENDING_PAYMENT",
+      toStatus: "CANCELLED",
+      changedAt: timeline.cancelledAt,
+    });
+  }
+
+  if (scenario.status === "COMPLETED" && timeline.completedAt) {
+    history.push({
+      fromStatus: "PAID",
+      toStatus: "COMPLETED",
+      changedAt: timeline.completedAt,
+    });
+  }
+
+  if (scenario.status === "REFUNDED" && timeline.refundedAt) {
+    history.push({
+      fromStatus: "PAID",
+      toStatus: "REFUNDED",
+      changedAt: timeline.refundedAt,
+    });
+  }
+
+  return history;
 }
 
 function buildFakeSupplier(index) {
@@ -378,6 +549,7 @@ function buildOrderItem(
   );
   const unitPrice = product.price + priceOffset;
   const unitCost = product.cost + costOffset;
+  const timeline = buildOrderItemTimeline(createdAt, itemStatus);
   return {
     id: randomUUID(),
     productId: product.id,
@@ -392,18 +564,23 @@ function buildOrderItem(
     totalPriceSnapshot: unitPrice * quantity,
     totalCostSnapshot: unitCost * quantity,
     supplierName,
-    purchasedAt: null,
-    receivedAt: null,
-    shippedAt: null,
-    outOfStockAt: null,
+    purchasedAt: timeline.purchasedAt,
+    receivedAt: timeline.receivedAt,
+    shippedAt: timeline.shippedAt,
+    outOfStockAt: timeline.outOfStockAt,
     createdAtForSort: createdAt,
     createdAt,
-    updatedAt: createdAt,
+    updatedAt:
+      timeline.outOfStockAt ??
+      timeline.shippedAt ??
+      timeline.receivedAt ??
+      timeline.purchasedAt ??
+      createdAt,
   };
 }
 
 function buildOrder(orderIndex, customer, products) {
-  const statusConfig = ORDER_STATUSES[orderIndex % ORDER_STATUSES.length];
+  const statusConfig = ORDER_SCENARIOS[orderIndex % ORDER_SCENARIOS.length];
   const createdAt = new Date(
     Date.now() - (orderIndex + 1) * 21600000,
   ).toISOString();
@@ -428,6 +605,18 @@ function buildOrder(orderIndex, customer, products) {
     (sum, item) => sum + item.totalPriceSnapshot,
     0,
   );
+  const timeline = buildOrderTimeline(createdAt, statusConfig);
+  const statusHistory = buildOrderStatusHistory(
+    createdAt,
+    statusConfig,
+    timeline,
+  );
+  const updatedAt =
+    timeline.refundedAt ??
+    timeline.completedAt ??
+    timeline.cancelledAt ??
+    timeline.paidAt ??
+    createdAt;
 
   return {
     id: randomUUID(),
@@ -440,22 +629,22 @@ function buildOrder(orderIndex, customer, products) {
     status: statusConfig.status,
     paymentStatus: statusConfig.paymentStatus,
     fulfillmentStatus: statusConfig.fulfillmentStatus,
-    paidAt: statusConfig.paymentStatus === "PAID" ? createdAt : null,
-    cancelledAt: null,
-    refundedAt: null,
-    completedAt: null,
+    paidAt: timeline.paidAt,
+    cancelledAt: timeline.cancelledAt,
+    refundedAt: timeline.refundedAt,
+    completedAt: timeline.completedAt,
     subtotalAmount,
     shippingAmount: 0,
     discountAmount: 0,
     totalAmount: subtotalAmount,
     note: "Seed demo order",
-    statusHistory: JSON.stringify([]),
+    statusHistory: JSON.stringify(statusHistory),
     isActive: true,
     deletedAt: null,
     gsiPartition: "Order",
     createdAtForSort: createdAt,
     createdAt,
-    updatedAt: createdAt,
+    updatedAt,
     items,
   };
 }
