@@ -1,6 +1,7 @@
 import { client } from "@/lib/amplify-client";
 import type { SortField } from "@/lib/table-utils";
 import { sortCustomers } from "@/lib/table-utils";
+import { ACTIVE_STATUS, toActiveStatusKey } from "@shared/models";
 import type {
   CreateCustomerInput,
   Customer,
@@ -158,6 +159,11 @@ async function createCustomer(input: CreateCustomerInput): Promise<Customer> {
     email: input.email ?? "",
     address: input.address ?? "",
     isActive: true,
+    activeStatusKey: ACTIVE_STATUS.active,
+    orderCount: 0,
+    orderCountForSort: 0,
+    lastOrderedAt: null,
+    lastOrderedAtForSort: now,
     gsiPartition: "Customer",
     createdAtForSort: now,
   } as Parameters<typeof client.models.Customer.create>[0]);
@@ -184,6 +190,9 @@ async function updateCustomer(input: UpdateCustomerInput): Promise<Customer> {
     ...(input.email !== undefined && { email: input.email }),
     ...(input.address !== undefined && { address: input.address }),
     ...(input.isActive !== undefined && { isActive: input.isActive }),
+    ...(input.isActive !== undefined && {
+      activeStatusKey: toActiveStatusKey(input.isActive),
+    }),
   });
 
   if (errors && errors.length > 0) {
@@ -207,6 +216,8 @@ function mapToCustomer(raw: Record<string, unknown>): Customer {
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),
     isActive: raw.isActive !== false,
+    orderCount: Number(raw.orderCount ?? 0),
+    lastOrderedAt: raw.lastOrderedAt ? String(raw.lastOrderedAt) : null,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };

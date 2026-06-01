@@ -1,4 +1,5 @@
 import { client } from "@/lib/amplify-client";
+import { ACTIVE_STATUS } from "@shared/models";
 import type {
   Customer,
   Product,
@@ -7,6 +8,7 @@ import type {
 } from "@shared/models";
 
 const SEARCH_LIMIT = 50;
+const CUSTOMER_LIST_LIMIT = 50;
 
 const PRODUCT_SELECTION_SET = [
   "id",
@@ -44,6 +46,23 @@ export async function searchCustomers(query: string): Promise<Customer[]> {
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "搜尋客戶失敗");
+  }
+
+  return (data ?? []).map(mapCustomer);
+}
+
+export async function listCustomers(): Promise<Customer[]> {
+  const { data, errors } =
+    await client.models.Customer.listActiveCustomersByOrderCount(
+      { activeStatusKey: ACTIVE_STATUS.active },
+      {
+        sortDirection: "DESC",
+        limit: CUSTOMER_LIST_LIMIT,
+      } as Record<string, unknown>,
+    );
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "載入客戶失敗");
   }
 
   return (data ?? []).map(mapCustomer);
@@ -102,7 +121,7 @@ async function queryActiveProducts(options?: {
 }): Promise<Product[]> {
   const { data, errors } =
     await client.models.Product.listActiveProductsByCreatedDate(
-      { activeStatusKey: "ACTIVE" },
+      { activeStatusKey: ACTIVE_STATUS.active },
       {
         sortDirection: "DESC",
         limit: options?.limit ?? SEARCH_LIMIT,
@@ -138,6 +157,8 @@ function mapCustomer(raw: Record<string, unknown>): Customer {
     email: String(raw.email ?? ""),
     address: String(raw.address ?? ""),
     isActive: raw.isActive !== false,
+    orderCount: Number(raw.orderCount ?? 0),
+    lastOrderedAt: raw.lastOrderedAt ? String(raw.lastOrderedAt) : null,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };

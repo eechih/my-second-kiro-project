@@ -490,6 +490,30 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     }
   }
 
+  const { data: customerData, errors: customerErrors } =
+    await client.models.Customer.get({ id: input.customerId });
+
+  if (customerErrors && customerErrors.length > 0) {
+    throw new Error(customerErrors[0]?.message ?? "更新客戶下單時間失敗");
+  }
+
+  if (customerData) {
+    const nextOrderCount = Number(customerData.orderCount ?? 0) + 1;
+    const { errors: customerUpdateErrors } = await client.models.Customer.update({
+      id: input.customerId,
+      orderCount: nextOrderCount,
+      orderCountForSort: nextOrderCount,
+      lastOrderedAt: now,
+      lastOrderedAtForSort: now,
+    });
+
+    if (customerUpdateErrors && customerUpdateErrors.length > 0) {
+      throw new Error(
+        customerUpdateErrors[0]?.message ?? "更新客戶下單時間失敗",
+      );
+    }
+  }
+
   return {
     id: orderId,
     orderNumber,

@@ -93,7 +93,12 @@ const schema = a.schema({
       address: a.string(),
       note: a.string(),
       isActive: activeFlagField(),
+      activeStatusKey: a.string().required().default("ACTIVE"),
       deletedAt: a.datetime(),
+      orderCount: a.integer().required().default(0),
+      orderCountForSort: a.integer().required().default(0),
+      lastOrderedAt: a.datetime(),
+      lastOrderedAtForSort: a.datetime().required(),
       ...sortFields(SORT_PARTITIONS.customer),
       orders: a.hasMany("Order", "customerId"),
     })
@@ -103,6 +108,14 @@ const schema = a.schema({
         .sortKeys(["createdAtForSort"])
         .queryField("listCustomersByCreatedDate")
         .name("byCreatedAt"),
+      index("activeStatusKey")
+        .sortKeys(["lastOrderedAtForSort"])
+        .queryField("listActiveCustomersByLastOrderedAt")
+        .name("byActiveLastOrderedAt"),
+      index("activeStatusKey")
+        .sortKeys(["orderCountForSort"])
+        .queryField("listActiveCustomersByOrderCount")
+        .name("byActiveOrderCount"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 

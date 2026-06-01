@@ -6,6 +6,7 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
+import { toActiveStatusKey } from "@shared/models";
 import type {
   Product,
   ProductOption,
@@ -65,10 +66,6 @@ const PRODUCT_SELECTION_SET = [
   "options.*",
   "options.values.*",
 ] as const;
-
-function toActiveStatusKey(isActive: boolean): "ACTIVE" | "INACTIVE" {
-  return isActive ? "ACTIVE" : "INACTIVE";
-}
 
 function buildProductFilter({
   search,

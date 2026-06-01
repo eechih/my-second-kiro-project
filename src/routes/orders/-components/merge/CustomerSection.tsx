@@ -1,5 +1,6 @@
 import { EntitySelect } from "@/components/EntitySelect";
 import { client } from "@/lib/amplify-client";
+import { ACTIVE_STATUS } from "@shared/models";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -12,6 +13,21 @@ export interface CustomerOption {
 export interface MergeCustomerSectionProps {
   selectedCustomer: CustomerOption | null;
   onCustomerChange: (customer: CustomerOption | null) => void;
+}
+
+async function listCustomers(): Promise<CustomerOption[]> {
+  const { data } = await client.models.Customer.listActiveCustomersByOrderCount(
+    { activeStatusKey: ACTIVE_STATUS.active },
+    {
+      sortDirection: "DESC",
+      limit: 50,
+    } as Record<string, unknown>,
+  );
+
+  return (data ?? []).map((customer) => ({
+    id: String(customer.id ?? ""),
+    name: String(customer.name ?? ""),
+  }));
 }
 
 async function searchCustomers(query: string): Promise<CustomerOption[]> {
@@ -52,6 +68,7 @@ export function MergeCustomerSection({
           value={selectedCustomer}
           onChange={onCustomerChange}
           queryKey={["customers", "order-merge-select"]}
+          listFn={listCustomers}
           searchFn={searchCustomers}
           getOptionLabel={(option) => option.name}
           required

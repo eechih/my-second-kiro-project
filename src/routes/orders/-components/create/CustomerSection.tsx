@@ -2,7 +2,7 @@ import { EntitySelect } from "@/components/EntitySelect";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import type { Customer } from "@shared/models";
-import { searchCustomers } from "./search";
+import { listCustomers, searchCustomers } from "./search";
 
 export interface CustomerSectionProps {
   selectedCustomer: Customer | null;
@@ -25,6 +25,7 @@ export function CustomerSection({
         value={selectedCustomer}
         onChange={onCustomerChange}
         queryKey={["customers", "order-create-select"]}
+        listFn={listCustomers}
         searchFn={searchCustomers}
         getOptionLabel={(customer) =>
           `${customer.name}（${customer.contactPerson}）`

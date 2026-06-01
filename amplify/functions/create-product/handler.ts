@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { v4 as uuidv4 } from "uuid";
+import { ACTIVE_STATUS } from "../../../shared/models/active-status";
 import { logError, logInfo, logWarn } from "../debug-log";
 
 const ddb = new DynamoDBClient({});
@@ -195,7 +196,7 @@ export const handler: Schema["createProductWithAutoSku"]["functionHandler"] =
         stockQuantity: stockQuantity ?? 0,
         imageUrls: imageUrls ?? [],
         isActive: true,
-        activeStatusKey: "ACTIVE",
+        activeStatusKey: ACTIVE_STATUS.active,
         gsiPartition: "Product",
         createdAtForSort: now,
         createdAt: now,

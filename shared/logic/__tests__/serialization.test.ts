@@ -33,6 +33,8 @@ function createSampleCustomer(): Customer {
     email: "test@example.com",
     address: "台北市信義區",
     isActive: true,
+    orderCount: 0,
+    lastOrderedAt: null,
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2025-01-01T00:00:00.000Z",
   };

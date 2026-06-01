@@ -20,6 +20,10 @@ export interface Customer {
   address: string;
   /** 啟用狀態（預設 true，false 表示已停用） */
   isActive: boolean;
+  /** 累積下單次數 */
+  orderCount: number;
+  /** 最近下單時間；尚未下單時為 null */
+  lastOrderedAt: string | null;
   /** ISO 8601 建立時間 */
   createdAt: string;
   /** ISO 8601 更新時間 */

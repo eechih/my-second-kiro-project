@@ -2,6 +2,9 @@
  * 資料模型統一匯出
  */
 
+export { ACTIVE_STATUS, toActiveStatusKey } from "./active-status";
+export type { ActiveStatusKey } from "./active-status";
+
 export type {
   CreateCustomerInput,
   Customer,
