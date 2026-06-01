@@ -107,14 +107,14 @@ const TRANSLATION_SUPPLIERS = [
 ];
 
 const SUPPLIER_NAMES = [
-  "Wish Select",
-  "Cat Choice",
-  "Money Market",
-  "Boom Studio",
-  "Boom P4 Lab",
-  "Yoshida Goods",
-  "Mitago Supply",
-  "Apple Source",
+  "Wish",
+  "葉貓子批發",
+  "Money",
+  "生意興隆",
+  "生意興隆P4",
+  "吉田",
+  "米塔購",
+  "天魁批發",
 ];
 
 const MAX_SUPPLIER_COUNT = TRANSLATION_SUPPLIERS.length;
