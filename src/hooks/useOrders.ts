@@ -49,6 +49,23 @@ export interface OrderListParams {
   status?: OrderStatus;
 }
 
+export interface ProductOrderItemListParams {
+  productId: string;
+  pageSize: number;
+  nextToken?: string;
+  status?: OrderItem["status"];
+}
+
+export interface ProductOrderItemRecord {
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  orderStatus: OrderStatus;
+  paymentStatus: PaymentStatus;
+  fulfillmentStatus: FulfillmentStatus;
+  item: OrderItem;
+}
+
 // ---------------------------------------------------------------------------
 // Query Keys
 // ---------------------------------------------------------------------------
@@ -59,6 +76,9 @@ const ORDER_KEYS = {
   list: (params: OrderListParams) => [...ORDER_KEYS.lists(), params] as const,
   details: () => [...ORDER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...ORDER_KEYS.details(), id] as const,
+  productItems: () => [...ORDER_KEYS.all, "product-items"] as const,
+  productItemList: (params: ProductOrderItemListParams) =>
+    [...ORDER_KEYS.productItems(), params] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -107,6 +127,35 @@ const ORDER_VALIDATION_SELECTION_SET = [
   "updatedAt",
   "createdAtForSort",
   "items.*",
+] as const;
+
+const PRODUCT_ORDER_ITEM_SELECTION_SET = [
+  "id",
+  "orderId",
+  "productId",
+  "productNameSnapshot",
+  "productImageUrlSnapshot",
+  "productSkuSnapshot",
+  "selectedOptionsSnapshot",
+  "quantity",
+  "unitPriceSnapshot",
+  "unitCostSnapshot",
+  "totalPriceSnapshot",
+  "totalCostSnapshot",
+  "status",
+  "purchasedAt",
+  "receivedAt",
+  "shippedAt",
+  "outOfStockAt",
+  "supplierName",
+  "createdAt",
+  "updatedAt",
+  "order.id",
+  "order.orderNumber",
+  "order.customerNameSnapshot",
+  "order.status",
+  "order.paymentStatus",
+  "order.fulfillmentStatus",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -224,6 +273,50 @@ async function fetchOrderList(
     items,
     totalCount: items.length,
     nextToken: responseNextToken ?? undefined,
+  };
+}
+
+async function fetchProductOrderItemList(
+  params: ProductOrderItemListParams,
+): Promise<PaginatedResult<ProductOrderItemRecord>> {
+  const { data, errors, nextToken } =
+    await client.models.OrderItem.listOrderItemsByProductId(
+      { productId: params.productId },
+      {
+        sortDirection: "DESC",
+        limit: params.pageSize,
+        ...(params.nextToken ? { nextToken: params.nextToken } : {}),
+        ...(params.status ? { filter: { status: { eq: params.status } } } : {}),
+        selectionSet: PRODUCT_ORDER_ITEM_SELECTION_SET,
+      } as Record<string, unknown>,
+    );
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢單品採購資料失敗");
+  }
+
+  const items = (data ?? []).map((raw) => {
+    const record = raw as unknown as Record<string, unknown>;
+    const orderRaw =
+      record.order && typeof record.order === "object"
+        ? (record.order as Record<string, unknown>)
+        : {};
+
+    return {
+      orderId: String(record.orderId ?? orderRaw.id ?? ""),
+      orderNumber: String(orderRaw.orderNumber ?? ""),
+      customerName: String(orderRaw.customerNameSnapshot ?? ""),
+      orderStatus: normalizeOrderStatus(orderRaw.status),
+      paymentStatus: normalizePaymentStatus(orderRaw.paymentStatus),
+      fulfillmentStatus: normalizeFulfillmentStatus(orderRaw.fulfillmentStatus),
+      item: mapToOrderItem(record),
+    } satisfies ProductOrderItemRecord;
+  });
+
+  return {
+    items,
+    totalCount: items.length,
+    nextToken: nextToken ?? undefined,
   };
 }
 
@@ -1026,6 +1119,16 @@ export function useOrderList(
   });
 }
 
+export function useProductOrderItemList(
+  params: ProductOrderItemListParams,
+): UseQueryResult<PaginatedResult<ProductOrderItemRecord>> {
+  return useQuery({
+    queryKey: ORDER_KEYS.productItemList(params),
+    queryFn: () => fetchProductOrderItemList(params),
+    enabled: !!params.productId,
+  });
+}
+
 /**
  * 單一訂單查詢 hook（含 OrderItems）
  *
@@ -1443,6 +1546,7 @@ type AddOrderItemToOrderInput = {
   quantity: number;
   unitPrice: number;
   unitCost: number | null;
+  supplierName?: string | null;
 };
 
 type UpdateOrderItemInput = {
@@ -1457,6 +1561,7 @@ type UpdateOrderItemInput = {
   quantity: number;
   unitPrice: number;
   unitCost: number | null;
+  supplierName?: string | null;
 };
 
 type DeleteOrderItemInput = {
@@ -1482,6 +1587,7 @@ async function addOrderItemToOrder(
     totalPriceSnapshot: subtotal,
     totalCostSnapshot:
       input.unitCost != null ? input.unitCost * input.quantity : null,
+    supplierName: input.supplierName ?? null,
     status: "pending",
     createdAtForSort: new Date().toISOString(),
   };
@@ -1516,6 +1622,7 @@ async function updateOrderItemInOrder(
     totalPriceSnapshot: subtotal,
     totalCostSnapshot:
       input.unitCost != null ? input.unitCost * input.quantity : null,
+    supplierName: input.supplierName ?? null,
   };
 
   const { errors } = await client.models.OrderItem.update(
@@ -1607,6 +1714,7 @@ export function useAddOrderItemToOrder(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.productItems() });
     },
   });
 }
@@ -1626,6 +1734,7 @@ export function useUpdateOrderItemInOrder(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.productItems() });
     },
   });
 }
@@ -1645,6 +1754,7 @@ export function useDeleteOrderItemFromOrder(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.productItems() });
     },
   });
 }

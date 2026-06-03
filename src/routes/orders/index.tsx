@@ -215,6 +215,7 @@ function OrderListPage(): React.ReactElement {
         onMergeClick={handleMergeClick}
         printDisabled={!canPrintSelectedOrders}
         onPrintClick={handlePrintClick}
+        onProductOpsClick={() => void navigate({ to: "/product-purchases" })}
         onAddClick={() => navigate({ to: "/orders/new" })}
       />
 

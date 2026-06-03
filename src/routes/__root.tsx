@@ -56,6 +56,7 @@ type NavigationPath =
   | "/customers"
   | "/suppliers"
   | "/products"
+  | "/product-purchases"
   | "/orders"
   | "/infrastructure";
 
@@ -83,6 +84,12 @@ const navigationItems = [
     label: "商品管理",
     description: "商品、照片與規格",
     to: "/products",
+    icon: <InventoryIcon />,
+  },
+  {
+    label: "單品採購",
+    description: "以商品角度管理採購",
+    to: "/product-purchases",
     icon: <InventoryIcon />,
   },
   {
