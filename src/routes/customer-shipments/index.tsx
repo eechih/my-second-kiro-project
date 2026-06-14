@@ -72,7 +72,7 @@ function CustomerShipmentListPage(): React.ReactElement {
         isLoading={isLoading}
         onSelectCustomer={(customerId) =>
           void navigate({
-            to: "/customers/$customerId",
+            to: "/customer-shipments/$customerId",
             params: { customerId },
           })
         }

@@ -13,8 +13,6 @@ import {
   CustomerForm,
   type CustomerFormValues,
 } from "./-components/CustomerForm";
-import { CustomerMergePanel } from "./-components/CustomerMergePanel";
-import { CustomerShipmentTable } from "./-components/CustomerShipmentTable";
 
 export const Route = createFileRoute("/customers/$customerId")({
   beforeLoad: requireAuth,
@@ -113,15 +111,6 @@ function CustomerEditPage() {
             onSubmit={handleSubmit}
           />
         </Box>
-
-        <CustomerShipmentTable
-          customerId={customer.id}
-          customerName={customer.name}
-        />
-        <CustomerMergePanel
-          customerId={customer.id}
-          customerName={customer.name}
-        />
       </Stack>
     </Box>
   );
