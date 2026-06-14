@@ -118,7 +118,7 @@ function Dashboard() {
 
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <Card>
-            <CardActionArea component={Link} to="/orders">
+            <CardActionArea component={Link} to="/customer-shipments">
               <CardContent>
                 <Box
                   sx={{

@@ -6,6 +6,7 @@ import DnsIcon from "@mui/icons-material/Dns";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import LoginIcon from "@mui/icons-material/Login";
 import LogoutIcon from "@mui/icons-material/Logout";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import MenuIcon from "@mui/icons-material/Menu";
 import PeopleIcon from "@mui/icons-material/People";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
@@ -53,6 +54,7 @@ const drawerWidth = 280;
 
 type NavigationPath =
   | "/"
+  | "/customer-shipments"
   | "/customers"
   | "/suppliers"
   | "/products"
@@ -103,6 +105,12 @@ const navigationItems = [
     description: "客戶資料與狀態",
     to: "/customers",
     icon: <PeopleIcon />,
+  },
+  {
+    label: "客戶出貨",
+    description: "以客戶角度管理出貨",
+    to: "/customer-shipments",
+    icon: <LocalShippingIcon />,
   },
   {
     label: "基礎設施",
