@@ -1,4 +1,10 @@
-import type { PendingShipmentCustomerSummary } from "@/hooks/useCustomerShipments";
+export interface CustomerShipmentSummaryRow {
+  customerId: string;
+  customerName: string;
+  orderCount: number;
+  itemCount: number;
+}
+
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
@@ -11,14 +17,18 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 
 export interface CustomerShipmentSummaryTableProps {
-  summaries: readonly PendingShipmentCustomerSummary[];
+  summaries: readonly CustomerShipmentSummaryRow[];
   isLoading: boolean;
+  orderCountLabel: string;
+  itemCountLabel: string;
   onSelectCustomer: (customerId: string) => void;
 }
 
 export function CustomerShipmentSummaryTable({
   summaries,
   isLoading,
+  orderCountLabel,
+  itemCountLabel,
   onSelectCustomer,
 }: CustomerShipmentSummaryTableProps): React.ReactElement {
   return (
@@ -32,8 +42,8 @@ export function CustomerShipmentSummaryTable({
           <TableHead>
             <TableRow>
               <TableCell>客戶名稱</TableCell>
-              <TableCell align="right">待出貨訂單數量</TableCell>
-              <TableCell align="right">待出貨品項數量</TableCell>
+              <TableCell align="right">{orderCountLabel}</TableCell>
+              <TableCell align="right">{itemCountLabel}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -59,12 +69,8 @@ export function CustomerShipmentSummaryTable({
                   <TableCell sx={{ fontWeight: 600 }}>
                     {summary.customerName}
                   </TableCell>
-                  <TableCell align="right">
-                    {summary.pendingOrderCount}
-                  </TableCell>
-                  <TableCell align="right">
-                    {summary.pendingItemCount}
-                  </TableCell>
+                  <TableCell align="right">{summary.orderCount}</TableCell>
+                  <TableCell align="right">{summary.itemCount}</TableCell>
                 </TableRow>
               ))
             )}
@@ -74,4 +80,3 @@ export function CustomerShipmentSummaryTable({
     </TableContainer>
   );
 }
-

@@ -1,24 +1,30 @@
 import { client } from "@/lib/amplify-client";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
-export interface PendingShipmentCustomerSummary {
+export type ShipmentStatusFilter = "all" | "received" | "shipped";
+
+export interface CustomerShipmentSummary {
   customerId: string;
   customerName: string;
   pendingOrderCount: number;
   pendingItemCount: number;
+  shippedOrderCount: number;
+  shippedItemCount: number;
+  totalOrderCount: number;
+  totalItemCount: number;
 }
 
-interface PendingShipmentCustomerRecord {
+interface CustomerShipmentRecord {
   customerId: string;
   customerName: string;
   orderId: string;
   quantity: number;
+  status: "received" | "shipped";
 }
 
 const CUSTOMER_SHIPMENT_KEYS = {
   all: ["customer-shipments"] as const,
-  pendingSummaries: () =>
-    [...CUSTOMER_SHIPMENT_KEYS.all, "pending-summaries"] as const,
+  summaries: () => [...CUSTOMER_SHIPMENT_KEYS.all, "summaries"] as const,
 };
 
 const PENDING_SHIPMENT_SELECTION_SET = [
@@ -28,15 +34,17 @@ const PENDING_SHIPMENT_SELECTION_SET = [
   "order.customerNameSnapshot",
 ] as const;
 
-export function buildPendingShipmentCustomerSummaries(
-  records: readonly PendingShipmentCustomerRecord[],
-): PendingShipmentCustomerSummary[] {
+export function buildCustomerShipmentSummaries(
+  records: readonly CustomerShipmentRecord[],
+): CustomerShipmentSummary[] {
   const customerMap = new Map<
     string,
     {
       customerName: string;
-      orderIds: Set<string>;
+      pendingOrderIds: Set<string>;
+      shippedOrderIds: Set<string>;
       pendingItemCount: number;
+      shippedItemCount: number;
     }
   >();
 
@@ -44,15 +52,24 @@ export function buildPendingShipmentCustomerSummaries(
     const existing = customerMap.get(record.customerId);
 
     if (existing) {
-      existing.orderIds.add(record.orderId);
-      existing.pendingItemCount += record.quantity;
+      if (record.status === "received") {
+        existing.pendingOrderIds.add(record.orderId);
+        existing.pendingItemCount += record.quantity;
+      } else {
+        existing.shippedOrderIds.add(record.orderId);
+        existing.shippedItemCount += record.quantity;
+      }
       continue;
     }
 
     customerMap.set(record.customerId, {
       customerName: record.customerName,
-      orderIds: new Set([record.orderId]),
-      pendingItemCount: record.quantity,
+      pendingOrderIds:
+        record.status === "received" ? new Set([record.orderId]) : new Set(),
+      shippedOrderIds:
+        record.status === "shipped" ? new Set([record.orderId]) : new Set(),
+      pendingItemCount: record.status === "received" ? record.quantity : 0,
+      shippedItemCount: record.status === "shipped" ? record.quantity : 0,
     });
   }
 
@@ -60,32 +77,37 @@ export function buildPendingShipmentCustomerSummaries(
     .map(([customerId, summary]) => ({
       customerId,
       customerName: summary.customerName,
-      pendingOrderCount: summary.orderIds.size,
+      pendingOrderCount: summary.pendingOrderIds.size,
       pendingItemCount: summary.pendingItemCount,
+      shippedOrderCount: summary.shippedOrderIds.size,
+      shippedItemCount: summary.shippedItemCount,
+      totalOrderCount:
+        new Set([...summary.pendingOrderIds, ...summary.shippedOrderIds]).size,
+      totalItemCount: summary.pendingItemCount + summary.shippedItemCount,
     }))
     .sort((a, b) => {
-      if (b.pendingOrderCount !== a.pendingOrderCount) {
-        return b.pendingOrderCount - a.pendingOrderCount;
+      if (b.totalOrderCount !== a.totalOrderCount) {
+        return b.totalOrderCount - a.totalOrderCount;
       }
 
-      if (b.pendingItemCount !== a.pendingItemCount) {
-        return b.pendingItemCount - a.pendingItemCount;
+      if (b.totalItemCount !== a.totalItemCount) {
+        return b.totalItemCount - a.totalItemCount;
       }
 
       return a.customerName.localeCompare(b.customerName, "zh-Hant");
     });
 }
 
-async function fetchPendingShipmentCustomerSummaries(): Promise<
-  PendingShipmentCustomerSummary[]
+async function fetchCustomerShipmentSummaries(): Promise<
+  CustomerShipmentSummary[]
 > {
-  const records: PendingShipmentCustomerRecord[] = [];
+  const records: CustomerShipmentRecord[] = [];
   let nextToken: string | undefined;
 
   do {
     const response = await client.models.OrderItem.list({
       filter: {
-        status: { eq: "received" },
+        or: [{ status: { eq: "received" } }, { status: { eq: "shipped" } }],
       },
       limit: 1000,
       ...(nextToken ? { nextToken } : {}),
@@ -115,21 +137,21 @@ async function fetchPendingShipmentCustomerSummaries(): Promise<
         customerName: String(orderRaw?.customerNameSnapshot ?? "未命名客戶"),
         orderId: String(item.orderId ?? ""),
         quantity: Number(item.quantity ?? 0),
+        status: item.status === "shipped" ? "shipped" : "received",
       });
     }
 
     nextToken = responseNextToken ?? undefined;
   } while (nextToken);
 
-  return buildPendingShipmentCustomerSummaries(records);
+  return buildCustomerShipmentSummaries(records);
 }
 
-export function usePendingShipmentCustomerSummaries(): UseQueryResult<
-  PendingShipmentCustomerSummary[]
+export function useCustomerShipmentSummaries(): UseQueryResult<
+  CustomerShipmentSummary[]
 > {
   return useQuery({
-    queryKey: CUSTOMER_SHIPMENT_KEYS.pendingSummaries(),
-    queryFn: fetchPendingShipmentCustomerSummaries,
+    queryKey: CUSTOMER_SHIPMENT_KEYS.summaries(),
+    queryFn: fetchCustomerShipmentSummaries,
   });
 }
-
