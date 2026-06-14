@@ -13,6 +13,8 @@ import {
   CustomerForm,
   type CustomerFormValues,
 } from "./-components/CustomerForm";
+import { CustomerMergePanel } from "./-components/CustomerMergePanel";
+import { CustomerShipmentTable } from "./-components/CustomerShipmentTable";
 
 export const Route = createFileRoute("/customers/$customerId")({
   beforeLoad: requireAuth,
@@ -88,7 +90,7 @@ function CustomerEditPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 600 }}>
+    <Box>
       <PageHeader section="客戶" current="編輯" title="編輯客戶" />
 
       {submitError && (
@@ -101,13 +103,26 @@ function CustomerEditPage() {
         </Alert>
       )}
 
-      <CustomerForm
-        initialValues={initialValues}
-        isSubmitting={updateMutation.isPending}
-        submitLabel="儲存"
-        onCancel={() => void navigate({ to: "/customers" })}
-        onSubmit={handleSubmit}
-      />
+      <Stack spacing={3}>
+        <Box sx={{ maxWidth: 600 }}>
+          <CustomerForm
+            initialValues={initialValues}
+            isSubmitting={updateMutation.isPending}
+            submitLabel="儲存"
+            onCancel={() => void navigate({ to: "/customers" })}
+            onSubmit={handleSubmit}
+          />
+        </Box>
+
+        <CustomerShipmentTable
+          customerId={customer.id}
+          customerName={customer.name}
+        />
+        <CustomerMergePanel
+          customerId={customer.id}
+          customerName={customer.name}
+        />
+      </Stack>
     </Box>
   );
 }

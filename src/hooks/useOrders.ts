@@ -49,6 +49,12 @@ export interface OrderListParams {
   status?: OrderStatus;
 }
 
+export interface CustomerOrderListParams {
+  customerId: string;
+  pageSize: number;
+  nextToken?: string;
+}
+
 export interface ProductOrderItemListParams {
   productId: string;
   pageSize: number;
@@ -81,6 +87,9 @@ const ORDER_KEYS = {
   all: ["orders"] as const,
   lists: () => [...ORDER_KEYS.all, "list"] as const,
   list: (params: OrderListParams) => [...ORDER_KEYS.lists(), params] as const,
+  customerLists: () => [...ORDER_KEYS.all, "customer-list"] as const,
+  customerList: (params: CustomerOrderListParams) =>
+    [...ORDER_KEYS.customerLists(), params] as const,
   details: () => [...ORDER_KEYS.all, "detail"] as const,
   detail: (id: string) => [...ORDER_KEYS.details(), id] as const,
   productItems: () => [...ORDER_KEYS.all, "product-items"] as const,
@@ -278,6 +287,38 @@ async function fetchOrderList(
   }
 
   const items = (data ?? []).map((order) => String(order.id ?? ""));
+
+  return {
+    items,
+    totalCount: items.length,
+    nextToken: responseNextToken ?? undefined,
+  };
+}
+
+async function fetchCustomerOrderList(
+  params: CustomerOrderListParams,
+): Promise<PaginatedResult<Order>> {
+  const {
+    data,
+    errors,
+    nextToken: responseNextToken,
+  } = await client.models.Order.listOrdersByCustomer(
+    { customerId: params.customerId },
+    {
+      sortDirection: "DESC",
+      limit: params.pageSize,
+      ...(params.nextToken ? { nextToken: params.nextToken } : {}),
+      selectionSet: ORDER_DETAIL_SELECTION_SET,
+    } as Record<string, unknown>,
+  );
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢客戶訂單失敗");
+  }
+
+  const items = (data ?? []).map((order) =>
+    mapToOrder(order as unknown as Record<string, unknown>),
+  );
 
   return {
     items,
@@ -1199,6 +1240,16 @@ export function useOrderList(
   return useQuery({
     queryKey: ORDER_KEYS.list(params),
     queryFn: () => fetchOrderList(params),
+  });
+}
+
+export function useCustomerOrderList(
+  params: CustomerOrderListParams,
+): UseQueryResult<PaginatedResult<Order>> {
+  return useQuery({
+    queryKey: ORDER_KEYS.customerList(params),
+    queryFn: () => fetchCustomerOrderList(params),
+    enabled: !!params.customerId,
   });
 }
 
