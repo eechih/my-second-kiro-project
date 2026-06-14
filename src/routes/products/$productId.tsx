@@ -19,6 +19,7 @@ import {
   ProductEditForm,
   type ProductEditFormValues,
 } from "./-components/ProductEditForm";
+import { ProductProcurementPanel } from "./-components/ProductProcurementPanel";
 
 export const Route = createFileRoute("/products/$productId")({
   beforeLoad: requireAuth,
@@ -135,7 +136,7 @@ function ProductEditPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 1040 }}>
+    <Box sx={{ maxWidth: 1200 }}>
       <PageHeader section="商品" current="編輯" title="編輯商品" />
 
       {submitError && (
@@ -148,17 +149,21 @@ function ProductEditPage() {
         </Alert>
       )}
 
-      <ProductEditForm
-        product={product}
-        productId={productId}
-        selectedSupplier={selectedSupplier}
-        isSubmitting={
-          updateMutation.isPending || syncProductOptionsMutation.isPending
-        }
-        onCancel={() => void navigate({ to: "/products" })}
-        onSubmit={handleSubmit}
-        onSupplierChange={setSelectedSupplier}
-      />
+      <Stack spacing={3}>
+        <ProductEditForm
+          product={product}
+          productId={productId}
+          selectedSupplier={selectedSupplier}
+          isSubmitting={
+            updateMutation.isPending || syncProductOptionsMutation.isPending
+          }
+          onCancel={() => void navigate({ to: "/products" })}
+          onSubmit={handleSubmit}
+          onSupplierChange={setSelectedSupplier}
+        />
+
+        <ProductProcurementPanel product={product} />
+      </Stack>
     </Box>
   );
 }

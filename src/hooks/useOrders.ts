@@ -60,6 +60,7 @@ export interface ProductOrderItemListParams {
   pageSize: number;
   nextToken?: string;
   status?: OrderItem["status"];
+  statuses?: OrderItem["status"][];
 }
 
 export interface SupplierOrderItemListParams {
@@ -330,6 +331,16 @@ async function fetchCustomerOrderList(
 async function fetchProductOrderItemList(
   params: ProductOrderItemListParams,
 ): Promise<PaginatedResult<ProductOrderItemRecord>> {
+  const statusFilter = params.status
+    ? { status: { eq: params.status } }
+    : params.statuses && params.statuses.length > 0
+      ? {
+          or: params.statuses.map((status) => ({
+            status: { eq: status },
+          })),
+        }
+      : undefined;
+
   const { data, errors, nextToken } =
     await client.models.OrderItem.listOrderItemsByProductId(
       { productId: params.productId },
@@ -337,7 +348,7 @@ async function fetchProductOrderItemList(
         sortDirection: "DESC",
         limit: params.pageSize,
         ...(params.nextToken ? { nextToken: params.nextToken } : {}),
-        ...(params.status ? { filter: { status: { eq: params.status } } } : {}),
+        ...(statusFilter ? { filter: statusFilter } : {}),
         selectionSet: PRODUCT_ORDER_ITEM_SELECTION_SET,
       } as Record<string, unknown>,
     );
