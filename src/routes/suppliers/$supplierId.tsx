@@ -13,6 +13,7 @@ import {
   SupplierForm,
   type SupplierFormValues,
 } from "./-components/SupplierForm";
+import { SupplierReceivingTable } from "./-components/SupplierReceivingTable";
 
 export const Route = createFileRoute("/suppliers/$supplierId")({
   beforeLoad: requireAuth,
@@ -92,7 +93,7 @@ function SupplierEditPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 600 }}>
+    <Box>
       <PageHeader section="供應商" current="編輯" title="編輯供應商" />
 
       {submitError && (
@@ -105,13 +106,19 @@ function SupplierEditPage() {
         </Alert>
       )}
 
-      <SupplierForm
-        initialValues={initialValues}
-        isSubmitting={updateMutation.isPending}
-        submitLabel="儲存"
-        onCancel={() => void navigate({ to: "/suppliers" })}
-        onSubmit={handleSubmit}
-      />
+      <Stack spacing={3}>
+        <Box sx={{ maxWidth: 600 }}>
+          <SupplierForm
+            initialValues={initialValues}
+            isSubmitting={updateMutation.isPending}
+            submitLabel="儲存"
+            onCancel={() => void navigate({ to: "/suppliers" })}
+            onSubmit={handleSubmit}
+          />
+        </Box>
+
+        <SupplierReceivingTable supplierName={supplier.name} />
+      </Stack>
     </Box>
   );
 }

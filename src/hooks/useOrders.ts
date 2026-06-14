@@ -56,6 +56,13 @@ export interface ProductOrderItemListParams {
   status?: OrderItem["status"];
 }
 
+export interface SupplierOrderItemListParams {
+  supplierName: string;
+  pageSize: number;
+  nextToken?: string;
+  status?: "ordered" | "received";
+}
+
 export interface ProductOrderItemRecord {
   orderId: string;
   orderNumber: string;
@@ -79,6 +86,9 @@ const ORDER_KEYS = {
   productItems: () => [...ORDER_KEYS.all, "product-items"] as const,
   productItemList: (params: ProductOrderItemListParams) =>
     [...ORDER_KEYS.productItems(), params] as const,
+  supplierItems: () => [...ORDER_KEYS.all, "supplier-items"] as const,
+  supplierItemList: (params: SupplierOrderItemListParams) =>
+    [...ORDER_KEYS.supplierItems(), params] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -312,6 +322,79 @@ async function fetchProductOrderItemList(
       item: mapToOrderItem(record),
     } satisfies ProductOrderItemRecord;
   });
+
+  return {
+    items,
+    totalCount: items.length,
+    nextToken: nextToken ?? undefined,
+  };
+}
+
+function buildSupplierOrderItemFilter({
+  supplierName,
+  status,
+}: Pick<SupplierOrderItemListParams, "supplierName" | "status">): Record<
+  string,
+  unknown
+> {
+  const trimmedSupplierName = supplierName.trim();
+  const statusFilter = status
+    ? { status: { eq: status } }
+    : {
+        or: [
+          { status: { eq: "ordered" } },
+          { status: { eq: "received" } },
+        ],
+      };
+
+  return {
+    and: [{ supplierName: { eq: trimmedSupplierName } }, statusFilter],
+  };
+}
+
+async function fetchSupplierOrderItemList(
+  params: SupplierOrderItemListParams,
+): Promise<PaginatedResult<ProductOrderItemRecord>> {
+  const { data, errors, nextToken } = await client.models.OrderItem.list({
+    filter: buildSupplierOrderItemFilter(params),
+    limit: params.pageSize,
+    ...(params.nextToken ? { nextToken: params.nextToken } : {}),
+    selectionSet: PRODUCT_ORDER_ITEM_SELECTION_SET,
+  });
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢供應商入庫資料失敗");
+  }
+
+  const items = (data ?? [])
+    .map((raw) => {
+      const record = raw as unknown as Record<string, unknown>;
+      const orderRaw =
+        record.order && typeof record.order === "object"
+          ? (record.order as Record<string, unknown>)
+          : {};
+
+      return {
+        orderId: String(record.orderId ?? orderRaw.id ?? ""),
+        orderNumber: String(orderRaw.orderNumber ?? ""),
+        customerName: String(orderRaw.customerNameSnapshot ?? ""),
+        orderStatus: normalizeOrderStatus(orderRaw.status),
+        paymentStatus: normalizePaymentStatus(orderRaw.paymentStatus),
+        fulfillmentStatus: normalizeFulfillmentStatus(
+          orderRaw.fulfillmentStatus,
+        ),
+        item: mapToOrderItem(record),
+      } satisfies ProductOrderItemRecord;
+    })
+    .sort((a, b) => {
+      const timeA = Date.parse(
+        a.item.receivedAt ?? a.item.purchasedAt ?? "1970-01-01T00:00:00.000Z",
+      );
+      const timeB = Date.parse(
+        b.item.receivedAt ?? b.item.purchasedAt ?? "1970-01-01T00:00:00.000Z",
+      );
+      return timeB - timeA;
+    });
 
   return {
     items,
@@ -1126,6 +1209,16 @@ export function useProductOrderItemList(
     queryKey: ORDER_KEYS.productItemList(params),
     queryFn: () => fetchProductOrderItemList(params),
     enabled: !!params.productId,
+  });
+}
+
+export function useSupplierOrderItemList(
+  params: SupplierOrderItemListParams,
+): UseQueryResult<PaginatedResult<ProductOrderItemRecord>> {
+  return useQuery({
+    queryKey: ORDER_KEYS.supplierItemList(params),
+    queryFn: () => fetchSupplierOrderItemList(params),
+    enabled: params.supplierName.trim().length > 0,
   });
 }
 
