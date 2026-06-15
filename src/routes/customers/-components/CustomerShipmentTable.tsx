@@ -1,5 +1,6 @@
 import { CursorPagination } from "@/components/CursorPagination";
 import { StatusChip } from "@/components/StatusChip";
+import type { ShipmentStatusFilter } from "@/hooks/useCustomerShipments";
 import {
   useCustomerOrderList,
   useUpdateOrderItemStatusFlag,
@@ -33,7 +34,7 @@ import {
   ORDER_STATUS_LABEL,
 } from "../../orders/-components/detail/detailUtils";
 
-type ShipmentFilter = "all" | "received" | "shipped";
+export type ShipmentFilter = ShipmentStatusFilter;
 
 type CustomerShipmentRecord = {
   orderId: string;
@@ -98,11 +99,13 @@ function extractShipmentRecords(
 export interface CustomerShipmentTableProps {
   customerId: string;
   customerName: string;
+  initialStatusFilter?: ShipmentFilter;
 }
 
 export function CustomerShipmentTable({
   customerId,
   customerName,
+  initialStatusFilter = "all",
 }: CustomerShipmentTableProps): React.ReactElement {
   const {
     currentToken,
@@ -113,7 +116,8 @@ export function CustomerShipmentTable({
     setPageSize,
     reset,
   } = useCursorPagination(PAGE_SIZE);
-  const [statusFilter, setStatusFilter] = useState<ShipmentFilter>("all");
+  const [statusFilter, setStatusFilter] =
+    useState<ShipmentFilter>(initialStatusFilter);
   const updateStatusFlag = useUpdateOrderItemStatusFlag();
   const { data, isLoading, error } = useCustomerOrderList({
     customerId,
@@ -124,6 +128,10 @@ export function CustomerShipmentTable({
   useEffect(() => {
     reset();
   }, [reset, customerId]);
+
+  useEffect(() => {
+    setStatusFilter(initialStatusFilter);
+  }, [customerId, initialStatusFilter]);
 
   const orders = useMemo(() => data?.items ?? [], [data?.items]);
   const records = useMemo(

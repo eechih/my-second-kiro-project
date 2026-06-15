@@ -19,16 +19,28 @@ const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "不區分" },
 ] as const satisfies readonly { value: ShipmentStatusFilter; label: string }[];
 
+function normalizeShipmentStatusFilter(
+  value: unknown,
+  fallback: ShipmentStatusFilter = "received",
+): ShipmentStatusFilter {
+  return value === "received" || value === "shipped" || value === "all"
+    ? value
+    : fallback;
+}
+
 export const Route = createFileRoute("/customer-shipments/")({
   beforeLoad: requireAuth,
+  validateSearch: (search: Record<string, unknown>) => ({
+    status: normalizeShipmentStatusFilter(search["status"]),
+  }),
   component: CustomerShipmentListPage,
 });
 
 function CustomerShipmentListPage(): React.ReactElement {
   const navigate = useNavigate();
+  const { status } = Route.useSearch();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<ShipmentStatusFilter>("received");
+  const statusFilter = status;
   const { data, isLoading, error } = useCustomerShipmentSummaries(statusFilter);
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
@@ -42,6 +54,8 @@ function CustomerShipmentListPage(): React.ReactElement {
           return {
             customerId: summary.customerId,
             customerName: summary.customerName,
+            totalOrderCount: summary.totalOrderCount,
+            completedOrderCount: summary.completedOrderCount,
             orderCount: summary.pendingOrderCount,
             itemCount: summary.pendingItemCount,
           };
@@ -51,6 +65,8 @@ function CustomerShipmentListPage(): React.ReactElement {
           return {
             customerId: summary.customerId,
             customerName: summary.customerName,
+            totalOrderCount: summary.totalOrderCount,
+            completedOrderCount: summary.completedOrderCount,
             orderCount: summary.shippedOrderCount,
             itemCount: summary.shippedItemCount,
           };
@@ -59,6 +75,8 @@ function CustomerShipmentListPage(): React.ReactElement {
         return {
           customerId: summary.customerId,
           customerName: summary.customerName,
+          totalOrderCount: summary.totalOrderCount,
+          completedOrderCount: summary.completedOrderCount,
           orderCount: summary.totalOrderCount,
           itemCount: summary.pendingItemCount + summary.shippedItemCount,
         };
@@ -120,7 +138,14 @@ function CustomerShipmentListPage(): React.ReactElement {
           label="出貨狀態"
           value={statusFilter}
           onChange={(event) => {
-            setStatusFilter(event.target.value as ShipmentStatusFilter);
+            void navigate({
+              to: ".",
+              search: (current) => ({
+                ...current,
+                status: normalizeShipmentStatusFilter(event.target.value),
+              }),
+              replace: true,
+            });
             setPageIndex(0);
           }}
           sx={{ maxWidth: 220 }}
@@ -148,6 +173,7 @@ function CustomerShipmentListPage(): React.ReactElement {
           void navigate({
             to: "/customer-shipments/$customerId",
             params: { customerId },
+            search: { status: statusFilter },
           })
         }
       />

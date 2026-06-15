@@ -7,15 +7,31 @@ import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import { createFileRoute } from "@tanstack/react-router";
 import { CustomerMergePanel } from "../customers/-components/CustomerMergePanel";
-import { CustomerShipmentTable } from "../customers/-components/CustomerShipmentTable";
+import {
+  CustomerShipmentTable,
+  type ShipmentFilter,
+} from "../customers/-components/CustomerShipmentTable";
+
+function normalizeShipmentStatusFilter(
+  value: unknown,
+  fallback: ShipmentFilter = "all",
+): ShipmentFilter {
+  return value === "received" || value === "shipped" || value === "all"
+    ? value
+    : fallback;
+}
 
 export const Route = createFileRoute("/customer-shipments/$customerId")({
   beforeLoad: requireAuth,
+  validateSearch: (search: Record<string, unknown>) => ({
+    status: normalizeShipmentStatusFilter(search["status"]),
+  }),
   component: CustomerShipmentDetailPage,
 });
 
 function CustomerShipmentDetailPage(): React.ReactElement {
   const { customerId } = Route.useParams();
+  const { status } = Route.useSearch();
   const {
     data: customer,
     isLoading,
@@ -55,6 +71,7 @@ function CustomerShipmentDetailPage(): React.ReactElement {
       <CustomerShipmentTable
         customerId={customer.id}
         customerName={customer.name}
+        initialStatusFilter={status}
       />
       <CustomerMergePanel customerId={customer.id} customerName={customer.name} />
     </Stack>
