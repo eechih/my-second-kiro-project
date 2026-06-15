@@ -27,6 +27,7 @@ import {
 import {
   buildShipmentSummaryDelta,
   buildShipmentSummaryTransactItem,
+  deriveLatestReadyToShipReceivedAtAfterTransition,
 } from "../customer-fulfillment-summary";
 
 const ddb = new DynamoDBClient({});
@@ -187,6 +188,16 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     const allOrderItems = (allOrderItemsResult.Items ?? []).map((rawItem) =>
       unmarshall(rawItem),
     );
+    const summaryOrderItems = allOrderItems.map((li) => ({
+      id: String(li["id"] ?? ""),
+      status: normalizeOrderItemStatus(li["status"]) as
+        | "ordered"
+        | "received"
+        | "shipped",
+      quantity: Number(li["quantity"] ?? 0),
+      receivedAt:
+        li["receivedAt"] != null ? String(li["receivedAt"]) : undefined,
+    }));
     const simulatedOrderItems = allOrderItems.map((li) => ({
       status:
         li["id"] === orderItemId
@@ -207,20 +218,21 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       }),
     );
     const summaryDelta = buildShipmentSummaryDelta({
-      allOrderItems: allOrderItems.map((li) => ({
-        id: String(li["id"] ?? ""),
-        status: normalizeOrderItemStatus(li["status"]) as
-          | "ordered"
-          | "received"
-          | "shipped",
-      })),
-      fromStatus: "ordered",
+      allOrderItems: summaryOrderItems,
       fromOrderStatus: currentOrderStatus,
-      orderItemId,
-      quantity,
+      fromFulfillmentStatus: currentFulfillmentStatus,
       toOrderStatus: derivedOrderStatus,
-      toStatus: "received",
+      toFulfillmentStatus: derivedFulfillmentStatus,
     });
+    const latestReadyToShipReceivedAt =
+      derivedFulfillmentStatus === "READY_TO_SHIP"
+        ? deriveLatestReadyToShipReceivedAtAfterTransition({
+            allOrderItems: summaryOrderItems,
+            orderItemId,
+            toReceivedAt: now,
+            toStatus: "received",
+          })
+        : undefined;
 
     // 4. 建立交易項目（僅 2 個操作：OrderItem 更新 + 庫存更新）
     const transactItems: NonNullable<
@@ -290,6 +302,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       summaryResult,
       summaryTableName: summaryTable,
       delta: summaryDelta,
+      latestReadyToShipReceivedAt,
     });
     if (summaryTransactItem) {
       transactItems.push(summaryTransactItem);

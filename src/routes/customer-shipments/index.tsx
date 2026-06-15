@@ -14,16 +14,20 @@ import { useMemo, useState } from "react";
 import { CustomerShipmentSummaryTable } from "./-components/CustomerShipmentSummaryTable";
 
 const STATUS_FILTER_OPTIONS = [
-  { value: "received", label: "待出貨" },
+  { value: "pending", label: "待處理" },
+  { value: "readyToShip", label: "可出貨" },
   { value: "shipped", label: "已出貨" },
   { value: "all", label: "全部" },
 ] as const satisfies readonly { value: ShipmentStatusFilter; label: string }[];
 
 function normalizeShipmentStatusFilter(
   value: unknown,
-  fallback: ShipmentStatusFilter = "received",
+  fallback: ShipmentStatusFilter = "readyToShip",
 ): ShipmentStatusFilter {
-  return value === "received" || value === "shipped" || value === "all"
+  return value === "pending" ||
+    value === "readyToShip" ||
+    value === "shipped" ||
+    value === "all"
     ? value
     : fallback;
 }
@@ -50,7 +54,7 @@ function CustomerShipmentListPage(): React.ReactElement {
 
     return (data ?? [])
       .map((summary) => {
-        if (statusFilter === "received") {
+        if (statusFilter === "pending") {
           return {
             customerId: summary.customerId,
             customerName: summary.customerName,
@@ -58,6 +62,17 @@ function CustomerShipmentListPage(): React.ReactElement {
             completedOrderCount: summary.completedOrderCount,
             orderCount: summary.pendingOrderCount,
             itemCount: summary.pendingItemCount,
+          };
+        }
+
+        if (statusFilter === "readyToShip") {
+          return {
+            customerId: summary.customerId,
+            customerName: summary.customerName,
+            totalOrderCount: summary.totalOrderCount,
+            completedOrderCount: summary.completedOrderCount,
+            orderCount: summary.readyToShipOrderCount,
+            itemCount: summary.readyToShipItemCount,
           };
         }
 
@@ -78,7 +93,10 @@ function CustomerShipmentListPage(): React.ReactElement {
           totalOrderCount: summary.totalOrderCount,
           completedOrderCount: summary.completedOrderCount,
           orderCount: summary.totalOrderCount,
-          itemCount: summary.pendingItemCount + summary.shippedItemCount,
+          itemCount:
+            summary.pendingItemCount +
+            summary.readyToShipItemCount +
+            summary.shippedItemCount,
         };
       })
       .filter((summary) => summary.orderCount > 0)
@@ -97,20 +115,24 @@ function CustomerShipmentListPage(): React.ReactElement {
   const hasPrevPage = pageIndex > 0;
   const hasNextPage = (pageIndex + 1) * pageSize < filteredSummaries.length;
   const orderCountLabel =
-    statusFilter === "received"
-      ? "待出貨訂單數量"
-      : statusFilter === "shipped"
-        ? "已出貨訂單數量"
-        : "出貨訂單數量";
+    statusFilter === "pending"
+      ? "待處理訂單數量"
+      : statusFilter === "readyToShip"
+        ? "可出貨訂單數量"
+        : statusFilter === "shipped"
+          ? "已出貨訂單數量"
+          : "訂單數量";
   const itemCountLabel =
-    statusFilter === "received"
-      ? "待出貨品項數量"
+    statusFilter === "pending"
+      ? "待處理品項數量"
+      : statusFilter === "readyToShip"
+        ? "可出貨品項數量"
       : statusFilter === "shipped"
         ? "已出貨品項數量"
-        : "出貨品項數量";
+        : "品項數量";
   const currentLabel =
     STATUS_FILTER_OPTIONS.find((option) => option.value === statusFilter)
-      ?.label ?? "待出貨";
+      ?.label ?? "可出貨";
 
   return (
     <Stack spacing={2}>
@@ -160,7 +182,7 @@ function CustomerShipmentListPage(): React.ReactElement {
 
       {error ? (
         <Alert severity="error">
-          {error instanceof Error ? error.message : "查詢客戶待出貨列表失敗"}
+          {error instanceof Error ? error.message : "查詢客戶出貨列表失敗"}
         </Alert>
       ) : null}
 

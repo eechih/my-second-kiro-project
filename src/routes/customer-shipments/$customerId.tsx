@@ -14,9 +14,12 @@ import {
 
 function normalizeShipmentStatusFilter(
   value: unknown,
-  fallback: ShipmentFilter = "all",
+  fallback: ShipmentFilter = "readyToShip",
 ): ShipmentFilter {
-  return value === "received" || value === "shipped" || value === "all"
+  return value === "pending" ||
+    value === "readyToShip" ||
+    value === "shipped" ||
+    value === "all"
     ? value
     : fallback;
 }

@@ -699,19 +699,32 @@ function buildCustomerFulfillmentSummaries(customers, orders) {
     }
 
     const customerNameSnapshot = order.customerNameSnapshot ?? "未命名客戶";
-    const hasPendingItems = order.items.some((item) => item.status === "received");
-    const hasShippedItems = order.items.some((item) => item.status === "shipped");
-    const pendingItemCount = order.items
-      .filter((item) => item.status === "received")
-      .reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
-    const shippedItemCount = order.items
-      .filter((item) => item.status === "shipped")
-      .reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
+    const totalItemCount = order.items.reduce(
+      (sum, item) => sum + Number(item.quantity ?? 0),
+      0,
+    );
+    const latestReadyToShipReceivedAt = order.items
+      .filter((item) => item.receivedAt)
+      .reduce(
+        (latest, item) =>
+          latest && latest > item.receivedAt ? latest : item.receivedAt,
+        null,
+      );
+    const isPending = order.fulfillmentStatus === "UNFULFILLED";
+    const isReadyToShip = order.fulfillmentStatus === "READY_TO_SHIP";
+    const isShipped =
+      order.fulfillmentStatus === "SHIPPED" ||
+      order.fulfillmentStatus === "COMPLETED";
+    const pendingItemCount = isPending ? totalItemCount : 0;
+    const readyToShipItemCount = isReadyToShip ? totalItemCount : 0;
+    const shippedItemCount = isShipped ? totalItemCount : 0;
 
     if (
-      !hasPendingItems &&
-      !hasShippedItems &&
+      !isPending &&
+      !isReadyToShip &&
+      !isShipped &&
       pendingItemCount === 0 &&
+      readyToShipItemCount === 0 &&
       shippedItemCount === 0
     ) {
       continue;
@@ -723,6 +736,9 @@ function buildCustomerFulfillmentSummaries(customers, orders) {
       customerNameSnapshot,
       pendingOrderCount: 0,
       pendingItemCount: 0,
+      readyToShipOrderCount: 0,
+      readyToShipItemCount: 0,
+      latestReadyToShipReceivedAt: null,
       shippedOrderCount: 0,
       shippedItemCount: 0,
       completedOrderCount: 0,
@@ -736,16 +752,24 @@ function buildCustomerFulfillmentSummaries(customers, orders) {
     summaryByCustomerId.set(customerId, {
       ...existing,
       customerNameSnapshot,
-      pendingOrderCount:
-        existing.pendingOrderCount + (hasPendingItems ? 1 : 0),
+      pendingOrderCount: existing.pendingOrderCount + (isPending ? 1 : 0),
       pendingItemCount: existing.pendingItemCount + pendingItemCount,
-      shippedOrderCount:
-        existing.shippedOrderCount + (hasShippedItems ? 1 : 0),
+      readyToShipOrderCount:
+        existing.readyToShipOrderCount + (isReadyToShip ? 1 : 0),
+      readyToShipItemCount:
+        existing.readyToShipItemCount + readyToShipItemCount,
+      latestReadyToShipReceivedAt:
+        existing.latestReadyToShipReceivedAt &&
+        latestReadyToShipReceivedAt
+          ? existing.latestReadyToShipReceivedAt > latestReadyToShipReceivedAt
+            ? existing.latestReadyToShipReceivedAt
+            : latestReadyToShipReceivedAt
+          : (existing.latestReadyToShipReceivedAt ?? latestReadyToShipReceivedAt),
+      shippedOrderCount: existing.shippedOrderCount + (isShipped ? 1 : 0),
       shippedItemCount: existing.shippedItemCount + shippedItemCount,
       completedOrderCount:
         existing.completedOrderCount + (order.status === "COMPLETED" ? 1 : 0),
-      totalOrderCount:
-        existing.totalOrderCount + (hasPendingItems || hasShippedItems ? 1 : 0),
+      totalOrderCount: existing.totalOrderCount + 1,
       createdAtForSort:
         existing.createdAtForSort < order.createdAt
           ? existing.createdAtForSort

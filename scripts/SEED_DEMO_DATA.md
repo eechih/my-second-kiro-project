@@ -95,6 +95,9 @@ node scripts/seed-demo-data.mjs --dry-run
 - `Product.defaultSupplierId`
 - `CustomerFulfillmentSummary.pendingOrderCount`
 - `CustomerFulfillmentSummary.pendingItemCount`
+- `CustomerFulfillmentSummary.readyToShipOrderCount`
+- `CustomerFulfillmentSummary.readyToShipItemCount`
+- `CustomerFulfillmentSummary.latestReadyToShipReceivedAt`
 - `CustomerFulfillmentSummary.shippedOrderCount`
 - `CustomerFulfillmentSummary.shippedItemCount`
 - `CustomerFulfillmentSummary.completedOrderCount`

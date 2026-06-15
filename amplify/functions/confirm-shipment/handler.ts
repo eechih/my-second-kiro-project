@@ -30,6 +30,7 @@ import {
 import {
   buildShipmentSummaryDelta,
   buildShipmentSummaryTransactItem,
+  deriveLatestReadyToShipReceivedAtAfterTransition,
 } from "../customer-fulfillment-summary";
 
 const ddb = new DynamoDBClient({});
@@ -173,6 +174,16 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     const allOrderItems = (allOrderItemsResult.Items ?? []).map((rawItem) =>
       unmarshall(rawItem),
     );
+    const summaryOrderItems = allOrderItems.map((li) => ({
+      id: String(li["id"] ?? ""),
+      status: normalizeOrderItemStatus(li["status"]) as
+        | "ordered"
+        | "received"
+        | "shipped",
+      quantity: Number(li["quantity"] ?? 0),
+      receivedAt:
+        li["receivedAt"] != null ? String(li["receivedAt"]) : undefined,
+    }));
 
     // 模擬出貨後的明細狀態列表（用於推導訂單狀態）
     const simulatedOrderItems = allOrderItems.map((li) => {
@@ -228,20 +239,20 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       }),
     );
     const summaryDelta = buildShipmentSummaryDelta({
-      allOrderItems: allOrderItems.map((li) => ({
-        id: String(li["id"] ?? ""),
-        status: normalizeOrderItemStatus(li["status"]) as
-          | "ordered"
-          | "received"
-          | "shipped",
-      })),
-      fromStatus: "received",
+      allOrderItems: summaryOrderItems,
       fromOrderStatus: currentOrderStatus,
-      orderItemId,
-      quantity,
+      fromFulfillmentStatus: currentFulfillmentStatus,
       toOrderStatus: derivedOrderStatus,
-      toStatus: "shipped",
+      toFulfillmentStatus: derivedFulfillmentStatus,
     });
+    const latestReadyToShipReceivedAt =
+      derivedFulfillmentStatus === "READY_TO_SHIP"
+        ? deriveLatestReadyToShipReceivedAtAfterTransition({
+            allOrderItems: summaryOrderItems,
+            orderItemId,
+            toStatus: "shipped",
+          })
+        : undefined;
 
     // 7. 建立交易項目
     const transactItems: NonNullable<
@@ -318,6 +329,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       summaryResult,
       summaryTableName: summaryTable,
       delta: summaryDelta,
+      latestReadyToShipReceivedAt,
     });
     if (summaryTransactItem) {
       transactItems.push(summaryTransactItem);

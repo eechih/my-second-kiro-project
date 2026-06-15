@@ -55,7 +55,7 @@ export function CustomerShipmentSummaryTable({
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
                   <Typography color="text.secondary">
-                    目前沒有待出貨的客戶
+                    目前沒有符合條件的客戶
                   </Typography>
                 </TableCell>
               </TableRow>

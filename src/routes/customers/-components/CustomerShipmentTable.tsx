@@ -22,6 +22,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import {
   ORDER_ITEM_STATUS_LABEL,
+  FULFILLMENT_STATUS_LABEL,
   type Order,
   type OrderItem,
 } from "@shared/models";
@@ -38,10 +39,19 @@ type CustomerShipmentRecord = {
   orderId: string;
   orderNumber: string;
   orderStatus: Order["status"];
+  fulfillmentStatus: Order["fulfillmentStatus"];
+  orderCreatedAt: string;
   item: OrderItem;
 };
 
 const PAGE_SIZE = 10;
+
+const FULFILLMENT_STATUS_COLOR_MAP = {
+  UNFULFILLED: "warning",
+  READY_TO_SHIP: "primary",
+  SHIPPED: "info",
+  COMPLETED: "success",
+} as const;
 
 function formatDate(value: string | null): string {
   if (!value) return "-";
@@ -57,32 +67,66 @@ function canToggleShipped(item: OrderItem): boolean {
   return item.status === "received" || item.status === "shipped";
 }
 
+function isShipmentRelevantOrder(order: Order): boolean {
+  return order.status !== "CANCELLED" && order.status !== "REFUNDED";
+}
+
+function matchesShipmentFilter(
+  order: Order,
+  statusFilter: ShipmentFilter,
+): boolean {
+  if (!isShipmentRelevantOrder(order)) {
+    return false;
+  }
+
+  if (statusFilter === "all") {
+    return true;
+  }
+
+  if (statusFilter === "pending") {
+    return order.fulfillmentStatus === "UNFULFILLED";
+  }
+
+  if (statusFilter === "readyToShip") {
+    return order.fulfillmentStatus === "READY_TO_SHIP";
+  }
+
+  return (
+    order.fulfillmentStatus === "SHIPPED" ||
+    order.fulfillmentStatus === "COMPLETED"
+  );
+}
+
 function extractShipmentRecords(
   orders: readonly Order[],
   statusFilter: ShipmentFilter,
 ): CustomerShipmentRecord[] {
   return orders
+    .filter((order) => matchesShipmentFilter(order, statusFilter))
     .flatMap((order) =>
       order.items.map((item) => ({
         orderId: order.id,
         orderNumber: order.orderNumber,
         orderStatus: order.status,
+        fulfillmentStatus: order.fulfillmentStatus,
+        orderCreatedAt: order.createdAt,
         item,
       })),
     )
-    .filter((record) => {
-      if (statusFilter === "received") return record.item.status === "received";
-      if (statusFilter === "shipped") return record.item.status === "shipped";
-      return (
-        record.item.status === "received" || record.item.status === "shipped"
-      );
-    })
     .sort((a, b) => {
       const timeA = Date.parse(
-        a.item.shippedAt ?? a.item.receivedAt ?? "1970-01-01T00:00:00.000Z",
+        a.item.shippedAt ??
+          a.item.receivedAt ??
+          a.item.purchasedAt ??
+          a.orderCreatedAt ??
+          "1970-01-01T00:00:00.000Z",
       );
       const timeB = Date.parse(
-        b.item.shippedAt ?? b.item.receivedAt ?? "1970-01-01T00:00:00.000Z",
+        b.item.shippedAt ??
+          b.item.receivedAt ??
+          b.item.purchasedAt ??
+          b.orderCreatedAt ??
+          "1970-01-01T00:00:00.000Z",
       );
       return timeB - timeA;
     });
@@ -120,21 +164,28 @@ export function CustomerShipmentTable({
   }, [reset, customerId]);
 
   const orders = useMemo(() => data?.items ?? [], [data?.items]);
+  const filteredOrders = useMemo(
+    () => orders.filter((order) => matchesShipmentFilter(order, initialStatusFilter)),
+    [orders, initialStatusFilter],
+  );
   const records = useMemo(
     () => extractShipmentRecords(orders, initialStatusFilter),
     [orders, initialStatusFilter],
   );
-  const summary = useMemo(
+  const currentSummary = useMemo(
     () =>
-      records.reduce(
-        (acc, record) => {
-          if (record.item.status === "received") acc.received += 1;
-          if (record.item.status === "shipped") acc.shipped += 1;
+      filteredOrders.reduce(
+        (acc, order) => {
+          acc.orders += 1;
+          acc.items += order.items.reduce(
+            (sum, item) => sum + Number(item.quantity ?? 0),
+            0,
+          );
           return acc;
         },
-        { received: 0, shipped: 0 },
+        { orders: 0, items: 0 },
       ),
-    [records],
+    [filteredOrders],
   );
 
   return (
@@ -149,17 +200,17 @@ export function CustomerShipmentTable({
             出貨管理
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            依客戶查看「{customerName}」的待出貨與已出貨明細，直接完成出貨操作。
+            依客戶查看「{customerName}」的待處理、可出貨與已出貨訂單明細。
           </Typography>
         </Box>
       </Stack>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 2 }}>
         <Alert severity="info" sx={{ py: 0 }}>
-          待出貨 {summary.received} 筆
+          訂單 {currentSummary.orders} 筆
         </Alert>
         <Alert severity="success" sx={{ py: 0 }}>
-          已出貨 {summary.shipped} 筆
+          品項 {currentSummary.items} 項
         </Alert>
       </Stack>
 
@@ -179,7 +230,7 @@ export function CustomerShipmentTable({
       ) : records.length === 0 ? (
         <Paper variant="outlined" sx={{ py: 4, textAlign: "center" }}>
           <Typography color="text.secondary">
-            目前沒有屬於「{customerName}」的出貨明細
+            目前沒有屬於「{customerName}」的符合條件訂單明細
           </Typography>
         </Paper>
       ) : (
@@ -194,6 +245,7 @@ export function CustomerShipmentTable({
                   <TableCell align="right">數量</TableCell>
                   <TableCell align="right">單價</TableCell>
                   <TableCell align="center">明細狀態</TableCell>
+                  <TableCell align="center">履約狀態</TableCell>
                   <TableCell align="center">訂單狀態</TableCell>
                   <TableCell align="center">到貨日期</TableCell>
                   <TableCell align="center">出貨日期</TableCell>
@@ -215,6 +267,15 @@ export function CustomerShipmentTable({
                         status={record.item.status}
                         label={ORDER_ITEM_STATUS_LABEL[record.item.status]}
                         colorMap={ORDER_ITEM_STATUS_COLOR_MAP}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <StatusChip
+                        status={record.fulfillmentStatus}
+                        label={
+                          FULFILLMENT_STATUS_LABEL[record.fulfillmentStatus]
+                        }
+                        colorMap={FULFILLMENT_STATUS_COLOR_MAP}
                       />
                     </TableCell>
                     <TableCell align="center">

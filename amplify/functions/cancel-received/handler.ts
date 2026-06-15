@@ -26,6 +26,7 @@ import {
 import {
   buildShipmentSummaryDelta,
   buildShipmentSummaryTransactItem,
+  deriveLatestReadyToShipReceivedAtAfterTransition,
 } from "../customer-fulfillment-summary";
 
 const ddb = new DynamoDBClient({});
@@ -162,6 +163,16 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
     const allOrderItems = (allOrderItemsResult.Items ?? []).map((rawItem) =>
       unmarshall(rawItem),
     );
+    const summaryOrderItems = allOrderItems.map((li) => ({
+      id: String(li["id"] ?? ""),
+      status: normalizeOrderItemStatus(li["status"]) as
+        | "ordered"
+        | "received"
+        | "shipped",
+      quantity: Number(li["quantity"] ?? 0),
+      receivedAt:
+        li["receivedAt"] != null ? String(li["receivedAt"]) : undefined,
+    }));
     const simulatedOrderItems = allOrderItems.map((li) => ({
       status:
         li["id"] === orderItemId
@@ -182,20 +193,20 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       }),
     );
     const summaryDelta = buildShipmentSummaryDelta({
-      allOrderItems: allOrderItems.map((li) => ({
-        id: String(li["id"] ?? ""),
-        status: normalizeOrderItemStatus(li["status"]) as
-          | "ordered"
-          | "received"
-          | "shipped",
-      })),
-      fromStatus: "received",
+      allOrderItems: summaryOrderItems,
       fromOrderStatus: currentOrderStatus,
-      orderItemId,
-      quantity,
+      fromFulfillmentStatus: currentFulfillmentStatus,
       toOrderStatus: derivedOrderStatus,
-      toStatus: "ordered",
+      toFulfillmentStatus: derivedFulfillmentStatus,
     });
+    const latestReadyToShipReceivedAt =
+      derivedFulfillmentStatus === "READY_TO_SHIP"
+        ? deriveLatestReadyToShipReceivedAtAfterTransition({
+            allOrderItems: summaryOrderItems,
+            orderItemId,
+            toStatus: "ordered",
+          })
+        : undefined;
 
     const transactItems: NonNullable<
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]
@@ -276,6 +287,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       summaryResult,
       summaryTableName: summaryTable,
       delta: summaryDelta,
+      latestReadyToShipReceivedAt,
     });
     if (summaryTransactItem) {
       transactItems.push(summaryTransactItem);
