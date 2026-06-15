@@ -26,10 +26,10 @@ export const Route = createFileRoute("/customer-shipments/")({
 
 function CustomerShipmentListPage(): React.ReactElement {
   const navigate = useNavigate();
-  const { data, isLoading, error } = useCustomerShipmentSummaries();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<ShipmentStatusFilter>("received");
+  const { data, isLoading, error } = useCustomerShipmentSummaries(statusFilter);
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
 

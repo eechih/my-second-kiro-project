@@ -24,10 +24,11 @@ interface CustomerShipmentRecord {
 
 const CUSTOMER_SHIPMENT_KEYS = {
   all: ["customer-shipments"] as const,
-  summaries: () => [...CUSTOMER_SHIPMENT_KEYS.all, "summaries"] as const,
+  summaries: (statusFilter: ShipmentStatusFilter) =>
+    [...CUSTOMER_SHIPMENT_KEYS.all, "summaries", statusFilter] as const,
 };
 
-const PENDING_SHIPMENT_SELECTION_SET = [
+const SHIPMENT_SELECTION_SET = [
   "quantity",
   "orderId",
   "order.customerId",
@@ -98,21 +99,22 @@ export function buildCustomerShipmentSummaries(
     });
 }
 
-async function fetchCustomerShipmentSummaries(): Promise<
-  CustomerShipmentSummary[]
-> {
+async function fetchOrderItemsByStatus(
+  status: "received" | "shipped",
+): Promise<CustomerShipmentRecord[]> {
   const records: CustomerShipmentRecord[] = [];
   let nextToken: string | undefined;
 
   do {
-    const response = await client.models.OrderItem.list({
-      filter: {
-        or: [{ status: { eq: "received" } }, { status: { eq: "shipped" } }],
-      },
-      limit: 1000,
-      ...(nextToken ? { nextToken } : {}),
-      selectionSet: PENDING_SHIPMENT_SELECTION_SET,
-    });
+    const response = await client.models.OrderItem.listOrderItemsByStatus(
+      { status },
+      {
+        limit: 1000,
+        sortDirection: "DESC",
+        ...(nextToken ? { nextToken } : {}),
+        selectionSet: SHIPMENT_SELECTION_SET,
+      } as Record<string, unknown>,
+    );
 
     const { data, errors, nextToken: responseNextToken } = response;
 
@@ -137,21 +139,36 @@ async function fetchCustomerShipmentSummaries(): Promise<
         customerName: String(orderRaw?.customerNameSnapshot ?? "未命名客戶"),
         orderId: String(item.orderId ?? ""),
         quantity: Number(item.quantity ?? 0),
-        status: item.status === "shipped" ? "shipped" : "received",
+        status,
       });
     }
 
     nextToken = responseNextToken ?? undefined;
   } while (nextToken);
 
-  return buildCustomerShipmentSummaries(records);
+  return records;
 }
 
-export function useCustomerShipmentSummaries(): UseQueryResult<
-  CustomerShipmentSummary[]
-> {
+async function fetchCustomerShipmentSummaries(
+  statusFilter: ShipmentStatusFilter,
+): Promise<CustomerShipmentSummary[]> {
+  const statuses =
+    statusFilter === "all"
+      ? (["received", "shipped"] as const)
+      : [statusFilter];
+  const records = await Promise.all(
+    statuses.map((status) => fetchOrderItemsByStatus(status)),
+  );
+
+  return buildCustomerShipmentSummaries(records.flat());
+}
+
+export function useCustomerShipmentSummaries(
+  statusFilter: ShipmentStatusFilter = "all",
+): UseQueryResult<CustomerShipmentSummary[]> {
   return useQuery({
-    queryKey: CUSTOMER_SHIPMENT_KEYS.summaries(),
-    queryFn: fetchCustomerShipmentSummaries,
+    queryKey: CUSTOMER_SHIPMENT_KEYS.summaries(statusFilter),
+    queryFn: () => fetchCustomerShipmentSummaries(statusFilter),
+    staleTime: 60_000,
   });
 }
