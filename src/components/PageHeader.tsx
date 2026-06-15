@@ -10,6 +10,10 @@ interface PageHeaderProps {
   current: string;
   title: string;
   actions?: ReactNode;
+  sectionLink?: {
+    href: string;
+    onClick: () => void;
+  };
 }
 
 /**
@@ -20,6 +24,7 @@ export function PageHeader({
   current,
   title,
   actions,
+  sectionLink,
 }: PageHeaderProps): ReactElement {
   const navigate = useNavigate();
 
@@ -37,7 +42,21 @@ export function PageHeader({
         >
           首頁
         </Link>
-        <Typography color="text.primary">{section}</Typography>
+        {sectionLink ? (
+          <Link
+            underline="hover"
+            color="inherit"
+            href={sectionLink.href}
+            onClick={(e) => {
+              e.preventDefault();
+              sectionLink.onClick();
+            }}
+          >
+            {section}
+          </Link>
+        ) : (
+          <Typography color="text.primary">{section}</Typography>
+        )}
         <Typography color="text.primary">{current}</Typography>
       </Breadcrumbs>
 

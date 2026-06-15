@@ -5,7 +5,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CustomerMergePanel } from "../customers/-components/CustomerMergePanel";
 import {
   CustomerShipmentTable,
@@ -30,6 +30,7 @@ export const Route = createFileRoute("/customer-shipments/$customerId")({
 });
 
 function CustomerShipmentDetailPage(): React.ReactElement {
+  const navigate = useNavigate();
   const { customerId } = Route.useParams();
   const { status } = Route.useSearch();
   const {
@@ -66,6 +67,14 @@ function CustomerShipmentDetailPage(): React.ReactElement {
         section="客戶出貨"
         current={customer.name}
         title={`${customer.name} 出貨管理`}
+        sectionLink={{
+          href: "/customer-shipments",
+          onClick: () =>
+            void navigate({
+              to: "/customer-shipments",
+              search: { status },
+            }),
+        }}
       />
 
       <CustomerShipmentTable

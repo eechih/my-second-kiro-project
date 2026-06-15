@@ -16,7 +16,7 @@ import { CustomerShipmentSummaryTable } from "./-components/CustomerShipmentSumm
 const STATUS_FILTER_OPTIONS = [
   { value: "received", label: "待出貨" },
   { value: "shipped", label: "已出貨" },
-  { value: "all", label: "不區分" },
+  { value: "all", label: "全部" },
 ] as const satisfies readonly { value: ShipmentStatusFilter; label: string }[];
 
 function normalizeShipmentStatusFilter(
