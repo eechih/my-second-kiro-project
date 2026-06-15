@@ -11,7 +11,6 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -20,14 +19,13 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import {
   ORDER_ITEM_STATUS_LABEL,
   type Order,
   type OrderItem,
 } from "@shared/models";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   ORDER_ITEM_STATUS_COLOR_MAP,
   ORDER_STATUS_COLOR_MAP,
@@ -44,12 +42,6 @@ type CustomerShipmentRecord = {
 };
 
 const PAGE_SIZE = 10;
-
-const SHIPMENT_FILTER_OPTIONS = [
-  { value: "all", label: "待出貨與已出貨" },
-  { value: "received", label: "待出貨" },
-  { value: "shipped", label: "已出貨" },
-] as const satisfies readonly { value: ShipmentFilter; label: string }[];
 
 function formatDate(value: string | null): string {
   if (!value) return "-";
@@ -116,8 +108,6 @@ export function CustomerShipmentTable({
     setPageSize,
     reset,
   } = useCursorPagination(PAGE_SIZE);
-  const [statusFilter, setStatusFilter] =
-    useState<ShipmentFilter>(initialStatusFilter);
   const updateStatusFlag = useUpdateOrderItemStatusFlag();
   const { data, isLoading, error } = useCustomerOrderList({
     customerId,
@@ -129,14 +119,10 @@ export function CustomerShipmentTable({
     reset();
   }, [reset, customerId]);
 
-  useEffect(() => {
-    setStatusFilter(initialStatusFilter);
-  }, [customerId, initialStatusFilter]);
-
   const orders = useMemo(() => data?.items ?? [], [data?.items]);
   const records = useMemo(
-    () => extractShipmentRecords(orders, statusFilter),
-    [orders, statusFilter],
+    () => extractShipmentRecords(orders, initialStatusFilter),
+    [orders, initialStatusFilter],
   );
   const summary = useMemo(
     () =>
@@ -156,7 +142,7 @@ export function CustomerShipmentTable({
       <Stack
         direction={{ xs: "column", md: "row" }}
         spacing={2}
-        sx={{ justifyContent: "space-between", mb: 2 }}
+        sx={{ mb: 2 }}
       >
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -166,23 +152,6 @@ export function CustomerShipmentTable({
             依客戶查看「{customerName}」的待出貨與已出貨明細，直接完成出貨操作。
           </Typography>
         </Box>
-
-        <TextField
-          select
-          size="small"
-          label="狀態"
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(event.target.value as ShipmentFilter)
-          }
-          sx={{ minWidth: 180 }}
-        >
-          {SHIPMENT_FILTER_OPTIONS.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
       </Stack>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 2 }}>
