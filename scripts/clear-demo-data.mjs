@@ -12,7 +12,7 @@ const BATCH_SIZE = 25;
 const MAX_BATCH_RETRIES = 5;
 
 const TABLE_DELETE_ORDER = [
-  "CustomerShipmentSummary",
+  "CustomerFulfillmentSummary",
   "OrderItem",
   "Order",
   "ProductOptionValue",
@@ -160,7 +160,7 @@ async function main() {
     console.error(
       [
         "這個腳本會清除 Customer、Supplier、Product、ProductOption、ProductOptionValue、Order、OrderItem、SequenceCounter 全部資料。",
-        "另外也會清除 CustomerShipmentSummary 摘要資料。",
+        "另外也會清除 CustomerFulfillmentSummary 摘要資料。",
         `若確定要執行，請加上：--confirm ${REQUIRED_CONFIRMATION}`,
       ].join("\n"),
     );

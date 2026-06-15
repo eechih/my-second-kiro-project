@@ -60,7 +60,7 @@ function CustomerShipmentListPage(): React.ReactElement {
           customerId: summary.customerId,
           customerName: summary.customerName,
           orderCount: summary.totalOrderCount,
-          itemCount: summary.totalItemCount,
+          itemCount: summary.pendingItemCount + summary.shippedItemCount,
         };
       })
       .filter((summary) => summary.orderCount > 0)

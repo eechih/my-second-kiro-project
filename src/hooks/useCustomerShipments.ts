@@ -3,15 +3,15 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 export type ShipmentStatusFilter = "all" | "received" | "shipped";
 
-export interface CustomerShipmentSummary {
+export interface CustomerFulfillmentSummary {
   customerId: string;
   customerName: string;
   pendingOrderCount: number;
   pendingItemCount: number;
   shippedOrderCount: number;
   shippedItemCount: number;
+  completedOrderCount: number;
   totalOrderCount: number;
-  totalItemCount: number;
 }
 
 const CUSTOMER_SHIPMENT_KEYS = {
@@ -19,7 +19,7 @@ const CUSTOMER_SHIPMENT_KEYS = {
   summaries: () => [...CUSTOMER_SHIPMENT_KEYS.all, "summaries"] as const,
 };
 
-const CUSTOMER_SHIPMENT_SUMMARY_SELECTION_SET = [
+const CUSTOMER_FULFILLMENT_SUMMARY_SELECTION_SET = [
   "id",
   "customerId",
   "customerNameSnapshot",
@@ -27,18 +27,23 @@ const CUSTOMER_SHIPMENT_SUMMARY_SELECTION_SET = [
   "pendingItemCount",
   "shippedOrderCount",
   "shippedItemCount",
+  "completedOrderCount",
+  "totalOrderCount",
 ] as const;
 
 export function sortCustomerShipmentSummaries(
-  summaries: readonly CustomerShipmentSummary[],
-): CustomerShipmentSummary[] {
+  summaries: readonly CustomerFulfillmentSummary[],
+): CustomerFulfillmentSummary[] {
   return [...summaries].sort((a, b) => {
     if (b.totalOrderCount !== a.totalOrderCount) {
       return b.totalOrderCount - a.totalOrderCount;
     }
 
-    if (b.totalItemCount !== a.totalItemCount) {
-      return b.totalItemCount - a.totalItemCount;
+    const itemCountA = a.pendingItemCount + a.shippedItemCount;
+    const itemCountB = b.pendingItemCount + b.shippedItemCount;
+
+    if (itemCountB !== itemCountA) {
+      return itemCountB - itemCountA;
     }
 
     return a.customerName.localeCompare(b.customerName, "zh-Hant");
@@ -46,20 +51,20 @@ export function sortCustomerShipmentSummaries(
 }
 
 async function fetchCustomerShipmentSummaries(): Promise<
-  CustomerShipmentSummary[]
+  CustomerFulfillmentSummary[]
 > {
-  const summaries: CustomerShipmentSummary[] = [];
+  const summaries: CustomerFulfillmentSummary[] = [];
   let nextToken: string | undefined;
 
   do {
     const response =
-      await client.models.CustomerShipmentSummary.listCustomerShipmentSummariesByCreatedDate(
-        { gsiPartition: "CustomerShipmentSummary" },
+      await client.models.CustomerFulfillmentSummary.listCustomerFulfillmentSummariesByCreatedDate(
+        { gsiPartition: "CustomerFulfillmentSummary" },
         {
           limit: 1000,
           sortDirection: "DESC",
           ...(nextToken ? { nextToken } : {}),
-          selectionSet: CUSTOMER_SHIPMENT_SUMMARY_SELECTION_SET,
+          selectionSet: CUSTOMER_FULFILLMENT_SUMMARY_SELECTION_SET,
         } as Record<string, unknown>,
       );
 
@@ -81,6 +86,8 @@ async function fetchCustomerShipmentSummaries(): Promise<
       const pendingItemCount = Number(summary["pendingItemCount"] ?? 0);
       const shippedOrderCount = Number(summary["shippedOrderCount"] ?? 0);
       const shippedItemCount = Number(summary["shippedItemCount"] ?? 0);
+      const completedOrderCount = Number(summary["completedOrderCount"] ?? 0);
+      const totalOrderCount = Number(summary["totalOrderCount"] ?? pendingOrderCount + shippedOrderCount);
 
       summaries.push({
         customerId,
@@ -91,8 +98,8 @@ async function fetchCustomerShipmentSummaries(): Promise<
         pendingItemCount,
         shippedOrderCount,
         shippedItemCount,
-        totalOrderCount: pendingOrderCount + shippedOrderCount,
-        totalItemCount: pendingItemCount + shippedItemCount,
+        completedOrderCount,
+        totalOrderCount,
       });
     }
 
@@ -104,7 +111,7 @@ async function fetchCustomerShipmentSummaries(): Promise<
 
 export function useCustomerShipmentSummaries(
   _statusFilter: ShipmentStatusFilter = "all",
-): UseQueryResult<CustomerShipmentSummary[]> {
+): UseQueryResult<CustomerFulfillmentSummary[]> {
   return useQuery({
     queryKey: CUSTOMER_SHIPMENT_KEYS.summaries(),
     queryFn: fetchCustomerShipmentSummaries,

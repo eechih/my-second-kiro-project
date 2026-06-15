@@ -11,8 +11,8 @@ describe("sortCustomerShipmentSummaries", () => {
         pendingItemCount: 2,
         shippedOrderCount: 0,
         shippedItemCount: 0,
+        completedOrderCount: 0,
         totalOrderCount: 1,
-        totalItemCount: 2,
       },
       {
         customerId: "customer-1",
@@ -21,8 +21,8 @@ describe("sortCustomerShipmentSummaries", () => {
         pendingItemCount: 5,
         shippedOrderCount: 1,
         shippedItemCount: 1,
+        completedOrderCount: 1,
         totalOrderCount: 2,
-        totalItemCount: 6,
       },
       {
         customerId: "customer-2",
@@ -31,8 +31,8 @@ describe("sortCustomerShipmentSummaries", () => {
         pendingItemCount: 2,
         shippedOrderCount: 0,
         shippedItemCount: 0,
+        completedOrderCount: 0,
         totalOrderCount: 1,
-        totalItemCount: 2,
       },
     ]);
 
@@ -44,8 +44,8 @@ describe("sortCustomerShipmentSummaries", () => {
         pendingItemCount: 5,
         shippedOrderCount: 1,
         shippedItemCount: 1,
+        completedOrderCount: 1,
         totalOrderCount: 2,
-        totalItemCount: 6,
       },
       {
         customerId: "customer-2",
@@ -54,8 +54,8 @@ describe("sortCustomerShipmentSummaries", () => {
         pendingItemCount: 2,
         shippedOrderCount: 0,
         shippedItemCount: 0,
+        completedOrderCount: 0,
         totalOrderCount: 1,
-        totalItemCount: 2,
       },
       {
         customerId: "customer-3",
@@ -64,8 +64,8 @@ describe("sortCustomerShipmentSummaries", () => {
         pendingItemCount: 2,
         shippedOrderCount: 0,
         shippedItemCount: 0,
+        completedOrderCount: 0,
         totalOrderCount: 1,
-        totalItemCount: 2,
       },
     ]);
   });

@@ -689,7 +689,7 @@ function buildOrder(orderIndex, customer, products) {
   };
 }
 
-function buildCustomerShipmentSummaries(customers, orders) {
+function buildCustomerFulfillmentSummaries(customers, orders) {
   const summaryByCustomerId = new Map();
 
   for (const order of orders) {
@@ -725,7 +725,9 @@ function buildCustomerShipmentSummaries(customers, orders) {
       pendingItemCount: 0,
       shippedOrderCount: 0,
       shippedItemCount: 0,
-      gsiPartition: "CustomerShipmentSummary",
+      completedOrderCount: 0,
+      totalOrderCount: 0,
+      gsiPartition: "CustomerFulfillmentSummary",
       createdAtForSort: order.createdAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -740,6 +742,10 @@ function buildCustomerShipmentSummaries(customers, orders) {
       shippedOrderCount:
         existing.shippedOrderCount + (hasShippedItems ? 1 : 0),
       shippedItemCount: existing.shippedItemCount + shippedItemCount,
+      completedOrderCount:
+        existing.completedOrderCount + (order.status === "COMPLETED" ? 1 : 0),
+      totalOrderCount:
+        existing.totalOrderCount + (hasPendingItems || hasShippedItems ? 1 : 0),
       createdAtForSort:
         existing.createdAtForSort < order.createdAt
           ? existing.createdAtForSort
@@ -769,7 +775,7 @@ async function loadTableNames() {
     productOptionValue: tables.ProductOptionValue?.tableName,
     order: tables.Order?.tableName,
     orderItem: tables.OrderItem?.tableName,
-    customerShipmentSummary: tables.CustomerShipmentSummary?.tableName,
+    customerFulfillmentSummary: tables.CustomerFulfillmentSummary?.tableName,
     sequenceCounter: tables.SequenceCounter?.tableName,
   };
 
@@ -979,7 +985,7 @@ async function main() {
       orderId: order.id,
     })),
   );
-  const customerShipmentSummaries = buildCustomerShipmentSummaries(
+  const customerFulfillmentSummaries = buildCustomerFulfillmentSummaries(
     customers,
     orders,
   );
@@ -1023,8 +1029,8 @@ async function main() {
     ),
     putItems(
       ddb,
-      tableNames.customerShipmentSummary,
-      customerShipmentSummaries,
+      tableNames.customerFulfillmentSummary,
+      customerFulfillmentSummaries,
       args.dryRun,
     ),
   ]);
@@ -1049,7 +1055,7 @@ async function main() {
         productOptionValues: productOptionValues.length,
         orders: orders.length,
         orderItems: orderItems.length,
-        customerShipmentSummaries: customerShipmentSummaries.length,
+        customerFulfillmentSummaries: customerFulfillmentSummaries.length,
         nextProductSequence: startSequence + products.length,
       },
       null,

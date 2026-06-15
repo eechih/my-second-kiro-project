@@ -46,19 +46,19 @@ const tables = backend.data.resources.tables;
 // 取得各模型對應的 DynamoDB 表格
 const orderTable = tables["Order"];
 const orderItemTable = tables["OrderItem"];
-const customerShipmentSummaryTable = tables["CustomerShipmentSummary"];
+const customerFulfillmentSummaryTable = tables["CustomerFulfillmentSummary"];
 const productTable = tables["Product"];
 const productCounterTable = tables["SequenceCounter"];
 
 if (
   !orderTable ||
   !orderItemTable ||
-  !customerShipmentSummaryTable ||
+  !customerFulfillmentSummaryTable ||
   !productTable ||
   !productCounterTable
 ) {
   throw new Error(
-    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、CustomerShipmentSummary、Product、SequenceCounter 模型。",
+    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、CustomerFulfillmentSummary、Product、SequenceCounter 模型。",
   );
 }
 
@@ -99,8 +99,8 @@ for (const fn of transactionalFunctions) {
   lambdaFn.addEnvironment("ORDER_TABLE_NAME", orderTable.tableName);
   lambdaFn.addEnvironment("ORDER_ITEM_TABLE_NAME", orderItemTable.tableName);
   lambdaFn.addEnvironment(
-    "CUSTOMER_SHIPMENT_SUMMARY_TABLE_NAME",
-    customerShipmentSummaryTable.tableName,
+    "CUSTOMER_FULFILLMENT_SUMMARY_TABLE_NAME",
+    customerFulfillmentSummaryTable.tableName,
   );
   lambdaFn.addEnvironment("PRODUCT_TABLE_NAME", productTable.tableName);
   lambdaFn.addEnvironment(
@@ -111,7 +111,7 @@ for (const fn of transactionalFunctions) {
   // 授予 DynamoDB 讀寫權限
   orderTable.grantReadWriteData(lambdaFn);
   orderItemTable.grantReadWriteData(lambdaFn);
-  customerShipmentSummaryTable.grantReadWriteData(lambdaFn);
+  customerFulfillmentSummaryTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
   productCounterTable.grantReadWriteData(lambdaFn);
 

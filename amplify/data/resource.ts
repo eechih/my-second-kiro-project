@@ -19,7 +19,7 @@ import { splitOrder } from "../functions/split-order/resource";
 
 const SORT_PARTITIONS = {
   customer: "Customer",
-  customerShipmentSummary: "CustomerShipmentSummary",
+  customerFulfillmentSummary: "CustomerFulfillmentSummary",
   supplier: "Supplier",
   product: "Product",
   order: "Order",
@@ -327,7 +327,7 @@ const schema = a.schema({
     ])
     .authorization((allow) => [allow.authenticated()]),
 
-  CustomerShipmentSummary: a
+  CustomerFulfillmentSummary: a
     .model({
       customerId: a.id().required(),
       customerNameSnapshot: a.string().required(),
@@ -335,15 +335,17 @@ const schema = a.schema({
       pendingItemCount: a.integer().required().default(0),
       shippedOrderCount: a.integer().required().default(0),
       shippedItemCount: a.integer().required().default(0),
-      ...sortFields(SORT_PARTITIONS.customerShipmentSummary),
+      completedOrderCount: a.integer().required().default(0),
+      totalOrderCount: a.integer().required().default(0),
+      ...sortFields(SORT_PARTITIONS.customerFulfillmentSummary),
     })
     .secondaryIndexes((index) => [
       index("customerId")
-        .queryField("customerShipmentSummaryByCustomer")
+        .queryField("customerFulfillmentSummaryByCustomer")
         .name("byCustomer"),
       index("gsiPartition")
         .sortKeys(["createdAtForSort"])
-        .queryField("listCustomerShipmentSummariesByCreatedDate")
+        .queryField("listCustomerFulfillmentSummariesByCreatedDate")
         .name("byCreatedAt"),
     ])
     .authorization((allow) => [allow.authenticated()]),
