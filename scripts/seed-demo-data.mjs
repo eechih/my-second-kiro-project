@@ -689,6 +689,73 @@ function buildOrder(orderIndex, customer, products) {
   };
 }
 
+function buildCustomerShipmentSummaries(customers, orders) {
+  const summaryByCustomerId = new Map();
+
+  for (const order of orders) {
+    const customerId = order.customerId;
+    if (!customerId) {
+      continue;
+    }
+
+    const customerNameSnapshot = order.customerNameSnapshot ?? "未命名客戶";
+    const hasPendingItems = order.items.some((item) => item.status === "received");
+    const hasShippedItems = order.items.some((item) => item.status === "shipped");
+    const pendingItemCount = order.items
+      .filter((item) => item.status === "received")
+      .reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
+    const shippedItemCount = order.items
+      .filter((item) => item.status === "shipped")
+      .reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
+
+    if (
+      !hasPendingItems &&
+      !hasShippedItems &&
+      pendingItemCount === 0 &&
+      shippedItemCount === 0
+    ) {
+      continue;
+    }
+
+    const existing = summaryByCustomerId.get(customerId) ?? {
+      id: customerId,
+      customerId,
+      customerNameSnapshot,
+      pendingOrderCount: 0,
+      pendingItemCount: 0,
+      shippedOrderCount: 0,
+      shippedItemCount: 0,
+      gsiPartition: "CustomerShipmentSummary",
+      createdAtForSort: order.createdAt,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    };
+
+    summaryByCustomerId.set(customerId, {
+      ...existing,
+      customerNameSnapshot,
+      pendingOrderCount:
+        existing.pendingOrderCount + (hasPendingItems ? 1 : 0),
+      pendingItemCount: existing.pendingItemCount + pendingItemCount,
+      shippedOrderCount:
+        existing.shippedOrderCount + (hasShippedItems ? 1 : 0),
+      shippedItemCount: existing.shippedItemCount + shippedItemCount,
+      createdAtForSort:
+        existing.createdAtForSort < order.createdAt
+          ? existing.createdAtForSort
+          : order.createdAt,
+      createdAt:
+        existing.createdAt < order.createdAt ? existing.createdAt : order.createdAt,
+      updatedAt:
+        existing.updatedAt > order.updatedAt ? existing.updatedAt : order.updatedAt,
+    });
+  }
+
+  return customers
+    .map((customer) => summaryByCustomerId.get(customer.id))
+    .filter(Boolean);
+}
+
 async function loadTableNames() {
   const raw = await readFile(new URL("../amplify_outputs.json", import.meta.url), "utf8");
   const outputs = JSON.parse(raw);
@@ -702,6 +769,7 @@ async function loadTableNames() {
     productOptionValue: tables.ProductOptionValue?.tableName,
     order: tables.Order?.tableName,
     orderItem: tables.OrderItem?.tableName,
+    customerShipmentSummary: tables.CustomerShipmentSummary?.tableName,
     sequenceCounter: tables.SequenceCounter?.tableName,
   };
 
@@ -911,6 +979,10 @@ async function main() {
       orderId: order.id,
     })),
   );
+  const customerShipmentSummaries = buildCustomerShipmentSummaries(
+    customers,
+    orders,
+  );
 
   await Promise.all([
     putItems(ddb, tableNames.customer, customers, args.dryRun),
@@ -949,6 +1021,12 @@ async function main() {
       orderItems.map(({ defaultSupplierName: _ignored, ...item }) => item),
       args.dryRun,
     ),
+    putItems(
+      ddb,
+      tableNames.customerShipmentSummary,
+      customerShipmentSummaries,
+      args.dryRun,
+    ),
   ]);
 
   if (!args.dryRun) {
@@ -971,6 +1049,7 @@ async function main() {
         productOptionValues: productOptionValues.length,
         orders: orders.length,
         orderItems: orderItems.length,
+        customerShipmentSummaries: customerShipmentSummaries.length,
         nextProductSequence: startSequence + products.length,
       },
       null,

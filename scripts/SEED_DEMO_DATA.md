@@ -1,8 +1,8 @@
 # Seed Demo Data
 
-這份文件說明如何使用 [seed-demo-data.mjs](/Volumes/External%20SSD/code/my-second-kiro-project/scripts/seed-demo-data.mjs) 建立測試用的 `Customer`、`Supplier`、`Product`、`Order` 與 `OrderItem` 假資料。
+這份文件說明如何使用 [seed-demo-data.mjs](/Users/eechih/github/eechih/my-second-kiro-project/scripts/seed-demo-data.mjs) 建立測試用的 `Customer`、`Supplier`、`Product`、`Order`、`OrderItem` 與 `CustomerShipmentSummary` 假資料。
 
-如果需要清空資料，也可以搭配 [clear-demo-data.mjs](/Volumes/External%20SSD/code/my-second-kiro-project/scripts/clear-demo-data.mjs) 使用。
+如果需要清空資料，也可以搭配 [clear-demo-data.mjs](/Users/eechih/github/eechih/my-second-kiro-project/scripts/clear-demo-data.mjs) 使用。
 
 ## 用途
 
@@ -81,6 +81,7 @@ node scripts/seed-demo-data.mjs --dry-run
 - 啟用中的 `Product`
 - `PENDING_PAYMENT` 與 `PAID` 狀態的 `Order`
 - 對應的 `OrderItem`
+- 客戶出貨列表用的 `CustomerShipmentSummary`
 
 並且會一起維護：
 
@@ -92,6 +93,10 @@ node scripts/seed-demo-data.mjs --dry-run
 - `Product.sequenceNumber`
 - `Product.sku`
 - `Product.defaultSupplierId`
+- `CustomerShipmentSummary.pendingOrderCount`
+- `CustomerShipmentSummary.pendingItemCount`
+- `CustomerShipmentSummary.shippedOrderCount`
+- `CustomerShipmentSummary.shippedItemCount`
 - `SequenceCounter` 的 `ProductSku` 流水號
 
 ## 假資料特性
@@ -132,6 +137,7 @@ npm run clear:demo -- --confirm DELETE_ALL_DATA
 - `ProductOptionValue`
 - `Order`
 - `OrderItem`
+- `CustomerShipmentSummary`
 - `SequenceCounter`
 
 先看預計刪除數量、不實際刪除：
