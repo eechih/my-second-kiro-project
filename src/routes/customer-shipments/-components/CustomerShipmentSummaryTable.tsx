@@ -1,6 +1,8 @@
 export interface CustomerShipmentSummaryRow {
   customerId: string;
   customerName: string;
+  totalOrderCount: number;
+  completedOrderCount: number;
   orderCount: number;
   itemCount: number;
 }
@@ -44,12 +46,14 @@ export function CustomerShipmentSummaryTable({
               <TableCell>客戶名稱</TableCell>
               <TableCell align="right">{orderCountLabel}</TableCell>
               <TableCell align="right">{itemCountLabel}</TableCell>
+              <TableCell align="right">已完成訂單數量</TableCell>
+              <TableCell align="right">總訂單數量</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {summaries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} align="center" sx={{ py: 5 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
                   <Typography color="text.secondary">
                     目前沒有待出貨的客戶
                   </Typography>
@@ -71,6 +75,10 @@ export function CustomerShipmentSummaryTable({
                   </TableCell>
                   <TableCell align="right">{summary.orderCount}</TableCell>
                   <TableCell align="right">{summary.itemCount}</TableCell>
+                  <TableCell align="right">
+                    {summary.completedOrderCount}
+                  </TableCell>
+                  <TableCell align="right">{summary.totalOrderCount}</TableCell>
                 </TableRow>
               ))
             )}
