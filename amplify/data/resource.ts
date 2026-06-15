@@ -19,6 +19,7 @@ import { splitOrder } from "../functions/split-order/resource";
 
 const SORT_PARTITIONS = {
   customer: "Customer",
+  customerShipmentSummary: "CustomerShipmentSummary",
   supplier: "Supplier",
   product: "Product",
   order: "Order",
@@ -323,6 +324,27 @@ const schema = a.schema({
         .sortKeys(["createdAtForSort"])
         .queryField("listOrderItemsByStatus")
         .name("byStatus"),
+    ])
+    .authorization((allow) => [allow.authenticated()]),
+
+  CustomerShipmentSummary: a
+    .model({
+      customerId: a.id().required(),
+      customerNameSnapshot: a.string().required(),
+      pendingOrderCount: a.integer().required().default(0),
+      pendingItemCount: a.integer().required().default(0),
+      shippedOrderCount: a.integer().required().default(0),
+      shippedItemCount: a.integer().required().default(0),
+      ...sortFields(SORT_PARTITIONS.customerShipmentSummary),
+    })
+    .secondaryIndexes((index) => [
+      index("customerId")
+        .queryField("customerShipmentSummaryByCustomer")
+        .name("byCustomer"),
+      index("gsiPartition")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listCustomerShipmentSummariesByCreatedDate")
+        .name("byCreatedAt"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 
