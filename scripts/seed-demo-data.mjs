@@ -9,6 +9,7 @@ import {
   UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import { buildCustomerFulfillmentSummariesFromOrders } from "./customer-fulfillment-summary-lib.mjs";
 import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
 
 const { Random } = Mock;
@@ -689,103 +690,6 @@ function buildOrder(orderIndex, customer, products) {
   };
 }
 
-function buildCustomerFulfillmentSummaries(customers, orders) {
-  const summaryByCustomerId = new Map();
-
-  for (const order of orders) {
-    const customerId = order.customerId;
-    if (!customerId) {
-      continue;
-    }
-
-    const customerNameSnapshot = order.customerNameSnapshot ?? "未命名客戶";
-    const totalItemCount = order.items.reduce(
-      (sum, item) => sum + Number(item.quantity ?? 0),
-      0,
-    );
-    const latestReadyToShipReceivedAt = order.items
-      .filter((item) => item.receivedAt)
-      .reduce(
-        (latest, item) =>
-          latest && latest > item.receivedAt ? latest : item.receivedAt,
-        null,
-      );
-    const isPending = order.fulfillmentStatus === "UNFULFILLED";
-    const isReadyToShip = order.fulfillmentStatus === "READY_TO_SHIP";
-    const isShipped =
-      order.fulfillmentStatus === "SHIPPED" ||
-      order.fulfillmentStatus === "COMPLETED";
-    const pendingItemCount = isPending ? totalItemCount : 0;
-    const readyToShipItemCount = isReadyToShip ? totalItemCount : 0;
-    const shippedItemCount = isShipped ? totalItemCount : 0;
-
-    if (
-      !isPending &&
-      !isReadyToShip &&
-      !isShipped &&
-      pendingItemCount === 0 &&
-      readyToShipItemCount === 0 &&
-      shippedItemCount === 0
-    ) {
-      continue;
-    }
-
-    const existing = summaryByCustomerId.get(customerId) ?? {
-      id: customerId,
-      customerId,
-      customerNameSnapshot,
-      pendingOrderCount: 0,
-      pendingItemCount: 0,
-      readyToShipOrderCount: 0,
-      readyToShipItemCount: 0,
-      latestReadyToShipReceivedAt: null,
-      shippedOrderCount: 0,
-      shippedItemCount: 0,
-      completedOrderCount: 0,
-      totalOrderCount: 0,
-      gsiPartition: "CustomerFulfillmentSummary",
-      createdAtForSort: order.createdAt,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-    };
-
-    summaryByCustomerId.set(customerId, {
-      ...existing,
-      customerNameSnapshot,
-      pendingOrderCount: existing.pendingOrderCount + (isPending ? 1 : 0),
-      pendingItemCount: existing.pendingItemCount + pendingItemCount,
-      readyToShipOrderCount:
-        existing.readyToShipOrderCount + (isReadyToShip ? 1 : 0),
-      readyToShipItemCount:
-        existing.readyToShipItemCount + readyToShipItemCount,
-      latestReadyToShipReceivedAt:
-        existing.latestReadyToShipReceivedAt &&
-        latestReadyToShipReceivedAt
-          ? existing.latestReadyToShipReceivedAt > latestReadyToShipReceivedAt
-            ? existing.latestReadyToShipReceivedAt
-            : latestReadyToShipReceivedAt
-          : (existing.latestReadyToShipReceivedAt ?? latestReadyToShipReceivedAt),
-      shippedOrderCount: existing.shippedOrderCount + (isShipped ? 1 : 0),
-      shippedItemCount: existing.shippedItemCount + shippedItemCount,
-      completedOrderCount:
-        existing.completedOrderCount + (order.status === "COMPLETED" ? 1 : 0),
-      totalOrderCount: existing.totalOrderCount + 1,
-      createdAtForSort:
-        existing.createdAtForSort < order.createdAt
-          ? existing.createdAtForSort
-          : order.createdAt,
-      createdAt:
-        existing.createdAt < order.createdAt ? existing.createdAt : order.createdAt,
-      updatedAt:
-        existing.updatedAt > order.updatedAt ? existing.updatedAt : order.updatedAt,
-    });
-  }
-
-  return customers
-    .map((customer) => summaryByCustomerId.get(customer.id))
-    .filter(Boolean);
-}
-
 async function loadTableNames() {
   const raw = await readFile(new URL("../amplify_outputs.json", import.meta.url), "utf8");
   const outputs = JSON.parse(raw);
@@ -1009,8 +913,7 @@ async function main() {
       orderId: order.id,
     })),
   );
-  const customerFulfillmentSummaries = buildCustomerFulfillmentSummaries(
-    customers,
+  const customerFulfillmentSummaries = buildCustomerFulfillmentSummariesFromOrders(
     orders,
   );
 

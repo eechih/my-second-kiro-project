@@ -16,6 +16,7 @@ import { createProduct } from "./functions/create-product/resource";
 import { mergeOrders } from "./functions/merge-orders/resource";
 import { splitOrder } from "./functions/split-order/resource";
 import { generateThumbnail } from "./functions/generate-thumbnail/resource";
+import { getCustomerShipmentSummaries } from "./functions/list-customer-fulfillment-summaries/resource";
 
 const backend = defineBackend({
   auth,
@@ -30,6 +31,7 @@ const backend = defineBackend({
   confirmShipment,
   confirmReceived,
   createProduct,
+  getCustomerShipmentSummaries,
   mergeOrders,
   splitOrder,
   generateThumbnail,
@@ -86,6 +88,7 @@ const transactionalFunctions = [
   backend.confirmShipment,
   backend.confirmReceived,
   backend.createProduct,
+  backend.getCustomerShipmentSummaries,
   backend.mergeOrders,
   backend.splitOrder,
 ];
@@ -120,7 +123,10 @@ for (const fn of transactionalFunctions) {
   lambdaFn.addToRolePolicy(
     new PolicyStatement({
       actions: ["dynamodb:Query"],
-      resources: [`${orderItemTable.tableArn}/index/*`],
+      resources: [
+        `${orderItemTable.tableArn}/index/*`,
+        `${customerFulfillmentSummaryTable.tableArn}/index/*`,
+      ],
     }),
   );
 }

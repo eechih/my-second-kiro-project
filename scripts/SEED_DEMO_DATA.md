@@ -2,7 +2,7 @@
 
 這份文件說明如何使用 [seed-demo-data.mjs](/Users/eechih/github/eechih/my-second-kiro-project/scripts/seed-demo-data.mjs) 建立測試用的 `Customer`、`Supplier`、`Product`、`Order`、`OrderItem` 與 `CustomerFulfillmentSummary` 假資料。
 
-如果需要清空資料，也可以搭配 [clear-demo-data.mjs](/Users/eechih/github/eechih/my-second-kiro-project/scripts/clear-demo-data.mjs) 使用。
+如果需要清空資料或重建摘要，也可以搭配 [clear-demo-data.mjs](/Users/eechih/github/eechih/my-second-kiro-project/scripts/clear-demo-data.mjs) 與 [rebuild-customer-fulfillment-summaries.mjs](/Users/eechih/github/eechih/my-second-kiro-project/scripts/rebuild-customer-fulfillment-summaries.mjs) 使用。
 
 ## 用途
 
@@ -156,6 +156,41 @@ node scripts/clear-demo-data.mjs --dry-run
 - 這是破壞性操作
 - 沒有內建復原機制
 - 建議只在 sandbox 或測試環境執行
+
+## 只清除客戶出貨摘要
+
+如果只是 `CustomerFulfillmentSummary` 資料壞掉，想保留既有訂單與商品資料，可以只清摘要表：
+
+```bash
+npm run clear:customer-fulfillment-summary -- --confirm DELETE_ALL_DATA
+```
+
+先看預計刪除數量：
+
+```bash
+node scripts/clear-demo-data.mjs --only summary-only --dry-run
+```
+
+## 依現有訂單重建客戶出貨摘要
+
+如果你已經保留 `Order` / `OrderItem`，想直接把摘要重建回來，可以使用：
+
+```bash
+npm run rebuild:customer-fulfillment-summary -- --confirm REBUILD_SUMMARIES
+```
+
+先做 dry run：
+
+```bash
+node scripts/rebuild-customer-fulfillment-summaries.mjs --dry-run
+```
+
+這支腳本會：
+
+- 掃描現有 `Order`
+- 掃描現有 `OrderItem`
+- 清空 `CustomerFulfillmentSummary`
+- 依目前訂單狀態重新寫回摘要
 
 ## 建議流程
 

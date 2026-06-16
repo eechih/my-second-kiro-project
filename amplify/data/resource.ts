@@ -14,6 +14,7 @@ import { confirmPurchase } from "../functions/confirm-purchase/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
 import { confirmShipment } from "../functions/confirm-shipment/resource";
 import { createProduct } from "../functions/create-product/resource";
+import { getCustomerShipmentSummaries } from "../functions/list-customer-fulfillment-summaries/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
 import { splitOrder } from "../functions/split-order/resource";
 
@@ -70,6 +71,14 @@ function authenticatedJsonMutation<
   return a
     .mutation()
     .arguments(argumentsShape)
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(resource));
+}
+
+function authenticatedJsonQuery(resource: FunctionResource) {
+  return a
+    .query()
     .returns(a.json())
     .authorization((allow) => [allow.authenticated()])
     .handler(a.handler.function(resource));
@@ -384,6 +393,9 @@ const schema = a.schema({
   cancelShipment: authenticatedOrderItemMutation(cancelShipment),
   confirmOutOfStock: authenticatedOrderItemMutation(confirmOutOfStock),
   cancelOutOfStock: authenticatedOrderItemMutation(cancelOutOfStock),
+  getCustomerShipmentSummaries: authenticatedJsonQuery(
+    getCustomerShipmentSummaries,
+  ),
 
   mergeOrders: authenticatedJsonMutation(
     {

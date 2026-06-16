@@ -1,4 +1,8 @@
 import { client } from "@/lib/amplify-client";
+import {
+  normalizeCustomerFulfillmentSummary,
+  type CustomerFulfillmentSummary,
+} from "@shared/models/customer-fulfillment-summary";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 export type ShipmentStatusFilter =
@@ -7,39 +11,10 @@ export type ShipmentStatusFilter =
   | "readyToShip"
   | "shipped";
 
-export interface CustomerFulfillmentSummary {
-  customerId: string;
-  customerName: string;
-  pendingOrderCount: number;
-  pendingItemCount: number;
-  readyToShipOrderCount: number;
-  readyToShipItemCount: number;
-  shippedOrderCount: number;
-  shippedItemCount: number;
-  completedOrderCount: number;
-  totalOrderCount: number;
-  latestReadyToShipReceivedAt?: string;
-}
-
 const CUSTOMER_SHIPMENT_KEYS = {
   all: ["customer-shipments"] as const,
   summaries: () => [...CUSTOMER_SHIPMENT_KEYS.all, "summaries"] as const,
 };
-
-const CUSTOMER_FULFILLMENT_SUMMARY_SELECTION_SET = [
-  "id",
-  "customerId",
-  "customerNameSnapshot",
-  "pendingOrderCount",
-  "pendingItemCount",
-  "readyToShipOrderCount",
-  "readyToShipItemCount",
-  "latestReadyToShipReceivedAt",
-  "shippedOrderCount",
-  "shippedItemCount",
-  "completedOrderCount",
-  "totalOrderCount",
-] as const;
 
 export function sortCustomerShipmentSummaries(
   summaries: readonly CustomerFulfillmentSummary[],
@@ -79,57 +54,56 @@ export function sortCustomerShipmentSummaries(
 async function fetchCustomerShipmentSummaries(): Promise<
   CustomerFulfillmentSummary[]
 > {
-  const summaries: CustomerFulfillmentSummary[] = [];
-  let nextToken: string | undefined;
+  const { data, errors } = await client.queries.getCustomerShipmentSummaries(
+    {},
+  );
 
-  do {
-    const response =
-      await client.models.CustomerFulfillmentSummary.listCustomerFulfillmentSummariesByCreatedDate(
-        { gsiPartition: "CustomerFulfillmentSummary" },
-        {
-          limit: 1000,
-          sortDirection: "DESC",
-          ...(nextToken ? { nextToken } : {}),
-          selectionSet: CUSTOMER_FULFILLMENT_SUMMARY_SELECTION_SET,
-        } as Record<string, unknown>,
-      );
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢客戶出貨摘要失敗");
+  }
 
-    const { data, errors, nextToken: responseNextToken } = response;
+  const parsed = parseCustomerFulfillmentSummaries(data);
+  if (!parsed) {
+    throw new Error("查詢客戶出貨摘要失敗：回傳格式錯誤");
+  }
 
-    if (errors && errors.length > 0) {
-      throw new Error(errors[0]?.message ?? "查詢客戶出貨摘要失敗");
+  return parsed;
+}
+
+function parseCustomerFulfillmentSummaries(
+  result: unknown,
+): CustomerFulfillmentSummary[] | null {
+  let payload = result;
+
+  if (typeof payload === "string") {
+    try {
+      payload = JSON.parse(payload) as unknown;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const items = (payload as Record<string, unknown>)["items"];
+
+  if (!Array.isArray(items)) {
+    return null;
+  }
+
+  return items.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return [];
     }
 
-    for (const rawSummary of data ?? []) {
-      const summary = rawSummary as unknown as Record<string, unknown>;
-      const customerId = String(summary["customerId"] ?? summary["id"] ?? "");
+    const normalized = normalizeCustomerFulfillmentSummary(
+      item as Record<string, unknown>,
+    );
 
-      if (!customerId) {
-        continue;
-      }
-
-      summaries.push({
-        customerId,
-        customerName: String(summary["customerNameSnapshot"] ?? "未命名客戶"),
-        pendingOrderCount: Number(summary["pendingOrderCount"] ?? 0),
-        pendingItemCount: Number(summary["pendingItemCount"] ?? 0),
-        readyToShipOrderCount: Number(summary["readyToShipOrderCount"] ?? 0),
-        readyToShipItemCount: Number(summary["readyToShipItemCount"] ?? 0),
-        latestReadyToShipReceivedAt:
-          summary["latestReadyToShipReceivedAt"] != null
-            ? String(summary["latestReadyToShipReceivedAt"])
-            : undefined,
-        shippedOrderCount: Number(summary["shippedOrderCount"] ?? 0),
-        shippedItemCount: Number(summary["shippedItemCount"] ?? 0),
-        completedOrderCount: Number(summary["completedOrderCount"] ?? 0),
-        totalOrderCount: Number(summary["totalOrderCount"] ?? 0),
-      });
-    }
-
-    nextToken = responseNextToken ?? undefined;
-  } while (nextToken);
-
-  return summaries;
+    return normalized ? [normalized] : [];
+  });
 }
 
 export function useCustomerShipmentSummaries(
