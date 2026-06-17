@@ -1,8 +1,7 @@
 export interface CustomerShipmentSummaryRow {
   customerId: string;
   customerName: string;
-  latestReadyToShipReceivedAt?: string;
-  latestShippedAt?: string;
+  latestReceivedAt?: string;
   totalOrderCount: number;
   completedOrderCount: number;
   orderCount: number;
@@ -84,7 +83,6 @@ export function CustomerShipmentSummaryTable({
             <TableRow>
               <TableCell>客戶名稱</TableCell>
               <TableCell>最近可出貨時間</TableCell>
-              <TableCell>最近已出貨時間</TableCell>
               <TableCell align="right">{orderCountLabel}</TableCell>
               <TableCell align="right">{itemCountLabel}</TableCell>
               <TableCell align="right">已完成訂單數量</TableCell>
@@ -94,7 +92,7 @@ export function CustomerShipmentSummaryTable({
           <TableBody>
             {summaries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 5 }}>
                   <Typography color="text.secondary">
                     目前沒有符合條件的客戶
                   </Typography>
@@ -114,10 +112,7 @@ export function CustomerShipmentSummaryTable({
                   <TableCell sx={{ fontWeight: 600 }}>
                     {summary.customerName}
                   </TableCell>
-                  <TableCell>
-                    {formatDateTime(summary.latestReadyToShipReceivedAt)}
-                  </TableCell>
-                  <TableCell>{formatDateTime(summary.latestShippedAt)}</TableCell>
+                  <TableCell>{formatDateTime(summary.latestReceivedAt)}</TableCell>
                   <TableCell align="right">{summary.orderCount}</TableCell>
                   <TableCell align="right">{summary.itemCount}</TableCell>
                   <TableCell align="right">

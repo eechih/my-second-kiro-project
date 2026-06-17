@@ -15,7 +15,6 @@ import { CustomerShipmentSummaryTable } from "./-components/CustomerShipmentSumm
 
 const STATUS_FILTER_OPTIONS = [
   { value: "readyToShip", label: "可出貨" },
-  { value: "shipped", label: "已出貨" },
   { value: "all", label: "全部" },
 ] as const satisfies readonly { value: ShipmentStatusFilter; label: string }[];
 
@@ -23,9 +22,7 @@ function normalizeShipmentStatusFilter(
   value: unknown,
   fallback: ShipmentStatusFilter = "readyToShip",
 ): ShipmentStatusFilter {
-  return value === "readyToShip" ||
-    value === "shipped" ||
-    value === "all"
+  return value === "readyToShip" || value === "all"
     ? value
     : fallback;
 }
@@ -56,40 +53,22 @@ function CustomerShipmentListPage(): React.ReactElement {
           return {
             customerId: summary.customerId,
             customerName: summary.customerName,
-            latestReadyToShipReceivedAt: summary.latestReadyToShipReceivedAt,
-            latestShippedAt: summary.latestShippedAt,
+            latestReceivedAt: summary.latestReceivedAt,
             totalOrderCount: summary.totalOrderCount,
             completedOrderCount: summary.completedOrderCount,
             orderCount: summary.readyToShipOrderCount,
-            itemCount: summary.readyToShipItemCount,
-          };
-        }
-
-        if (statusFilter === "shipped") {
-          return {
-            customerId: summary.customerId,
-            customerName: summary.customerName,
-            latestReadyToShipReceivedAt: summary.latestReadyToShipReceivedAt,
-            latestShippedAt: summary.latestShippedAt,
-            totalOrderCount: summary.totalOrderCount,
-            completedOrderCount: summary.completedOrderCount,
-            orderCount: summary.shippedOrderCount,
-            itemCount: summary.shippedItemCount,
+            itemCount: summary.receivedItemCount,
           };
         }
 
         return {
           customerId: summary.customerId,
           customerName: summary.customerName,
-          latestReadyToShipReceivedAt: summary.latestReadyToShipReceivedAt,
-          latestShippedAt: summary.latestShippedAt,
+          latestReceivedAt: summary.latestReceivedAt,
           totalOrderCount: summary.totalOrderCount,
           completedOrderCount: summary.completedOrderCount,
           orderCount: summary.totalOrderCount,
-          itemCount:
-            summary.pendingItemCount +
-            summary.readyToShipItemCount +
-            summary.shippedItemCount,
+          itemCount: summary.receivedItemCount,
         };
       })
       .filter((summary) => summary.orderCount > 0)
@@ -110,15 +89,11 @@ function CustomerShipmentListPage(): React.ReactElement {
   const orderCountLabel =
     statusFilter === "readyToShip"
       ? "可出貨訂單數量"
-      : statusFilter === "shipped"
-        ? "已出貨訂單數量"
-        : "訂單數量";
+      : "訂單數量";
   const itemCountLabel =
     statusFilter === "readyToShip"
       ? "可出貨品項數量"
-      : statusFilter === "shipped"
-        ? "已出貨品項數量"
-        : "品項數量";
+      : "已到貨品項數量";
   const currentLabel =
     STATUS_FILTER_OPTIONS.find((option) => option.value === statusFilter)
       ?.label ?? "可出貨";

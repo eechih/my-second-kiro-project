@@ -24,7 +24,8 @@ import {
 import {
   buildShipmentSummaryDelta,
   buildShipmentSummaryTransactItem,
-  deriveLatestReadyToShipReceivedAtAfterTransition,
+  getReceivedItemCountDelta,
+  deriveLatestReceivedAtAfterTransition,
 } from "../customer-order-summary";
 
 const ddb = new DynamoDBClient({});
@@ -210,13 +211,18 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       fromOrderStatus: currentOrderStatus,
       toOrderStatus: derivedOrderStatus,
     });
-    const latestReadyToShipReceivedAt =
-      deriveLatestReadyToShipReceivedAtAfterTransition({
+    const latestReceivedAt =
+      deriveLatestReceivedAtAfterTransition({
         allOrderItems: summaryOrderItems,
         orderItemId,
         toReceivedAt: now,
         toStatus: "received",
       }) ?? null;
+    const receivedItemCountDelta = getReceivedItemCountDelta({
+      quantity,
+      fromStatus: status,
+      toStatus: "received",
+    });
 
     // 4. 建立交易項目（僅 2 個操作：OrderItem 更新 + 庫存更新）
     const transactItems: NonNullable<
@@ -282,7 +288,8 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       summaryResult,
       summaryTableName: summaryTable,
       delta: summaryDelta,
-      latestReadyToShipReceivedAt,
+      latestReceivedAt,
+      receivedItemCountDelta,
     });
     if (summaryTransactItem) {
       transactItems.push(summaryTransactItem);

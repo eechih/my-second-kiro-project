@@ -7,9 +7,7 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 export type ShipmentStatusFilter =
   | "all"
-  | "pending"
-  | "readyToShip"
-  | "shipped";
+  | "readyToShip";
 
 const CUSTOMER_SHIPMENT_KEYS = {
   all: ["customer-shipments"] as const,
@@ -22,29 +20,28 @@ export function sortCustomerShipmentSummaries(
 ): CustomerOrderSummary[] {
   return [...summaries].sort((a, b) => {
     if (statusFilter === "readyToShip" || statusFilter === "all") {
-      const timeA = a.latestReadyToShipReceivedAt
-        ? Date.parse(a.latestReadyToShipReceivedAt)
+      const timeA = a.latestReceivedAt;
+      const timeB = b.latestReceivedAt;
+      const timestampA = timeA
+        ? Date.parse(timeA)
         : Number.NEGATIVE_INFINITY;
-      const timeB = b.latestReadyToShipReceivedAt
-        ? Date.parse(b.latestReadyToShipReceivedAt)
-        : Number.NEGATIVE_INFINITY;
+      const timestampB = timeB ? Date.parse(timeB) : Number.NEGATIVE_INFINITY;
 
-      if (timeB !== timeA) {
-        return timeB - timeA;
+      if (timestampB !== timestampA) {
+        return timestampB - timestampA;
       }
+    }
+
+    if (b.readyToShipOrderCount !== a.readyToShipOrderCount) {
+      return b.readyToShipOrderCount - a.readyToShipOrderCount;
+    }
+
+    if (b.receivedItemCount !== a.receivedItemCount) {
+      return b.receivedItemCount - a.receivedItemCount;
     }
 
     if (b.totalOrderCount !== a.totalOrderCount) {
       return b.totalOrderCount - a.totalOrderCount;
-    }
-
-    const itemCountA =
-      a.pendingItemCount + a.readyToShipItemCount + a.shippedItemCount;
-    const itemCountB =
-      b.pendingItemCount + b.readyToShipItemCount + b.shippedItemCount;
-
-    if (itemCountB !== itemCountA) {
-      return itemCountB - itemCountA;
     }
 
     return a.customerName.localeCompare(b.customerName, "zh-Hant");

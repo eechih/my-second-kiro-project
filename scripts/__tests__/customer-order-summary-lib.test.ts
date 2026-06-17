@@ -45,15 +45,11 @@ describe("customer-order-summary-lib", () => {
     expect(summaries).toHaveLength(1);
     expect(summaries[0]).toMatchObject({
       customerId: "customer-1",
-      pendingOrderCount: 0,
-      pendingItemCount: 0,
       readyToShipOrderCount: 1,
-      readyToShipItemCount: 3,
-      shippedOrderCount: 0,
-      shippedItemCount: 0,
+      receivedItemCount: 3,
       completedOrderCount: 0,
       totalOrderCount: 1,
-      latestReadyToShipReceivedAt: "2026-06-12T08:00:00.000Z",
+      latestReceivedAt: "2026-06-12T08:00:00.000Z",
     });
   });
 
@@ -79,9 +75,6 @@ describe("customer-order-summary-lib", () => {
 
     expect(summaries[0]).toMatchObject({
       customerId: "customer-2",
-      shippedOrderCount: 1,
-      shippedItemCount: 2,
-      latestShippedAt: "2026-06-13T08:00:00.000Z",
       completedOrderCount: 1,
       totalOrderCount: 1,
     });
@@ -122,5 +115,6 @@ describe("customer-order-summary-lib", () => {
     expect(summaries).toHaveLength(1);
     expect(summaries[0]?.customerId).toBe("customer-1");
     expect(summaries[0]?.readyToShipOrderCount).toBe(1);
+    expect(summaries[0]?.receivedItemCount).toBe(1);
   });
 });

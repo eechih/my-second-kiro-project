@@ -7,15 +7,8 @@ import type { OrderStatus } from "@shared/models/order";
 
 type ShipmentStatus = "ordered" | "received" | "shipped";
 
-type ShipmentSummaryBucket = "pending" | "readyToShip" | "shipped";
-
 type ShipmentSummaryDelta = {
-  pendingOrderCountDelta: number;
-  pendingItemCountDelta: number;
   readyToShipOrderCountDelta: number;
-  readyToShipItemCountDelta: number;
-  shippedOrderCountDelta: number;
-  shippedItemCountDelta: number;
   completedOrderCountDelta: number;
   totalOrderCountDelta: number;
 };
@@ -23,14 +16,9 @@ type ShipmentSummaryDelta = {
 type ShipmentSummaryRecord = {
   customerId: string;
   customerNameSnapshot: string;
-  pendingOrderCount: number;
-  pendingItemCount: number;
   readyToShipOrderCount: number;
-  readyToShipItemCount: number;
-  latestReadyToShipReceivedAt?: string;
-  shippedOrderCount: number;
-  shippedItemCount: number;
-  latestShippedAt?: string;
+  receivedItemCount: number;
+  latestReceivedAt?: string;
   completedOrderCount: number;
   totalOrderCount: number;
   createdAt?: string;
@@ -48,33 +36,11 @@ function isShipmentRelevantOrder(status: OrderStatus): boolean {
   return status !== "CANCELLED";
 }
 
-function getShipmentSummaryBucket(
-  orderStatus: OrderStatus,
-): ShipmentSummaryBucket | null {
-  if (!isShipmentRelevantOrder(orderStatus)) {
-    return null;
-  }
-
-  switch (orderStatus) {
-    case "PENDING":
-    case "ORDERED":
-    case "OUT_OF_STOCK":
-      return "pending";
-    case "RECEIVED":
-      return "readyToShip";
-    case "SHIPPED":
-    case "COMPLETED":
-      return "shipped";
-    default:
-      return null;
-  }
+function isReadyToShipOrder(status: OrderStatus): boolean {
+  return status === "RECEIVED" && isShipmentRelevantOrder(status);
 }
 
-function getTotalItemQuantity(items: readonly OrderItemLike[]): number {
-  return items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
-}
-
-function getLatestReadyToShipReceivedAt(
+function getLatestReceivedAt(
   items: readonly OrderItemLike[],
 ): string | undefined {
   return items.reduce<string | undefined>((latest, item) => {
@@ -90,34 +56,17 @@ function getLatestReadyToShipReceivedAt(
   }, undefined);
 }
 
-function applyBucketDelta(
-  delta: ShipmentSummaryDelta,
-  bucket: ShipmentSummaryBucket | null,
-  quantity: number,
-  multiplier: 1 | -1,
-): ShipmentSummaryDelta {
-  if (bucket === "pending") {
-    delta.pendingOrderCountDelta += multiplier;
-    delta.pendingItemCountDelta += quantity * multiplier;
-    return delta;
-  }
+function getReceivedItemCount(items: readonly OrderItemLike[]): number {
+  return items.reduce((sum, item) => {
+    if (item.status !== "received") {
+      return sum;
+    }
 
-  if (bucket === "readyToShip") {
-    delta.readyToShipOrderCountDelta += multiplier;
-    delta.readyToShipItemCountDelta += quantity * multiplier;
-    return delta;
-  }
-
-  if (bucket === "shipped") {
-    delta.shippedOrderCountDelta += multiplier;
-    delta.shippedItemCountDelta += quantity * multiplier;
-  }
-
-  return delta;
+    return sum + Number(item.quantity ?? 0);
+  }, 0);
 }
 
 export function buildShipmentSummaryDelta({
-  allOrderItems,
   fromOrderStatus,
   toOrderStatus,
 }: {
@@ -125,17 +74,10 @@ export function buildShipmentSummaryDelta({
   fromOrderStatus: OrderStatus;
   toOrderStatus: OrderStatus;
 }): ShipmentSummaryDelta {
-  const quantity = getTotalItemQuantity(allOrderItems);
-  const beforeBucket = getShipmentSummaryBucket(fromOrderStatus);
-  const afterBucket = getShipmentSummaryBucket(toOrderStatus);
-
-  const delta: ShipmentSummaryDelta = {
-    pendingOrderCountDelta: 0,
-    pendingItemCountDelta: 0,
-    readyToShipOrderCountDelta: 0,
-    readyToShipItemCountDelta: 0,
-    shippedOrderCountDelta: 0,
-    shippedItemCountDelta: 0,
+  return {
+    readyToShipOrderCountDelta:
+      Number(isReadyToShipOrder(toOrderStatus)) -
+      Number(isReadyToShipOrder(fromOrderStatus)),
     completedOrderCountDelta:
       Number(toOrderStatus === "COMPLETED") -
       Number(fromOrderStatus === "COMPLETED"),
@@ -143,11 +85,6 @@ export function buildShipmentSummaryDelta({
       Number(isShipmentRelevantOrder(toOrderStatus)) -
       Number(isShipmentRelevantOrder(fromOrderStatus)),
   };
-
-  applyBucketDelta(delta, beforeBucket, quantity, -1);
-  applyBucketDelta(delta, afterBucket, quantity, 1);
-
-  return delta;
 }
 
 export function buildShipmentSummaryTransactItem({
@@ -157,8 +94,8 @@ export function buildShipmentSummaryTransactItem({
   summaryResult,
   summaryTableName,
   delta,
-  latestReadyToShipReceivedAt,
-  latestShippedAt,
+  latestReceivedAt,
+  receivedItemCountDelta,
 }: {
   customerId: string;
   customerNameSnapshot: string;
@@ -166,8 +103,8 @@ export function buildShipmentSummaryTransactItem({
   summaryResult?: GetItemCommandOutput;
   summaryTableName: string;
   delta: ShipmentSummaryDelta;
-  latestReadyToShipReceivedAt?: string | null;
-  latestShippedAt?: string | null;
+  latestReceivedAt?: string | null;
+  receivedItemCountDelta: number;
 }): TransactWriteItem | null {
   const rawSummary = summaryResult?.Item ? unmarshall(summaryResult.Item) : null;
   const existingSummary = rawSummary
@@ -176,17 +113,10 @@ export function buildShipmentSummaryTransactItem({
         customerNameSnapshot: String(
           rawSummary["customerNameSnapshot"] ?? customerNameSnapshot,
         ),
-        pendingOrderCount: Number(rawSummary["pendingOrderCount"] ?? 0),
-        pendingItemCount: Number(rawSummary["pendingItemCount"] ?? 0),
         readyToShipOrderCount: Number(rawSummary["readyToShipOrderCount"] ?? 0),
-        readyToShipItemCount: Number(rawSummary["readyToShipItemCount"] ?? 0),
-        latestReadyToShipReceivedAt: rawSummary["latestReadyToShipReceivedAt"]
-          ? String(rawSummary["latestReadyToShipReceivedAt"])
-          : undefined,
-        shippedOrderCount: Number(rawSummary["shippedOrderCount"] ?? 0),
-        shippedItemCount: Number(rawSummary["shippedItemCount"] ?? 0),
-        latestShippedAt: rawSummary["latestShippedAt"]
-          ? String(rawSummary["latestShippedAt"])
+        receivedItemCount: Number(rawSummary["receivedItemCount"] ?? 0),
+        latestReceivedAt: rawSummary["latestReceivedAt"]
+          ? String(rawSummary["latestReceivedAt"])
           : undefined,
         completedOrderCount: Number(rawSummary["completedOrderCount"] ?? 0),
         totalOrderCount: Number(rawSummary["totalOrderCount"] ?? 0),
@@ -197,20 +127,11 @@ export function buildShipmentSummaryTransactItem({
     : null;
 
   const nextSummary = {
-    pendingOrderCount:
-      (existingSummary?.pendingOrderCount ?? 0) + delta.pendingOrderCountDelta,
-    pendingItemCount:
-      (existingSummary?.pendingItemCount ?? 0) + delta.pendingItemCountDelta,
     readyToShipOrderCount:
       (existingSummary?.readyToShipOrderCount ?? 0) +
       delta.readyToShipOrderCountDelta,
-    readyToShipItemCount:
-      (existingSummary?.readyToShipItemCount ?? 0) +
-      delta.readyToShipItemCountDelta,
-    shippedOrderCount:
-      (existingSummary?.shippedOrderCount ?? 0) + delta.shippedOrderCountDelta,
-    shippedItemCount:
-      (existingSummary?.shippedItemCount ?? 0) + delta.shippedItemCountDelta,
+    receivedItemCount:
+      (existingSummary?.receivedItemCount ?? 0) + receivedItemCountDelta,
     completedOrderCount:
       (existingSummary?.completedOrderCount ?? 0) +
       delta.completedOrderCountDelta,
@@ -219,12 +140,8 @@ export function buildShipmentSummaryTransactItem({
   };
 
   if (
-    nextSummary.pendingOrderCount < 0 ||
-    nextSummary.pendingItemCount < 0 ||
     nextSummary.readyToShipOrderCount < 0 ||
-    nextSummary.readyToShipItemCount < 0 ||
-    nextSummary.shippedOrderCount < 0 ||
-    nextSummary.shippedItemCount < 0 ||
+    nextSummary.receivedItemCount < 0 ||
     nextSummary.completedOrderCount < 0 ||
     nextSummary.totalOrderCount < 0
   ) {
@@ -232,12 +149,8 @@ export function buildShipmentSummaryTransactItem({
   }
 
   const shouldDelete =
-    nextSummary.pendingOrderCount === 0 &&
-    nextSummary.pendingItemCount === 0 &&
     nextSummary.readyToShipOrderCount === 0 &&
-    nextSummary.readyToShipItemCount === 0 &&
-    nextSummary.shippedOrderCount === 0 &&
-    nextSummary.shippedItemCount === 0 &&
+    nextSummary.receivedItemCount === 0 &&
     nextSummary.completedOrderCount === 0 &&
     nextSummary.totalOrderCount === 0;
 
@@ -258,20 +171,15 @@ export function buildShipmentSummaryTransactItem({
     id: customerId,
     customerId,
     customerNameSnapshot,
-    pendingOrderCount: nextSummary.pendingOrderCount,
-    pendingItemCount: nextSummary.pendingItemCount,
     readyToShipOrderCount: nextSummary.readyToShipOrderCount,
-    readyToShipItemCount: nextSummary.readyToShipItemCount,
-    latestReadyToShipReceivedAt:
-      latestReadyToShipReceivedAt === undefined
-        ? existingSummary?.latestReadyToShipReceivedAt
-        : latestReadyToShipReceivedAt,
-    shippedOrderCount: nextSummary.shippedOrderCount,
-    shippedItemCount: nextSummary.shippedItemCount,
-    latestShippedAt:
-      latestShippedAt === undefined
-        ? existingSummary?.latestShippedAt
-        : latestShippedAt,
+    receivedItemCount: nextSummary.receivedItemCount,
+    latestReceivedAt:
+      latestReceivedAt === undefined
+        ? existingSummary?.latestReceivedAt
+        : latestReceivedAt ??
+            (nextSummary.receivedItemCount > 0
+              ? existingSummary?.latestReceivedAt
+              : null),
     completedOrderCount: nextSummary.completedOrderCount,
     totalOrderCount: nextSummary.totalOrderCount,
     gsiPartition: "CustomerOrderSummary",
@@ -288,7 +196,26 @@ export function buildShipmentSummaryTransactItem({
   };
 }
 
-export function deriveLatestReadyToShipReceivedAtAfterTransition({
+export function getReceivedItemCountDelta({
+  quantity,
+  fromStatus,
+  toStatus,
+}: {
+  quantity: number;
+  fromStatus: ShipmentStatus;
+  toStatus: ShipmentStatus;
+}): number {
+  const wasReceived = fromStatus === "received";
+  const isReceived = toStatus === "received";
+
+  if (wasReceived === isReceived) {
+    return 0;
+  }
+
+  return isReceived ? quantity : -quantity;
+}
+
+export function deriveLatestReceivedAtAfterTransition({
   allOrderItems,
   orderItemId,
   toReceivedAt,
@@ -309,7 +236,24 @@ export function deriveLatestReadyToShipReceivedAtAfterTransition({
         : item.receivedAt,
   }));
 
-  return getLatestReadyToShipReceivedAt(afterItems);
+  return getLatestReceivedAt(afterItems);
+}
+
+export function deriveReceivedItemCountAfterTransition({
+  allOrderItems,
+  orderItemId,
+  toStatus,
+}: {
+  allOrderItems: readonly OrderItemLike[];
+  orderItemId: string;
+  toStatus: ShipmentStatus;
+}): number {
+  const afterItems = allOrderItems.map((item) => ({
+    ...item,
+    status: item.id === orderItemId ? toStatus : item.status,
+  }));
+
+  return getReceivedItemCount(afterItems);
 }
 
 export function deriveLatestShippedAtAfterTransition({

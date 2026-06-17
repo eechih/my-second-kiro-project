@@ -93,13 +93,9 @@ node scripts/seed-demo-data.mjs --dry-run
 - `Product.sequenceNumber`
 - `Product.sku`
 - `Product.defaultSupplierId`
-- `CustomerOrderSummary.pendingOrderCount`
-- `CustomerOrderSummary.pendingItemCount`
 - `CustomerOrderSummary.readyToShipOrderCount`
-- `CustomerOrderSummary.readyToShipItemCount`
-- `CustomerOrderSummary.latestReadyToShipReceivedAt`
-- `CustomerOrderSummary.shippedOrderCount`
-- `CustomerOrderSummary.shippedItemCount`
+- `CustomerOrderSummary.receivedItemCount`
+- `CustomerOrderSummary.latestReceivedAt`
 - `CustomerOrderSummary.completedOrderCount`
 - `CustomerOrderSummary.totalOrderCount`
 - `SequenceCounter` 的 `ProductSku` 流水號

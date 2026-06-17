@@ -1,16 +1,11 @@
 export interface CustomerOrderSummary {
   customerId: string;
   customerName: string;
-  pendingOrderCount: number;
-  pendingItemCount: number;
   readyToShipOrderCount: number;
-  readyToShipItemCount: number;
-  shippedOrderCount: number;
-  shippedItemCount: number;
-  latestShippedAt?: string;
+  receivedItemCount: number;
+  latestReceivedAt?: string;
   completedOrderCount: number;
   totalOrderCount: number;
-  latestReadyToShipReceivedAt?: string;
 }
 
 function toInteger(value: unknown): number {
@@ -32,19 +27,11 @@ export function normalizeCustomerOrderSummary(
     customerName: String(
       raw["customerName"] ?? raw["customerNameSnapshot"] ?? "未命名客戶",
     ),
-    pendingOrderCount: toInteger(raw["pendingOrderCount"]),
-    pendingItemCount: toInteger(raw["pendingItemCount"]),
     readyToShipOrderCount: toInteger(raw["readyToShipOrderCount"]),
-    readyToShipItemCount: toInteger(raw["readyToShipItemCount"]),
-    latestReadyToShipReceivedAt:
-      raw["latestReadyToShipReceivedAt"] != null
-        ? String(raw["latestReadyToShipReceivedAt"])
-        : undefined,
-    shippedOrderCount: toInteger(raw["shippedOrderCount"]),
-    shippedItemCount: toInteger(raw["shippedItemCount"]),
-    latestShippedAt:
-      raw["latestShippedAt"] != null
-        ? String(raw["latestShippedAt"])
+    receivedItemCount: toInteger(raw["receivedItemCount"]),
+    latestReceivedAt:
+      raw["latestReceivedAt"] != null
+        ? String(raw["latestReceivedAt"])
         : undefined,
     completedOrderCount: toInteger(raw["completedOrderCount"]),
     totalOrderCount: toInteger(raw["totalOrderCount"]),

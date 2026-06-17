@@ -8,14 +8,14 @@ function getLatestReceivedAt(items) {
     );
 }
 
-function getLatestShippedAt(items) {
-  return items
-    .filter((item) => item.status === "shipped" && item.shippedAt)
-    .reduce(
-      (latest, item) =>
-        latest && latest > item.shippedAt ? latest : item.shippedAt,
-      null,
-    );
+function getReceivedItemCount(items) {
+  return items.reduce((sum, item) => {
+    if (item.status !== "received") {
+      return sum;
+    }
+
+    return sum + Number(item.quantity ?? 0);
+  }, 0);
 }
 
 function isShipmentRelevantOrder(order) {
@@ -26,24 +26,8 @@ function isShipmentRelevantOrder(order) {
   );
 }
 
-function getShipmentSummaryBucket(order) {
-  if (!isShipmentRelevantOrder(order)) {
-    return null;
-  }
-
-  switch (order.status) {
-    case "PENDING":
-    case "ORDERED":
-    case "OUT_OF_STOCK":
-      return "pending";
-    case "RECEIVED":
-      return "readyToShip";
-    case "SHIPPED":
-    case "COMPLETED":
-      return "shipped";
-    default:
-      return null;
-  }
+function isReadyToShipOrder(order) {
+  return order.status === "RECEIVED" && isShipmentRelevantOrder(order);
 }
 
 export function buildCustomerOrderSummariesFromOrders(input) {
@@ -66,27 +50,15 @@ export function buildCustomerOrderSummariesFromOrders(input) {
 
     const items = Array.isArray(order.items) ? order.items : [];
     const customerNameSnapshot = order.customerNameSnapshot ?? "未命名客戶";
-    const totalItemCount = items.reduce(
-      (sum, item) => sum + Number(item.quantity ?? 0),
-      0,
-    );
-    const bucket = getShipmentSummaryBucket(order);
-    const latestReadyToShipReceivedAt =
-      bucket === "readyToShip" ? getLatestReceivedAt(items) : null;
-    const latestShippedAt = bucket === "shipped" ? getLatestShippedAt(items) : null;
-    const isPending = bucket === "pending";
-    const isReadyToShip = bucket === "readyToShip";
-    const isShipped = bucket === "shipped";
-    const pendingItemCount = isPending ? totalItemCount : 0;
-    const readyToShipItemCount = isReadyToShip ? totalItemCount : 0;
-    const shippedItemCount = isShipped ? totalItemCount : 0;
+    const receivedItemCount = getReceivedItemCount(items);
+    const latestReceivedAt = getLatestReceivedAt(items);
     const totalOrderCount = isShipmentRelevantOrder(order) ? 1 : 0;
     const completedOrderCount = order.status === "COMPLETED" ? 1 : 0;
+    const readyToShipOrderCount = isReadyToShipOrder(order) ? 1 : 0;
 
     if (
-      !isPending &&
-      !isReadyToShip &&
-      !isShipped &&
+      readyToShipOrderCount === 0 &&
+      receivedItemCount === 0 &&
       totalOrderCount === 0 &&
       completedOrderCount === 0
     ) {
@@ -97,14 +69,9 @@ export function buildCustomerOrderSummariesFromOrders(input) {
       id: customerId,
       customerId,
       customerNameSnapshot,
-      pendingOrderCount: 0,
-      pendingItemCount: 0,
       readyToShipOrderCount: 0,
-      readyToShipItemCount: 0,
-      latestReadyToShipReceivedAt: null,
-      shippedOrderCount: 0,
-      shippedItemCount: 0,
-      latestShippedAt: null,
+      receivedItemCount: 0,
+      latestReceivedAt: null,
       completedOrderCount: 0,
       totalOrderCount: 0,
       gsiPartition: "CustomerOrderSummary",
@@ -116,27 +83,15 @@ export function buildCustomerOrderSummariesFromOrders(input) {
     summaryByCustomerId.set(customerId, {
       ...existing,
       customerNameSnapshot,
-      pendingOrderCount: existing.pendingOrderCount + (isPending ? 1 : 0),
-      pendingItemCount: existing.pendingItemCount + pendingItemCount,
       readyToShipOrderCount:
-        existing.readyToShipOrderCount + (isReadyToShip ? 1 : 0),
-      readyToShipItemCount:
-        existing.readyToShipItemCount + readyToShipItemCount,
-      latestReadyToShipReceivedAt:
-        existing.latestReadyToShipReceivedAt &&
-        latestReadyToShipReceivedAt
-          ? existing.latestReadyToShipReceivedAt > latestReadyToShipReceivedAt
-            ? existing.latestReadyToShipReceivedAt
-            : latestReadyToShipReceivedAt
-          : (existing.latestReadyToShipReceivedAt ?? latestReadyToShipReceivedAt),
-      shippedOrderCount: existing.shippedOrderCount + (isShipped ? 1 : 0),
-      shippedItemCount: existing.shippedItemCount + shippedItemCount,
-      latestShippedAt:
-        existing.latestShippedAt && latestShippedAt
-          ? existing.latestShippedAt > latestShippedAt
-            ? existing.latestShippedAt
-            : latestShippedAt
-          : (existing.latestShippedAt ?? latestShippedAt),
+        existing.readyToShipOrderCount + readyToShipOrderCount,
+      receivedItemCount: existing.receivedItemCount + receivedItemCount,
+      latestReceivedAt:
+        existing.latestReceivedAt && latestReceivedAt
+          ? existing.latestReceivedAt > latestReceivedAt
+            ? existing.latestReceivedAt
+            : latestReceivedAt
+          : (existing.latestReceivedAt ?? latestReceivedAt),
       completedOrderCount:
         existing.completedOrderCount + completedOrderCount,
       totalOrderCount: existing.totalOrderCount + totalOrderCount,

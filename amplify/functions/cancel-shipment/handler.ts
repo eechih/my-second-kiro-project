@@ -24,8 +24,8 @@ import {
 import {
   buildShipmentSummaryDelta,
   buildShipmentSummaryTransactItem,
-  deriveLatestShippedAtAfterTransition,
-  deriveLatestReadyToShipReceivedAtAfterTransition,
+  getReceivedItemCountDelta,
+  deriveLatestReceivedAtAfterTransition,
 } from "../customer-order-summary";
 
 const ddb = new DynamoDBClient({});
@@ -217,8 +217,8 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       fromOrderStatus: currentOrderStatus,
       toOrderStatus: derivedOrderStatus,
     });
-    const latestReadyToShipReceivedAt =
-      deriveLatestReadyToShipReceivedAtAfterTransition({
+    const latestReceivedAt =
+      deriveLatestReceivedAtAfterTransition({
         allOrderItems: summaryOrderItems,
         orderItemId,
         toReceivedAt:
@@ -227,9 +227,9 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
             : undefined,
         toStatus: "received",
       }) ?? null;
-    const latestShippedAt = deriveLatestShippedAtAfterTransition({
-      allOrderItems: summaryOrderItems,
-      orderItemId,
+    const receivedItemCountDelta = getReceivedItemCountDelta({
+      quantity,
+      fromStatus: status,
       toStatus: "received",
     });
     const transactItems: NonNullable<
@@ -301,8 +301,8 @@ export const handler: Schema["cancelShipment"]["functionHandler"] = async (
       summaryResult,
       summaryTableName: summaryTable,
       delta: summaryDelta,
-      latestReadyToShipReceivedAt,
-      latestShippedAt,
+      latestReceivedAt,
+      receivedItemCountDelta,
     });
     if (summaryTransactItem) {
       transactItems.push(summaryTransactItem);

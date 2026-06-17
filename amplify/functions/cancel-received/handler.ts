@@ -23,7 +23,8 @@ import {
 import {
   buildShipmentSummaryDelta,
   buildShipmentSummaryTransactItem,
-  deriveLatestReadyToShipReceivedAtAfterTransition,
+  getReceivedItemCountDelta,
+  deriveLatestReceivedAtAfterTransition,
 } from "../customer-order-summary";
 
 const ddb = new DynamoDBClient({});
@@ -185,12 +186,17 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       fromOrderStatus: currentOrderStatus,
       toOrderStatus: derivedOrderStatus,
     });
-    const latestReadyToShipReceivedAt =
-      deriveLatestReadyToShipReceivedAtAfterTransition({
+    const latestReceivedAt =
+      deriveLatestReceivedAtAfterTransition({
         allOrderItems: summaryOrderItems,
         orderItemId,
         toStatus: "ordered",
       }) ?? null;
+    const receivedItemCountDelta = getReceivedItemCountDelta({
+      quantity,
+      fromStatus: status,
+      toStatus: "ordered",
+    });
 
     const transactItems: NonNullable<
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]
@@ -267,7 +273,8 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       summaryResult,
       summaryTableName: summaryTable,
       delta: summaryDelta,
-      latestReadyToShipReceivedAt,
+      latestReceivedAt,
+      receivedItemCountDelta,
     });
     if (summaryTransactItem) {
       transactItems.push(summaryTransactItem);
