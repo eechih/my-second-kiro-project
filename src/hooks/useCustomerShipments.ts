@@ -1,8 +1,8 @@
 import { client } from "@/lib/amplify-client";
 import {
-  normalizeCustomerFulfillmentSummary,
-  type CustomerFulfillmentSummary,
-} from "@shared/models/customer-fulfillment-summary";
+  normalizeCustomerOrderSummary,
+  type CustomerOrderSummary,
+} from "@shared/models/customer-order-summary";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 export type ShipmentStatusFilter =
@@ -17,9 +17,9 @@ const CUSTOMER_SHIPMENT_KEYS = {
 };
 
 export function sortCustomerShipmentSummaries(
-  summaries: readonly CustomerFulfillmentSummary[],
+  summaries: readonly CustomerOrderSummary[],
   statusFilter: ShipmentStatusFilter = "all",
-): CustomerFulfillmentSummary[] {
+): CustomerOrderSummary[] {
   return [...summaries].sort((a, b) => {
     if (statusFilter === "readyToShip" || statusFilter === "all") {
       const timeA = a.latestReadyToShipReceivedAt
@@ -52,17 +52,15 @@ export function sortCustomerShipmentSummaries(
 }
 
 async function fetchCustomerShipmentSummaries(): Promise<
-  CustomerFulfillmentSummary[]
+  CustomerOrderSummary[]
 > {
-  const { data, errors } = await client.queries.getCustomerShipmentSummaries(
-    {},
-  );
+  const { data, errors } = await client.queries.getCustomerOrderSummaries({});
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "查詢客戶出貨摘要失敗");
   }
 
-  const parsed = parseCustomerFulfillmentSummaries(data);
+  const parsed = parseCustomerOrderSummaries(data);
   if (!parsed) {
     throw new Error("查詢客戶出貨摘要失敗：回傳格式錯誤");
   }
@@ -70,15 +68,15 @@ async function fetchCustomerShipmentSummaries(): Promise<
   return parsed;
 }
 
-function parseCustomerFulfillmentSummaries(
+function parseCustomerOrderSummaries(
   result: unknown,
-): CustomerFulfillmentSummary[] | null {
+): CustomerOrderSummary[] | null {
   const payload = parseJsonPayload(result);
   if (payload == null) {
     return [];
   }
 
-  const items = extractCustomerFulfillmentSummaryItems(payload);
+  const items = extractCustomerOrderSummaryItems(payload);
   if (!items) {
     return null;
   }
@@ -88,7 +86,7 @@ function parseCustomerFulfillmentSummaries(
       return [];
     }
 
-    const normalized = normalizeCustomerFulfillmentSummary(
+    const normalized = normalizeCustomerOrderSummary(
       item as Record<string, unknown>,
     );
 
@@ -115,7 +113,7 @@ function parseJsonPayload(result: unknown): unknown {
   return current;
 }
 
-function extractCustomerFulfillmentSummaryItems(
+function extractCustomerOrderSummaryItems(
   payload: unknown,
 ): unknown[] | null {
   if (Array.isArray(payload)) {
@@ -148,7 +146,7 @@ function extractCustomerFulfillmentSummaryItems(
 
 export function useCustomerShipmentSummaries(
   statusFilter: ShipmentStatusFilter = "all",
-): UseQueryResult<CustomerFulfillmentSummary[]> {
+): UseQueryResult<CustomerOrderSummary[]> {
   return useQuery({
     queryKey: [...CUSTOMER_SHIPMENT_KEYS.summaries(), statusFilter],
     queryFn: fetchCustomerShipmentSummaries,

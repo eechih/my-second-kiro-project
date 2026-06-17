@@ -46,7 +46,7 @@ function getShipmentSummaryBucket(order) {
   }
 }
 
-export function buildCustomerFulfillmentSummariesFromOrders(input) {
+export function buildCustomerOrderSummariesFromOrders(input) {
   const orders = Array.isArray(input) ? input : input.orders;
   const customers = Array.isArray(input) ? undefined : input.customers;
   const summaryByCustomerId = new Map();
@@ -107,7 +107,7 @@ export function buildCustomerFulfillmentSummariesFromOrders(input) {
       latestShippedAt: null,
       completedOrderCount: 0,
       totalOrderCount: 0,
-      gsiPartition: "CustomerFulfillmentSummary",
+      gsiPartition: "CustomerOrderSummary",
       createdAtForSort: order.createdAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,

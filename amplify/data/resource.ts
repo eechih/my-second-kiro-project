@@ -13,13 +13,13 @@ import { confirmPurchase } from "../functions/confirm-purchase/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
 import { confirmShipment } from "../functions/confirm-shipment/resource";
 import { createProduct } from "../functions/create-product/resource";
-import { getCustomerShipmentSummaries } from "../functions/list-customer-fulfillment-summaries/resource";
+import { getCustomerOrderSummaries } from "../functions/list-customer-order-summaries/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
 import { splitOrder } from "../functions/split-order/resource";
 
 const SORT_PARTITIONS = {
   customer: "Customer",
-  customerFulfillmentSummary: "CustomerFulfillmentSummary",
+  customerOrderSummary: "CustomerOrderSummary",
   supplier: "Supplier",
   product: "Product",
   order: "Order",
@@ -328,7 +328,7 @@ const schema = a.schema({
     ])
     .authorization((allow) => [allow.authenticated()]),
 
-  CustomerFulfillmentSummary: a
+  CustomerOrderSummary: a
     .model({
       customerId: a.id().required(),
       customerNameSnapshot: a.string().required(),
@@ -342,15 +342,15 @@ const schema = a.schema({
       latestShippedAt: a.datetime(),
       completedOrderCount: a.integer().required().default(0),
       totalOrderCount: a.integer().required().default(0),
-      ...sortFields(SORT_PARTITIONS.customerFulfillmentSummary),
+      ...sortFields(SORT_PARTITIONS.customerOrderSummary),
     })
     .secondaryIndexes((index) => [
       index("customerId")
-        .queryField("customerFulfillmentSummaryByCustomer")
+        .queryField("customerOrderSummaryByCustomer")
         .name("byCustomer"),
       index("gsiPartition")
         .sortKeys(["createdAtForSort"])
-        .queryField("listCustomerFulfillmentSummariesByCreatedDate")
+        .queryField("listCustomerOrderSummariesByCreatedDate")
         .name("byCreatedAt"),
     ])
     .authorization((allow) => [allow.authenticated()]),
@@ -386,8 +386,8 @@ const schema = a.schema({
   cancelShipment: authenticatedOrderItemMutation(cancelShipment),
   confirmOutOfStock: authenticatedOrderItemMutation(confirmOutOfStock),
   cancelOutOfStock: authenticatedOrderItemMutation(cancelOutOfStock),
-  getCustomerShipmentSummaries: authenticatedJsonQuery(
-    getCustomerShipmentSummaries,
+  getCustomerOrderSummaries: authenticatedJsonQuery(
+    getCustomerOrderSummaries,
   ),
 
   mergeOrders: authenticatedJsonMutation(

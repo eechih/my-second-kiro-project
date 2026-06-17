@@ -16,7 +16,7 @@ import { createProduct } from "./functions/create-product/resource";
 import { mergeOrders } from "./functions/merge-orders/resource";
 import { splitOrder } from "./functions/split-order/resource";
 import { generateThumbnail } from "./functions/generate-thumbnail/resource";
-import { getCustomerShipmentSummaries } from "./functions/list-customer-fulfillment-summaries/resource";
+import { getCustomerOrderSummaries } from "./functions/list-customer-order-summaries/resource";
 
 const backend = defineBackend({
   auth,
@@ -31,7 +31,7 @@ const backend = defineBackend({
   confirmShipment,
   confirmReceived,
   createProduct,
-  getCustomerShipmentSummaries,
+  getCustomerOrderSummaries,
   mergeOrders,
   splitOrder,
   generateThumbnail,
@@ -48,19 +48,19 @@ const tables = backend.data.resources.tables;
 // 取得各模型對應的 DynamoDB 表格
 const orderTable = tables["Order"];
 const orderItemTable = tables["OrderItem"];
-const customerFulfillmentSummaryTable = tables["CustomerFulfillmentSummary"];
+const customerOrderSummaryTable = tables["CustomerOrderSummary"];
 const productTable = tables["Product"];
 const productCounterTable = tables["SequenceCounter"];
 
 if (
   !orderTable ||
   !orderItemTable ||
-  !customerFulfillmentSummaryTable ||
+  !customerOrderSummaryTable ||
   !productTable ||
   !productCounterTable
 ) {
   throw new Error(
-    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、CustomerFulfillmentSummary、Product、SequenceCounter 模型。",
+    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、CustomerOrderSummary、Product、SequenceCounter 模型。",
   );
 }
 
@@ -88,7 +88,7 @@ const transactionalFunctions = [
   backend.confirmShipment,
   backend.confirmReceived,
   backend.createProduct,
-  backend.getCustomerShipmentSummaries,
+  backend.getCustomerOrderSummaries,
   backend.mergeOrders,
   backend.splitOrder,
 ];
@@ -102,8 +102,8 @@ for (const fn of transactionalFunctions) {
   lambdaFn.addEnvironment("ORDER_TABLE_NAME", orderTable.tableName);
   lambdaFn.addEnvironment("ORDER_ITEM_TABLE_NAME", orderItemTable.tableName);
   lambdaFn.addEnvironment(
-    "CUSTOMER_FULFILLMENT_SUMMARY_TABLE_NAME",
-    customerFulfillmentSummaryTable.tableName,
+    "CUSTOMER_ORDER_SUMMARY_TABLE_NAME",
+    customerOrderSummaryTable.tableName,
   );
   lambdaFn.addEnvironment("PRODUCT_TABLE_NAME", productTable.tableName);
   lambdaFn.addEnvironment(
@@ -114,7 +114,7 @@ for (const fn of transactionalFunctions) {
   // 授予 DynamoDB 讀寫權限
   orderTable.grantReadWriteData(lambdaFn);
   orderItemTable.grantReadWriteData(lambdaFn);
-  customerFulfillmentSummaryTable.grantReadWriteData(lambdaFn);
+  customerOrderSummaryTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
   productCounterTable.grantReadWriteData(lambdaFn);
 
@@ -125,7 +125,7 @@ for (const fn of transactionalFunctions) {
       actions: ["dynamodb:Query"],
       resources: [
         `${orderItemTable.tableArn}/index/*`,
-        `${customerFulfillmentSummaryTable.tableArn}/index/*`,
+        `${customerOrderSummaryTable.tableArn}/index/*`,
       ],
     }),
   );

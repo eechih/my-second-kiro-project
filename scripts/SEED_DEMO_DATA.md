@@ -1,8 +1,8 @@
 # Seed Demo Data
 
-這份文件說明如何使用 [seed-demo-data.mjs](/Users/eechih/github/eechih/my-second-kiro-project/scripts/seed-demo-data.mjs) 建立測試用的 `Customer`、`Supplier`、`Product`、`Order`、`OrderItem` 與 `CustomerFulfillmentSummary` 假資料。
+這份文件說明如何使用 [seed-demo-data.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/seed-demo-data.mjs) 建立測試用的 `Customer`、`Supplier`、`Product`、`Order`、`OrderItem` 與 `CustomerOrderSummary` 假資料。
 
-如果需要清空資料或重建摘要，也可以搭配 [clear-demo-data.mjs](/Users/eechih/github/eechih/my-second-kiro-project/scripts/clear-demo-data.mjs) 與 [rebuild-customer-fulfillment-summaries.mjs](/Users/eechih/github/eechih/my-second-kiro-project/scripts/rebuild-customer-fulfillment-summaries.mjs) 使用。
+如果需要清空資料或重建摘要，也可以搭配 [clear-demo-data.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/clear-demo-data.mjs) 與 [rebuild-customer-order-summaries.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/rebuild-customer-order-summaries.mjs) 使用。
 
 ## 用途
 
@@ -79,9 +79,9 @@ node scripts/seed-demo-data.mjs --dry-run
 - 啟用中的 `Customer`
 - 啟用中的 `Supplier`
 - 啟用中的 `Product`
-- `PENDING_PAYMENT` 與 `PAID` 狀態的 `Order`
+- 多種 `PaymentStatus` 狀態的 `Order`
 - 對應的 `OrderItem`
-- 客戶出貨列表用的 `CustomerFulfillmentSummary`
+- 客戶出貨列表用的 `CustomerOrderSummary`
 
 並且會一起維護：
 
@@ -93,15 +93,15 @@ node scripts/seed-demo-data.mjs --dry-run
 - `Product.sequenceNumber`
 - `Product.sku`
 - `Product.defaultSupplierId`
-- `CustomerFulfillmentSummary.pendingOrderCount`
-- `CustomerFulfillmentSummary.pendingItemCount`
-- `CustomerFulfillmentSummary.readyToShipOrderCount`
-- `CustomerFulfillmentSummary.readyToShipItemCount`
-- `CustomerFulfillmentSummary.latestReadyToShipReceivedAt`
-- `CustomerFulfillmentSummary.shippedOrderCount`
-- `CustomerFulfillmentSummary.shippedItemCount`
-- `CustomerFulfillmentSummary.completedOrderCount`
-- `CustomerFulfillmentSummary.totalOrderCount`
+- `CustomerOrderSummary.pendingOrderCount`
+- `CustomerOrderSummary.pendingItemCount`
+- `CustomerOrderSummary.readyToShipOrderCount`
+- `CustomerOrderSummary.readyToShipItemCount`
+- `CustomerOrderSummary.latestReadyToShipReceivedAt`
+- `CustomerOrderSummary.shippedOrderCount`
+- `CustomerOrderSummary.shippedItemCount`
+- `CustomerOrderSummary.completedOrderCount`
+- `CustomerOrderSummary.totalOrderCount`
 - `SequenceCounter` 的 `ProductSku` 流水號
 
 ## 假資料特性
@@ -142,7 +142,7 @@ npm run clear:demo -- --confirm DELETE_ALL_DATA
 - `ProductOptionValue`
 - `Order`
 - `OrderItem`
-- `CustomerFulfillmentSummary`
+- `CustomerOrderSummary`
 - `SequenceCounter`
 
 先看預計刪除數量、不實際刪除：
@@ -159,10 +159,10 @@ node scripts/clear-demo-data.mjs --dry-run
 
 ## 只清除客戶出貨摘要
 
-如果只是 `CustomerFulfillmentSummary` 資料壞掉，想保留既有訂單與商品資料，可以只清摘要表：
+如果只是 `CustomerOrderSummary` 資料壞掉，想保留既有訂單與商品資料，可以只清摘要表：
 
 ```bash
-npm run clear:customer-fulfillment-summary -- --confirm DELETE_ALL_DATA
+npm run clear:customer-order-summary -- --confirm DELETE_ALL_DATA
 ```
 
 先看預計刪除數量：
@@ -176,20 +176,20 @@ node scripts/clear-demo-data.mjs --only summary-only --dry-run
 如果你已經保留 `Order` / `OrderItem`，想直接把摘要重建回來，可以使用：
 
 ```bash
-npm run rebuild:customer-fulfillment-summary -- --confirm REBUILD_SUMMARIES
+npm run rebuild:customer-order-summary -- --confirm REBUILD_SUMMARIES
 ```
 
 先做 dry run：
 
 ```bash
-node scripts/rebuild-customer-fulfillment-summaries.mjs --dry-run
+node scripts/rebuild-customer-order-summaries.mjs --dry-run
 ```
 
 這支腳本會：
 
 - 掃描現有 `Order`
 - 掃描現有 `OrderItem`
-- 清空 `CustomerFulfillmentSummary`
+- 清空 `CustomerOrderSummary`
 - 依目前訂單狀態重新寫回摘要
 
 ## 建議流程

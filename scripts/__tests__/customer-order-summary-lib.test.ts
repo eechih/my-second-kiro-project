@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildCustomerFulfillmentSummariesFromOrders } from "../customer-fulfillment-summary-lib.mjs";
+import { buildCustomerOrderSummariesFromOrders } from "../customer-order-summary-lib.mjs";
 
-describe("customer-fulfillment-summary-lib", () => {
+describe("customer-order-summary-lib", () => {
   it("excludes cancelled and refunded orders from shipment summary counts", () => {
-    const summaries = buildCustomerFulfillmentSummariesFromOrders([
+    const summaries = buildCustomerOrderSummariesFromOrders([
       {
         id: "order-cancelled",
         customerId: "customer-1",
@@ -58,7 +58,7 @@ describe("customer-fulfillment-summary-lib", () => {
   });
 
   it("counts completed orders as shipped and completed", () => {
-    const summaries = buildCustomerFulfillmentSummariesFromOrders([
+    const summaries = buildCustomerOrderSummariesFromOrders([
       {
         id: "order-completed",
         customerId: "customer-2",
@@ -88,7 +88,7 @@ describe("customer-fulfillment-summary-lib", () => {
   });
 
   it("excludes orphan orders whose customer is not in customer list", () => {
-    const summaries = buildCustomerFulfillmentSummariesFromOrders({
+    const summaries = buildCustomerOrderSummariesFromOrders({
       customers: [
         {
           id: "customer-1",

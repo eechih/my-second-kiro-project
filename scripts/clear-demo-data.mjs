@@ -13,7 +13,7 @@ const MAX_BATCH_RETRIES = 5;
 const SUMMARY_ONLY_MODE = "summary-only";
 
 const TABLE_DELETE_ORDER = [
-  "CustomerFulfillmentSummary",
+  "CustomerOrderSummary",
   "OrderItem",
   "Order",
   "ProductOptionValue",
@@ -164,19 +164,19 @@ async function main() {
   await assertLocalDemoScriptEnvironment();
   const args = parseArgs(process.argv.slice(2));
   const modelsToClear = args.onlySummary
-    ? ["CustomerFulfillmentSummary"]
+    ? ["CustomerOrderSummary"]
     : TABLE_DELETE_ORDER;
 
   if (!args.confirmed && !args.dryRun) {
     console.error(
       args.onlySummary
         ? [
-            "這個腳本會清除 CustomerFulfillmentSummary 摘要資料。",
+            "這個腳本會清除 CustomerOrderSummary 摘要資料。",
             `若確定要執行，請加上：--confirm ${REQUIRED_CONFIRMATION}`,
           ].join("\n")
         : [
             "這個腳本會清除 Customer、Supplier、Product、ProductOption、ProductOptionValue、Order、OrderItem、SequenceCounter 全部資料。",
-            "另外也會清除 CustomerFulfillmentSummary 摘要資料。",
+            "另外也會清除 CustomerOrderSummary 摘要資料。",
             `若確定要執行，請加上：--confirm ${REQUIRED_CONFIRMATION}`,
           ].join("\n"),
     );
@@ -200,8 +200,8 @@ async function main() {
   if (!args.onlySummary) {
     await deleteIds(
       ddb,
-      entriesByModel["CustomerFulfillmentSummary"].tableName,
-      entriesByModel["CustomerFulfillmentSummary"].ids,
+      entriesByModel["CustomerOrderSummary"].tableName,
+      entriesByModel["CustomerOrderSummary"].ids,
       args.dryRun,
     );
 
@@ -264,8 +264,8 @@ async function main() {
   } else {
     await deleteIds(
       ddb,
-      entriesByModel["CustomerFulfillmentSummary"].tableName,
-      entriesByModel["CustomerFulfillmentSummary"].ids,
+      entriesByModel["CustomerOrderSummary"].tableName,
+      entriesByModel["CustomerOrderSummary"].ids,
       args.dryRun,
     );
   }

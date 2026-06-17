@@ -5,7 +5,7 @@ import {
   ScanCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { buildCustomerFulfillmentSummariesFromOrders } from "./customer-fulfillment-summary-lib.mjs";
+import { buildCustomerOrderSummariesFromOrders } from "./customer-order-summary-lib.mjs";
 import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
 
 const REQUIRED_CONFIRMATION = "REBUILD_SUMMARIES";
@@ -48,8 +48,8 @@ async function loadTableNames() {
     customer: customTables.Customer?.tableName ?? null,
     order: customTables.Order?.tableName ?? null,
     orderItem: customTables.OrderItem?.tableName ?? null,
-    customerFulfillmentSummary:
-      customTables.CustomerFulfillmentSummary?.tableName ?? null,
+    customerOrderSummary:
+      customTables.CustomerOrderSummary?.tableName ?? null,
   };
 
   for (const [key, value] of Object.entries(tableNames)) {
@@ -154,7 +154,7 @@ async function main() {
   if (!args.confirmed && !args.dryRun) {
     console.error(
       [
-        "這個腳本會重建 CustomerFulfillmentSummary 摘要資料。",
+        "這個腳本會重建 CustomerOrderSummary 摘要資料。",
         "它會先清空摘要表，再依現有 Order 與 OrderItem 重新計算。",
         `若確定要執行，請加上：--confirm ${REQUIRED_CONFIRMATION}`,
       ].join("\n"),
@@ -168,7 +168,7 @@ async function main() {
     scanAll(ddb, tableNames.customer),
     scanAll(ddb, tableNames.order),
     scanAll(ddb, tableNames.orderItem),
-    scanAll(ddb, tableNames.customerFulfillmentSummary),
+    scanAll(ddb, tableNames.customerOrderSummary),
   ]);
 
   const itemsByOrderId = new Map();
@@ -188,7 +188,7 @@ async function main() {
     items: itemsByOrderId.get(String(order.id ?? "")) ?? [],
   }));
 
-  const summaries = buildCustomerFulfillmentSummariesFromOrders({
+  const summaries = buildCustomerOrderSummariesFromOrders({
     customers,
     orders: ordersWithItems,
   });
@@ -199,7 +199,7 @@ async function main() {
   if (!args.dryRun) {
     await replaceSummaryTable(
       ddb,
-      tableNames.customerFulfillmentSummary,
+      tableNames.customerOrderSummary,
       existingSummaryIds,
       summaries,
     );
@@ -224,7 +224,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("重建 CustomerFulfillmentSummary 失敗");
+  console.error("重建 CustomerOrderSummary 失敗");
   console.error(error);
   process.exit(1);
 });

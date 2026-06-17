@@ -274,7 +274,7 @@ export function buildShipmentSummaryTransactItem({
         : latestShippedAt,
     completedOrderCount: nextSummary.completedOrderCount,
     totalOrderCount: nextSummary.totalOrderCount,
-    gsiPartition: "CustomerFulfillmentSummary",
+    gsiPartition: "CustomerOrderSummary",
     createdAt: existingSummary?.createdAt ?? now,
     createdAtForSort: existingSummary?.createdAt ?? now,
     updatedAt: now,

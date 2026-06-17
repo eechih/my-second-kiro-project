@@ -9,7 +9,7 @@ import {
   UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { buildCustomerFulfillmentSummariesFromOrders } from "./customer-fulfillment-summary-lib.mjs";
+import { buildCustomerOrderSummariesFromOrders } from "./customer-order-summary-lib.mjs";
 import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
 
 const { Random } = Mock;
@@ -365,7 +365,7 @@ function buildFakeCustomer(index, orderCount, lastOrderedAt) {
 function validateSeedConsistency({
   customers,
   orders,
-  customerFulfillmentSummaries,
+  customerOrderSummaries,
 }) {
   const customerIds = new Set(customers.map((customer) => customer.id));
   const customerNames = new Set();
@@ -394,7 +394,7 @@ function validateSeedConsistency({
     }
   }
 
-  for (const summary of customerFulfillmentSummaries) {
+  for (const summary of customerOrderSummaries) {
     if (!customerIds.has(summary.customerId)) {
       throw new Error(
         `摘要 ${summary.id} 指向不存在的 customerId：${summary.customerId}`,
@@ -770,7 +770,7 @@ async function loadTableNames() {
     productOptionValue: tables.ProductOptionValue?.tableName,
     order: tables.Order?.tableName,
     orderItem: tables.OrderItem?.tableName,
-    customerFulfillmentSummary: tables.CustomerFulfillmentSummary?.tableName,
+    customerOrderSummary: tables.CustomerOrderSummary?.tableName,
     sequenceCounter: tables.SequenceCounter?.tableName,
   };
 
@@ -980,7 +980,7 @@ async function main() {
       orderId: order.id,
     })),
   );
-  const customerFulfillmentSummaries = buildCustomerFulfillmentSummariesFromOrders(
+  const customerOrderSummaries = buildCustomerOrderSummariesFromOrders(
     {
       customers,
       orders,
@@ -990,7 +990,7 @@ async function main() {
   validateSeedConsistency({
     customers,
     orders,
-    customerFulfillmentSummaries,
+    customerOrderSummaries,
   });
 
   await Promise.all([
@@ -1032,8 +1032,8 @@ async function main() {
     ),
     putItems(
       ddb,
-      tableNames.customerFulfillmentSummary,
-      customerFulfillmentSummaries,
+      tableNames.customerOrderSummary,
+      customerOrderSummaries,
       args.dryRun,
     ),
   ]);
@@ -1058,7 +1058,7 @@ async function main() {
         productOptionValues: productOptionValues.length,
         orders: orders.length,
         orderItems: orderItems.length,
-        customerFulfillmentSummaries: customerFulfillmentSummaries.length,
+        customerOrderSummaries: customerOrderSummaries.length,
         nextProductSequence: startSequence + products.length,
       },
       null,

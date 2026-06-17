@@ -1,4 +1,4 @@
-export interface CustomerFulfillmentSummary {
+export interface CustomerOrderSummary {
   customerId: string;
   customerName: string;
   pendingOrderCount: number;
@@ -18,9 +18,9 @@ function toInteger(value: unknown): number {
   return Number.isFinite(normalized) ? normalized : 0;
 }
 
-export function normalizeCustomerFulfillmentSummary(
+export function normalizeCustomerOrderSummary(
   raw: Record<string, unknown>,
-): CustomerFulfillmentSummary | null {
+): CustomerOrderSummary | null {
   const customerId = String(raw["customerId"] ?? raw["id"] ?? "");
 
   if (!customerId) {

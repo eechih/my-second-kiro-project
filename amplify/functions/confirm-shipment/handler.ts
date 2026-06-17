@@ -29,7 +29,7 @@ import {
   buildShipmentSummaryTransactItem,
   deriveLatestShippedAtAfterTransition,
   deriveLatestReadyToShipReceivedAtAfterTransition,
-} from "../customer-fulfillment-summary";
+} from "../customer-order-summary";
 
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "confirmShipment";
@@ -54,7 +54,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
   const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
-  const summaryTable = process.env["CUSTOMER_FULFILLMENT_SUMMARY_TABLE_NAME"];
+  const summaryTable = process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
 
   if (!orderItemTable || !orderTable || !productTable || !summaryTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
