@@ -45,6 +45,7 @@ async function loadTableNames() {
   const customTables = outputs?.custom?.tables ?? {};
 
   const tableNames = {
+    customer: customTables.Customer?.tableName ?? null,
     order: customTables.Order?.tableName ?? null,
     orderItem: customTables.OrderItem?.tableName ?? null,
     customerFulfillmentSummary:
@@ -163,7 +164,8 @@ async function main() {
 
   const tableNames = await loadTableNames();
   const ddb = new DynamoDBClient({});
-  const [orders, orderItems, existingSummaries] = await Promise.all([
+  const [customers, orders, orderItems, existingSummaries] = await Promise.all([
+    scanAll(ddb, tableNames.customer),
     scanAll(ddb, tableNames.order),
     scanAll(ddb, tableNames.orderItem),
     scanAll(ddb, tableNames.customerFulfillmentSummary),
@@ -186,7 +188,10 @@ async function main() {
     items: itemsByOrderId.get(String(order.id ?? "")) ?? [],
   }));
 
-  const summaries = buildCustomerFulfillmentSummariesFromOrders(ordersWithItems);
+  const summaries = buildCustomerFulfillmentSummariesFromOrders({
+    customers,
+    orders: ordersWithItems,
+  });
   const existingSummaryIds = existingSummaries
     .map((summary) => String(summary.id ?? ""))
     .filter(Boolean);
@@ -206,6 +211,7 @@ async function main() {
         success: true,
         dryRun: args.dryRun,
         confirmation: args.confirmed,
+        customerCount: customers.length,
         orderCount: orders.length,
         orderItemCount: orderItems.length,
         deletedSummaryCount: existingSummaryIds.length,

@@ -1,6 +1,6 @@
 function getLatestReceivedAt(items) {
   return items
-    .filter((item) => item.receivedAt)
+    .filter((item) => item.status === "received" && item.receivedAt)
     .reduce(
       (latest, item) =>
         latest && latest > item.receivedAt ? latest : item.receivedAt,
@@ -8,12 +8,43 @@ function getLatestReceivedAt(items) {
     );
 }
 
-export function buildCustomerFulfillmentSummariesFromOrders(orders) {
+function isShipmentRelevantOrder(order) {
+  return order.status !== "CANCELLED" && order.status !== "REFUNDED";
+}
+
+function getShipmentSummaryBucket(order) {
+  if (!isShipmentRelevantOrder(order)) {
+    return null;
+  }
+
+  switch (order.fulfillmentStatus) {
+    case "UNFULFILLED":
+      return "pending";
+    case "READY_TO_SHIP":
+      return "readyToShip";
+    case "SHIPPED":
+    case "COMPLETED":
+      return "shipped";
+    default:
+      return null;
+  }
+}
+
+export function buildCustomerFulfillmentSummariesFromOrders(input) {
+  const orders = Array.isArray(input) ? input : input.orders;
+  const customers = Array.isArray(input) ? undefined : input.customers;
   const summaryByCustomerId = new Map();
+  const allowedCustomerIds = customers
+    ? new Set(customers.map((customer) => String(customer.id ?? "")))
+    : null;
 
   for (const order of orders) {
     const customerId = order.customerId;
     if (!customerId) {
+      continue;
+    }
+
+    if (allowedCustomerIds && !allowedCustomerIds.has(String(customerId))) {
       continue;
     }
 
@@ -23,23 +54,24 @@ export function buildCustomerFulfillmentSummariesFromOrders(orders) {
       (sum, item) => sum + Number(item.quantity ?? 0),
       0,
     );
-    const latestReadyToShipReceivedAt = getLatestReceivedAt(items);
-    const isPending = order.fulfillmentStatus === "UNFULFILLED";
-    const isReadyToShip = order.fulfillmentStatus === "READY_TO_SHIP";
-    const isShipped =
-      order.fulfillmentStatus === "SHIPPED" ||
-      order.fulfillmentStatus === "COMPLETED";
+    const bucket = getShipmentSummaryBucket(order);
+    const latestReadyToShipReceivedAt =
+      bucket === "readyToShip" ? getLatestReceivedAt(items) : null;
+    const isPending = bucket === "pending";
+    const isReadyToShip = bucket === "readyToShip";
+    const isShipped = bucket === "shipped";
     const pendingItemCount = isPending ? totalItemCount : 0;
     const readyToShipItemCount = isReadyToShip ? totalItemCount : 0;
     const shippedItemCount = isShipped ? totalItemCount : 0;
+    const totalOrderCount = isShipmentRelevantOrder(order) ? 1 : 0;
+    const completedOrderCount = order.status === "COMPLETED" ? 1 : 0;
 
     if (
       !isPending &&
       !isReadyToShip &&
       !isShipped &&
-      pendingItemCount === 0 &&
-      readyToShipItemCount === 0 &&
-      shippedItemCount === 0
+      totalOrderCount === 0 &&
+      completedOrderCount === 0
     ) {
       continue;
     }
@@ -82,8 +114,8 @@ export function buildCustomerFulfillmentSummariesFromOrders(orders) {
       shippedOrderCount: existing.shippedOrderCount + (isShipped ? 1 : 0),
       shippedItemCount: existing.shippedItemCount + shippedItemCount,
       completedOrderCount:
-        existing.completedOrderCount + (order.status === "COMPLETED" ? 1 : 0),
-      totalOrderCount: existing.totalOrderCount + 1,
+        existing.completedOrderCount + completedOrderCount,
+      totalOrderCount: existing.totalOrderCount + totalOrderCount,
       createdAtForSort:
         existing.createdAtForSort < order.createdAt
           ? existing.createdAtForSort
@@ -95,5 +127,11 @@ export function buildCustomerFulfillmentSummariesFromOrders(orders) {
     });
   }
 
-  return [...summaryByCustomerId.values()];
+  if (!customers) {
+    return [...summaryByCustomerId.values()];
+  }
+
+  return customers
+    .map((customer) => summaryByCustomerId.get(String(customer.id ?? "")))
+    .filter(Boolean);
 }

@@ -28,7 +28,9 @@ export function normalizeCustomerFulfillmentSummary(
 
   return {
     customerId,
-    customerName: String(raw["customerNameSnapshot"] ?? "未命名客戶"),
+    customerName: String(
+      raw["customerName"] ?? raw["customerNameSnapshot"] ?? "未命名客戶",
+    ),
     pendingOrderCount: toInteger(raw["pendingOrderCount"]),
     pendingItemCount: toInteger(raw["pendingItemCount"]),
     readyToShipOrderCount: toInteger(raw["readyToShipOrderCount"]),

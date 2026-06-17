@@ -73,23 +73,13 @@ async function fetchCustomerShipmentSummaries(): Promise<
 function parseCustomerFulfillmentSummaries(
   result: unknown,
 ): CustomerFulfillmentSummary[] | null {
-  let payload = result;
-
-  if (typeof payload === "string") {
-    try {
-      payload = JSON.parse(payload) as unknown;
-    } catch {
-      return null;
-    }
+  const payload = parseJsonPayload(result);
+  if (payload == null) {
+    return [];
   }
 
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return null;
-  }
-
-  const items = (payload as Record<string, unknown>)["items"];
-
-  if (!Array.isArray(items)) {
+  const items = extractCustomerFulfillmentSummaryItems(payload);
+  if (!items) {
     return null;
   }
 
@@ -104,6 +94,56 @@ function parseCustomerFulfillmentSummaries(
 
     return normalized ? [normalized] : [];
   });
+}
+
+function parseJsonPayload(result: unknown): unknown {
+  let current = result;
+
+  for (let i = 0; i < 3; i += 1) {
+    if (typeof current === "string") {
+      try {
+        current = JSON.parse(current) as unknown;
+      } catch {
+        return null;
+      }
+      continue;
+    }
+
+    return current;
+  }
+
+  return current;
+}
+
+function extractCustomerFulfillmentSummaryItems(
+  payload: unknown,
+): unknown[] | null {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  if (Array.isArray(record["items"])) {
+    return record["items"];
+  }
+
+  if (Array.isArray(record["data"])) {
+    return record["data"];
+  }
+
+  if (
+    typeof record["customerId"] === "string" ||
+    typeof record["id"] === "string"
+  ) {
+    return [record];
+  }
+
+  return null;
 }
 
 export function useCustomerShipmentSummaries(

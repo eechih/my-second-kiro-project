@@ -198,6 +198,13 @@ async function main() {
   );
 
   if (!args.onlySummary) {
+    await deleteIds(
+      ddb,
+      entriesByModel["CustomerFulfillmentSummary"].tableName,
+      entriesByModel["CustomerFulfillmentSummary"].ids,
+      args.dryRun,
+    );
+
     await Promise.all([
       deleteIds(
         ddb,

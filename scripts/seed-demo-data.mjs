@@ -305,17 +305,26 @@ function weightedCustomerIndex(orderIndex, customerCount) {
 }
 
 function buildFakeCustomerName(index) {
-  const label = String(index + 1).padStart(3, "0");
-
   if (index % 5 === 0) {
-    const prefix = Random.pick(CUSTOMER_STORE_PREFIXES);
-    const suffix = Random.pick(CUSTOMER_STORE_SUFFIXES);
-    return `${prefix}${suffix} ${label}`;
+    const storeIndex = Math.floor(index / 5);
+    const prefix =
+      CUSTOMER_STORE_PREFIXES[storeIndex % CUSTOMER_STORE_PREFIXES.length];
+    const suffix =
+      CUSTOMER_STORE_SUFFIXES[
+        Math.floor(storeIndex / CUSTOMER_STORE_PREFIXES.length) %
+          CUSTOMER_STORE_SUFFIXES.length
+      ];
+    return `${prefix}${suffix}`;
   }
 
-  const surname = Random.pick(CUSTOMER_SURNAMES);
-  const givenName = Random.pick(CUSTOMER_GIVEN_NAMES);
-  return `${surname}${givenName} ${label}`;
+  const personIndex = index - Math.ceil(index / 5);
+  const surname = CUSTOMER_SURNAMES[personIndex % CUSTOMER_SURNAMES.length];
+  const givenName =
+    CUSTOMER_GIVEN_NAMES[
+      Math.floor(personIndex / CUSTOMER_SURNAMES.length) %
+        CUSTOMER_GIVEN_NAMES.length
+    ];
+  return `${surname}${givenName}`;
 }
 
 function buildFakeCustomer(index, orderCount, lastOrderedAt) {
@@ -358,6 +367,56 @@ function buildFakeCustomer(index, orderCount, lastOrderedAt) {
     createdAt,
     updatedAt: createdAt,
   };
+}
+
+function validateSeedConsistency({
+  customers,
+  orders,
+  customerFulfillmentSummaries,
+}) {
+  const customerIds = new Set(customers.map((customer) => customer.id));
+  const customerNames = new Set();
+
+  for (const customer of customers) {
+    if (!customer.id) {
+      throw new Error("客戶假資料缺少 id");
+    }
+
+    if (!customer.name) {
+      throw new Error(`客戶 ${customer.id} 缺少名稱`);
+    }
+
+    if (customerNames.has(customer.name)) {
+      throw new Error(`客戶名稱重複：${customer.name}`);
+    }
+
+    customerNames.add(customer.name);
+  }
+
+  for (const order of orders) {
+    if (!customerIds.has(order.customerId)) {
+      throw new Error(
+        `訂單 ${order.id} 指向不存在的 customerId：${order.customerId}`,
+      );
+    }
+  }
+
+  for (const summary of customerFulfillmentSummaries) {
+    if (!customerIds.has(summary.customerId)) {
+      throw new Error(
+        `摘要 ${summary.id} 指向不存在的 customerId：${summary.customerId}`,
+      );
+    }
+
+    if (
+      summary.customerNameSnapshot !==
+      customers.find((customer) => customer.id === summary.customerId)?.name
+    ) {
+      throw new Error(
+        `摘要 ${summary.id} 的 customerNameSnapshot 與客戶主檔不一致`,
+      );
+    }
+  }
 }
 
 function buildOrderItemTimeline(createdAt, itemStatus) {
@@ -914,8 +973,17 @@ async function main() {
     })),
   );
   const customerFulfillmentSummaries = buildCustomerFulfillmentSummariesFromOrders(
-    orders,
+    {
+      customers,
+      orders,
+    },
   );
+
+  validateSeedConsistency({
+    customers,
+    orders,
+    customerFulfillmentSummaries,
+  });
 
   await Promise.all([
     putItems(ddb, tableNames.customer, customers, args.dryRun),

@@ -191,13 +191,13 @@ function CustomerShipmentListPage(): React.ReactElement {
         isLoading={isLoading}
         orderCountLabel={orderCountLabel}
         itemCountLabel={itemCountLabel}
-        onSelectCustomer={(customerId) =>
+        onSelectCustomer={(customerId) => {
           void navigate({
             to: "/customer-shipments/$customerId",
             params: { customerId },
             search: { status: statusFilter },
-          })
-        }
+          });
+        }}
       />
 
       <CursorPagination
