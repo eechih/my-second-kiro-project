@@ -2,11 +2,13 @@ import { CursorPagination } from "@/components/CursorPagination";
 import { StatusChip } from "@/components/StatusChip";
 import type { ShipmentStatusFilter } from "@/hooks/useCustomerShipments";
 import {
+  fetchAllCustomerOrders,
   useCustomerOrderList,
   useUpdateOrderItemStatusFlag,
 } from "@/hooks/useOrders";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import { formatCurrency } from "@/lib/currency";
+import PrintIcon from "@mui/icons-material/Print";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -26,7 +28,8 @@ import {
   type Order,
   type OrderItem,
 } from "@shared/models";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { printPackingSlips } from "../../orders/-components/list/packingSlip";
 import {
   ORDER_ITEM_STATUS_COLOR_MAP,
   ORDER_STATUS_COLOR_MAP,
@@ -65,6 +68,29 @@ function formatDate(value: string | null): string {
 
 function canToggleShipped(item: OrderItem): boolean {
   return item.status === "received" || item.status === "shipped";
+}
+
+function isPrintableShipmentItem(
+  item: OrderItem,
+  statusFilter: ShipmentFilter,
+): boolean {
+  if (statusFilter === "pending") {
+    return false;
+  }
+
+  if (statusFilter === "readyToShip") {
+    return item.status === "received" && !item.shippedAt;
+  }
+
+  if (statusFilter === "shipped") {
+    return item.status === "shipped" || Boolean(item.shippedAt);
+  }
+
+  return (
+    item.status === "received" ||
+    item.status === "shipped" ||
+    Boolean(item.shippedAt)
+  );
 }
 
 function isShipmentRelevantOrder(order: Order): boolean {
@@ -153,6 +179,8 @@ export function CustomerShipmentTable({
     reset,
   } = useCursorPagination(PAGE_SIZE);
   const updateStatusFlag = useUpdateOrderItemStatusFlag();
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
   const { data, isLoading, error } = useCustomerOrderList({
     customerId,
     pageSize,
@@ -187,6 +215,48 @@ export function CustomerShipmentTable({
       ),
     [filteredOrders],
   );
+  const canPrint =
+    initialStatusFilter !== "pending" && !isLoading && !isPrinting;
+
+  async function handlePrint(): Promise<void> {
+    if (!canPrint) {
+      return;
+    }
+
+    setPrintError(null);
+    setIsPrinting(true);
+
+    try {
+      const allOrders = await fetchAllCustomerOrders(customerId);
+      const printableOrders = allOrders
+        .filter((order) => matchesShipmentFilter(order, initialStatusFilter))
+        .map((order) => ({
+          ...order,
+          items: order.items.filter((item) =>
+            isPrintableShipmentItem(item, initialStatusFilter),
+          ),
+        }))
+        .filter((order) => order.items.length > 0);
+
+      if (printableOrders.length === 0) {
+        setPrintError("目前沒有可列印的出貨品項");
+        return;
+      }
+
+      const opened = printPackingSlips(printableOrders, {
+        itemFilter: () => true,
+        emptyMessage: "沒有符合條件的出貨品項",
+      });
+
+      if (!opened) {
+        setPrintError("無法開啟列印視窗，請允許瀏覽器彈出視窗後再試一次");
+      }
+    } catch (err) {
+      setPrintError(err instanceof Error ? err.message : "列印出貨單失敗");
+    } finally {
+      setIsPrinting(false);
+    }
+  }
 
   return (
     <Paper sx={{ p: { xs: 2, md: 3 } }}>
@@ -203,6 +273,18 @@ export function CustomerShipmentTable({
             依客戶查看「{customerName}」的待處理、可出貨與已出貨訂單明細。
           </Typography>
         </Box>
+        <Box sx={{ ml: "auto" }}>
+          <Button
+            variant="outlined"
+            startIcon={<PrintIcon />}
+            disabled={!canPrint}
+            onClick={() => {
+              void handlePrint();
+            }}
+          >
+            {isPrinting ? "列印中..." : "列印出貨單"}
+          </Button>
+        </Box>
       </Stack>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 2 }}>
@@ -217,6 +299,12 @@ export function CustomerShipmentTable({
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error instanceof Error ? error.message : "查詢客戶出貨資料失敗"}
+        </Alert>
+      ) : null}
+
+      {printError ? (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPrintError(null)}>
+          {printError}
         </Alert>
       ) : null}
 

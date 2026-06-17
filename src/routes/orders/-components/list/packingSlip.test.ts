@@ -105,6 +105,104 @@ describe("buildPackingSlipHtml", () => {
     expect(html).toContain("總數量：0");
   });
 
+  it("可依指定條件列印已到貨但尚未出貨的品項", () => {
+    const html = buildPackingSlipHtml(
+      [
+        makeOrder({
+          items: [
+            {
+              id: "item-1",
+              productId: "product-1",
+              productName: "襯衫",
+              productImageUrl: null,
+              variantLabel: null,
+              selectedOptionsSnapshot: [],
+              quantity: 2,
+              unitPrice: 600,
+              unitCostSnapshot: null,
+              subtotal: 1200,
+              totalCostSnapshot: null,
+              status: "received",
+              purchasedAt: null,
+              receivedAt: "2026-05-14T02:00:00.000Z",
+              shippedAt: null,
+              outOfStockAt: null,
+              supplierName: null,
+              unitCost: null,
+            },
+            {
+              id: "item-2",
+              productId: "product-2",
+              productName: "外套",
+              productImageUrl: null,
+              variantLabel: null,
+              selectedOptionsSnapshot: [],
+              quantity: 1,
+              unitPrice: 500,
+              unitCostSnapshot: null,
+              subtotal: 500,
+              totalCostSnapshot: null,
+              status: "shipped",
+              purchasedAt: null,
+              receivedAt: "2026-05-14T01:00:00.000Z",
+              shippedAt: "2026-05-14T02:30:00.000Z",
+              outOfStockAt: null,
+              supplierName: null,
+              unitCost: null,
+            },
+          ],
+        }),
+      ],
+      {
+        itemFilter: (item) => item.status === "received" && !item.shippedAt,
+        emptyMessage: "沒有符合條件的出貨品項",
+      },
+    );
+
+    expect(html).toContain("襯衫");
+    expect(html).not.toContain("外套");
+    expect(html).toContain("品項數：1");
+    expect(html).toContain("總數量：2");
+    expect(html).toContain("訂單金額：$1,200");
+  });
+
+  it("可自訂空白提示文案", () => {
+    const html = buildPackingSlipHtml(
+      [
+        makeOrder({
+          items: [
+            {
+              id: "item-1",
+              productId: "product-1",
+              productName: "襯衫",
+              productImageUrl: null,
+              variantLabel: null,
+              selectedOptionsSnapshot: [],
+              quantity: 1,
+              unitPrice: 500,
+              unitCostSnapshot: null,
+              subtotal: 500,
+              totalCostSnapshot: null,
+              status: "pending",
+              purchasedAt: null,
+              receivedAt: null,
+              shippedAt: null,
+              outOfStockAt: null,
+              supplierName: null,
+              unitCost: null,
+            },
+          ],
+        }),
+      ],
+      {
+        itemFilter: (item) => item.status === "received",
+        emptyMessage: "沒有符合條件的出貨品項",
+      },
+    );
+
+    expect(html).toContain("沒有符合條件的出貨品項");
+  });
+
   it("訂單金額依撿貨明細小計重新計算", () => {
     const html = buildPackingSlipHtml([
       makeOrder({

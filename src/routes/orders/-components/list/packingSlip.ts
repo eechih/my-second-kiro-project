@@ -1,6 +1,11 @@
 import { formatCurrency } from "@/lib/currency";
-import type { Order } from "@shared/models";
+import type { Order, OrderItem } from "@shared/models";
 import { formatOrderDate } from "./tableUtils";
+
+export interface PackingSlipOptions {
+  itemFilter?: (item: OrderItem) => boolean;
+  emptyMessage?: string;
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -30,7 +35,14 @@ function formatTime(value: string): string {
   }
 }
 
-export function buildPackingSlipHtml(orders: readonly Order[]): string {
+export function buildPackingSlipHtml(
+  orders: readonly Order[],
+  options: PackingSlipOptions = {},
+): string {
+  const {
+    itemFilter = (item: OrderItem) => Boolean(item.shippedAt),
+    emptyMessage = "沒有商品需要出貨",
+  } = options;
   const printedAt = new Date().toLocaleString("zh-TW", {
     year: "numeric",
     month: "2-digit",
@@ -42,9 +54,7 @@ export function buildPackingSlipHtml(orders: readonly Order[]): string {
 
   const slips = orders
     .map((order) => {
-      const shippingOrderItems = order.items.filter((item) =>
-        Boolean(item.shippedAt),
-      );
+      const shippingOrderItems = order.items.filter(itemFilter);
       const rows =
         shippingOrderItems.length > 0
           ? shippingOrderItems
@@ -69,7 +79,7 @@ export function buildPackingSlipHtml(orders: readonly Order[]): string {
               .join("")
           : `
             <tr>
-              <td class="empty-message" colspan="6">沒有商品需要出貨</td>
+              <td class="empty-message" colspan="6">${escapeHtml(emptyMessage)}</td>
             </tr>
           `;
 
@@ -245,14 +255,17 @@ export function buildPackingSlipHtml(orders: readonly Order[]): string {
 </html>`;
 }
 
-export function printPackingSlips(orders: readonly Order[]): boolean {
+export function printPackingSlips(
+  orders: readonly Order[],
+  options: PackingSlipOptions = {},
+): boolean {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
     return false;
   }
 
   printWindow.document.open();
-  printWindow.document.write(buildPackingSlipHtml(orders));
+  printWindow.document.write(buildPackingSlipHtml(orders, options));
   printWindow.document.close();
   printWindow.focus();
   return true;

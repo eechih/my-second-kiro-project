@@ -328,6 +328,26 @@ async function fetchCustomerOrderList(
   };
 }
 
+export async function fetchAllCustomerOrders(
+  customerId: string,
+): Promise<Order[]> {
+  const items: Order[] = [];
+  let nextToken: string | undefined;
+
+  do {
+    const page = await fetchCustomerOrderList({
+      customerId,
+      pageSize: 100,
+      nextToken,
+    });
+
+    items.push(...page.items);
+    nextToken = page.nextToken;
+  } while (nextToken);
+
+  return items;
+}
+
 async function fetchProductOrderItemList(
   params: ProductOrderItemListParams,
 ): Promise<PaginatedResult<ProductOrderItemRecord>> {
