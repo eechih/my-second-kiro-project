@@ -16,8 +16,7 @@ function normalizeShipmentStatusFilter(
   value: unknown,
   fallback: ShipmentFilter = "readyToShip",
 ): ShipmentFilter {
-  return value === "pending" ||
-    value === "readyToShip" ||
+  return value === "readyToShip" ||
     value === "shipped" ||
     value === "all"
     ? value

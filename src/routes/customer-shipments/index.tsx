@@ -14,7 +14,6 @@ import { useMemo, useState } from "react";
 import { CustomerShipmentSummaryTable } from "./-components/CustomerShipmentSummaryTable";
 
 const STATUS_FILTER_OPTIONS = [
-  { value: "pending", label: "待處理" },
   { value: "readyToShip", label: "可出貨" },
   { value: "shipped", label: "已出貨" },
   { value: "all", label: "全部" },
@@ -24,8 +23,7 @@ function normalizeShipmentStatusFilter(
   value: unknown,
   fallback: ShipmentStatusFilter = "readyToShip",
 ): ShipmentStatusFilter {
-  return value === "pending" ||
-    value === "readyToShip" ||
+  return value === "readyToShip" ||
     value === "shipped" ||
     value === "all"
     ? value
@@ -54,19 +52,6 @@ function CustomerShipmentListPage(): React.ReactElement {
 
     return (data ?? [])
       .map((summary) => {
-        if (statusFilter === "pending") {
-          return {
-            customerId: summary.customerId,
-            customerName: summary.customerName,
-            latestReadyToShipReceivedAt: summary.latestReadyToShipReceivedAt,
-            latestShippedAt: summary.latestShippedAt,
-            totalOrderCount: summary.totalOrderCount,
-            completedOrderCount: summary.completedOrderCount,
-            orderCount: summary.pendingOrderCount,
-            itemCount: summary.pendingItemCount,
-          };
-        }
-
         if (statusFilter === "readyToShip") {
           return {
             customerId: summary.customerId,
@@ -123,18 +108,14 @@ function CustomerShipmentListPage(): React.ReactElement {
   const hasPrevPage = pageIndex > 0;
   const hasNextPage = (pageIndex + 1) * pageSize < filteredSummaries.length;
   const orderCountLabel =
-    statusFilter === "pending"
-      ? "待處理訂單數量"
-      : statusFilter === "readyToShip"
-        ? "可出貨訂單數量"
-        : statusFilter === "shipped"
-          ? "已出貨訂單數量"
-          : "訂單數量";
+    statusFilter === "readyToShip"
+      ? "可出貨訂單數量"
+      : statusFilter === "shipped"
+        ? "已出貨訂單數量"
+        : "訂單數量";
   const itemCountLabel =
-    statusFilter === "pending"
-      ? "待處理品項數量"
-      : statusFilter === "readyToShip"
-        ? "可出貨品項數量"
+    statusFilter === "readyToShip"
+      ? "可出貨品項數量"
       : statusFilter === "shipped"
         ? "已出貨品項數量"
         : "品項數量";

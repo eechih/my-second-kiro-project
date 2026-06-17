@@ -270,7 +270,7 @@ export function CustomerShipmentTable({
             出貨管理
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            依客戶查看「{customerName}」的待處理、可出貨與已出貨訂單明細。
+            依客戶查看「{customerName}」的可出貨與已出貨訂單明細。
           </Typography>
         </Box>
         <Box sx={{ ml: "auto" }}>
