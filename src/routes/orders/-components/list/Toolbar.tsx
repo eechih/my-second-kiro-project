@@ -4,7 +4,6 @@ import {
 } from "@/components/ListToolbar";
 import AddIcon from "@mui/icons-material/Add";
 import MergeIcon from "@mui/icons-material/CallMerge";
-import Inventory2Icon from "@mui/icons-material/Inventory2";
 import PrintIcon from "@mui/icons-material/Print";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -31,7 +30,6 @@ export interface ToolbarProps {
   onMergeClick: () => void;
   printDisabled: boolean;
   onPrintClick: () => void;
-  onProductOpsClick: () => void;
   onAddClick: () => void;
 }
 
@@ -47,7 +45,6 @@ export function Toolbar({
   onMergeClick,
   printDisabled,
   onPrintClick,
-  onProductOpsClick,
   onAddClick,
 }: ToolbarProps): React.ReactElement {
   return (
@@ -83,13 +80,6 @@ export function Toolbar({
             onClick={onPrintClick}
           >
             列印出貨單
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<Inventory2Icon />}
-            onClick={onProductOpsClick}
-          >
-            單品採購
           </Button>
           <Button
             variant="contained"
