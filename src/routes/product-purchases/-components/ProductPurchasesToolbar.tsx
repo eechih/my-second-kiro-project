@@ -1,16 +1,13 @@
 import { ListToolbar, type ListToolbarOption } from "@/components/ListToolbar";
+import type { ProductPurchaseStatusFilter } from "@/hooks/useProductPurchases";
 import Button from "@mui/material/Button";
-import type { OrderItem } from "@shared/models";
 
-export type ProductPurchaseStatusFilter = "all" | OrderItem["status"];
+export type { ProductPurchaseStatusFilter } from "@/hooks/useProductPurchases";
 
 export const PRODUCT_PURCHASE_STATUS_OPTIONS = [
-  { value: "all", label: "全部作業狀態" },
-  { value: "pending", label: "待處理" },
+  { value: "pending", label: "未訂貨" },
   { value: "ordered", label: "已訂貨" },
-  { value: "received", label: "已到貨" },
-  { value: "shipped", label: "已出貨" },
-  { value: "out_of_stock", label: "缺貨" },
+  { value: "all", label: "全部" },
 ] as const satisfies readonly ListToolbarOption<ProductPurchaseStatusFilter>[];
 
 export interface ProductPurchasesToolbarProps {

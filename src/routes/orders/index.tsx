@@ -5,6 +5,7 @@ import {
   useMergeOrders,
   useCustomerOrderList,
   useOrderList,
+  useProductOrderList,
   type OrderStatusFilter,
 } from "@/hooks/useOrders";
 import { requireAuth } from "@/lib/route-guards";
@@ -29,13 +30,19 @@ export const Route = createFileRoute("/orders/")({
       typeof search["customerName"] === "string"
         ? search["customerName"]
         : undefined,
+    productId:
+      typeof search["productId"] === "string" ? search["productId"] : undefined,
+    productName:
+      typeof search["productName"] === "string"
+        ? search["productName"]
+        : undefined,
   }),
   component: OrderListPage,
 });
 
 function OrderListPage(): React.ReactElement {
   const navigate = useNavigate();
-  const { customerId, customerName } = Route.useSearch();
+  const { customerId, customerName, productId, productName } = Route.useSearch();
   const pagination = useCursorPagination(25);
   const resetPagination = pagination.reset;
   const mergeOrders = useMergeOrders();
@@ -50,13 +57,16 @@ function OrderListPage(): React.ReactElement {
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
+  const [productPageIndex, setProductPageIndex] = useState(0);
+  const isProductFilterMode = Boolean(productId);
+  const isScopedMode = Boolean(customerId) || isProductFilterMode;
 
   const orderListQuery = useOrderList({
     pageSize: pagination.pageSize,
     nextToken: pagination.currentToken,
     search: search || undefined,
     customerId,
-    enabled: !customerId,
+    enabled: !isScopedMode,
     status: statusFilter === "all" ? undefined : statusFilter,
   });
   const customerOrderListQuery = useCustomerOrderList({
@@ -64,22 +74,53 @@ function OrderListPage(): React.ReactElement {
     pageSize: pagination.pageSize,
     nextToken: pagination.currentToken,
   });
-  const activeOrderList = customerId ? customerOrderListQuery : orderListQuery;
-  const orderIds = useMemo(
-    () =>
-      customerId
-        ? (customerOrderListQuery.data?.items ?? []).map((order) => order.id)
-        : (orderListQuery.data?.items ?? []),
-    [customerId, customerOrderListQuery.data?.items, orderListQuery.data?.items],
+  const productOrderListQuery = useProductOrderList({
+    productId: productId ?? "",
+  });
+  const productOrderIds = useMemo(
+    () => productOrderListQuery.data?.items ?? [],
+    [productOrderListQuery.data?.items],
   );
+  const pagedProductOrderIds = useMemo(() => {
+    const start = productPageIndex * pagination.pageSize;
+    return productOrderIds.slice(start, start + pagination.pageSize);
+  }, [pagination.pageSize, productOrderIds, productPageIndex]);
+  const activeOrderList = isProductFilterMode
+    ? productOrderListQuery
+    : customerId
+      ? customerOrderListQuery
+      : orderListQuery;
+  const orderIds = useMemo(() => {
+    if (isProductFilterMode) {
+      return pagedProductOrderIds;
+    }
+
+    if (customerId) {
+      return (customerOrderListQuery.data?.items ?? []).map((order) => order.id);
+    }
+
+    return orderListQuery.data?.items ?? [];
+  }, [
+    customerId,
+    customerOrderListQuery.data?.items,
+    isProductFilterMode,
+    orderListQuery.data?.items,
+    pagedProductOrderIds,
+  ]);
   const nextToken = activeOrderList.data?.nextToken;
-  const totalCount = activeOrderList.data?.totalCount ?? 0;
+  const totalCount = isProductFilterMode
+    ? productOrderIds.length
+    : activeOrderList.data?.totalCount ?? 0;
   const isLoading = activeOrderList.isLoading;
+  const hasProductPrevPage = productPageIndex > 0;
+  const hasProductNextPage =
+    (productPageIndex + 1) * pagination.pageSize < productOrderIds.length;
 
   useEffect(() => {
     resetPagination();
+    setProductPageIndex(0);
     setSelectedOrderIds(new Set());
-  }, [customerId, resetPagination]);
+  }, [customerId, productId, resetPagination]);
 
   useEffect(() => {
     const currentOrderIds = new Set(orderIds);
@@ -220,7 +261,7 @@ function OrderListPage(): React.ReactElement {
     <Box>
       <PageHeader section="訂單" current="列表" title="列表" />
 
-      {customerId && (
+      {isScopedMode && (
         <Alert
           severity="info"
           sx={{ mb: 2 }}
@@ -240,8 +281,14 @@ function OrderListPage(): React.ReactElement {
           }
         >
           目前只顯示
-          {customerName ? `「${customerName}」` : "指定客戶"}
-          的全部訂單
+          {isProductFilterMode
+            ? productName
+              ? `「${productName}」`
+              : "指定商品"
+            : customerName
+              ? `「${customerName}」`
+              : "指定客戶"}
+          {isProductFilterMode ? "的相關訂單" : "的全部訂單"}
         </Alert>
       )}
 
@@ -264,8 +311,8 @@ function OrderListPage(): React.ReactElement {
           pagination.reset();
         }}
         totalCount={totalCount}
-        hideSearch={!!customerId}
-        hideStatusFilter={!!customerId}
+        hideSearch={isScopedMode}
+        hideStatusFilter={isScopedMode}
         statusFilter={statusFilter}
         onStatusFilterChange={(value) => {
           setStatusFilter(value);
@@ -291,13 +338,34 @@ function OrderListPage(): React.ReactElement {
 
       <CursorPagination
         pageSize={pagination.pageSize}
-        onPageSizeChange={pagination.setPageSize}
-        hasNextPage={!!nextToken}
-        hasPrevPage={pagination.tokenStack.length > 0}
+        onPageSizeChange={(size) => {
+          pagination.setPageSize(size);
+          setProductPageIndex(0);
+        }}
+        hasNextPage={isProductFilterMode ? hasProductNextPage : !!nextToken}
+        hasPrevPage={
+          isProductFilterMode ? hasProductPrevPage : pagination.tokenStack.length > 0
+        }
         onNextPage={() => {
+          if (isProductFilterMode) {
+            if (hasProductNextPage) {
+              setProductPageIndex((current) => current + 1);
+            }
+            return;
+          }
+
           if (nextToken) pagination.goNext(nextToken);
         }}
-        onPrevPage={pagination.goPrev}
+        onPrevPage={() => {
+          if (isProductFilterMode) {
+            if (hasProductPrevPage) {
+              setProductPageIndex((current) => current - 1);
+            }
+            return;
+          }
+
+          pagination.goPrev();
+        }}
         currentCount={orderIds.length}
       />
 

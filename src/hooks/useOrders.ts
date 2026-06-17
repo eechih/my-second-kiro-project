@@ -63,6 +63,10 @@ export interface ProductOrderItemListParams {
   statuses?: OrderItem["status"][];
 }
 
+export interface ProductOrderListParams {
+  productId: string;
+}
+
 export interface SupplierOrderItemListParams {
   supplierName: string;
   pageSize: number;
@@ -95,6 +99,9 @@ const ORDER_KEYS = {
   productItems: () => [...ORDER_KEYS.all, "product-items"] as const,
   productItemList: (params: ProductOrderItemListParams) =>
     [...ORDER_KEYS.productItems(), params] as const,
+  productOrders: () => [...ORDER_KEYS.all, "product-orders"] as const,
+  productOrderList: (params: ProductOrderListParams) =>
+    [...ORDER_KEYS.productOrders(), params] as const,
   supplierItems: () => [...ORDER_KEYS.all, "supplier-items"] as const,
   supplierItemList: (params: SupplierOrderItemListParams) =>
     [...ORDER_KEYS.supplierItems(), params] as const,
@@ -405,6 +412,38 @@ async function fetchProductOrderItemList(
     items,
     totalCount: items.length,
     nextToken: nextToken ?? undefined,
+  };
+}
+
+async function fetchProductOrderList(
+  params: ProductOrderListParams,
+): Promise<PaginatedResult<string>> {
+  const orderIds: string[] = [];
+  const seen = new Set<string>();
+  let nextToken: string | undefined;
+
+  do {
+    const page = await fetchProductOrderItemList({
+      productId: params.productId,
+      pageSize: 100,
+      nextToken,
+    });
+
+    for (const record of page.items) {
+      if (!record.orderId || seen.has(record.orderId)) {
+        continue;
+      }
+
+      seen.add(record.orderId);
+      orderIds.push(record.orderId);
+    }
+
+    nextToken = page.nextToken;
+  } while (nextToken);
+
+  return {
+    items: orderIds,
+    totalCount: orderIds.length,
   };
 }
 
@@ -1294,6 +1333,17 @@ export function useProductOrderItemList(
     queryKey: ORDER_KEYS.productItemList(params),
     queryFn: () => fetchProductOrderItemList(params),
     enabled: !!params.productId,
+  });
+}
+
+export function useProductOrderList(
+  params: ProductOrderListParams,
+): UseQueryResult<PaginatedResult<string>> {
+  return useQuery({
+    queryKey: ORDER_KEYS.productOrderList(params),
+    queryFn: () => fetchProductOrderList(params),
+    enabled: !!params.productId,
+    staleTime: 60_000,
   });
 }
 
