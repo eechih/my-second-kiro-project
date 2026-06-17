@@ -14,6 +14,7 @@ const SUMMARY_ONLY_MODE = "summary-only";
 
 const TABLE_DELETE_ORDER = [
   "CustomerOrderSummary",
+  "ProductOrderSummary",
   "OrderItem",
   "Order",
   "ProductOptionValue",

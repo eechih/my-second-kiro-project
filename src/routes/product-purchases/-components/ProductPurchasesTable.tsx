@@ -10,11 +10,22 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import { ORDER_ITEM_STATUSES, ORDER_ITEM_STATUS_LABEL } from "@shared/models";
 
 const PRODUCT_PURCHASE_COLUMNS = [
   { key: "name", label: "商品名稱", width: undefined, align: undefined },
-  { key: "pending", label: "未訂貨數量", width: 160, align: "right" as const },
-  { key: "ordered", label: "已訂貨數量", width: 160, align: "right" as const },
+  {
+    key: "total",
+    label: "訂單品項總數量",
+    width: 180,
+    align: "right" as const,
+  },
+  ...ORDER_ITEM_STATUSES.map((status) => ({
+    key: status,
+    label: `${ORDER_ITEM_STATUS_LABEL[status]}數量`,
+    width: 140,
+    align: "right" as const,
+  })),
 ] as const;
 
 export interface ProductPurchasesTableProps {
@@ -67,12 +78,12 @@ export function ProductPurchasesTable({
                   <TableCell sx={{ fontWeight: 600 }}>
                     {summary.productName}
                   </TableCell>
-                  <TableCell align="right">
-                    {summary.unorderedQuantity}
-                  </TableCell>
-                  <TableCell align="right">
-                    {summary.orderedQuantity}
-                  </TableCell>
+                  <TableCell align="right">{summary.totalQuantity}</TableCell>
+                  {ORDER_ITEM_STATUSES.map((status) => (
+                    <TableCell key={status} align="right">
+                      {summary.statusQuantities[status]}
+                    </TableCell>
+                  ))}
                 </TableRow>
               ))}
             </TableBody>

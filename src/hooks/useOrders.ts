@@ -26,6 +26,10 @@ import {
   type StatusChange,
 } from "@shared/models";
 import {
+  normalizeProductOrderSummary,
+  type ProductOrderSummary,
+} from "@shared/models/product-order-summary";
+import {
   useMutation,
   useQuery,
   useQueryClient,
@@ -101,6 +105,8 @@ const ORDER_KEYS = {
   productItems: () => [...ORDER_KEYS.all, "product-items"] as const,
   productItemList: (params: ProductOrderItemListParams) =>
     [...ORDER_KEYS.productItems(), params] as const,
+  productOrderSummaries: () =>
+    [...ORDER_KEYS.all, "product-order-summaries"] as const,
   allProductItems: () => [...ORDER_KEYS.all, "all-product-items"] as const,
   allProductItemList: (params: AllProductOrderItemListParams) =>
     [...ORDER_KEYS.allProductItems(), params] as const,
@@ -437,6 +443,95 @@ export async function fetchAllProductOrderItems(
   } while (nextToken);
 
   return items;
+}
+
+async function fetchProductOrderSummaries(): Promise<ProductOrderSummary[]> {
+  const { data, errors } = await client.queries.getProductOrderSummaries({});
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢商品訂單摘要失敗");
+  }
+
+  const parsed = parseProductOrderSummaries(data);
+  if (!parsed) {
+    throw new Error("查詢商品訂單摘要失敗：回傳格式錯誤");
+  }
+
+  return parsed;
+}
+
+function parseProductOrderSummaries(
+  result: unknown,
+): ProductOrderSummary[] | null {
+  const payload = parseJsonPayload(result);
+  if (payload == null) {
+    return [];
+  }
+
+  const items = extractSummaryItems(payload);
+  if (!items) {
+    return null;
+  }
+
+  return items.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return [];
+    }
+
+    const normalized = normalizeProductOrderSummary(
+      item as Record<string, unknown>,
+    );
+
+    return normalized ? [normalized] : [];
+  });
+}
+
+function parseJsonPayload(result: unknown): unknown {
+  let current = result;
+
+  for (let i = 0; i < 3; i += 1) {
+    if (typeof current === "string") {
+      try {
+        current = JSON.parse(current) as unknown;
+      } catch {
+        return null;
+      }
+      continue;
+    }
+
+    return current;
+  }
+
+  return current;
+}
+
+function extractSummaryItems(payload: unknown): unknown[] | null {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  if (Array.isArray(record["items"])) {
+    return record["items"];
+  }
+
+  if (Array.isArray(record["data"])) {
+    return record["data"];
+  }
+
+  if (
+    typeof record["productId"] === "string" ||
+    typeof record["id"] === "string"
+  ) {
+    return [record];
+  }
+
+  return null;
 }
 
 function buildSupplierOrderItemFilter({
@@ -1318,6 +1413,15 @@ export function useCustomerOrderList(
   });
 }
 
+function invalidateProductOrderSummaryQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+): void {
+  void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.productItems() });
+  void queryClient.invalidateQueries({
+    queryKey: ORDER_KEYS.productOrderSummaries(),
+  });
+}
+
 export function useProductOrderItemList(
   params: ProductOrderItemListParams,
 ): UseQueryResult<PaginatedResult<ProductOrderItemRecord>> {
@@ -1325,6 +1429,14 @@ export function useProductOrderItemList(
     queryKey: ORDER_KEYS.productItemList(params),
     queryFn: () => fetchProductOrderItemList(params),
     enabled: !!params.productId,
+  });
+}
+
+export function useProductOrderSummaries(): UseQueryResult<ProductOrderSummary[]> {
+  return useQuery({
+    queryKey: ORDER_KEYS.productOrderSummaries(),
+    queryFn: fetchProductOrderSummaries,
+    staleTime: 60_000,
   });
 }
 
@@ -1516,6 +1628,7 @@ export function useMarkProcurement(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateProductOrderSummaryQueries(queryClient);
     },
   });
 }
@@ -1541,6 +1654,7 @@ export function useCancelProcurement(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateProductOrderSummaryQueries(queryClient);
     },
   });
 }
@@ -1608,6 +1722,7 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateProductOrderSummaryQueries(queryClient);
       if (input.flag === "received" || input.flag === "shipped") {
         void queryClient.invalidateQueries({ queryKey: ["products"] });
       }
@@ -1673,6 +1788,7 @@ export function useConfirmShipment(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateProductOrderSummaryQueries(queryClient);
       // Invalidate product caches for stock update
       void queryClient.invalidateQueries({ queryKey: ["products"] });
     },
@@ -1744,6 +1860,7 @@ export function useSplitOrder(): UseMutationResult<
 }
 
 export { ORDER_KEYS };
+export type { ProductOrderSummary };
 
 // ---------------------------------------------------------------------------
 // Order Item CRUD Hooks (Order Detail)
@@ -1928,7 +2045,7 @@ export function useAddOrderItemToOrder(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
-      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.productItems() });
+      invalidateProductOrderSummaryQueries(queryClient);
     },
   });
 }
@@ -1948,7 +2065,7 @@ export function useUpdateOrderItemInOrder(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
-      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.productItems() });
+      invalidateProductOrderSummaryQueries(queryClient);
     },
   });
 }
@@ -1968,7 +2085,7 @@ export function useDeleteOrderItemFromOrder(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
-      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.productItems() });
+      invalidateProductOrderSummaryQueries(queryClient);
     },
   });
 }

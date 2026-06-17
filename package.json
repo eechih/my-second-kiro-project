@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "rebuild:customer-order-summary": "node scripts/rebuild-customer-order-summaries.mjs",
+    "rebuild:product-order-summary": "node scripts/rebuild-product-order-summaries.mjs",
     "seed:demo": "node scripts/seed-demo-data.mjs",
     "sandbox": "npx ampx sandbox"
   },

@@ -47,15 +47,11 @@ function ProductPurchasesPage(): React.ReactElement {
 
     return (data ?? [])
       .filter((summary) => {
-        if (statusFilter === "pending") {
-          return summary.unorderedQuantity > 0;
+        if (statusFilter === "all") {
+          return summary.totalQuantity > 0;
         }
 
-        if (statusFilter === "ordered") {
-          return summary.orderedQuantity > 0;
-        }
-
-        return summary.unorderedQuantity > 0 || summary.orderedQuantity > 0;
+        return summary.statusQuantities[statusFilter] > 0;
       })
       .filter((summary) =>
         keyword ? summary.productName.toLowerCase().includes(keyword) : true,

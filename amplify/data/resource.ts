@@ -14,12 +14,14 @@ import { confirmReceived } from "../functions/confirm-received/resource";
 import { confirmShipment } from "../functions/confirm-shipment/resource";
 import { createProduct } from "../functions/create-product/resource";
 import { getCustomerOrderSummaries } from "../functions/list-customer-order-summaries/resource";
+import { getProductOrderSummaries } from "../functions/list-product-order-summaries/resource";
 import { mergeOrders } from "../functions/merge-orders/resource";
 import { splitOrder } from "../functions/split-order/resource";
 
 const SORT_PARTITIONS = {
   customer: "Customer",
   customerOrderSummary: "CustomerOrderSummary",
+  productOrderSummary: "ProductOrderSummary",
   supplier: "Supplier",
   product: "Product",
   order: "Order",
@@ -350,6 +352,30 @@ const schema = a.schema({
     ])
     .authorization((allow) => [allow.authenticated()]),
 
+  ProductOrderSummary: a
+    .model({
+      productId: a.id().required(),
+      productNameSnapshot: a.string().required(),
+      pendingQuantity: a.integer().required().default(0),
+      orderedQuantity: a.integer().required().default(0),
+      receivedQuantity: a.integer().required().default(0),
+      shippedQuantity: a.integer().required().default(0),
+      outOfStockQuantity: a.integer().required().default(0),
+      totalQuantity: a.integer().required().default(0),
+      latestActivityAt: a.datetime(),
+      ...sortFields(SORT_PARTITIONS.productOrderSummary),
+    })
+    .secondaryIndexes((index) => [
+      index("productId")
+        .queryField("productOrderSummaryByProduct")
+        .name("byProduct"),
+      index("gsiPartition")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listProductOrderSummariesByCreatedDate")
+        .name("byCreatedAt"),
+    ])
+    .authorization((allow) => [allow.authenticated()]),
+
   SequenceCounter: a
     .model({
       name: a.string().required(),
@@ -383,6 +409,9 @@ const schema = a.schema({
   cancelOutOfStock: authenticatedOrderItemMutation(cancelOutOfStock),
   getCustomerOrderSummaries: authenticatedJsonQuery(
     getCustomerOrderSummaries,
+  ),
+  getProductOrderSummaries: authenticatedJsonQuery(
+    getProductOrderSummaries,
   ),
 
   mergeOrders: authenticatedJsonMutation(

@@ -17,6 +17,7 @@ import { mergeOrders } from "./functions/merge-orders/resource";
 import { splitOrder } from "./functions/split-order/resource";
 import { generateThumbnail } from "./functions/generate-thumbnail/resource";
 import { getCustomerOrderSummaries } from "./functions/list-customer-order-summaries/resource";
+import { getProductOrderSummaries } from "./functions/list-product-order-summaries/resource";
 
 const backend = defineBackend({
   auth,
@@ -32,6 +33,7 @@ const backend = defineBackend({
   confirmReceived,
   createProduct,
   getCustomerOrderSummaries,
+  getProductOrderSummaries,
   mergeOrders,
   splitOrder,
   generateThumbnail,
@@ -49,6 +51,7 @@ const tables = backend.data.resources.tables;
 const orderTable = tables["Order"];
 const orderItemTable = tables["OrderItem"];
 const customerOrderSummaryTable = tables["CustomerOrderSummary"];
+const productOrderSummaryTable = tables["ProductOrderSummary"];
 const productTable = tables["Product"];
 const productCounterTable = tables["SequenceCounter"];
 
@@ -56,11 +59,12 @@ if (
   !orderTable ||
   !orderItemTable ||
   !customerOrderSummaryTable ||
+  !productOrderSummaryTable ||
   !productTable ||
   !productCounterTable
 ) {
   throw new Error(
-    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、CustomerOrderSummary、Product、SequenceCounter 模型。",
+    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、CustomerOrderSummary、ProductOrderSummary、Product、SequenceCounter 模型。",
   );
 }
 
@@ -89,6 +93,7 @@ const transactionalFunctions = [
   backend.confirmReceived,
   backend.createProduct,
   backend.getCustomerOrderSummaries,
+  backend.getProductOrderSummaries,
   backend.mergeOrders,
   backend.splitOrder,
 ];
@@ -105,6 +110,10 @@ for (const fn of transactionalFunctions) {
     "CUSTOMER_ORDER_SUMMARY_TABLE_NAME",
     customerOrderSummaryTable.tableName,
   );
+  lambdaFn.addEnvironment(
+    "PRODUCT_ORDER_SUMMARY_TABLE_NAME",
+    productOrderSummaryTable.tableName,
+  );
   lambdaFn.addEnvironment("PRODUCT_TABLE_NAME", productTable.tableName);
   lambdaFn.addEnvironment(
     "SEQUENCECOUNTER_TABLE_NAME",
@@ -115,6 +124,7 @@ for (const fn of transactionalFunctions) {
   orderTable.grantReadWriteData(lambdaFn);
   orderItemTable.grantReadWriteData(lambdaFn);
   customerOrderSummaryTable.grantReadWriteData(lambdaFn);
+  productOrderSummaryTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
   productCounterTable.grantReadWriteData(lambdaFn);
 
@@ -126,6 +136,7 @@ for (const fn of transactionalFunctions) {
       resources: [
         `${orderItemTable.tableArn}/index/*`,
         `${customerOrderSummaryTable.tableArn}/index/*`,
+        `${productOrderSummaryTable.tableArn}/index/*`,
       ],
     }),
   );
