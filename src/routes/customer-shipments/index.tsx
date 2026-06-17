@@ -153,10 +153,15 @@ function CustomerShipmentListPage(): React.ReactElement {
         orderCountLabel={orderCountLabel}
         itemCountLabel={itemCountLabel}
         onSelectCustomer={(customerId) => {
+          const summary = filteredSummaries.find(
+            (item) => item.customerId === customerId,
+          );
           void navigate({
-            to: "/customer-shipments/$customerId",
-            params: { customerId },
-            search: { status: statusFilter },
+            to: "/orders",
+            search: {
+              customerId,
+              customerName: summary?.customerName,
+            },
           });
         }}
       />

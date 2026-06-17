@@ -9,6 +9,7 @@ import {
 import { requireAuth } from "@/lib/route-guards";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import { validateMergeOrders } from "@shared/logic/order-merge";
 import type { Order } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -20,12 +21,22 @@ import { printPackingSlips } from "./-components/list/packingSlip";
 
 export const Route = createFileRoute("/orders/")({
   beforeLoad: requireAuth,
+  validateSearch: (search: Record<string, unknown>) => ({
+    customerId:
+      typeof search["customerId"] === "string" ? search["customerId"] : undefined,
+    customerName:
+      typeof search["customerName"] === "string"
+        ? search["customerName"]
+        : undefined,
+  }),
   component: OrderListPage,
 });
 
 function OrderListPage(): React.ReactElement {
   const navigate = useNavigate();
+  const { customerId, customerName } = Route.useSearch();
   const pagination = useCursorPagination(25);
+  const resetPagination = pagination.reset;
   const mergeOrders = useMergeOrders();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>("all");
@@ -43,10 +54,16 @@ function OrderListPage(): React.ReactElement {
     pageSize: pagination.pageSize,
     nextToken: pagination.currentToken,
     search: search || undefined,
+    customerId,
     status: statusFilter === "all" ? undefined : statusFilter,
   });
   const orderIds = useMemo(() => data?.items ?? [], [data?.items]);
   const nextToken = data?.nextToken;
+
+  useEffect(() => {
+    resetPagination();
+    setSelectedOrderIds(new Set());
+  }, [customerId, resetPagination]);
 
   useEffect(() => {
     const currentOrderIds = new Set(orderIds);
@@ -186,6 +203,31 @@ function OrderListPage(): React.ReactElement {
   return (
     <Box>
       <PageHeader section="訂單" current="列表" title="列表" />
+
+      {customerId && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() =>
+                void navigate({
+                  to: "/orders",
+                  search: {},
+                })
+              }
+            >
+              查看全部訂單
+            </Button>
+          }
+        >
+          目前只顯示
+          {customerName ? `「${customerName}」` : "指定客戶"}
+          的全部訂單
+        </Alert>
+      )}
 
       {mergeError && !mergeDialogOpen && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMergeError(null)}>

@@ -43,6 +43,7 @@ export interface OrderListParams {
   pageSize: number;
   nextToken?: string;
   search?: string;
+  customerId?: string;
   /** 訂單狀態篩選（undefined 表示全部） */
   status?: OrderStatus;
 }
@@ -219,8 +220,12 @@ type UpdateOrderItemStatusFlagInput = {
 
 function buildOrderFilter({
   search,
+  customerId,
   status,
-}: Pick<OrderListParams, "search" | "status">): Record<string, unknown> {
+}: Pick<
+  OrderListParams,
+  "search" | "customerId" | "status"
+>): Record<string, unknown> {
   const filter: Record<string, unknown> = {};
 
   if (search) {
@@ -234,6 +239,10 @@ function buildOrderFilter({
     filter.status = { eq: status };
   }
 
+  if (customerId) {
+    filter.customerId = { eq: customerId };
+  }
+
   return filter;
 }
 
@@ -241,9 +250,10 @@ function buildOrderListParams({
   pageSize,
   nextToken,
   search,
+  customerId,
   status,
 }: OrderListParams): Record<string, unknown> {
-  const filter = buildOrderFilter({ search, status });
+  const filter = buildOrderFilter({ search, customerId, status });
   const listParams: Record<string, unknown> = {
     limit: pageSize,
     selectionSet: ORDER_LIST_SELECTION_SET,
