@@ -63,8 +63,10 @@ export interface ProductOrderItemListParams {
   statuses?: OrderItem["status"][];
 }
 
-export interface ProductOrderListParams {
+export interface AllProductOrderItemListParams {
   productId: string;
+  status?: OrderItem["status"];
+  statuses?: OrderItem["status"][];
 }
 
 export interface SupplierOrderItemListParams {
@@ -99,9 +101,9 @@ const ORDER_KEYS = {
   productItems: () => [...ORDER_KEYS.all, "product-items"] as const,
   productItemList: (params: ProductOrderItemListParams) =>
     [...ORDER_KEYS.productItems(), params] as const,
-  productOrders: () => [...ORDER_KEYS.all, "product-orders"] as const,
-  productOrderList: (params: ProductOrderListParams) =>
-    [...ORDER_KEYS.productOrders(), params] as const,
+  allProductItems: () => [...ORDER_KEYS.all, "all-product-items"] as const,
+  allProductItemList: (params: AllProductOrderItemListParams) =>
+    [...ORDER_KEYS.allProductItems(), params] as const,
   supplierItems: () => [...ORDER_KEYS.all, "supplier-items"] as const,
   supplierItemList: (params: SupplierOrderItemListParams) =>
     [...ORDER_KEYS.supplierItems(), params] as const,
@@ -415,11 +417,10 @@ async function fetchProductOrderItemList(
   };
 }
 
-async function fetchProductOrderList(
-  params: ProductOrderListParams,
-): Promise<PaginatedResult<string>> {
-  const orderIds: string[] = [];
-  const seen = new Set<string>();
+export async function fetchAllProductOrderItems(
+  params: AllProductOrderItemListParams,
+): Promise<ProductOrderItemRecord[]> {
+  const items: ProductOrderItemRecord[] = [];
   let nextToken: string | undefined;
 
   do {
@@ -427,24 +428,15 @@ async function fetchProductOrderList(
       productId: params.productId,
       pageSize: 100,
       nextToken,
+      status: params.status,
+      statuses: params.statuses,
     });
 
-    for (const record of page.items) {
-      if (!record.orderId || seen.has(record.orderId)) {
-        continue;
-      }
-
-      seen.add(record.orderId);
-      orderIds.push(record.orderId);
-    }
-
+    items.push(...page.items);
     nextToken = page.nextToken;
   } while (nextToken);
 
-  return {
-    items: orderIds,
-    totalCount: orderIds.length,
-  };
+  return items;
 }
 
 function buildSupplierOrderItemFilter({
@@ -1336,12 +1328,12 @@ export function useProductOrderItemList(
   });
 }
 
-export function useProductOrderList(
-  params: ProductOrderListParams,
-): UseQueryResult<PaginatedResult<string>> {
+export function useAllProductOrderItems(
+  params: AllProductOrderItemListParams,
+): UseQueryResult<ProductOrderItemRecord[]> {
   return useQuery({
-    queryKey: ORDER_KEYS.productOrderList(params),
-    queryFn: () => fetchProductOrderList(params),
+    queryKey: ORDER_KEYS.allProductItemList(params),
+    queryFn: () => fetchAllProductOrderItems(params),
     enabled: !!params.productId,
     staleTime: 60_000,
   });

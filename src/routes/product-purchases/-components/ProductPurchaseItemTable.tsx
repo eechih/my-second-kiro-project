@@ -4,7 +4,11 @@ import {
   useUpdateOrderItemStatusFlag,
   type ProductOrderItemRecord,
 } from "@/hooks/useOrders";
-import { ORDER_ITEM_STATUS_LABEL, type OrderItem } from "@shared/models";
+import {
+  ORDER_ITEM_STATUS_LABEL,
+  ORDER_STATUS_LABEL,
+  type OrderItem,
+} from "@shared/models";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import Box from "@mui/material/Box";
@@ -21,8 +25,6 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import {
   ORDER_ITEM_STATUS_COLOR_MAP,
-  ORDER_STATUS_COLOR_MAP,
-  ORDER_STATUS_LABEL,
 } from "../../orders/-components/detail/detailUtils";
 
 function formatDate(dateStr: string | null): string {
@@ -34,19 +36,21 @@ function formatDate(dateStr: string | null): string {
   });
 }
 
-function canToggleOrdered(item: OrderItem): boolean {
-  return item.status === "pending" || item.status === "ordered";
+function canToggleOrdered(record: ProductOrderItemRecord): boolean {
+  if (record.orderStatus === "CANCELLED") {
+    return false;
+  }
+
+  return record.item.status === "pending" || record.item.status === "ordered";
 }
 
-function canToggleReceived(item: OrderItem): boolean {
-  return item.status === "ordered" || item.status === "received";
-}
+function canToggleOutOfStock(record: ProductOrderItemRecord): boolean {
+  if (record.orderStatus === "CANCELLED") {
+    return false;
+  }
 
-function canToggleShipped(item: OrderItem): boolean {
-  return item.status === "received" || item.status === "shipped";
-}
+  const { item } = record;
 
-function canToggleOutOfStock(item: OrderItem): boolean {
   return (
     item.status === "pending" ||
     item.status === "ordered" ||
@@ -60,6 +64,10 @@ function canEditRecord(record: ProductOrderItemRecord): boolean {
     (record.orderStatus === "PENDING" || record.orderStatus === "ORDERED") &&
     (record.item.status === "pending" || record.item.status === "ordered")
   );
+}
+
+function getDisabledOrderStatusTooltip(record: ProductOrderItemRecord): string {
+  return `訂單狀態：${ORDER_STATUS_LABEL[record.orderStatus]}`;
 }
 
 export interface ProductPurchaseItemTableProps {
@@ -102,10 +110,7 @@ export function ProductPurchaseItemTable({
             <TableCell align="right">採購成本</TableCell>
             <TableCell>供應商</TableCell>
             <TableCell align="center">狀態</TableCell>
-            <TableCell align="center">訂單狀態</TableCell>
             <TableCell align="center">訂貨日期</TableCell>
-            <TableCell align="center">到貨日期</TableCell>
-            <TableCell align="center">出貨日期</TableCell>
             <TableCell align="center">快捷操作</TableCell>
             <TableCell align="center">操作</TableCell>
           </TableRow>
@@ -135,16 +140,7 @@ export function ProductPurchaseItemTable({
                     colorMap={ORDER_ITEM_STATUS_COLOR_MAP}
                   />
                 </TableCell>
-                <TableCell align="center">
-                  <StatusChip
-                    status={record.orderStatus}
-                    label={ORDER_STATUS_LABEL[record.orderStatus]}
-                    colorMap={ORDER_STATUS_COLOR_MAP}
-                  />
-                </TableCell>
                 <TableCell align="center">{formatDate(item.purchasedAt)}</TableCell>
-                <TableCell align="center">{formatDate(item.receivedAt)}</TableCell>
-                <TableCell align="center">{formatDate(item.shippedAt)}</TableCell>
                 <TableCell align="center">
                   <Box
                     sx={{
@@ -154,81 +150,71 @@ export function ProductPurchaseItemTable({
                       flexWrap: "wrap",
                     }}
                   >
-                    <Button
-                      size="small"
-                      variant={item.purchasedAt ? "contained" : "outlined"}
-                      color="warning"
-                      disabled={
-                        !canToggleOrdered(item) || updateStatusFlag.isPending
-                      }
-                      onClick={() =>
-                        updateStatusFlag.mutate({
-                          orderId: record.orderId,
-                          orderItemId: item.id,
-                          flag: "ordered",
-                          checked: !item.purchasedAt,
-                        })
+                    <Tooltip
+                      title={
+                        !canToggleOrdered(record) || updateStatusFlag.isPending
+                          ? getDisabledOrderStatusTooltip(record)
+                          : ""
                       }
                     >
-                      {item.purchasedAt ? "取消訂貨" : "確認訂貨"}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant={item.receivedAt ? "contained" : "outlined"}
-                      color="info"
-                      disabled={
-                        !canToggleReceived(item) || updateStatusFlag.isPending
-                      }
-                      onClick={() =>
-                        updateStatusFlag.mutate({
-                          orderId: record.orderId,
-                          orderItemId: item.id,
-                          flag: "received",
-                          checked: !item.receivedAt,
-                        })
-                      }
-                    >
-                      {item.receivedAt ? "取消到貨" : "確認到貨"}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant={item.shippedAt ? "contained" : "outlined"}
-                      color="success"
-                      disabled={
-                        !canToggleShipped(item) || updateStatusFlag.isPending
-                      }
-                      onClick={() =>
-                        updateStatusFlag.mutate({
-                          orderId: record.orderId,
-                          orderItemId: item.id,
-                          flag: "shipped",
-                          checked: !item.shippedAt,
-                        })
-                      }
-                    >
-                      {item.shippedAt ? "取消出貨" : "確認出貨"}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant={
-                        item.status === "out_of_stock" ? "contained" : "outlined"
-                      }
-                      color="error"
-                      disabled={
-                        !canToggleOutOfStock(item) ||
+                      <span>
+                        <Button
+                          size="small"
+                          variant={item.purchasedAt ? "contained" : "outlined"}
+                          color="warning"
+                          disabled={
+                            !canToggleOrdered(record) ||
+                            updateStatusFlag.isPending
+                          }
+                          onClick={() =>
+                            updateStatusFlag.mutate({
+                              orderId: record.orderId,
+                              orderItemId: item.id,
+                              flag: "ordered",
+                              checked: !item.purchasedAt,
+                            })
+                          }
+                        >
+                          {item.purchasedAt ? "取消訂貨" : "確認訂貨"}
+                        </Button>
+                      </span>
+                    </Tooltip>
+                    <Tooltip
+                      title={
+                        !canToggleOutOfStock(record) ||
                         updateStatusFlag.isPending
-                      }
-                      onClick={() =>
-                        updateStatusFlag.mutate({
-                          orderId: record.orderId,
-                          orderItemId: item.id,
-                          flag: "outOfStock",
-                          checked: item.status !== "out_of_stock",
-                        })
+                          ? getDisabledOrderStatusTooltip(record)
+                          : ""
                       }
                     >
-                      {item.status === "out_of_stock" ? "取消缺貨" : "標記缺貨"}
-                    </Button>
+                      <span>
+                        <Button
+                          size="small"
+                          variant={
+                            item.status === "out_of_stock"
+                              ? "contained"
+                              : "outlined"
+                          }
+                          color="error"
+                          disabled={
+                            !canToggleOutOfStock(record) ||
+                            updateStatusFlag.isPending
+                          }
+                          onClick={() =>
+                            updateStatusFlag.mutate({
+                              orderId: record.orderId,
+                              orderItemId: item.id,
+                              flag: "outOfStock",
+                              checked: item.status !== "out_of_stock",
+                            })
+                          }
+                        >
+                          {item.status === "out_of_stock"
+                            ? "取消缺貨"
+                            : "標記缺貨"}
+                        </Button>
+                      </span>
+                    </Tooltip>
                   </Box>
                 </TableCell>
                 <TableCell align="center">

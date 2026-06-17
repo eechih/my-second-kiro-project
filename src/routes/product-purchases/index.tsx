@@ -94,11 +94,8 @@ function ProductPurchasesPage(): React.ReactElement {
         isLoading={isLoading}
         onSelectProduct={(summary) =>
           void navigate({
-            to: "/orders",
-            search: {
-              productId: summary.productId,
-              productName: summary.productName,
-            },
+            to: "/product-purchases/$productId",
+            params: { productId: summary.productId },
           })
         }
       />
