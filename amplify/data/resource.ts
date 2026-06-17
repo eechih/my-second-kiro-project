@@ -347,6 +347,7 @@ const schema = a.schema({
       latestReadyToShipReceivedAt: a.datetime(),
       shippedOrderCount: a.integer().required().default(0),
       shippedItemCount: a.integer().required().default(0),
+      latestShippedAt: a.datetime(),
       completedOrderCount: a.integer().required().default(0),
       totalOrderCount: a.integer().required().default(0),
       ...sortFields(SORT_PARTITIONS.customerFulfillmentSummary),

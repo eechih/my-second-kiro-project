@@ -67,7 +67,13 @@ describe("customer-fulfillment-summary-lib", () => {
         fulfillmentStatus: "COMPLETED",
         createdAt: "2026-06-13T00:00:00.000Z",
         updatedAt: "2026-06-13T01:00:00.000Z",
-        items: [{ quantity: 2, status: "shipped" }],
+        items: [
+          {
+            quantity: 2,
+            status: "shipped",
+            shippedAt: "2026-06-13T08:00:00.000Z",
+          },
+        ],
       },
     ]);
 
@@ -75,6 +81,7 @@ describe("customer-fulfillment-summary-lib", () => {
       customerId: "customer-2",
       shippedOrderCount: 1,
       shippedItemCount: 2,
+      latestShippedAt: "2026-06-13T08:00:00.000Z",
       completedOrderCount: 1,
       totalOrderCount: 1,
     });

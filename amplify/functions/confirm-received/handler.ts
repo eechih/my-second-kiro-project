@@ -225,14 +225,12 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       toFulfillmentStatus: derivedFulfillmentStatus,
     });
     const latestReadyToShipReceivedAt =
-      derivedFulfillmentStatus === "READY_TO_SHIP"
-        ? deriveLatestReadyToShipReceivedAtAfterTransition({
-            allOrderItems: summaryOrderItems,
-            orderItemId,
-            toReceivedAt: now,
-            toStatus: "received",
-          })
-        : undefined;
+      deriveLatestReadyToShipReceivedAtAfterTransition({
+        allOrderItems: summaryOrderItems,
+        orderItemId,
+        toReceivedAt: now,
+        toStatus: "received",
+      }) ?? null;
 
     // 4. 建立交易項目（僅 2 個操作：OrderItem 更新 + 庫存更新）
     const transactItems: NonNullable<

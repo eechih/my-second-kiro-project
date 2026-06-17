@@ -8,6 +8,16 @@ function getLatestReceivedAt(items) {
     );
 }
 
+function getLatestShippedAt(items) {
+  return items
+    .filter((item) => item.status === "shipped" && item.shippedAt)
+    .reduce(
+      (latest, item) =>
+        latest && latest > item.shippedAt ? latest : item.shippedAt,
+      null,
+    );
+}
+
 function isShipmentRelevantOrder(order) {
   return order.status !== "CANCELLED" && order.status !== "REFUNDED";
 }
@@ -57,6 +67,7 @@ export function buildCustomerFulfillmentSummariesFromOrders(input) {
     const bucket = getShipmentSummaryBucket(order);
     const latestReadyToShipReceivedAt =
       bucket === "readyToShip" ? getLatestReceivedAt(items) : null;
+    const latestShippedAt = bucket === "shipped" ? getLatestShippedAt(items) : null;
     const isPending = bucket === "pending";
     const isReadyToShip = bucket === "readyToShip";
     const isShipped = bucket === "shipped";
@@ -87,6 +98,7 @@ export function buildCustomerFulfillmentSummariesFromOrders(input) {
       latestReadyToShipReceivedAt: null,
       shippedOrderCount: 0,
       shippedItemCount: 0,
+      latestShippedAt: null,
       completedOrderCount: 0,
       totalOrderCount: 0,
       gsiPartition: "CustomerFulfillmentSummary",
@@ -113,6 +125,12 @@ export function buildCustomerFulfillmentSummariesFromOrders(input) {
           : (existing.latestReadyToShipReceivedAt ?? latestReadyToShipReceivedAt),
       shippedOrderCount: existing.shippedOrderCount + (isShipped ? 1 : 0),
       shippedItemCount: existing.shippedItemCount + shippedItemCount,
+      latestShippedAt:
+        existing.latestShippedAt && latestShippedAt
+          ? existing.latestShippedAt > latestShippedAt
+            ? existing.latestShippedAt
+            : latestShippedAt
+          : (existing.latestShippedAt ?? latestShippedAt),
       completedOrderCount:
         existing.completedOrderCount + completedOrderCount,
       totalOrderCount: existing.totalOrderCount + totalOrderCount,

@@ -30,6 +30,7 @@ import {
 import {
   buildShipmentSummaryDelta,
   buildShipmentSummaryTransactItem,
+  deriveLatestShippedAtAfterTransition,
   deriveLatestReadyToShipReceivedAtAfterTransition,
 } from "../customer-fulfillment-summary";
 
@@ -246,13 +247,17 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       toFulfillmentStatus: derivedFulfillmentStatus,
     });
     const latestReadyToShipReceivedAt =
-      derivedFulfillmentStatus === "READY_TO_SHIP"
-        ? deriveLatestReadyToShipReceivedAtAfterTransition({
-            allOrderItems: summaryOrderItems,
-            orderItemId,
-            toStatus: "shipped",
-          })
-        : undefined;
+      deriveLatestReadyToShipReceivedAtAfterTransition({
+        allOrderItems: summaryOrderItems,
+        orderItemId,
+        toStatus: "shipped",
+      }) ?? null;
+    const latestShippedAt = deriveLatestShippedAtAfterTransition({
+      allOrderItems: summaryOrderItems,
+      orderItemId,
+      toShippedAt: now,
+      toStatus: "shipped",
+    });
 
     // 7. 建立交易項目
     const transactItems: NonNullable<
@@ -330,6 +335,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       summaryTableName: summaryTable,
       delta: summaryDelta,
       latestReadyToShipReceivedAt,
+      latestShippedAt,
     });
     if (summaryTransactItem) {
       transactItems.push(summaryTransactItem);

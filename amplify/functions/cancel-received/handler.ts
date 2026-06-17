@@ -200,13 +200,11 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       toFulfillmentStatus: derivedFulfillmentStatus,
     });
     const latestReadyToShipReceivedAt =
-      derivedFulfillmentStatus === "READY_TO_SHIP"
-        ? deriveLatestReadyToShipReceivedAtAfterTransition({
-            allOrderItems: summaryOrderItems,
-            orderItemId,
-            toStatus: "ordered",
-          })
-        : undefined;
+      deriveLatestReadyToShipReceivedAtAfterTransition({
+        allOrderItems: summaryOrderItems,
+        orderItemId,
+        toStatus: "ordered",
+      }) ?? null;
 
     const transactItems: NonNullable<
       ConstructorParameters<typeof TransactWriteItemsCommand>[0]

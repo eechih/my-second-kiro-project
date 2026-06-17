@@ -7,6 +7,7 @@ export interface CustomerFulfillmentSummary {
   readyToShipItemCount: number;
   shippedOrderCount: number;
   shippedItemCount: number;
+  latestShippedAt?: string;
   completedOrderCount: number;
   totalOrderCount: number;
   latestReadyToShipReceivedAt?: string;
@@ -41,6 +42,10 @@ export function normalizeCustomerFulfillmentSummary(
         : undefined,
     shippedOrderCount: toInteger(raw["shippedOrderCount"]),
     shippedItemCount: toInteger(raw["shippedItemCount"]),
+    latestShippedAt:
+      raw["latestShippedAt"] != null
+        ? String(raw["latestShippedAt"])
+        : undefined,
     completedOrderCount: toInteger(raw["completedOrderCount"]),
     totalOrderCount: toInteger(raw["totalOrderCount"]),
   };

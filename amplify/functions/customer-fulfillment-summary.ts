@@ -30,6 +30,7 @@ type ShipmentSummaryRecord = {
   latestReadyToShipReceivedAt?: string;
   shippedOrderCount: number;
   shippedItemCount: number;
+  latestShippedAt?: string;
   completedOrderCount: number;
   totalOrderCount: number;
   createdAt?: string;
@@ -40,6 +41,7 @@ type OrderItemLike = {
   status: ShipmentStatus;
   quantity: number;
   receivedAt?: string;
+  shippedAt?: string;
 };
 
 function isShipmentRelevantOrder(status: OrderStatus): boolean {
@@ -165,6 +167,7 @@ export function buildShipmentSummaryTransactItem({
   summaryTableName,
   delta,
   latestReadyToShipReceivedAt,
+  latestShippedAt,
 }: {
   customerId: string;
   customerNameSnapshot: string;
@@ -172,7 +175,8 @@ export function buildShipmentSummaryTransactItem({
   summaryResult?: GetItemCommandOutput;
   summaryTableName: string;
   delta: ShipmentSummaryDelta;
-  latestReadyToShipReceivedAt?: string;
+  latestReadyToShipReceivedAt?: string | null;
+  latestShippedAt?: string | null;
 }): TransactWriteItem | null {
   const rawSummary = summaryResult?.Item ? unmarshall(summaryResult.Item) : null;
   const existingSummary = rawSummary
@@ -190,6 +194,9 @@ export function buildShipmentSummaryTransactItem({
           : undefined,
         shippedOrderCount: Number(rawSummary["shippedOrderCount"] ?? 0),
         shippedItemCount: Number(rawSummary["shippedItemCount"] ?? 0),
+        latestShippedAt: rawSummary["latestShippedAt"]
+          ? String(rawSummary["latestShippedAt"])
+          : undefined,
         completedOrderCount: Number(rawSummary["completedOrderCount"] ?? 0),
         totalOrderCount: Number(rawSummary["totalOrderCount"] ?? 0),
         createdAt: rawSummary["createdAt"]
@@ -264,9 +271,16 @@ export function buildShipmentSummaryTransactItem({
     pendingItemCount: nextSummary.pendingItemCount,
     readyToShipOrderCount: nextSummary.readyToShipOrderCount,
     readyToShipItemCount: nextSummary.readyToShipItemCount,
-    latestReadyToShipReceivedAt,
+    latestReadyToShipReceivedAt:
+      latestReadyToShipReceivedAt === undefined
+        ? existingSummary?.latestReadyToShipReceivedAt
+        : latestReadyToShipReceivedAt,
     shippedOrderCount: nextSummary.shippedOrderCount,
     shippedItemCount: nextSummary.shippedItemCount,
+    latestShippedAt:
+      latestShippedAt === undefined
+        ? existingSummary?.latestShippedAt
+        : latestShippedAt,
     completedOrderCount: nextSummary.completedOrderCount,
     totalOrderCount: nextSummary.totalOrderCount,
     gsiPartition: "CustomerFulfillmentSummary",
@@ -305,4 +319,39 @@ export function deriveLatestReadyToShipReceivedAtAfterTransition({
   }));
 
   return getLatestReadyToShipReceivedAt(afterItems);
+}
+
+export function deriveLatestShippedAtAfterTransition({
+  allOrderItems,
+  orderItemId,
+  toShippedAt,
+  toStatus,
+}: {
+  allOrderItems: readonly OrderItemLike[];
+  orderItemId: string;
+  toShippedAt?: string;
+  toStatus: ShipmentStatus;
+}): string | null {
+  const afterItems = allOrderItems.map((item) => ({
+    id: item.id,
+    status: item.id === orderItemId ? toStatus : item.status,
+    quantity: item.quantity,
+    receivedAt: item.receivedAt,
+    shippedAt:
+      item.id === orderItemId && toStatus === "shipped"
+        ? toShippedAt ?? item.shippedAt
+        : item.shippedAt,
+  }));
+
+  return afterItems.reduce<string | null>((latest, item) => {
+    if (item.status !== "shipped" || !item.shippedAt) {
+      return latest;
+    }
+
+    if (!latest || item.shippedAt > latest) {
+      return item.shippedAt;
+    }
+
+    return latest;
+  }, undefined);
 }
