@@ -13,8 +13,6 @@
     "preview": "vite preview",
     "rebuild:customer-order-summary": "node scripts/rebuild-customer-order-summaries.mjs",
     "seed:demo": "node scripts/seed-demo-data.mjs",
-    "test": "vitest --run",
-    "test:watch": "vitest",
     "sandbox": "npx ampx sandbox"
   },
   "dependencies": {
@@ -44,8 +42,6 @@
     "@aws-sdk/util-dynamodb": "^3.996.2",
     "@eslint/js": "^10.0.1",
     "@tanstack/router-plugin": "^1.95.0",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
     "@types/aws-lambda": "^8.10.161",
     "@types/node": "^25.6.0",
     "@types/react": "^19.0.0",
@@ -55,13 +51,10 @@
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "fast-check": "^4.7.0",
     "globals": "^17.6.0",
-    "jsdom": "^29.0.2",
     "mockjs": "^1.1.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "vite": "^8.0.10"
   }
 }
