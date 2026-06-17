@@ -50,8 +50,7 @@ export function OrderItemsCard({
   const deleteOrderItem = useDeleteOrderItemFromOrder();
 
   const canEdit =
-    (order.status === "PENDING_PAYMENT" || order.status === "PAID") &&
-    order.fulfillmentStatus === "UNFULFILLED";
+    order.status === "PENDING" || order.status === "ORDERED";
 
   const openAddDialog = useCallback(() => {
     setDialog({ open: true, editOrderItem: null });

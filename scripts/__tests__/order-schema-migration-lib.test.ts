@@ -35,7 +35,7 @@ describe("order-schema-migration-lib", () => {
       shippingFee: 0,
       discountAmount: 0,
       paymentStatus: "UNPAID",
-      fulfillmentStatus: "READY_TO_SHIP",
+      status: "ORDERED",
       gsiPartition: "Order",
       isActive: true,
       createdAtForSort: "2026-05-10T00:00:00.000Z",

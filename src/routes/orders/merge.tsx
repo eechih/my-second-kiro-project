@@ -44,7 +44,7 @@ function OrderMergePage() {
   });
   const orderIds = useMemo(() => ordersData?.items ?? [], [ordersData?.items]);
 
-  // 篩選出屬於選定客戶且尚未進入履約流程的待付款/已付款訂單
+  // 篩選出屬於選定客戶且尚未進入出貨流程的待處理/已採購訂單
   const mergeableOrders = useMemo(() => {
     if (!selectedCustomer) return [];
     return orderIds
@@ -53,8 +53,7 @@ function OrderMergePage() {
       .filter(
         (order) =>
           order.customerId === selectedCustomer.id &&
-          (order.status === "PENDING_PAYMENT" || order.status === "PAID") &&
-          order.fulfillmentStatus === "UNFULFILLED",
+          (order.status === "PENDING" || order.status === "ORDERED"),
       );
   }, [selectedCustomer, orderIds, loadedOrders]);
 

@@ -61,9 +61,7 @@ function canToggleOrdered(record: ProductOrderItemRecord): boolean {
 
 function canEditRecord(record: ProductOrderItemRecord): boolean {
   return (
-    (record.orderStatus === "PENDING_PAYMENT" ||
-      record.orderStatus === "PAID") &&
-    record.fulfillmentStatus === "UNFULFILLED" &&
+    (record.orderStatus === "PENDING" || record.orderStatus === "ORDERED") &&
     (record.item.status === "pending" || record.item.status === "ordered")
   );
 }

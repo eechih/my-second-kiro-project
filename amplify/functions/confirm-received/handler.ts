@@ -7,15 +7,12 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import {
-  deriveFulfillmentStatusFromOrderItems,
-  deriveOrderStatusFromSummary,
+  deriveOrderStatusFromOrderItems,
 } from "@shared/logic/order-status";
 import { validateProcurementReceive } from "@shared/logic/procurement";
 import {
-  normalizeFulfillmentStatus,
   normalizeOrderItemStatus,
   normalizeOrderStatus,
-  normalizePaymentStatus,
 } from "@shared/models/order";
 import {
   getTransactionCancellationReasons,
@@ -161,10 +158,6 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     }
     const order = unmarshall(orderResult.Item);
     const currentOrderStatus = normalizeOrderStatus(order["status"]);
-    const currentPaymentStatus = normalizePaymentStatus(order["paymentStatus"]);
-    const currentFulfillmentStatus = normalizeFulfillmentStatus(
-      order["fulfillmentStatus"],
-    );
     const customerId = String(order["customerId"] ?? "");
     const customerNameSnapshot = String(
       order["customerNameSnapshot"] ?? "未命名客戶",
@@ -204,13 +197,8 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
           ? ("received" as const)
           : normalizeOrderItemStatus(li["status"]),
     }));
-    const derivedFulfillmentStatus =
-      deriveFulfillmentStatusFromOrderItems(simulatedOrderItems);
-    const derivedOrderStatus = deriveOrderStatusFromSummary({
-      paymentStatus: currentPaymentStatus,
-      fulfillmentStatus: derivedFulfillmentStatus,
-      cancelledAt: order["cancelledAt"] != null ? String(order["cancelledAt"]) : null,
-    });
+    const derivedOrderStatus =
+      deriveOrderStatusFromOrderItems(simulatedOrderItems);
     const summaryResult = await ddb.send(
       new GetItemCommand({
         TableName: summaryTable,
@@ -220,9 +208,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     const summaryDelta = buildShipmentSummaryDelta({
       allOrderItems: summaryOrderItems,
       fromOrderStatus: currentOrderStatus,
-      fromFulfillmentStatus: currentFulfillmentStatus,
       toOrderStatus: derivedOrderStatus,
-      toFulfillmentStatus: derivedFulfillmentStatus,
     });
     const latestReadyToShipReceivedAt =
       deriveLatestReadyToShipReceivedAtAfterTransition({
@@ -256,10 +242,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       },
     });
 
-    if (
-      derivedFulfillmentStatus !== currentFulfillmentStatus ||
-      derivedOrderStatus !== currentOrderStatus
-    ) {
+    if (derivedOrderStatus !== currentOrderStatus) {
       const existingHistory =
         Array.isArray(order["statusHistory"])
           ? (order["statusHistory"] as Record<string, unknown>[])
@@ -281,11 +264,10 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
           TableName: orderTable,
           Key: marshall({ id: orderId }),
           UpdateExpression:
-            "SET #st = :newStatus, fulfillmentStatus = :fulfillmentStatus, statusHistory = :history, updatedAt = :now",
+            "SET #st = :newStatus, statusHistory = :history, updatedAt = :now",
           ExpressionAttributeNames: { "#st": "status" },
           ExpressionAttributeValues: marshall({
             ":newStatus": derivedOrderStatus,
-            ":fulfillmentStatus": derivedFulfillmentStatus,
             ":history": updatedHistory,
             ":now": now,
           }),
@@ -328,9 +310,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       productId,
       quantity,
       currentOrderStatus,
-      currentFulfillmentStatus,
       derivedOrderStatus,
-      derivedFulfillmentStatus,
       transactItemCount: transactItems.length,
     });
     await ddb.send(
@@ -344,7 +324,6 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
       quantity,
       orderItemStatus: "received",
       orderStatus: derivedOrderStatus,
-      fulfillmentStatus: derivedFulfillmentStatus,
     });
     return JSON.stringify({
       success: true,
@@ -354,7 +333,6 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
         quantity,
         orderItemStatus: "received",
         orderStatus: derivedOrderStatus,
-        fulfillmentStatus: derivedFulfillmentStatus,
       },
     });
   } catch (error: unknown) {

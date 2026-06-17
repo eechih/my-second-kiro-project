@@ -7,7 +7,7 @@
  * 合併規則：
  * - 至少選取兩筆訂單
  * - 所有訂單必須屬於同一客戶
- * - 所有訂單狀態必須為 PENDING_PAYMENT 或 PAID
+ * - 所有訂單狀態必須為 PENDING 或 ORDERED
  * - 合併後新訂單包含所有來源訂單的全部明細項目
  * - 合併後新訂單總金額等於所有來源訂單總金額的加總
  *
@@ -48,8 +48,8 @@ export interface MergedOrderData {
 
 /** 允許合併的訂單狀態集合 */
 const MERGEABLE_STATUSES: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
-  "PENDING_PAYMENT",
-  "PAID",
+  "PENDING",
+  "ORDERED",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ const MERGEABLE_STATUSES: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
  * 驗證規則：
  * 1. 至少需要兩筆訂單
  * 2. 所有訂單必須屬於同一客戶
- * 3. 所有訂單狀態必須為 PENDING_PAYMENT 或 PAID
+ * 3. 所有訂單狀態必須為 PENDING 或 ORDERED
  *
  * @param orders - 欲合併的訂單列表
  * @returns 驗證結果。若失敗，error 包含對應的錯誤訊息。
@@ -88,14 +88,14 @@ export function validateMergeOrders(orders: Order[]): ValidationResult {
     };
   }
 
-  // 規則 3：狀態為 PENDING_PAYMENT 或 PAID（需求 9.4）
+  // 規則 3：狀態為 PENDING 或 ORDERED（需求 9.4）
   const invalidOrder = orders.find(
     (order) => !MERGEABLE_STATUSES.has(order.status),
   );
   if (invalidOrder) {
     return {
       valid: false,
-      error: "僅能合併待付款或已付款的訂單",
+      error: "僅能合併待處理或已採購的訂單",
     };
   }
 
@@ -112,7 +112,7 @@ export function validateMergeOrders(orders: Order[]): ValidationResult {
  * 合併邏輯：
  * - 新訂單包含所有來源訂單的全部明細項目
  * - 新訂單總金額等於所有來源訂單總金額的加總（透過重新計算確保正確性）
- * - 新訂單初始狀態為 PENDING_PAYMENT
+ * - 新訂單初始狀態為 PENDING
  * - 記錄所有來源訂單 ID，供呼叫端將來源訂單標記為 cancelled
  *
  * 注意：此函式不執行驗證，呼叫前應先呼叫 `validateMergeOrders` 確認合法性。
@@ -134,7 +134,7 @@ export function mergeOrders(orders: Order[]): MergedOrderData {
     customerName: firstOrder.customerName,
     items: allOrderItems,
     totalAmount,
-    status: "PENDING_PAYMENT",
+    status: "PENDING",
     sourceOrderIds: orders.map((order) => order.id),
   };
 }

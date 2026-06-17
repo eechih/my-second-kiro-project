@@ -95,8 +95,8 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       rawStatus: order["status"],
     });
 
-    // 2. 驗證訂單狀態——僅 pending 或 confirmed 可分拆
-    const splittableStatuses = new Set<string>(["PENDING_PAYMENT", "PAID"]);
+    // 2. 驗證訂單狀態——僅待處理或已採購可分拆
+    const splittableStatuses = new Set<string>(["PENDING", "ORDERED"]);
     if (!splittableStatuses.has(currentStatus)) {
       logWarn(FUNCTION_NAME, "order status is not splittable", {
         orderId,
@@ -104,7 +104,7 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       });
       return JSON.stringify({
         success: false,
-        message: "僅能分拆待處理或已確認的訂單",
+        message: "僅能分拆待處理或已採購的訂單",
       });
     }
 
@@ -216,7 +216,6 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
       customerName: string;
       status: OrderStatus;
       paymentStatus: string;
-      fulfillmentStatus: string;
       paidAt: string | null;
       cancelledAt: string | null;
       refundedAt: string | null;
@@ -259,16 +258,15 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
             shippingAmount: 0,
             discountAmount: 0,
             totalAmount,
-            status: "PENDING_PAYMENT",
+            status: "PENDING",
             paymentStatus: "UNPAID",
-            fulfillmentStatus: "UNFULFILLED",
             isActive: true,
             gsiPartition: "Order",
             createdAtForSort: now,
             statusHistory: [
               {
                 fromStatus: "created",
-                toStatus: "PENDING_PAYMENT",
+                toStatus: "PENDING",
                 changedAt: now,
               },
             ],
@@ -283,9 +281,8 @@ export const handler: Schema["splitOrder"]["functionHandler"] = async (
         orderNumber: newOrderNumber,
         customerId,
         customerName,
-        status: "PENDING_PAYMENT",
+        status: "PENDING",
         paymentStatus: "UNPAID",
-        fulfillmentStatus: "UNFULFILLED",
         paidAt: null,
         cancelledAt: null,
         refundedAt: null,

@@ -150,8 +150,7 @@ function OrderSplitPage() {
 
   // 檢查訂單是否可分拆
   const canSplit =
-    (order.status === "PENDING_PAYMENT" || order.status === "PAID") &&
-    order.fulfillmentStatus === "UNFULFILLED";
+    order.status === "PENDING" || order.status === "ORDERED";
 
   return (
     <Box>

@@ -7,16 +7,13 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { isValidOrderItemStatusTransition } from "@shared/logic/order-item-status";
 import {
-  deriveFulfillmentStatusFromOrderItems,
-  deriveOrderStatusFromSummary,
+  deriveOrderStatusFromOrderItems,
   isValidOrderStatusTransition,
 } from "@shared/logic/order-status";
 import { validateShipment } from "@shared/logic/shipment";
 import {
-  normalizeFulfillmentStatus,
   normalizeOrderItemStatus,
   normalizeOrderStatus,
-  normalizePaymentStatus,
   type OrderItemStatus,
 } from "@shared/models/order";
 import type { Schema } from "../../data/resource";
@@ -194,8 +191,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       return { status: normalizeOrderItemStatus(li["status"]) };
     });
 
-    const derivedFulfillmentStatus =
-      deriveFulfillmentStatusFromOrderItems(simulatedOrderItems);
+    const derivedOrderStatus = deriveOrderStatusFromOrderItems(simulatedOrderItems);
 
     // 6. 取得目前訂單資料（用於狀態轉換驗證）
     const orderResult = await ddb.send(
@@ -212,10 +208,6 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
 
     const order = unmarshall(orderResult.Item);
     const currentOrderStatus = normalizeOrderStatus(order["status"]);
-    const currentPaymentStatus = normalizePaymentStatus(order["paymentStatus"]);
-    const currentFulfillmentStatus = normalizeFulfillmentStatus(
-      order["fulfillmentStatus"],
-    );
     const customerId = String(order["customerId"] ?? "");
     const customerNameSnapshot = String(
       order["customerNameSnapshot"] ?? "未命名客戶",
@@ -226,12 +218,6 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
         message: "訂單缺少客戶關聯，無法更新出貨摘要",
       });
     }
-    const derivedOrderStatus = deriveOrderStatusFromSummary({
-      paymentStatus: currentPaymentStatus,
-      fulfillmentStatus: derivedFulfillmentStatus,
-      cancelledAt:
-        order["cancelledAt"] != null ? String(order["cancelledAt"]) : null,
-    });
     const now = new Date().toISOString();
     const summaryResult = await ddb.send(
       new GetItemCommand({
@@ -242,9 +228,7 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
     const summaryDelta = buildShipmentSummaryDelta({
       allOrderItems: summaryOrderItems,
       fromOrderStatus: currentOrderStatus,
-      fromFulfillmentStatus: currentFulfillmentStatus,
       toOrderStatus: derivedOrderStatus,
-      toFulfillmentStatus: derivedFulfillmentStatus,
     });
     const latestReadyToShipReceivedAt =
       deriveLatestReadyToShipReceivedAtAfterTransition({
@@ -314,11 +298,10 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
             TableName: orderTable,
             Key: marshall({ id: orderId }),
             UpdateExpression:
-              "SET #st = :newStatus, fulfillmentStatus = :fulfillmentStatus, statusHistory = :history, updatedAt = :now",
+              "SET #st = :newStatus, statusHistory = :history, updatedAt = :now",
             ExpressionAttributeNames: { "#st": "status" },
             ExpressionAttributeValues: marshall({
               ":newStatus": derivedOrderStatus,
-              ":fulfillmentStatus": derivedFulfillmentStatus,
               ":history": updatedHistory,
               ":now": now,
             }),
@@ -349,8 +332,6 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       quantity,
       orderItemUpdateStatus,
       currentOrderStatus,
-      currentFulfillmentStatus,
-      derivedFulfillmentStatus,
       derivedOrderStatus,
       transactItemCount: transactItems.length,
     });
@@ -364,7 +345,6 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
       productId,
       quantity,
       orderItemStatus: orderItemUpdateStatus,
-      fulfillmentStatus: derivedFulfillmentStatus,
       orderStatus: derivedOrderStatus ?? currentOrderStatus,
     });
     return JSON.stringify({
@@ -374,7 +354,6 @@ export const handler: Schema["confirmShipment"]["functionHandler"] = async (
         orderItemId,
         quantity,
         orderItemStatus: orderItemUpdateStatus,
-        fulfillmentStatus: derivedFulfillmentStatus,
         orderStatus: derivedOrderStatus ?? currentOrderStatus,
       },
     });

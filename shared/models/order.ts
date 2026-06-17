@@ -10,11 +10,13 @@
 
 /** 訂單狀態 */
 export const ORDER_STATUSES = [
-  "PENDING_PAYMENT",
-  "PAID",
-  "CANCELLED",
-  "REFUNDED",
+  "PENDING",
+  "ORDERED",
+  "RECEIVED",
+  "SHIPPED",
   "COMPLETED",
+  "OUT_OF_STOCK",
+  "CANCELLED",
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
@@ -29,16 +31,6 @@ export const PAYMENT_STATUSES = [
 
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-/** 履約狀態 */
-export const FULFILLMENT_STATUSES = [
-  "UNFULFILLED",
-  "READY_TO_SHIP",
-  "SHIPPED",
-  "COMPLETED",
-] as const;
-
-export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number];
-
 /** 訂單明細狀態 */
 export const ORDER_ITEM_STATUSES = [
   "pending",
@@ -51,11 +43,13 @@ export const ORDER_ITEM_STATUSES = [
 export type OrderItemStatus = (typeof ORDER_ITEM_STATUSES)[number];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  PENDING_PAYMENT: "待付款",
-  PAID: "已付款",
-  CANCELLED: "已取消",
-  REFUNDED: "已退款",
+  PENDING: "待處理",
+  ORDERED: "已採購",
+  RECEIVED: "已到貨",
+  SHIPPED: "已出貨",
   COMPLETED: "已完成",
+  OUT_OF_STOCK: "缺貨",
+  CANCELLED: "已取消",
 };
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -63,13 +57,6 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   PAID: "已付款",
   REFUNDED: "已退款",
   PARTIALLY_REFUNDED: "部分退款",
-};
-
-export const FULFILLMENT_STATUS_LABEL: Record<FulfillmentStatus, string> = {
-  UNFULFILLED: "未履約",
-  READY_TO_SHIP: "可出貨",
-  SHIPPED: "已出貨",
-  COMPLETED: "已完成",
 };
 
 export const ORDER_ITEM_STATUS_LABEL: Record<OrderItemStatus, string> = {
@@ -94,19 +81,57 @@ export function normalizeOrderStatus(value: unknown): OrderStatus {
 
   switch (value) {
     case "pending":
-      return "PENDING_PAYMENT";
+    case "PENDING_PAYMENT":
+      return "PENDING";
+    case "PAID":
     case "confirmed":
+      return "ORDERED";
+    case "READY_TO_SHIP":
+    case "PARTIALLY_RECEIVED":
+    case "received":
+      return "RECEIVED";
+    case "PARTIALLY_SHIPPED":
+    case "SHIPPED":
     case "shipping":
-      return "PAID";
+      return "SHIPPED";
+    case "COMPLETED":
     case "completed":
       return "COMPLETED";
+    case "OUT_OF_STOCK":
+    case "out_of_stock":
+      return "OUT_OF_STOCK";
+    case "CANCELLED":
     case "cancelled":
       return "CANCELLED";
-    case "refunded":
-      return "REFUNDED";
     default:
-      return "PENDING_PAYMENT";
+      return "PENDING";
   }
+}
+
+export function normalizeLegacyOrderStatus(input: {
+  status: unknown;
+  fulfillmentStatus?: unknown;
+  cancelledAt?: unknown;
+}): OrderStatus {
+  if (input.cancelledAt) {
+    return "CANCELLED";
+  }
+
+  if (typeof input.fulfillmentStatus === "string") {
+    switch (input.fulfillmentStatus) {
+      case "READY_TO_SHIP":
+        return "RECEIVED";
+      case "SHIPPED":
+      case "PARTIALLY_SHIPPED":
+        return "SHIPPED";
+      case "COMPLETED":
+        return "COMPLETED";
+      default:
+        break;
+    }
+  }
+
+  return normalizeOrderStatus(input.status);
 }
 
 export function isPaymentStatus(value: unknown): value is PaymentStatus {
@@ -132,39 +157,6 @@ export function normalizePaymentStatus(value: unknown): PaymentStatus {
       return "REFUNDED";
     default:
       return "UNPAID";
-  }
-}
-
-export function isFulfillmentStatus(value: unknown): value is FulfillmentStatus {
-  return (
-    typeof value === "string" &&
-    (FULFILLMENT_STATUSES as readonly string[]).includes(value)
-  );
-}
-
-export function normalizeFulfillmentStatus(
-  value: unknown,
-): FulfillmentStatus {
-  if (isFulfillmentStatus(value)) {
-    return value;
-  }
-
-  switch (value) {
-    case "PENDING":
-    case "PARTIALLY_RECEIVED":
-    case "pending":
-      return "UNFULFILLED";
-    case "READY_TO_SHIP":
-      return "READY_TO_SHIP";
-    case "PARTIALLY_SHIPPED":
-    case "SHIPPED":
-    case "shipping":
-      return "SHIPPED";
-    case "COMPLETED":
-    case "completed":
-      return "COMPLETED";
-    default:
-      return "UNFULFILLED";
   }
 }
 
@@ -300,8 +292,6 @@ export interface Order {
   status: OrderStatus;
   /** 付款狀態 */
   paymentStatus: PaymentStatus;
-  /** 履約狀態 */
-  fulfillmentStatus: FulfillmentStatus;
   /** ISO 8601 付款時間 */
   paidAt: string | null;
   /** ISO 8601 取消時間 */

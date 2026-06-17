@@ -24,7 +24,6 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import {
   ORDER_ITEM_STATUS_LABEL,
-  FULFILLMENT_STATUS_LABEL,
   type Order,
   type OrderItem,
 } from "@shared/models";
@@ -42,19 +41,11 @@ type CustomerShipmentRecord = {
   orderId: string;
   orderNumber: string;
   orderStatus: Order["status"];
-  fulfillmentStatus: Order["fulfillmentStatus"];
   orderCreatedAt: string;
   item: OrderItem;
 };
 
 const PAGE_SIZE = 10;
-
-const FULFILLMENT_STATUS_COLOR_MAP = {
-  UNFULFILLED: "warning",
-  READY_TO_SHIP: "primary",
-  SHIPPED: "info",
-  COMPLETED: "success",
-} as const;
 
 function formatDate(value: string | null): string {
   if (!value) return "-";
@@ -75,7 +66,7 @@ function isPrintableShipmentItem(
   statusFilter: ShipmentFilter,
 ): boolean {
   if (statusFilter === "pending") {
-    return false;
+    return item.status === "pending" || item.status === "ordered";
   }
 
   if (statusFilter === "readyToShip") {
@@ -94,7 +85,7 @@ function isPrintableShipmentItem(
 }
 
 function isShipmentRelevantOrder(order: Order): boolean {
-  return order.status !== "CANCELLED" && order.status !== "REFUNDED";
+  return order.status !== "CANCELLED";
 }
 
 function matchesShipmentFilter(
@@ -109,18 +100,15 @@ function matchesShipmentFilter(
     return true;
   }
 
-  if (statusFilter === "pending") {
-    return order.fulfillmentStatus === "UNFULFILLED";
-  }
-
   if (statusFilter === "readyToShip") {
-    return order.fulfillmentStatus === "READY_TO_SHIP";
+    return order.status === "RECEIVED";
   }
 
-  return (
-    order.fulfillmentStatus === "SHIPPED" ||
-    order.fulfillmentStatus === "COMPLETED"
-  );
+  if (statusFilter === "pending") {
+    return order.status === "PENDING" || order.status === "ORDERED";
+  }
+
+  return order.status === "SHIPPED" || order.status === "COMPLETED";
 }
 
 function extractShipmentRecords(
@@ -134,7 +122,6 @@ function extractShipmentRecords(
         orderId: order.id,
         orderNumber: order.orderNumber,
         orderStatus: order.status,
-        fulfillmentStatus: order.fulfillmentStatus,
         orderCreatedAt: order.createdAt,
         item,
       })),
@@ -333,7 +320,6 @@ export function CustomerShipmentTable({
                   <TableCell align="right">數量</TableCell>
                   <TableCell align="right">單價</TableCell>
                   <TableCell align="center">明細狀態</TableCell>
-                  <TableCell align="center">履約狀態</TableCell>
                   <TableCell align="center">訂單狀態</TableCell>
                   <TableCell align="center">到貨日期</TableCell>
                   <TableCell align="center">出貨日期</TableCell>
@@ -355,15 +341,6 @@ export function CustomerShipmentTable({
                         status={record.item.status}
                         label={ORDER_ITEM_STATUS_LABEL[record.item.status]}
                         colorMap={ORDER_ITEM_STATUS_COLOR_MAP}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <StatusChip
-                        status={record.fulfillmentStatus}
-                        label={
-                          FULFILLMENT_STATUS_LABEL[record.fulfillmentStatus]
-                        }
-                        colorMap={FULFILLMENT_STATUS_COLOR_MAP}
                       />
                     </TableCell>
                     <TableCell align="center">

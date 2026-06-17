@@ -53,16 +53,16 @@ export function mapLegacyOrderToCurrentShape(
     shippingFee: Number(order["shippingFee"] ?? 0),
     discountAmount: Number(order["discountAmount"] ?? 0),
     paymentStatus: order["paymentStatus"] ?? "UNPAID",
-    fulfillmentStatus:
-      order["fulfillmentStatus"] ??
+    status:
+      order["status"] ??
       (status === "completed"
         ? "COMPLETED"
         : status === "shipping"
-          ? "PARTIALLY_SHIPPED"
+          ? "SHIPPED"
           : status === "confirmed"
-            ? "READY_TO_SHIP"
+            ? "ORDERED"
             : status === "cancelled"
-              ? "COMPLETED"
+              ? "CANCELLED"
               : "PENDING"),
     cancelledAt,
     isActive: order["isActive"] ?? true,

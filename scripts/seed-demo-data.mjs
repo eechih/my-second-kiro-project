@@ -39,51 +39,44 @@ function deriveProductActiveState(preorderStatus) {
 
 const ORDER_SCENARIOS = [
   {
-    status: "PENDING_PAYMENT",
+    status: "PENDING",
     paymentStatus: "UNPAID",
-    fulfillmentStatus: "UNFULFILLED",
     itemStatus: "pending",
-    timeline: "pending_payment",
+    timeline: "pending",
   },
   {
-    status: "PAID",
+    status: "ORDERED",
     paymentStatus: "PAID",
-    fulfillmentStatus: "UNFULFILLED",
     itemStatus: "ordered",
-    timeline: "paid_unfulfilled",
+    timeline: "ordered",
   },
   {
-    status: "PAID",
+    status: "RECEIVED",
     paymentStatus: "PAID",
-    fulfillmentStatus: "READY_TO_SHIP",
     itemStatus: "received",
-    timeline: "ready_to_ship",
+    timeline: "received",
   },
   {
-    status: "PAID",
+    status: "SHIPPED",
     paymentStatus: "PAID",
-    fulfillmentStatus: "SHIPPED",
     itemStatus: "shipped",
     timeline: "shipped",
   },
   {
     status: "COMPLETED",
     paymentStatus: "PAID",
-    fulfillmentStatus: "COMPLETED",
     itemStatus: "shipped",
     timeline: "completed",
   },
   {
     status: "CANCELLED",
     paymentStatus: "UNPAID",
-    fulfillmentStatus: "UNFULFILLED",
     itemStatus: "pending",
     timeline: "cancelled",
   },
   {
-    status: "REFUNDED",
+    status: "COMPLETED",
     paymentStatus: "REFUNDED",
-    fulfillmentStatus: "COMPLETED",
     itemStatus: "shipped",
     timeline: "refunded",
   },
@@ -441,21 +434,21 @@ function buildOrderItemTimeline(createdAt, itemStatus) {
 
 function buildOrderTimeline(createdAt, scenario) {
   switch (scenario.timeline) {
-    case "pending_payment":
+    case "pending":
       return {
         paidAt: null,
         cancelledAt: null,
         refundedAt: null,
         completedAt: null,
       };
-    case "paid_unfulfilled":
+    case "ordered":
       return {
         paidAt: offsetIso(createdAt, 2),
         cancelledAt: null,
         refundedAt: null,
         completedAt: null,
       };
-    case "ready_to_ship":
+    case "received":
       return {
         paidAt: offsetIso(createdAt, 2),
         cancelledAt: null,
@@ -504,26 +497,50 @@ function buildOrderStatusHistory(createdAt, scenario, timeline) {
   const history = [
     {
       fromStatus: "",
-      toStatus: "PENDING_PAYMENT",
+      toStatus: "PENDING",
       changedAt: createdAt,
     },
   ];
 
-  if (scenario.status === "PENDING_PAYMENT") {
+  if (scenario.status === "PENDING") {
     return history;
   }
 
   if (timeline.paidAt) {
     history.push({
-      fromStatus: "PENDING_PAYMENT",
-      toStatus: "PAID",
+      fromStatus: "PENDING",
+      toStatus: "ORDERED",
       changedAt: timeline.paidAt,
+    });
+  }
+
+  if (
+    (scenario.status === "RECEIVED" ||
+      scenario.status === "SHIPPED" ||
+      scenario.status === "COMPLETED") &&
+    timeline.receivedAt
+  ) {
+    history.push({
+      fromStatus: "ORDERED",
+      toStatus: "RECEIVED",
+      changedAt: timeline.receivedAt,
+    });
+  }
+
+  if (
+    (scenario.status === "SHIPPED" || scenario.status === "COMPLETED") &&
+    timeline.shippedAt
+  ) {
+    history.push({
+      fromStatus: "RECEIVED",
+      toStatus: "SHIPPED",
+      changedAt: timeline.shippedAt,
     });
   }
 
   if (scenario.status === "CANCELLED" && timeline.cancelledAt) {
     history.push({
-      fromStatus: "PENDING_PAYMENT",
+      fromStatus: "PENDING",
       toStatus: "CANCELLED",
       changedAt: timeline.cancelledAt,
     });
@@ -531,17 +548,9 @@ function buildOrderStatusHistory(createdAt, scenario, timeline) {
 
   if (scenario.status === "COMPLETED" && timeline.completedAt) {
     history.push({
-      fromStatus: "PAID",
+      fromStatus: "SHIPPED",
       toStatus: "COMPLETED",
       changedAt: timeline.completedAt,
-    });
-  }
-
-  if (scenario.status === "REFUNDED" && timeline.refundedAt) {
-    history.push({
-      fromStatus: "PAID",
-      toStatus: "REFUNDED",
-      changedAt: timeline.refundedAt,
     });
   }
 
@@ -728,7 +737,6 @@ function buildOrder(orderIndex, customer, products) {
     shippingAddressSnapshot: customer.address,
     status: statusConfig.status,
     paymentStatus: statusConfig.paymentStatus,
-    fulfillmentStatus: statusConfig.fulfillmentStatus,
     paidAt: timeline.paidAt,
     cancelledAt: timeline.cancelledAt,
     refundedAt: timeline.refundedAt,

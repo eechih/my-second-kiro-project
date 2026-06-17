@@ -10,7 +10,6 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import {
-  normalizeFulfillmentStatus,
   normalizeOrderStatus,
   type OrderItemSelectedOptionSnapshot,
   type Product,
@@ -29,7 +28,6 @@ export interface OrderSelectionOption {
   orderNumber: string;
   customerName: string;
   status: string;
-  fulfillmentStatus: string;
 }
 
 export interface ProductPurchaseItemEditData {
@@ -63,11 +61,7 @@ export interface ProductPurchaseItemDialogProps {
 
 function isEligibleOrder(raw: Record<string, unknown>): boolean {
   const status = normalizeOrderStatus(raw.status);
-  const fulfillmentStatus = normalizeFulfillmentStatus(raw.fulfillmentStatus);
-  return (
-    (status === "PENDING_PAYMENT" || status === "PAID") &&
-    fulfillmentStatus === "UNFULFILLED"
-  );
+  return status === "PENDING" || status === "ORDERED";
 }
 
 function mapOrderOption(raw: Record<string, unknown>): OrderSelectionOption {
@@ -76,7 +70,6 @@ function mapOrderOption(raw: Record<string, unknown>): OrderSelectionOption {
     orderNumber: String(raw.orderNumber ?? ""),
     customerName: String(raw.customerNameSnapshot ?? ""),
     status: normalizeOrderStatus(raw.status),
-    fulfillmentStatus: normalizeFulfillmentStatus(raw.fulfillmentStatus),
   };
 }
 
@@ -91,7 +84,6 @@ async function listAvailableOrders(): Promise<OrderSelectionOption[]> {
         "orderNumber",
         "customerNameSnapshot",
         "status",
-        "fulfillmentStatus",
       ],
     } as Record<string, unknown>,
   );
@@ -124,7 +116,6 @@ async function searchAvailableOrders(
       "orderNumber",
       "customerNameSnapshot",
       "status",
-      "fulfillmentStatus",
     ],
   });
 
@@ -225,8 +216,7 @@ export function ProductPurchaseItemDialog({
       id: editData.orderId,
       orderNumber: "",
       customerName: "",
-      status: "PENDING_PAYMENT",
-      fulfillmentStatus: "UNFULFILLED",
+      status: "PENDING",
     });
 
     if (product.options.length > 0) {

@@ -3,7 +3,7 @@ import type {
   TransactWriteItem,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import type { FulfillmentStatus, OrderStatus } from "@shared/models/order";
+import type { OrderStatus } from "@shared/models/order";
 
 type ShipmentStatus = "ordered" | "received" | "shipped";
 
@@ -45,21 +45,22 @@ type OrderItemLike = {
 };
 
 function isShipmentRelevantOrder(status: OrderStatus): boolean {
-  return status !== "CANCELLED" && status !== "REFUNDED";
+  return status !== "CANCELLED";
 }
 
-function getShipmentSummaryBucket(input: {
-  fulfillmentStatus: FulfillmentStatus;
-  orderStatus: OrderStatus;
-}): ShipmentSummaryBucket | null {
-  if (!isShipmentRelevantOrder(input.orderStatus)) {
+function getShipmentSummaryBucket(
+  orderStatus: OrderStatus,
+): ShipmentSummaryBucket | null {
+  if (!isShipmentRelevantOrder(orderStatus)) {
     return null;
   }
 
-  switch (input.fulfillmentStatus) {
-    case "UNFULFILLED":
+  switch (orderStatus) {
+    case "PENDING":
+    case "ORDERED":
+    case "OUT_OF_STOCK":
       return "pending";
-    case "READY_TO_SHIP":
+    case "RECEIVED":
       return "readyToShip";
     case "SHIPPED":
     case "COMPLETED":
@@ -118,25 +119,15 @@ function applyBucketDelta(
 export function buildShipmentSummaryDelta({
   allOrderItems,
   fromOrderStatus,
-  fromFulfillmentStatus,
   toOrderStatus,
-  toFulfillmentStatus,
 }: {
   allOrderItems: readonly OrderItemLike[];
   fromOrderStatus: OrderStatus;
-  fromFulfillmentStatus: FulfillmentStatus;
   toOrderStatus: OrderStatus;
-  toFulfillmentStatus: FulfillmentStatus;
 }): ShipmentSummaryDelta {
   const quantity = getTotalItemQuantity(allOrderItems);
-  const beforeBucket = getShipmentSummaryBucket({
-    fulfillmentStatus: fromFulfillmentStatus,
-    orderStatus: fromOrderStatus,
-  });
-  const afterBucket = getShipmentSummaryBucket({
-    fulfillmentStatus: toFulfillmentStatus,
-    orderStatus: toOrderStatus,
-  });
+  const beforeBucket = getShipmentSummaryBucket(fromOrderStatus);
+  const afterBucket = getShipmentSummaryBucket(toOrderStatus);
 
   const delta: ShipmentSummaryDelta = {
     pendingOrderCountDelta: 0,

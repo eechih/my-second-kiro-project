@@ -19,7 +19,11 @@ function getLatestShippedAt(items) {
 }
 
 function isShipmentRelevantOrder(order) {
-  return order.status !== "CANCELLED" && order.status !== "REFUNDED";
+  return (
+    order.status !== "CANCELLED" &&
+    order.paymentStatus !== "REFUNDED" &&
+    order.paymentStatus !== "PARTIALLY_REFUNDED"
+  );
 }
 
 function getShipmentSummaryBucket(order) {
@@ -27,10 +31,12 @@ function getShipmentSummaryBucket(order) {
     return null;
   }
 
-  switch (order.fulfillmentStatus) {
-    case "UNFULFILLED":
+  switch (order.status) {
+    case "PENDING":
+    case "ORDERED":
+    case "OUT_OF_STOCK":
       return "pending";
-    case "READY_TO_SHIP":
+    case "RECEIVED":
       return "readyToShip";
     case "SHIPPED":
     case "COMPLETED":

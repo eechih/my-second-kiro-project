@@ -9,9 +9,8 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { validateMergeOrders } from "@shared/logic/order-merge";
 import {
-  normalizeFulfillmentStatus,
+  normalizeLegacyOrderStatus,
   normalizeOrderItemStatus,
-  normalizeOrderStatus,
   normalizePaymentStatus,
   type OrderItem,
   type Order,
@@ -124,11 +123,12 @@ function mapOrderRecordToOrder(input: {
     customerName: String(rawOrder["customerName"] ?? ""),
     items: orderItems,
     totalAmount: Number(rawOrder["totalAmount"] ?? 0),
-    status: normalizeOrderStatus(rawOrder["status"]),
+    status: normalizeLegacyOrderStatus({
+      status: rawOrder["status"],
+      fulfillmentStatus: rawOrder["fulfillmentStatus"],
+      cancelledAt: rawOrder["cancelledAt"],
+    }),
     paymentStatus: normalizePaymentStatus(rawOrder["paymentStatus"]),
-    fulfillmentStatus: normalizeFulfillmentStatus(
-      rawOrder["fulfillmentStatus"],
-    ),
     paidAt: rawOrder["paidAt"] != null ? String(rawOrder["paidAt"]) : null,
     cancelledAt:
       rawOrder["cancelledAt"] != null ? String(rawOrder["cancelledAt"]) : null,
@@ -216,16 +216,15 @@ function buildNewOrderItem(
         shippingAmount: 0,
         discountAmount: 0,
         totalAmount,
-        status: "PENDING_PAYMENT",
+        status: "PENDING",
         paymentStatus: "UNPAID",
-        fulfillmentStatus: "UNFULFILLED",
         isActive: true,
         gsiPartition: "Order",
         createdAtForSort: now,
         statusHistory: [
           {
             fromStatus: "created",
-            toStatus: "PENDING_PAYMENT",
+            toStatus: "PENDING",
             changedAt: now,
           },
         ],
@@ -465,11 +464,10 @@ export const handler: Schema["mergeOrders"]["functionHandler"] = async (
       customerId: firstOrder.customerId,
       orderNumber: newOrderNumber,
       customerName: firstOrder.customerName,
-      status: "PENDING_PAYMENT",
+      status: "PENDING",
       paymentStatus: "UNPAID",
-      fulfillmentStatus: "UNFULFILLED",
       statusHistory: [
-        { fromStatus: "created", toStatus: "PENDING_PAYMENT", changedAt: now },
+        { fromStatus: "created", toStatus: "PENDING", changedAt: now },
       ],
       orderItems: [],
       createdAt: now,

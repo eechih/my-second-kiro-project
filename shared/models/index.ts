@@ -33,7 +33,6 @@ export type {
   ConfirmShipmentInput,
   CreateOrderItemInput,
   CreateOrderInput,
-  FulfillmentStatus,
   OrderItem,
   OrderItemSelectedOptionSnapshot,
   OrderItemStatus,
@@ -48,15 +47,12 @@ export type {
 } from "./order";
 
 export {
-  FULFILLMENT_STATUS_LABEL,
-  FULFILLMENT_STATUSES,
-  isFulfillmentStatus,
   isOrderItemStatus,
   ORDER_ITEM_STATUS_LABEL,
   ORDER_ITEM_STATUSES,
   isPaymentStatus,
   isOrderStatus,
-  normalizeFulfillmentStatus,
+  normalizeLegacyOrderStatus,
   normalizeOrderItemStatus,
   normalizeOrderStatus,
   normalizePaymentStatus,

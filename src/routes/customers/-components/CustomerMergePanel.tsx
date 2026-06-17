@@ -23,16 +23,13 @@ import Typography from "@mui/material/Typography";
 import CallMergeIcon from "@mui/icons-material/CallMerge";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { FULFILLMENT_STATUS_LABEL, ORDER_STATUS_LABEL } from "@shared/models";
+import { ORDER_STATUS_LABEL } from "@shared/models";
 import { ORDER_STATUS_COLOR_MAP } from "../../orders/-components/detail/detailUtils";
 
 const PAGE_SIZE = 10;
 
 function isMergeableOrder(order: Order): boolean {
-  return (
-    (order.status === "PENDING_PAYMENT" || order.status === "PAID") &&
-    order.fulfillmentStatus === "UNFULFILLED"
-  );
+  return order.status === "PENDING" || order.status === "ORDERED";
 }
 
 export interface CustomerMergePanelProps {
@@ -194,7 +191,6 @@ export function CustomerMergePanel({
                     </TableCell>
                     <TableCell>訂單編號</TableCell>
                     <TableCell align="center">訂單狀態</TableCell>
-                    <TableCell align="center">履約狀態</TableCell>
                     <TableCell align="right">總金額</TableCell>
                     <TableCell align="center">明細數</TableCell>
                     <TableCell align="center">建立日期</TableCell>
@@ -218,9 +214,6 @@ export function CustomerMergePanel({
                           label={ORDER_STATUS_LABEL[order.status]}
                           colorMap={ORDER_STATUS_COLOR_MAP}
                         />
-                      </TableCell>
-                      <TableCell align="center">
-                        {FULFILLMENT_STATUS_LABEL[order.fulfillmentStatus]}
                       </TableCell>
                       <TableCell align="right">
                         {formatCurrency(order.totalAmount)}

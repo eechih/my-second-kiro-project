@@ -7,7 +7,6 @@ import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import {
-  FULFILLMENT_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
   isOrderStatus,
 } from "@shared/models";
@@ -57,9 +56,6 @@ export function InfoCard({
           </Typography>
           <Typography variant="body2" color="text.secondary">
             付款狀態：{PAYMENT_STATUS_LABEL[order.paymentStatus]}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            履約狀態：{FULFILLMENT_STATUS_LABEL[order.fulfillmentStatus]}
           </Typography>
         </Box>
         <Box

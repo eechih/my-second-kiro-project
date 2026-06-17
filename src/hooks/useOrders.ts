@@ -6,18 +6,16 @@ import {
 import { validateMergeOrders } from "@shared/logic/order-merge";
 import { validateSplitOrder } from "@shared/logic/order-split";
 import {
-  deriveFulfillmentStatusFromOrderItems,
-  deriveOrderStatusFromSummary,
+  deriveOrderStatusFromOrderItems,
   isValidOrderStatusTransition,
 } from "@shared/logic/order-status";
 import {
-  normalizeFulfillmentStatus,
+  normalizeLegacyOrderStatus,
   normalizeOrderItemStatus,
   normalizeOrderStatus,
   normalizePaymentStatus,
   type ConfirmShipmentInput,
   type CreateOrderInput,
-  type FulfillmentStatus,
   type OrderItem,
   type OrderItemSelectedOptionSnapshot,
   type Order,
@@ -76,7 +74,6 @@ export interface ProductOrderItemRecord {
   customerName: string;
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
-  fulfillmentStatus: FulfillmentStatus;
   item: OrderItem;
 }
 
@@ -116,7 +113,6 @@ const ORDER_DETAIL_SELECTION_SET = [
   "subtotalAmount",
   "status",
   "paymentStatus",
-  "fulfillmentStatus",
   "paidAt",
   "cancelledAt",
   "refundedAt",
@@ -137,7 +133,6 @@ const ORDER_VALIDATION_SELECTION_SET = [
   "subtotalAmount",
   "status",
   "paymentStatus",
-  "fulfillmentStatus",
   "paidAt",
   "cancelledAt",
   "refundedAt",
@@ -175,7 +170,6 @@ const PRODUCT_ORDER_ITEM_SELECTION_SET = [
   "order.customerNameSnapshot",
   "order.status",
   "order.paymentStatus",
-  "order.fulfillmentStatus",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -187,7 +181,6 @@ type UpdateOrderStatusInput = {
   currentStatus: OrderStatus;
   newStatus: OrderStatus;
   currentPaymentStatus: PaymentStatus;
-  currentFulfillmentStatus: FulfillmentStatus;
   statusHistory: StatusChange[];
 };
 
@@ -388,9 +381,11 @@ async function fetchProductOrderItemList(
       orderId: String(record.orderId ?? orderRaw.id ?? ""),
       orderNumber: String(orderRaw.orderNumber ?? ""),
       customerName: String(orderRaw.customerNameSnapshot ?? ""),
-      orderStatus: normalizeOrderStatus(orderRaw.status),
+      orderStatus: normalizeLegacyOrderStatus({
+        status: orderRaw.status,
+        fulfillmentStatus: orderRaw.fulfillmentStatus,
+      }),
       paymentStatus: normalizePaymentStatus(orderRaw.paymentStatus),
-      fulfillmentStatus: normalizeFulfillmentStatus(orderRaw.fulfillmentStatus),
       item: mapToOrderItem(record),
     } satisfies ProductOrderItemRecord;
   });
@@ -450,11 +445,11 @@ async function fetchSupplierOrderItemList(
         orderId: String(record.orderId ?? orderRaw.id ?? ""),
         orderNumber: String(orderRaw.orderNumber ?? ""),
         customerName: String(orderRaw.customerNameSnapshot ?? ""),
-        orderStatus: normalizeOrderStatus(orderRaw.status),
+        orderStatus: normalizeLegacyOrderStatus({
+          status: orderRaw.status,
+          fulfillmentStatus: orderRaw.fulfillmentStatus,
+        }),
         paymentStatus: normalizePaymentStatus(orderRaw.paymentStatus),
-        fulfillmentStatus: normalizeFulfillmentStatus(
-          orderRaw.fulfillmentStatus,
-        ),
         item: mapToOrderItem(record),
       } satisfies ProductOrderItemRecord;
     })
@@ -542,10 +537,13 @@ function mapToOrder(raw: Record<string, unknown>): Order {
     customerId: String(raw.customerId ?? ""),
     customerName: String(raw.customerNameSnapshot ?? raw.customerName ?? ""),
     items,
-    totalAmount: Number(raw.totalAmount ?? 0),
-    status: normalizeOrderStatus(raw.status),
+    totalAmount: Number(raw.totalAmount ?? raw.subtotalAmount ?? 0),
+    status: normalizeLegacyOrderStatus({
+      status: raw.status,
+      fulfillmentStatus: raw.fulfillmentStatus,
+      cancelledAt: raw.cancelledAt,
+    }),
     paymentStatus: normalizePaymentStatus(raw.paymentStatus),
-    fulfillmentStatus: normalizeFulfillmentStatus(raw.fulfillmentStatus),
     paidAt: raw.paidAt ? String(raw.paidAt) : null,
     cancelledAt: raw.cancelledAt ? String(raw.cancelledAt) : null,
     refundedAt: raw.refundedAt ? String(raw.refundedAt) : null,
@@ -680,12 +678,11 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
       orderNumber,
       customerNameSnapshot: input.customerName,
       paymentStatus: "UNPAID",
-      fulfillmentStatus: "UNFULFILLED",
       subtotalAmount: totalAmount,
       totalAmount,
       shippingAmount: 0,
       discountAmount: 0,
-      status: "PENDING_PAYMENT",
+      status: "PENDING",
       statusHistory: JSON.stringify([]),
       isActive: true,
       gsiPartition: "Order",
@@ -769,9 +766,8 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     customerName: input.customerName,
     items: createdOrderItems,
     totalAmount,
-    status: "PENDING_PAYMENT",
+    status: "PENDING",
     paymentStatus: "UNPAID",
-    fulfillmentStatus: "UNFULFILLED",
     paidAt: null,
     cancelledAt: null,
     refundedAt: null,
@@ -790,7 +786,6 @@ async function updateOrderStatus(
     currentStatus,
     newStatus,
     currentPaymentStatus,
-    currentFulfillmentStatus,
     statusHistory,
   } = input;
 
@@ -807,38 +802,35 @@ async function updateOrderStatus(
   ];
 
   let paymentStatus = currentPaymentStatus;
-  let fulfillmentStatus = currentFulfillmentStatus;
   let paidAt: string | null | undefined;
   let cancelledAt: string | null | undefined;
   let refundedAt: string | null | undefined;
   let completedAt: string | null | undefined;
 
   switch (newStatus) {
-    case "PENDING_PAYMENT":
+    case "PENDING":
       paymentStatus = "UNPAID";
-      fulfillmentStatus = "UNFULFILLED";
       paidAt = null;
       cancelledAt = null;
       refundedAt = null;
       completedAt = null;
       break;
-    case "PAID":
+    case "ORDERED":
+    case "RECEIVED":
+    case "SHIPPED":
       paymentStatus = "PAID";
-      paidAt = now;
+      paidAt = paidAt ?? now;
       cancelledAt = null;
       refundedAt = null;
       break;
     case "COMPLETED":
       paymentStatus = "PAID";
-      fulfillmentStatus = "COMPLETED";
-      paidAt = paidAt ?? null;
+      paidAt = paidAt ?? now;
       cancelledAt = null;
       completedAt = now;
       break;
-    case "REFUNDED":
-      paymentStatus = "REFUNDED";
+    case "OUT_OF_STOCK":
       cancelledAt = null;
-      refundedAt = now;
       break;
     case "CANCELLED":
       cancelledAt = now;
@@ -849,7 +841,6 @@ async function updateOrderStatus(
     id: orderId,
     status: newStatus,
     paymentStatus,
-    fulfillmentStatus,
     paidAt,
     cancelledAt,
     refundedAt,
@@ -1609,13 +1600,7 @@ export function useConfirmShipment(): UseMutationResult<
           return li;
         });
 
-        updatedOrder.fulfillmentStatus = deriveFulfillmentStatusFromOrderItems(
-          updatedOrder.items,
-        );
-        updatedOrder.status = deriveOrderStatusFromSummary({
-          paymentStatus: updatedOrder.paymentStatus,
-          fulfillmentStatus: updatedOrder.fulfillmentStatus,
-        });
+        updatedOrder.status = deriveOrderStatusFromOrderItems(updatedOrder.items);
 
         queryClient.setQueryData(orderKey, updatedOrder);
       }

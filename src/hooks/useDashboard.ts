@@ -6,7 +6,7 @@ import { client } from "@/lib/amplify-client";
 // ---------------------------------------------------------------------------
 
 export interface DashboardSummary {
-  /** 待付款訂單數量（status = "PENDING_PAYMENT"） */
+  /** 待處理訂單數量（status = "PENDING"） */
   pendingOrdersCount: number;
   /** 待入庫明細數量（status = "ordered"） */
   pendingProcurementCount: number;
@@ -41,9 +41,9 @@ export function useDashboardSummary(): UseQueryResult<DashboardSummary> {
       // 並行查詢三個摘要數量
       const [ordersResult, pendingProcurementResult, orderItemsResult] =
         await Promise.all([
-          // 待付款訂單（status = "PENDING_PAYMENT"）
+          // 待處理訂單（status = "PENDING"）
           client.models.Order.list({
-            filter: { status: { eq: "PENDING_PAYMENT" } },
+            filter: { status: { eq: "PENDING" } },
             limit: 1000,
           }),
           // 待入庫明細（status = "ordered"）

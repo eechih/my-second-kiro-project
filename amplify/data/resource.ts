@@ -1,6 +1,5 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import {
-  FULFILLMENT_STATUSES,
   ORDER_ITEM_STATUSES,
   ORDER_STATUSES,
   PAYMENT_STATUSES,
@@ -89,8 +88,6 @@ const schema = a.schema({
   OrderStatus: a.enum(ORDER_STATUSES),
   // 訂單付款狀態（沿用 shared/models/order.ts 的狀態值）
   PaymentStatus: a.enum(PAYMENT_STATUSES),
-  // 訂單履約狀態（沿用 shared/models/order.ts 的狀態值）
-  FulfillmentStatus: a.enum(FULFILLMENT_STATUSES),
   // 訂單明細流程狀態（沿用 shared/models/order.ts 的狀態值）
   OrderItemStatus: a.enum(ORDER_ITEM_STATUSES),
 
@@ -232,7 +229,6 @@ const schema = a.schema({
       // 訂單狀態摘要
       status: a.ref("OrderStatus").required(),
       paymentStatus: a.ref("PaymentStatus"),
-      fulfillmentStatus: a.ref("FulfillmentStatus"),
 
       // 狀態時間戳記
       paidAt: a.datetime(),
@@ -268,10 +264,6 @@ const schema = a.schema({
         .sortKeys(["createdAtForSort"])
         .queryField("listOrdersByPaymentStatus")
         .name("byPaymentStatus"),
-      index("fulfillmentStatus")
-        .sortKeys(["createdAtForSort"])
-        .queryField("listOrdersByFulfillmentStatus")
-        .name("byFulfillmentStatus"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 
