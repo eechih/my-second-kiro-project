@@ -44,6 +44,7 @@ export interface OrderListParams {
   nextToken?: string;
   search?: string;
   customerId?: string;
+  enabled?: boolean;
   /** 訂單狀態篩選（undefined 表示全部） */
   status?: OrderStatus;
 }
@@ -1272,6 +1273,7 @@ export function useOrderList(
   return useQuery({
     queryKey: ORDER_KEYS.list(params),
     queryFn: () => fetchOrderList(params),
+    enabled: params.enabled ?? true,
   });
 }
 

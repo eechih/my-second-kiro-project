@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
   useMergeOrders,
+  useCustomerOrderList,
   useOrderList,
   type OrderStatusFilter,
 } from "@/hooks/useOrders";
@@ -50,15 +51,30 @@ function OrderListPage(): React.ReactElement {
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
 
-  const { data, isLoading } = useOrderList({
+  const orderListQuery = useOrderList({
     pageSize: pagination.pageSize,
     nextToken: pagination.currentToken,
     search: search || undefined,
     customerId,
+    enabled: !customerId,
     status: statusFilter === "all" ? undefined : statusFilter,
   });
-  const orderIds = useMemo(() => data?.items ?? [], [data?.items]);
-  const nextToken = data?.nextToken;
+  const customerOrderListQuery = useCustomerOrderList({
+    customerId: customerId ?? "",
+    pageSize: pagination.pageSize,
+    nextToken: pagination.currentToken,
+  });
+  const activeOrderList = customerId ? customerOrderListQuery : orderListQuery;
+  const orderIds = useMemo(
+    () =>
+      customerId
+        ? (customerOrderListQuery.data?.items ?? []).map((order) => order.id)
+        : (orderListQuery.data?.items ?? []),
+    [customerId, customerOrderListQuery.data?.items, orderListQuery.data?.items],
+  );
+  const nextToken = activeOrderList.data?.nextToken;
+  const totalCount = activeOrderList.data?.totalCount ?? 0;
+  const isLoading = activeOrderList.isLoading;
 
   useEffect(() => {
     resetPagination();
@@ -247,7 +263,9 @@ function OrderListPage(): React.ReactElement {
           setSearch(value);
           pagination.reset();
         }}
-        totalCount={data?.totalCount ?? 0}
+        totalCount={totalCount}
+        hideSearch={!!customerId}
+        hideStatusFilter={!!customerId}
         statusFilter={statusFilter}
         onStatusFilterChange={(value) => {
           setStatusFilter(value);

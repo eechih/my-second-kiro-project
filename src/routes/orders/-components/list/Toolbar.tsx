@@ -23,6 +23,8 @@ export interface ToolbarProps {
   search: string;
   onSearchChange: (value: string) => void;
   totalCount: number;
+  hideSearch?: boolean;
+  hideStatusFilter?: boolean;
   statusFilter: OrderStatusFilter;
   onStatusFilterChange: (value: OrderStatusFilter) => void;
   mergeDisabled: boolean;
@@ -37,6 +39,8 @@ export function Toolbar({
   search,
   onSearchChange,
   totalCount,
+  hideSearch = false,
+  hideStatusFilter = false,
   statusFilter,
   onStatusFilterChange,
   mergeDisabled,
@@ -51,12 +55,17 @@ export function Toolbar({
       search={search}
       onSearchChange={onSearchChange}
       totalCount={totalCount}
-      statusSelect={{
-        value: statusFilter,
-        onChange: onStatusFilterChange,
-        options: STATUS_OPTIONS,
-        ariaLabel: "狀態篩選",
-      }}
+      hideSearch={hideSearch}
+      statusSelect={
+        hideStatusFilter
+          ? undefined
+          : {
+              value: statusFilter,
+              onChange: onStatusFilterChange,
+              options: STATUS_OPTIONS,
+              ariaLabel: "狀態篩選",
+            }
+      }
       actions={
         <Box sx={{ display: "flex", gap: 1, ml: "auto" }}>
           <Button

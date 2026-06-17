@@ -27,6 +27,7 @@ export interface ListToolbarProps<
   search: string;
   onSearchChange: (value: string) => void;
   totalCount: number;
+  hideSearch?: boolean;
   statusSelect?: ListToolbarSelectConfig<TStatusFilter>;
   sortSelect?: ListToolbarSelectConfig<TSortField>;
   actions?: ReactNode;
@@ -42,6 +43,7 @@ export function ListToolbar<
   search,
   onSearchChange,
   totalCount,
+  hideSearch = false,
   statusSelect,
   sortSelect,
   actions,
@@ -55,11 +57,13 @@ export function ListToolbar<
         flexWrap: "wrap",
       }}
     >
-      <SearchBar
-        value={search}
-        onChange={onSearchChange}
-        placeholder={`搜尋 ${totalCount} 筆記錄...`}
-      />
+      {!hideSearch && (
+        <SearchBar
+          value={search}
+          onChange={onSearchChange}
+          placeholder={`搜尋 ${totalCount} 筆記錄...`}
+        />
+      )}
 
       {statusSelect && <ToolbarSelect select={statusSelect} />}
       {sortSelect && <ToolbarSelect select={sortSelect} />}
