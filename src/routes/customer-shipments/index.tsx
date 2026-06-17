@@ -88,12 +88,9 @@ function CustomerShipmentListPage(): React.ReactElement {
   const hasNextPage = (pageIndex + 1) * pageSize < filteredSummaries.length;
   const orderCountLabel =
     statusFilter === "readyToShip"
-      ? "可出貨訂單數量"
-      : "訂單數量";
-  const itemCountLabel =
-    statusFilter === "readyToShip"
-      ? "可出貨品項數量"
-      : "已到貨品項數量";
+      ? "可出貨訂單"
+      : "訂單";
+  const itemCountLabel = "已到貨";
   const currentLabel =
     STATUS_FILTER_OPTIONS.find((option) => option.value === statusFilter)
       ?.label ?? "可出貨";

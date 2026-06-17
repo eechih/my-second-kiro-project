@@ -82,11 +82,11 @@ export function CustomerShipmentSummaryTable({
           <TableHead>
             <TableRow>
               <TableCell>客戶名稱</TableCell>
-              <TableCell>最近可出貨時間</TableCell>
-              <TableCell align="right">{orderCountLabel}</TableCell>
+              <TableCell>最近到貨時間</TableCell>
               <TableCell align="right">{itemCountLabel}</TableCell>
-              <TableCell align="right">已完成訂單數量</TableCell>
-              <TableCell align="right">總訂單數量</TableCell>
+              <TableCell align="right">{orderCountLabel}</TableCell>
+              <TableCell align="right">已完成訂單</TableCell>
+              <TableCell align="right">總訂單</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -113,8 +113,8 @@ export function CustomerShipmentSummaryTable({
                     {summary.customerName}
                   </TableCell>
                   <TableCell>{formatDateTime(summary.latestReceivedAt)}</TableCell>
-                  <TableCell align="right">{summary.orderCount}</TableCell>
                   <TableCell align="right">{summary.itemCount}</TableCell>
+                  <TableCell align="right">{summary.orderCount}</TableCell>
                   <TableCell align="right">
                     {summary.completedOrderCount}
                   </TableCell>
