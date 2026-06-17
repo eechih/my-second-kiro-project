@@ -58,6 +58,7 @@ function CustomerShipmentListPage(): React.ReactElement {
           return {
             customerId: summary.customerId,
             customerName: summary.customerName,
+            latestReadyToShipReceivedAt: summary.latestReadyToShipReceivedAt,
             totalOrderCount: summary.totalOrderCount,
             completedOrderCount: summary.completedOrderCount,
             orderCount: summary.pendingOrderCount,
@@ -69,6 +70,7 @@ function CustomerShipmentListPage(): React.ReactElement {
           return {
             customerId: summary.customerId,
             customerName: summary.customerName,
+            latestReadyToShipReceivedAt: summary.latestReadyToShipReceivedAt,
             totalOrderCount: summary.totalOrderCount,
             completedOrderCount: summary.completedOrderCount,
             orderCount: summary.readyToShipOrderCount,
@@ -80,6 +82,7 @@ function CustomerShipmentListPage(): React.ReactElement {
           return {
             customerId: summary.customerId,
             customerName: summary.customerName,
+            latestReadyToShipReceivedAt: summary.latestReadyToShipReceivedAt,
             totalOrderCount: summary.totalOrderCount,
             completedOrderCount: summary.completedOrderCount,
             orderCount: summary.shippedOrderCount,
@@ -90,6 +93,7 @@ function CustomerShipmentListPage(): React.ReactElement {
         return {
           customerId: summary.customerId,
           customerName: summary.customerName,
+          latestReadyToShipReceivedAt: summary.latestReadyToShipReceivedAt,
           totalOrderCount: summary.totalOrderCount,
           completedOrderCount: summary.completedOrderCount,
           orderCount: summary.totalOrderCount,

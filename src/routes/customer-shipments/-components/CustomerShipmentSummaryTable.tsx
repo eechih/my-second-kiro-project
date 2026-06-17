@@ -1,6 +1,7 @@
 export interface CustomerShipmentSummaryRow {
   customerId: string;
   customerName: string;
+  latestReadyToShipReceivedAt?: string;
   totalOrderCount: number;
   completedOrderCount: number;
   orderCount: number;
@@ -26,6 +27,43 @@ export interface CustomerShipmentSummaryTableProps {
   onSelectCustomer: (customerId: string) => void;
 }
 
+function formatDateTime(value?: string): string {
+  if (!value) {
+    return "-";
+  }
+
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return "-";
+  }
+
+  const diffMs = timestamp - Date.now();
+  const diffMinutes = Math.round(diffMs / 60000);
+  const rtf = new Intl.RelativeTimeFormat("zh-TW", { numeric: "auto" });
+
+  if (Math.abs(diffMinutes) < 60) {
+    return rtf.format(diffMinutes, "minute");
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (Math.abs(diffHours) < 24) {
+    return rtf.format(diffHours, "hour");
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  if (Math.abs(diffDays) < 30) {
+    return rtf.format(diffDays, "day");
+  }
+
+  const diffMonths = Math.round(diffDays / 30);
+  if (Math.abs(diffMonths) < 12) {
+    return rtf.format(diffMonths, "month");
+  }
+
+  const diffYears = Math.round(diffMonths / 12);
+  return rtf.format(diffYears, "year");
+}
+
 export function CustomerShipmentSummaryTable({
   summaries,
   isLoading,
@@ -44,6 +82,7 @@ export function CustomerShipmentSummaryTable({
           <TableHead>
             <TableRow>
               <TableCell>客戶名稱</TableCell>
+              <TableCell>最近可出貨時間</TableCell>
               <TableCell align="right">{orderCountLabel}</TableCell>
               <TableCell align="right">{itemCountLabel}</TableCell>
               <TableCell align="right">已完成訂單數量</TableCell>
@@ -53,7 +92,7 @@ export function CustomerShipmentSummaryTable({
           <TableBody>
             {summaries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 5 }}>
                   <Typography color="text.secondary">
                     目前沒有符合條件的客戶
                   </Typography>
@@ -72,6 +111,9 @@ export function CustomerShipmentSummaryTable({
                 >
                   <TableCell sx={{ fontWeight: 600 }}>
                     {summary.customerName}
+                  </TableCell>
+                  <TableCell>
+                    {formatDateTime(summary.latestReadyToShipReceivedAt)}
                   </TableCell>
                   <TableCell align="right">{summary.orderCount}</TableCell>
                   <TableCell align="right">{summary.itemCount}</TableCell>
