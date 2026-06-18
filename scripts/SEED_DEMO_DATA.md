@@ -1,8 +1,8 @@
 # Seed Demo Data
 
-這份文件說明如何使用 [seed-demo-data.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/seed-demo-data.mjs) 建立測試用的 `Customer`、`Supplier`、`Product`、`Order`、`OrderItem`、`CustomerOrderSummary` 與 `ProductOrderSummary` 假資料。
+這份文件說明如何使用 [seed-demo-data.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/seed-demo-data.mjs) 建立測試用的 `Customer`、`Supplier`、`Product`、`Order`、`OrderItem`、`CustomerOrderSummary`、`ProductOrderSummary` 與 `SupplierOrderSummary` 假資料。
 
-如果需要清空資料或重建摘要，也可以搭配 [clear-demo-data.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/clear-demo-data.mjs) 與 [rebuild-customer-order-summaries.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/rebuild-customer-order-summaries.mjs) 使用。
+如果需要清空資料或重建摘要，也可以搭配 [clear-demo-data.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/clear-demo-data.mjs)、[rebuild-customer-order-summaries.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/rebuild-customer-order-summaries.mjs)、[rebuild-product-order-summaries.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/rebuild-product-order-summaries.mjs) 與 [rebuild-supplier-order-summaries.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/rebuild-supplier-order-summaries.mjs) 使用。
 
 ## 用途
 
@@ -83,6 +83,7 @@ node scripts/seed-demo-data.mjs --dry-run
 - 對應的 `OrderItem`
 - 客戶出貨列表用的 `CustomerOrderSummary`
 - 單品採購列表用的 `ProductOrderSummary`
+- 供應商入庫列表用的 `SupplierOrderSummary`
 
 並且會一起維護：
 
@@ -110,6 +111,11 @@ node scripts/seed-demo-data.mjs --dry-run
 - `ProductOrderSummary.priceSnapshot`
 - `ProductOrderSummary.costSnapshot`
 - `ProductOrderSummary.supplierNameSnapshot`
+- `SupplierOrderSummary.supplierNameSnapshot`
+- `SupplierOrderSummary.orderedQuantity`
+- `SupplierOrderSummary.receivedQuantity`
+- `SupplierOrderSummary.totalQuantity`
+- `SupplierOrderSummary.latestActivityAt`
 - `SequenceCounter` 的 `ProductSku` 流水號
 
 ## 假資料特性
@@ -152,6 +158,7 @@ npm run clear:demo -- --confirm DELETE_ALL_DATA
 - `OrderItem`
 - `CustomerOrderSummary`
 - `ProductOrderSummary`
+- `SupplierOrderSummary`
 - `SequenceCounter`
 
 先看預計刪除數量、不實際刪除：
@@ -192,6 +199,8 @@ npm run rebuild:customer-order-summary -- --confirm REBUILD_SUMMARIES
 
 ```bash
 node scripts/rebuild-customer-order-summaries.mjs --dry-run
+node scripts/rebuild-product-order-summaries.mjs --dry-run
+node scripts/rebuild-supplier-order-summaries.mjs --dry-run
 ```
 
 這支腳本會：

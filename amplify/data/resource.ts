@@ -22,6 +22,7 @@ const SORT_PARTITIONS = {
   customer: "Customer",
   customerOrderSummary: "CustomerOrderSummary",
   productOrderSummary: "ProductOrderSummary",
+  supplierOrderSummary: "SupplierOrderSummary",
   supplier: "Supplier",
   product: "Product",
   order: "Order",
@@ -377,6 +378,26 @@ const schema = a.schema({
         .sortKeys(["pendingQuantity"])
         .queryField("listProductOrderSummariesByPendingQuantity")
         .name("byPendingQuantity"),
+    ])
+    .authorization((allow) => [allow.authenticated()]),
+
+  SupplierOrderSummary: a
+    .model({
+      supplierNameSnapshot: a.string().required(),
+      orderedQuantity: a.integer().required().default(0),
+      receivedQuantity: a.integer().required().default(0),
+      totalQuantity: a.integer().required().default(0),
+      latestActivityAt: a.datetime(),
+      ...sortFields(SORT_PARTITIONS.supplierOrderSummary),
+    })
+    .secondaryIndexes((index) => [
+      index("supplierNameSnapshot")
+        .queryField("supplierOrderSummaryBySupplier")
+        .name("bySupplier"),
+      index("gsiPartition")
+        .sortKeys(["orderedQuantity"])
+        .queryField("listSupplierOrderSummariesByOrderedQuantity")
+        .name("byOrderedQuantity"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 

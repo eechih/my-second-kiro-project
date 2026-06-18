@@ -11,6 +11,7 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { buildCustomerOrderSummariesFromOrders } from "./customer-order-summary-lib.mjs";
 import { buildProductOrderSummariesFromOrderItems } from "./product-order-summary-lib.mjs";
+import { buildSupplierOrderSummariesFromOrderItems } from "./supplier-order-summary-lib.mjs";
 import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
 
 const { Random } = Mock;
@@ -369,6 +370,7 @@ function validateSeedConsistency({
   customerOrderSummaries,
   products,
   productOrderSummaries,
+  supplierOrderSummaries,
 }) {
   const customerIds = new Set(customers.map((customer) => customer.id));
   const customerNames = new Set();
@@ -434,6 +436,69 @@ function validateSeedConsistency({
 
   if (productOrderSummaries.length !== products.length) {
     throw new Error("商品摘要數量應與商品數量一致");
+  }
+
+  const expectedSupplierSummaries = new Map();
+
+  for (const order of orders) {
+    for (const item of order.items) {
+      const supplierName = String(item.supplierName ?? "").trim();
+
+      if (!supplierName) {
+        continue;
+      }
+
+      const current = expectedSupplierSummaries.get(supplierName) ?? {
+        orderedQuantity: 0,
+        receivedQuantity: 0,
+        totalQuantity: 0,
+      };
+
+      if (item.status === "ordered") {
+        current.orderedQuantity += Number(item.quantity ?? 0);
+      }
+
+      if (item.status === "received") {
+        current.receivedQuantity += Number(item.quantity ?? 0);
+      }
+
+      if (item.status === "ordered" || item.status === "received") {
+        current.totalQuantity += Number(item.quantity ?? 0);
+      }
+
+      expectedSupplierSummaries.set(supplierName, current);
+    }
+  }
+
+  for (const summary of supplierOrderSummaries) {
+    if (!summary.supplierNameSnapshot) {
+      throw new Error("供應商摘要缺少 supplierNameSnapshot");
+    }
+
+    const expected =
+      expectedSupplierSummaries.get(summary.supplierNameSnapshot) ?? {
+        orderedQuantity: 0,
+        receivedQuantity: 0,
+        totalQuantity: 0,
+      };
+
+    if (summary.orderedQuantity !== expected.orderedQuantity) {
+      throw new Error(
+        `供應商摘要 ${summary.supplierNameSnapshot} 的 orderedQuantity 不一致`,
+      );
+    }
+
+    if (summary.receivedQuantity !== expected.receivedQuantity) {
+      throw new Error(
+        `供應商摘要 ${summary.supplierNameSnapshot} 的 receivedQuantity 不一致`,
+      );
+    }
+
+    if (summary.totalQuantity !== expected.totalQuantity) {
+      throw new Error(
+        `供應商摘要 ${summary.supplierNameSnapshot} 的 totalQuantity 不一致`,
+      );
+    }
   }
 }
 
@@ -797,6 +862,7 @@ async function loadTableNames() {
     orderItem: tables.OrderItem?.tableName,
     customerOrderSummary: tables.CustomerOrderSummary?.tableName,
     productOrderSummary: tables.ProductOrderSummary?.tableName,
+    supplierOrderSummary: tables.SupplierOrderSummary?.tableName,
     sequenceCounter: tables.SequenceCounter?.tableName,
   };
 
@@ -1017,6 +1083,9 @@ async function main() {
     suppliers,
     orderItems,
   });
+  const supplierOrderSummaries = buildSupplierOrderSummariesFromOrderItems({
+    orderItems,
+  });
 
   validateSeedConsistency({
     customers,
@@ -1024,6 +1093,7 @@ async function main() {
     customerOrderSummaries,
     products,
     productOrderSummaries,
+    supplierOrderSummaries,
   });
 
   await Promise.all([
@@ -1075,6 +1145,12 @@ async function main() {
       productOrderSummaries,
       args.dryRun,
     ),
+    putItems(
+      ddb,
+      tableNames.supplierOrderSummary,
+      supplierOrderSummaries,
+      args.dryRun,
+    ),
   ]);
 
   if (!args.dryRun) {
@@ -1099,6 +1175,7 @@ async function main() {
         orderItems: orderItems.length,
         customerOrderSummaries: customerOrderSummaries.length,
         productOrderSummaries: productOrderSummaries.length,
+        supplierOrderSummaries: supplierOrderSummaries.length,
         nextProductSequence: startSequence + products.length,
       },
       null,

@@ -56,6 +56,7 @@ type NavigationPath =
   | "/"
   | "/customer-shipments"
   | "/customers"
+  | "/supplier-receivings"
   | "/suppliers"
   | "/products"
   | "/product-purchases"
@@ -98,6 +99,12 @@ const navigationItems = [
     label: "供應商管理",
     description: "供應商聯絡資料",
     to: "/suppliers",
+    icon: <BusinessIcon />,
+  },
+  {
+    label: "供應商入庫",
+    description: "以供應商角度管理入庫",
+    to: "/supplier-receivings",
     icon: <BusinessIcon />,
   },
   {

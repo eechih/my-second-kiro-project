@@ -61,3 +61,5 @@ export {
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUSES,
 } from "./order";
+
+export type { SupplierOrderSummary } from "./supplier-order-summary";

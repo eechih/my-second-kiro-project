@@ -29,6 +29,8 @@ import {
   normalizeProductOrderSummary,
   type ProductOrderSummary,
 } from "@shared/models/product-order-summary";
+import { syncSupplierOrderSummariesByNames } from "./supplierOrderSummarySync";
+import { SUPPLIER_RECEIVING_KEYS } from "./useSupplierReceivings";
 import {
   useMutation,
   useQuery,
@@ -1422,6 +1424,15 @@ function invalidateProductOrderSummaryQueries(
   });
 }
 
+function invalidateSupplierReceivingQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+): void {
+  void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.supplierItems() });
+  void queryClient.invalidateQueries({
+    queryKey: SUPPLIER_RECEIVING_KEYS.all,
+  });
+}
+
 export function useProductOrderItemList(
   params: ProductOrderItemListParams,
 ): UseQueryResult<PaginatedResult<ProductOrderItemRecord>> {
@@ -1557,7 +1568,8 @@ export function useUpdateOrderStatus(): UseMutationResult<
 export function useConfirmReceived(): UseMutationResult<
   OrderItem,
   Error,
-  ConfirmReceivedInput
+  ConfirmReceivedInput,
+  { previousOrder?: Order; previousSupplierName?: string | null }
 > {
   const queryClient = useQueryClient();
 
@@ -1587,7 +1599,12 @@ export function useConfirmReceived(): UseMutationResult<
         queryClient.setQueryData(orderKey, updatedOrder);
       }
 
-      return { previousOrder };
+      return {
+        previousOrder,
+        previousSupplierName:
+          previousOrder?.items.find((li) => li.id === input.orderItemId)
+            ?.supplierName ?? null,
+      };
     },
     onError: (_err, input, context) => {
       // Rollback
@@ -1596,11 +1613,18 @@ export function useConfirmReceived(): UseMutationResult<
         queryClient.setQueryData(orderKey, context.previousOrder);
       }
     },
+    onSuccess: async (orderItem, _input, context) => {
+      await syncSupplierOrderSummariesByNames([
+        context?.previousSupplierName,
+        orderItem.supplierName,
+      ]);
+    },
     onSettled: (_, __, input) => {
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateSupplierReceivingQueries(queryClient);
       // Invalidate product caches for stock update
       void queryClient.invalidateQueries({ queryKey: ["products"] });
     },
@@ -1623,12 +1647,14 @@ export function useMarkProcurement(): UseMutationResult<
 
   return useMutation({
     mutationFn: markProcurement,
-    onSuccess: (_, input) => {
+    onSuccess: async (orderItem, input) => {
+      await syncSupplierOrderSummariesByNames([orderItem.supplierName]);
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderSummaryQueries(queryClient);
+      invalidateSupplierReceivingQueries(queryClient);
     },
   });
 }
@@ -1643,18 +1669,32 @@ export function useMarkProcurement(): UseMutationResult<
 export function useCancelProcurement(): UseMutationResult<
   OrderItem,
   Error,
-  CancelProcurementInput
+  CancelProcurementInput,
+  { previousSupplierName?: string | null }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: cancelProcurement,
-    onSuccess: (_, input) => {
+    onMutate: (input) => {
+      const previousOrder = queryClient.getQueryData<Order>(
+        ORDER_KEYS.detail(input.orderId),
+      );
+
+      return {
+        previousSupplierName:
+          previousOrder?.items.find((li) => li.id === input.orderItemId)
+            ?.supplierName ?? null,
+      };
+    },
+    onSuccess: async (_orderItem, input, context) => {
+      await syncSupplierOrderSummariesByNames([context?.previousSupplierName]);
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderSummaryQueries(queryClient);
+      invalidateSupplierReceivingQueries(queryClient);
     },
   });
 }
@@ -1667,7 +1707,8 @@ export function useCancelProcurement(): UseMutationResult<
 export function useUpdateOrderItemStatusFlag(): UseMutationResult<
   OrderItem,
   Error,
-  UpdateOrderItemStatusFlagInput
+  UpdateOrderItemStatusFlagInput,
+  { previousOrder?: Order; previousSupplierName?: string | null }
 > {
   const queryClient = useQueryClient();
 
@@ -1707,7 +1748,12 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
         }
       }
 
-      return { previousOrder };
+      return {
+        previousOrder,
+        previousSupplierName:
+          previousOrder?.items.find((li) => li.id === input.orderItemId)
+            ?.supplierName ?? null,
+      };
     },
     onError: (_error, input, context) => {
       if (context?.previousOrder) {
@@ -1717,12 +1763,19 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
         );
       }
     },
+    onSuccess: async (orderItem, _input, context) => {
+      await syncSupplierOrderSummariesByNames([
+        context?.previousSupplierName,
+        orderItem.supplierName,
+      ]);
+    },
     onSettled: (_, __, input) => {
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderSummaryQueries(queryClient);
+      invalidateSupplierReceivingQueries(queryClient);
       if (input.flag === "received" || input.flag === "shipped") {
         void queryClient.invalidateQueries({ queryKey: ["products"] });
       }
@@ -1741,7 +1794,8 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
 export function useConfirmShipment(): UseMutationResult<
   OrderItem,
   Error,
-  ConfirmShipmentInput & { orderId: string }
+  ConfirmShipmentInput & { orderId: string },
+  { previousOrder?: Order; previousSupplierName?: string | null }
 > {
   const queryClient = useQueryClient();
 
@@ -1774,7 +1828,12 @@ export function useConfirmShipment(): UseMutationResult<
         queryClient.setQueryData(orderKey, updatedOrder);
       }
 
-      return { previousOrder };
+      return {
+        previousOrder,
+        previousSupplierName:
+          previousOrder?.items.find((li) => li.id === input.orderItemId)
+            ?.supplierName ?? null,
+      };
     },
     onError: (_err, input, context) => {
       // Rollback
@@ -1783,12 +1842,19 @@ export function useConfirmShipment(): UseMutationResult<
         queryClient.setQueryData(orderKey, context.previousOrder);
       }
     },
+    onSuccess: async (orderItem, _input, context) => {
+      await syncSupplierOrderSummariesByNames([
+        context?.previousSupplierName,
+        orderItem.supplierName,
+      ]);
+    },
     onSettled: (_, __, input) => {
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderSummaryQueries(queryClient);
+      invalidateSupplierReceivingQueries(queryClient);
       // Invalidate product caches for stock update
       void queryClient.invalidateQueries({ queryKey: ["products"] });
     },
@@ -2040,12 +2106,14 @@ export function useAddOrderItemToOrder(): UseMutationResult<
 
   return useMutation({
     mutationFn: addOrderItemToOrder,
-    onSuccess: (_, input) => {
+    onSuccess: async (_, input) => {
+      await syncSupplierOrderSummariesByNames([input.supplierName]);
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderSummaryQueries(queryClient);
+      invalidateSupplierReceivingQueries(queryClient);
     },
   });
 }
@@ -2054,18 +2122,35 @@ export function useAddOrderItemToOrder(): UseMutationResult<
 export function useUpdateOrderItemInOrder(): UseMutationResult<
   void,
   Error,
-  UpdateOrderItemInput
+  UpdateOrderItemInput,
+  { previousSupplierName?: string | null }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: updateOrderItemInOrder,
-    onSuccess: (_, input) => {
+    onMutate: (input) => {
+      const previousOrder = queryClient.getQueryData<Order>(
+        ORDER_KEYS.detail(input.orderId),
+      );
+
+      return {
+        previousSupplierName:
+          previousOrder?.items.find((li) => li.id === input.orderItemId)
+            ?.supplierName ?? null,
+      };
+    },
+    onSuccess: async (_, input, context) => {
+      await syncSupplierOrderSummariesByNames([
+        context?.previousSupplierName,
+        input.supplierName,
+      ]);
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderSummaryQueries(queryClient);
+      invalidateSupplierReceivingQueries(queryClient);
     },
   });
 }
@@ -2074,18 +2159,32 @@ export function useUpdateOrderItemInOrder(): UseMutationResult<
 export function useDeleteOrderItemFromOrder(): UseMutationResult<
   void,
   Error,
-  DeleteOrderItemInput
+  DeleteOrderItemInput,
+  { previousSupplierName?: string | null }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: deleteOrderItemFromOrder,
-    onSuccess: (_, input) => {
+    onMutate: (input) => {
+      const previousOrder = queryClient.getQueryData<Order>(
+        ORDER_KEYS.detail(input.orderId),
+      );
+
+      return {
+        previousSupplierName:
+          previousOrder?.items.find((li) => li.id === input.orderItemId)
+            ?.supplierName ?? null,
+      };
+    },
+    onSuccess: async (_, input, context) => {
+      await syncSupplierOrderSummariesByNames([context?.previousSupplierName]);
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderSummaryQueries(queryClient);
+      invalidateSupplierReceivingQueries(queryClient);
     },
   });
 }
