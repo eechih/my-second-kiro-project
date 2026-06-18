@@ -5,6 +5,7 @@ import { formatCurrency } from "@/lib/currency";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -12,6 +13,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import Chip from "@mui/material/Chip";
 import { ORDER_ITEM_STATUSES, ORDER_ITEM_STATUS_LABEL } from "@shared/models";
 
 type ProductPurchaseColumn = {
@@ -22,23 +24,46 @@ type ProductPurchaseColumn = {
 };
 
 const PRODUCT_PURCHASE_COLUMNS: readonly ProductPurchaseColumn[] = [
-  { key: "image", label: "圖片", width: 84, align: "center" },
-  { key: "name", label: "商品名稱", width: undefined, align: undefined },
-  { key: "supplier", label: "供應商", width: 180, align: undefined },
-  { key: "price", label: "售價", width: 108, align: "right" },
-  { key: "cost", label: "成本", width: 108, align: "right" },
+  { key: "name", label: "商品", width: undefined, align: undefined },
+  { key: "supplier", label: "供應商", width: 96, align: undefined },
+  { key: "price", label: "售價", width: 96, align: "right" },
+  { key: "cost", label: "成本", width: 96, align: "right" },
   {
-    key: "total",
-    label: "訂單品項總數量",
-    width: 180,
+    key: "pending",
+    label: ORDER_ITEM_STATUS_LABEL.pending,
+    width: 96,
     align: "right",
   },
-  ...ORDER_ITEM_STATUSES.map((status) => ({
-    key: status,
-    label: `${ORDER_ITEM_STATUS_LABEL[status]}數量`,
-    width: 140,
+  {
+    key: "ordered",
+    label: ORDER_ITEM_STATUS_LABEL.ordered,
+    width: 96,
     align: "right",
-  })),
+  },
+  {
+    key: "received",
+    label: ORDER_ITEM_STATUS_LABEL.received,
+    width: 96,
+    align: "right",
+  },
+  {
+    key: "shipped",
+    label: ORDER_ITEM_STATUS_LABEL.shipped,
+    width: 96,
+    align: "right",
+  },
+  {
+    key: "out_of_stock",
+    label: ORDER_ITEM_STATUS_LABEL.out_of_stock,
+    width: 96,
+    align: "right",
+  },
+  {
+    key: "total",
+    label: "總計",
+    width: 96,
+    align: "right",
+  },
 ];
 
 export interface ProductPurchasesTableProps {
@@ -105,43 +130,100 @@ export function ProductPurchasesTable({
                     onClick={() => onSelectProduct(summary)}
                     sx={{ cursor: "pointer" }}
                   >
-                    <TableCell align="center">
-                      {thumbnailUrl ? (
-                        <Box
-                          component="img"
-                          src={thumbnailUrl}
-                          alt={summary.productName}
-                          sx={{
-                            width: 48,
-                            height: 48,
-                            objectFit: "cover",
-                            borderRadius: 1,
-                            border: "1px solid",
-                            borderColor: "divider",
-                            display: "block",
-                            mx: "auto",
-                          }}
-                        />
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>
-                      {summary.productName}
+                      <Stack
+                        direction="row"
+                        spacing={1.5}
+                        sx={{ alignItems: "center", minWidth: 0 }}
+                      >
+                        {thumbnailUrl ? (
+                          <Box
+                            component="img"
+                            src={thumbnailUrl}
+                            alt={summary.productName}
+                            sx={{
+                              width: 48,
+                              height: 48,
+                              objectFit: "cover",
+                              borderRadius: 1,
+                              border: "1px solid",
+                              borderColor: "divider",
+                              flexShrink: 0,
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: 1,
+                              border: "1px dashed",
+                              borderColor: "divider",
+                              color: "text.disabled",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            —
+                          </Box>
+                        )}
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography
+                            sx={{
+                              fontWeight: 600,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {summary.productName}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            點選查看作業明細
+                          </Typography>
+                        </Box>
+                      </Stack>
                     </TableCell>
-                    <TableCell>{summary.supplierName || "—"}</TableCell>
+                    <TableCell
+                      sx={{
+                        color: summary.supplierName
+                          ? "text.primary"
+                          : "text.secondary",
+                      }}
+                    >
+                      {summary.supplierName || "—"}
+                    </TableCell>
                     <TableCell align="right">
                       {formatCurrency(summary.price)}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(summary.cost)}
                     </TableCell>
+                    {ORDER_ITEM_STATUSES.map((status) => {
+                      const value = summary.statusQuantities[status];
+
+                      return (
+                        <TableCell key={status} align="right">
+                          {status === "pending" ? (
+                            <Chip
+                              label={value}
+                              color={value > 0 ? "warning" : "default"}
+                              size="small"
+                              sx={{
+                                minWidth: 52,
+                                fontWeight: 700,
+                                justifyContent: "center",
+                              }}
+                            />
+                          ) : (
+                            value
+                          )}
+                        </TableCell>
+                      );
+                    })}
                     <TableCell align="right">{summary.totalQuantity}</TableCell>
-                    {ORDER_ITEM_STATUSES.map((status) => (
-                      <TableCell key={status} align="right">
-                        {summary.statusQuantities[status]}
-                      </TableCell>
-                    ))}
                   </TableRow>
                 );
               })}
