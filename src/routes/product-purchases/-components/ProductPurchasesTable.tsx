@@ -3,6 +3,7 @@ import { useProductThumbnailUrls } from "@/hooks/useProductImages";
 import type { ProductPurchaseSummary } from "@/hooks/useProductPurchases";
 import { formatCurrency } from "@/lib/currency";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -13,7 +14,6 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import Chip from "@mui/material/Chip";
 import { ORDER_ITEM_STATUSES, ORDER_ITEM_STATUS_LABEL } from "@shared/models";
 
 type ProductPurchaseColumn = {
@@ -37,31 +37,31 @@ const PRODUCT_PURCHASE_COLUMNS: readonly ProductPurchaseColumn[] = [
   {
     key: "ordered",
     label: ORDER_ITEM_STATUS_LABEL.ordered,
-    width: 96,
+    width: 80,
     align: "right",
   },
   {
     key: "received",
     label: ORDER_ITEM_STATUS_LABEL.received,
-    width: 96,
+    width: 80,
     align: "right",
   },
   {
     key: "shipped",
     label: ORDER_ITEM_STATUS_LABEL.shipped,
-    width: 96,
+    width: 80,
     align: "right",
   },
   {
     key: "out_of_stock",
     label: ORDER_ITEM_STATUS_LABEL.out_of_stock,
-    width: 96,
+    width: 80,
     align: "right",
   },
   {
     key: "total",
     label: "總計",
-    width: 96,
+    width: 80,
     align: "right",
   },
 ];

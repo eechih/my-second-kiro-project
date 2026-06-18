@@ -2,6 +2,7 @@ import { CursorPagination } from "@/components/CursorPagination";
 import { PageHeader } from "@/components/PageHeader";
 import {
   useProductPurchaseSummaries,
+  type ProductPurchaseSummary,
   type ProductPurchaseStatusFilter,
 } from "@/hooks/useProductPurchases";
 import { requireAuth } from "@/lib/route-guards";
@@ -22,6 +23,7 @@ function ProductPurchasesPage(): React.ReactElement {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<ProductPurchaseStatusFilter>("pending");
+  const [supplierFilter, setSupplierFilter] = useState("");
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const { data, isLoading, error } = useProductPurchaseSummaries(statusFilter);
@@ -39,6 +41,29 @@ function ProductPurchasesPage(): React.ReactElement {
     [],
   );
 
+  const handleSupplierFilterChange = useCallback((value: string): void => {
+    setSupplierFilter(value);
+    setPageIndex(0);
+  }, []);
+
+  const supplierOptions = useMemo(() => {
+    const names = Array.from(
+      new Set(
+        (data ?? [])
+          .map((summary) => summary.supplierName?.trim() ?? "")
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b, "zh-Hant"));
+
+    return [
+      { value: "", label: "全部供應商" },
+      ...names.map((name) => ({
+        value: name,
+        label: name,
+      })),
+    ];
+  }, [data]);
+
   const filteredSummaries = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
@@ -51,9 +76,16 @@ function ProductPurchasesPage(): React.ReactElement {
         return summary.statusQuantities[statusFilter] > 0;
       })
       .filter((summary) =>
-        keyword ? summary.productName.toLowerCase().includes(keyword) : true,
+        supplierFilter
+          ? (summary.supplierName?.trim() ?? "") === supplierFilter
+          : true,
+      )
+      .filter((summary) =>
+        keyword
+          ? matchesProductPurchaseKeyword(summary, keyword)
+          : true,
       );
-  }, [data, search, statusFilter]);
+  }, [data, search, statusFilter, supplierFilter]);
 
   const pagedSummaries = useMemo(() => {
     const start = pageIndex * pageSize;
@@ -79,6 +111,9 @@ function ProductPurchasesPage(): React.ReactElement {
         totalCount={filteredSummaries.length}
         statusFilter={statusFilter}
         onStatusFilterChange={handleStatusFilterChange}
+        supplierFilter={supplierFilter}
+        onSupplierFilterChange={handleSupplierFilterChange}
+        supplierOptions={supplierOptions}
       />
 
       <ProductPurchasesTable
@@ -113,5 +148,18 @@ function ProductPurchasesPage(): React.ReactElement {
         currentCount={pagedSummaries.length}
       />
     </Box>
+  );
+}
+
+function matchesProductPurchaseKeyword(
+  summary: ProductPurchaseSummary,
+  keyword: string,
+): boolean {
+  const productName = summary.productName.toLowerCase();
+  const supplierName = summary.supplierName?.toLowerCase() ?? "";
+
+  return (
+    productName.includes(keyword) ||
+    supplierName.includes(keyword)
   );
 }
