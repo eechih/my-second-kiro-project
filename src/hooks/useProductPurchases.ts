@@ -1,26 +1,43 @@
-import {
-  useProductOrderSummaries,
-  type ProductOrderSummary,
-} from "@/hooks/useOrders";
+import { client } from "@/lib/amplify-client";
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { OrderItemStatus } from "@shared/models";
+import { useQuery } from "@tanstack/react-query";
+import {
+  normalizeProductOrderSummary,
+  type ProductOrderSummary,
+} from "@shared/models/product-order-summary";
 
-export type ProductPurchaseStatusFilter = "all" | OrderItemStatus;
+export type ProductPurchaseStatusFilter = "all" | "pending";
 export type ProductPurchaseSummary = ProductOrderSummary;
+
+const PRODUCT_PURCHASE_KEYS = {
+  all: ["product-purchases"] as const,
+  summaries: () => [...PRODUCT_PURCHASE_KEYS.all, "summaries"] as const,
+};
+
+const PRODUCT_ORDER_SUMMARY_SELECTION_SET = [
+  "id",
+  "productId",
+  "productNameSnapshot",
+  "productImageUrlSnapshot",
+  "priceSnapshot",
+  "costSnapshot",
+  "supplierNameSnapshot",
+  "pendingQuantity",
+  "orderedQuantity",
+  "receivedQuantity",
+  "shippedQuantity",
+  "outOfStockQuantity",
+  "totalQuantity",
+  "latestActivityAt",
+] as const;
 
 function sortProductPurchaseSummaries(
   summaries: readonly ProductPurchaseSummary[],
-  statusFilter: ProductPurchaseStatusFilter,
+  _statusFilter: ProductPurchaseStatusFilter,
 ): ProductPurchaseSummary[] {
   return [...summaries].sort((a, b) => {
-    const primaryA =
-      statusFilter === "all"
-        ? a.totalQuantity
-        : a.statusQuantities[statusFilter];
-    const primaryB =
-      statusFilter === "all"
-        ? b.totalQuantity
-        : b.statusQuantities[statusFilter];
+    const primaryA = a.statusQuantities.pending;
+    const primaryB = b.statusQuantities.pending;
 
     if (primaryB !== primaryA) {
       return primaryB - primaryA;
@@ -34,15 +51,36 @@ function sortProductPurchaseSummaries(
   });
 }
 
+async function fetchProductPurchaseSummaries(): Promise<ProductPurchaseSummary[]> {
+  const { data, errors } =
+    await client.models.ProductOrderSummary.listProductOrderSummariesByPendingQuantity(
+      { gsiPartition: "ProductOrderSummary" },
+      {
+        sortDirection: "DESC",
+        selectionSet: PRODUCT_ORDER_SUMMARY_SELECTION_SET,
+      } as Record<string, unknown>,
+    );
+
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "查詢單品採購摘要失敗");
+  }
+
+  return (data ?? []).flatMap((item) => {
+    const normalized = normalizeProductOrderSummary(
+      item as unknown as Record<string, unknown>,
+    );
+
+    return normalized ? [normalized] : [];
+  });
+}
+
 export function useProductPurchaseSummaries(
   statusFilter: ProductPurchaseStatusFilter = "all",
 ): UseQueryResult<ProductPurchaseSummary[]> {
-  const result = useProductOrderSummaries();
-
-  return {
-    ...result,
-    data: result.data
-      ? sortProductPurchaseSummaries(result.data, statusFilter)
-      : result.data,
-  } as UseQueryResult<ProductPurchaseSummary[]>;
+  return useQuery({
+    queryKey: [...PRODUCT_PURCHASE_KEYS.summaries(), statusFilter],
+    queryFn: fetchProductPurchaseSummaries,
+    select: (summaries) => sortProductPurchaseSummaries(summaries, statusFilter),
+    staleTime: 60_000,
+  });
 }

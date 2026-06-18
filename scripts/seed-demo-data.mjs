@@ -431,6 +431,10 @@ function validateSeedConsistency({
       );
     }
   }
+
+  if (productOrderSummaries.length !== products.length) {
+    throw new Error("商品摘要數量應與商品數量一致");
+  }
 }
 
 function buildOrderItemTimeline(createdAt, itemStatus) {
@@ -1010,6 +1014,7 @@ async function main() {
   );
   const productOrderSummaries = buildProductOrderSummariesFromOrderItems({
     products,
+    suppliers,
     orderItems,
   });
 

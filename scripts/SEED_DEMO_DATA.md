@@ -106,6 +106,10 @@ node scripts/seed-demo-data.mjs --dry-run
 - `ProductOrderSummary.outOfStockQuantity`
 - `ProductOrderSummary.totalQuantity`
 - `ProductOrderSummary.latestActivityAt`
+- `ProductOrderSummary.productImageUrlSnapshot`
+- `ProductOrderSummary.priceSnapshot`
+- `ProductOrderSummary.costSnapshot`
+- `ProductOrderSummary.supplierNameSnapshot`
 - `SequenceCounter` 的 `ProductSku` 流水號
 
 ## 假資料特性

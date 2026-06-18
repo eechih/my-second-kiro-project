@@ -21,18 +21,15 @@ function ProductPurchasesPage(): React.ReactElement {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
-    useState<ProductPurchaseStatusFilter>("all");
+    useState<ProductPurchaseStatusFilter>("pending");
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const { data, isLoading, error } = useProductPurchaseSummaries(statusFilter);
 
-  const handleSearchChange = useCallback(
-    (value: string): void => {
-      setSearch(value);
-      setPageIndex(0);
-    },
-    [],
-  );
+  const handleSearchChange = useCallback((value: string): void => {
+    setSearch(value);
+    setPageIndex(0);
+  }, []);
 
   const handleStatusFilterChange = useCallback(
     (value: ProductPurchaseStatusFilter): void => {
@@ -82,7 +79,6 @@ function ProductPurchasesPage(): React.ReactElement {
         totalCount={filteredSummaries.length}
         statusFilter={statusFilter}
         onStatusFilterChange={handleStatusFilterChange}
-        onBackClick={() => void navigate({ to: "/orders" })}
       />
 
       <ProductPurchasesTable

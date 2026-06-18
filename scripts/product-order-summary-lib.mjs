@@ -24,25 +24,81 @@ function getLatestActivityAt(item) {
   );
 }
 
-function getProductNameFromRecord(item, productNames) {
-  const snapshotName = String(item.productNameSnapshot ?? "").trim();
-  if (snapshotName) {
-    return snapshotName;
-  }
+function buildProductMaps(products, suppliers) {
+  const productSnapshots = new Map(
+    products
+      .map((product) => [
+        String(product.id ?? ""),
+        {
+          productName: String(
+            product.name ?? product.productNameSnapshot ?? "未命名商品",
+          ),
+          productImageUrl: Array.isArray(product.imageUrls)
+            ? String(product.imageUrls[0] ?? "").trim() || null
+            : null,
+          price: Number(product.price ?? 0),
+          cost: Number(product.cost ?? 0),
+          defaultSupplierId:
+            String(product.defaultSupplierId ?? "").trim() || null,
+        },
+      ])
+      .filter(([id]) => id),
+  );
+  const supplierNames = new Map(
+    suppliers
+      .map((supplier) => [
+        String(supplier.id ?? ""),
+        String(supplier.name ?? "").trim(),
+      ])
+      .filter(([id, name]) => id && name),
+  );
 
-  const productName = String(productNames.get(String(item.productId ?? "")) ?? "").trim();
-  if (productName) {
-    return productName;
-  }
-
-  return "未命名商品";
+  return {
+    productSnapshots,
+    supplierNames,
+  };
 }
 
-function createSummary({ productId, productName, now }) {
+function getSupplierSnapshot(item, productSnapshots, supplierNames) {
+  const itemSupplierName = String(item.supplierName ?? "").trim();
+  const productId = String(item.productId ?? "");
+  const productSnapshot = productSnapshots.get(productId);
+  const productSupplierId = productSnapshot?.defaultSupplierId ?? null;
+  const supplierNameFromProduct =
+    productSupplierId != null ? supplierNames.get(productSupplierId) ?? null : null;
+
+  return {
+    supplierName: itemSupplierName || supplierNameFromProduct,
+  };
+}
+
+function getProductSnapshot(productId, productSnapshots) {
+  const productSnapshot = productSnapshots.get(productId);
+
+  return {
+    productName: productSnapshot?.productName ?? "未命名商品",
+    productImageUrl: productSnapshot?.productImageUrl ?? null,
+    price: Number.isFinite(productSnapshot?.price) ? productSnapshot.price : 0,
+    cost: Number.isFinite(productSnapshot?.cost) ? productSnapshot.cost : 0,
+  };
+}
+
+function createSummary({
+  productId,
+  productName,
+  productImageUrl,
+  price,
+  cost,
+  now,
+}) {
   return {
     id: productId,
     productId,
     productNameSnapshot: productName,
+    productImageUrlSnapshot: productImageUrl,
+    priceSnapshot: price,
+    costSnapshot: cost,
+    supplierNameSnapshot: null,
     pendingQuantity: 0,
     orderedQuantity: 0,
     receivedQuantity: 0,
@@ -59,18 +115,32 @@ function createSummary({ productId, productName, now }) {
 
 export function buildProductOrderSummariesFromOrderItems({
   products = [],
+  suppliers = [],
   orderItems,
   now = new Date().toISOString(),
 }) {
-  const productNames = new Map(
-    products
-      .map((product) => [
-        String(product.id ?? ""),
-        String(product.name ?? product.productNameSnapshot ?? "未命名商品"),
-      ])
-      .filter(([id]) => id),
+  const { productSnapshots, supplierNames } = buildProductMaps(
+    products,
+    suppliers,
   );
-  const summaries = new Map();
+  const summaries = new Map(
+    products.map((product) => {
+      const productId = String(product.id ?? "");
+      const productSnapshot = getProductSnapshot(productId, productSnapshots);
+
+      return [
+        productId,
+        createSummary({
+          productId,
+          productName: productSnapshot.productName,
+          productImageUrl: productSnapshot.productImageUrl,
+          price: productSnapshot.price,
+          cost: productSnapshot.cost,
+          now,
+        }),
+      ];
+    }),
+  );
 
   for (const item of orderItems) {
     const productId = String(item.productId ?? "");
@@ -83,12 +153,22 @@ export function buildProductOrderSummariesFromOrderItems({
 
     const quantity = toQuantity(item.quantity);
     const latestActivityAt = getLatestActivityAt(item);
-    const productName = getProductNameFromRecord(item, productNames);
+    const productSnapshot = getProductSnapshot(productId, productSnapshots);
+    const productName =
+      String(item.productNameSnapshot ?? "").trim() || productSnapshot.productName;
+    const supplierSnapshot = getSupplierSnapshot(
+      item,
+      productSnapshots,
+      supplierNames,
+    );
     const current =
       summaries.get(productId) ??
       createSummary({
         productId,
         productName,
+        productImageUrl: productSnapshot.productImageUrl,
+        price: productSnapshot.price,
+        cost: productSnapshot.cost,
         now,
       });
 
@@ -98,6 +178,20 @@ export function buildProductOrderSummariesFromOrderItems({
         (latestActivityAt && latestActivityAt >= current.latestActivityAt))
     ) {
       current.productNameSnapshot = productName;
+    }
+    current.productImageUrlSnapshot = productSnapshot.productImageUrl;
+    current.priceSnapshot = productSnapshot.price;
+    current.costSnapshot = productSnapshot.cost;
+    if (supplierSnapshot.supplierName && !current.supplierNameSnapshot) {
+      current.supplierNameSnapshot = supplierSnapshot.supplierName;
+    }
+    if (
+      latestActivityAt &&
+      (!current.latestActivityAt || latestActivityAt >= current.latestActivityAt)
+    ) {
+      if (supplierSnapshot.supplierName) {
+        current.supplierNameSnapshot = supplierSnapshot.supplierName;
+      }
     }
     current[field] += quantity;
     current.totalQuantity += quantity;

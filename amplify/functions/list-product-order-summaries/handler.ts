@@ -8,7 +8,7 @@ import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { normalizeProductOrderSummary } from "@shared/models/product-order-summary";
 
 const ddb = new DynamoDBClient({});
-const SUMMARY_INDEX_NAME = "byCreatedAt";
+const SUMMARY_INDEX_NAME = "byPendingQuantity";
 const SUMMARY_PARTITION = "ProductOrderSummary";
 
 export const handler: Schema["getProductOrderSummaries"]["functionHandler"] =

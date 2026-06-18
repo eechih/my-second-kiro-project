@@ -7,7 +7,13 @@ import {
 } from "@tanstack/react-query";
 import { uploadData, remove, getUrl } from "aws-amplify/storage";
 import { client } from "@/lib/amplify-client";
-import { PRODUCT_KEYS } from "@/hooks/useProducts";
+import { ORDER_KEYS } from "@/hooks/useOrders";
+import { syncProductOrderSummaryFromProduct } from "@/hooks/productOrderSummarySync";
+import {
+  PRODUCT_KEYS,
+  PRODUCT_SELECTION_SET,
+  mapToProduct,
+} from "@/hooks/useProducts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -29,6 +35,10 @@ const IMAGE_KEYS = {
     [...IMAGE_KEYS.all, "thumbnail", imageKey] as const,
   thumbnails: (imageKeys: string[]) =>
     [...IMAGE_KEYS.all, "thumbnails", ...imageKeys] as const,
+};
+
+const PRODUCT_PURCHASE_KEYS = {
+  all: ["product-purchases"] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -98,14 +108,25 @@ async function updateProductImageUrls(
   productId: string,
   imageUrls: string[],
 ): Promise<void> {
-  const { errors } = await client.models.Product.update({
-    id: productId,
-    imageUrls,
-  });
+  const { data, errors } = await client.models.Product.update(
+    {
+      id: productId,
+      imageUrls,
+    },
+    { selectionSet: PRODUCT_SELECTION_SET },
+  );
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "更新商品照片記錄失敗");
   }
+
+  if (!data) {
+    throw new Error("更新商品照片記錄失敗：未回傳資料");
+  }
+
+  await syncProductOrderSummaryFromProduct(
+    mapToProduct(data as Record<string, unknown>),
+  );
 }
 
 async function uploadProductImageFile(
@@ -222,6 +243,12 @@ export function useUploadProductImage(): UseMutationResult<
         queryKey: PRODUCT_KEYS.detail(productId),
       });
       void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.productOrderSummaries(),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: PRODUCT_PURCHASE_KEYS.all,
+      });
       void queryClient.invalidateQueries({ queryKey: IMAGE_KEYS.all });
     },
   });
@@ -269,6 +296,12 @@ export function useUploadProductImagesBatch(): UseMutationResult<
         queryKey: PRODUCT_KEYS.detail(productId),
       });
       void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.productOrderSummaries(),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: PRODUCT_PURCHASE_KEYS.all,
+      });
       void queryClient.invalidateQueries({ queryKey: IMAGE_KEYS.all });
     },
   });
@@ -311,6 +344,12 @@ export function useDeleteProductImage(): UseMutationResult<
         queryKey: PRODUCT_KEYS.detail(productId),
       });
       void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.productOrderSummaries(),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: PRODUCT_PURCHASE_KEYS.all,
+      });
       void queryClient.invalidateQueries({ queryKey: IMAGE_KEYS.all });
     },
   });

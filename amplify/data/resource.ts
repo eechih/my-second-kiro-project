@@ -356,6 +356,10 @@ const schema = a.schema({
     .model({
       productId: a.id().required(),
       productNameSnapshot: a.string().required(),
+      productImageUrlSnapshot: a.string(),
+      priceSnapshot: a.integer().required().default(0),
+      costSnapshot: a.integer().required().default(0),
+      supplierNameSnapshot: a.string(),
       pendingQuantity: a.integer().required().default(0),
       orderedQuantity: a.integer().required().default(0),
       receivedQuantity: a.integer().required().default(0),
@@ -370,9 +374,9 @@ const schema = a.schema({
         .queryField("productOrderSummaryByProduct")
         .name("byProduct"),
       index("gsiPartition")
-        .sortKeys(["createdAtForSort"])
-        .queryField("listProductOrderSummariesByCreatedDate")
-        .name("byCreatedAt"),
+        .sortKeys(["pendingQuantity"])
+        .queryField("listProductOrderSummariesByPendingQuantity")
+        .name("byPendingQuantity"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 

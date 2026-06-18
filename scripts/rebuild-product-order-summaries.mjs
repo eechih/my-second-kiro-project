@@ -53,7 +53,9 @@ async function loadTableNames() {
 
   const tableNames = {
     orderItem: customTables.OrderItem?.tableName ?? null,
+    product: customTables.Product?.tableName ?? null,
     productOrderSummary: customTables.ProductOrderSummary?.tableName ?? null,
+    supplier: customTables.Supplier?.tableName ?? null,
   };
 
   for (const [key, value] of Object.entries(tableNames)) {
@@ -151,6 +153,17 @@ async function replaceSummaryTable(ddb, tableName, idsToDelete, summaries) {
   }
 }
 
+function createEmptySummaryQuantities() {
+  return {
+    totalQuantity: 0,
+    pendingQuantity: 0,
+    orderedQuantity: 0,
+    receivedQuantity: 0,
+    shippedQuantity: 0,
+    outOfStockQuantity: 0,
+  };
+}
+
 function validateSummaryConsistency({ orderItems, summaries }) {
   const expected = new Map();
 
@@ -164,14 +177,7 @@ function validateSummaryConsistency({ orderItems, summaries }) {
     }
 
     const quantity = Number(item.quantity ?? 0);
-    const current = expected.get(productId) ?? {
-      totalQuantity: 0,
-      pendingQuantity: 0,
-      orderedQuantity: 0,
-      receivedQuantity: 0,
-      shippedQuantity: 0,
-      outOfStockQuantity: 0,
-    };
+    const current = expected.get(productId) ?? createEmptySummaryQuantities();
 
     current[field] += quantity;
     current.totalQuantity += quantity;
@@ -180,11 +186,7 @@ function validateSummaryConsistency({ orderItems, summaries }) {
 
   for (const summary of summaries) {
     const productId = String(summary.productId ?? summary.id ?? "");
-    const current = expected.get(productId);
-
-    if (!current) {
-      throw new Error(`商品摘要 ${productId} 找不到對應的 OrderItem 聚合結果`);
-    }
+    const current = expected.get(productId) ?? createEmptySummaryQuantities();
 
     for (const field of [
       "pendingQuantity",
@@ -220,12 +222,16 @@ async function main() {
 
   const tableNames = await loadTableNames();
   const ddb = new DynamoDBClient({});
-  const [orderItems, existingSummaries] = await Promise.all([
+  const [orderItems, products, suppliers, existingSummaries] = await Promise.all([
     scanAll(ddb, tableNames.orderItem),
+    scanAll(ddb, tableNames.product),
+    scanAll(ddb, tableNames.supplier),
     scanAll(ddb, tableNames.productOrderSummary),
   ]);
 
   const summaries = buildProductOrderSummariesFromOrderItems({
+    products,
+    suppliers,
     orderItems,
   });
   validateSummaryConsistency({ orderItems, summaries });

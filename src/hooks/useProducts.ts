@@ -6,6 +6,8 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { client } from "@/lib/amplify-client";
+import { ORDER_KEYS } from "@/hooks/useOrders";
+import { syncProductOrderSummaryFromProduct } from "@/hooks/productOrderSummarySync";
 import { deriveProductActiveState } from "@shared/models";
 import type {
   Product,
@@ -44,11 +46,15 @@ const PRODUCT_KEYS = {
   detail: (id: string) => [...PRODUCT_KEYS.details(), id] as const,
 };
 
+const PRODUCT_PURCHASE_KEYS = {
+  all: ["product-purchases"] as const,
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const PRODUCT_SELECTION_SET = [
+export const PRODUCT_SELECTION_SET = [
   "id",
   "name",
   "sku",
@@ -276,7 +282,9 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
       ? (resultRecord.data as Record<string, unknown>)
       : resultRecord;
 
-  return mapToProduct(productData);
+  const product = mapToProduct(productData);
+  await syncProductOrderSummaryFromProduct(product);
+  return product;
 }
 
 function buildProductUpdatePayload(
@@ -323,7 +331,9 @@ async function updateProduct(input: UpdateProductInput): Promise<Product> {
     throw new Error("更新商品失敗：未回傳資料");
   }
 
-  return mapToProduct(data);
+  const product = mapToProduct(data);
+  await syncProductOrderSummaryFromProduct(product);
+  return product;
 }
 
 // ---------------------------------------------------------------------------
@@ -381,6 +391,12 @@ export function useCreateProduct(): UseMutationResult<
     mutationFn: createProduct,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.productOrderSummaries(),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: PRODUCT_PURCHASE_KEYS.all,
+      });
     },
   });
 }
@@ -431,6 +447,12 @@ export function useUpdateProduct(): UseMutationResult<
         PRODUCT_KEYS.detail(updatedProduct.id),
         updatedProduct,
       );
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.productOrderSummaries(),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: PRODUCT_PURCHASE_KEYS.all,
+      });
     },
     onSettled: (_data, _error, input) => {
       void queryClient.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() });
@@ -586,7 +608,7 @@ export function useSyncProductOptions(): UseMutationResult<
 // ---------------------------------------------------------------------------
 
 /** 將 Amplify Data 回傳的原始資料映射為 Product 型別 */
-function mapToProduct(raw: Record<string, unknown>): Product {
+export function mapToProduct(raw: Record<string, unknown>): Product {
   let options: ProductOption[] = [];
   if (raw.options && Array.isArray(raw.options)) {
     options = (raw.options as Record<string, unknown>[]).map(mapToOption);
