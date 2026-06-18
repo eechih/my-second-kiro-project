@@ -6,15 +6,15 @@
 
 ## Tasks
 
-- [~] 1. 重構 Shared Models — Order 扁平化與 Shipment 新增
-  - [ ] 1.1 重構 `shared/models/order.ts`：移除 `OrderItem` interface、`OrderItemStatus` 型別與相關常數；擴充 `Order` interface 整合原 OrderItem 欄位（productId、productNameSnapshot、productSkuSnapshot、productImageUrlSnapshot、selectedOptionsSnapshot、quantity、unitPriceSnapshot、unitCostSnapshot、totalPriceSnapshot、totalCostSnapshot、supplierName、purchasedAt、receivedAt、shippedAt、outOfStockAt、shipmentId）；新增 `OrderFulfillmentStatus` 型別；更新 `CreateOrderInput` 為扁平結構
+- [x] 1. 重構 Shared Models — Order 扁平化與 Shipment 新增
+  - [x] 1.1 重構 `shared/models/order.ts`：移除 `OrderItem` interface、`OrderItemStatus` 型別與相關常數；擴充 `Order` interface 整合原 OrderItem 欄位（productId、productNameSnapshot、productSkuSnapshot、productImageUrlSnapshot、selectedOptionsSnapshot、quantity、unitPriceSnapshot、unitCostSnapshot、totalPriceSnapshot、totalCostSnapshot、supplierName、purchasedAt、receivedAt、shippedAt、outOfStockAt、shipmentId）；新增 `OrderFulfillmentStatus` 型別；更新 `CreateOrderInput` 為扁平結構
     - 移除 `OrderItem`、`OrderItemStatus` 與相關 export
     - 新增 `OrderFulfillmentStatus = 'PENDING' | 'ORDERED' | 'RECEIVED' | 'SHIPPED' | 'COMPLETED' | 'OUT_OF_STOCK' | 'CANCELLED'`
     - 新增 `PaymentStatus = 'UNPAID' | 'PAID' | 'REFUNDED' | 'PARTIALLY_REFUNDED'`
     - 確保 `statusHistory` 欄位為 `{ fromStatus: string; toStatus: string; changedAt: string }[]`
     - _Requirements: 1.1, 2.1, 2.2_
 
-  - [ ] 1.2 新增 `shared/models/shipment.ts`：定義 `ShipmentStatus` 型別、`Shipment` interface、`ShipmentOrderSummary` interface、`CreateShipmentInput` 型別
+  - [x] 1.2 新增 `shared/models/shipment.ts`：定義 `ShipmentStatus` 型別、`Shipment` interface、`ShipmentOrderSummary` interface、`CreateShipmentInput` 型別
     - `ShipmentStatus = 'PENDING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'`
     - `Shipment` 包含 shipmentNumber、recipientName、recipientPhone、recipientAddress、status、shippingMethod、trackingNumber、actualShippingCost、shippedAt、deliveredAt、cancelledAt、note
     - `ShipmentOrderSummary` 包含 orderNumber、customerNameSnapshot、productNameSnapshot、quantity、totalAmount

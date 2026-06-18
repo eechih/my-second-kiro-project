@@ -1,15 +1,18 @@
 /**
- * 訂單（Order）、訂單明細（OrderItem）及共用型別
+ * 訂單（Order）模型定義
  *
- * 需求：4.1, 4.3, 4.4, 4.12, 4.13, 5.1, 6.1, 6.9
+ * 簡化後的 Order 模型：一筆訂單 = 一個商品規格，
+ * 不再有獨立的 OrderItem 實體。
+ *
+ * 需求：1.1, 2.1, 2.2
  */
 
 // ---------------------------------------------------------------------------
 // 狀態型別
 // ---------------------------------------------------------------------------
 
-/** 訂單狀態 */
-export const ORDER_STATUSES = [
+/** 訂單履約狀態 */
+export const ORDER_FULFILLMENT_STATUSES = [
   "PENDING",
   "ORDERED",
   "RECEIVED",
@@ -19,7 +22,19 @@ export const ORDER_STATUSES = [
   "CANCELLED",
 ] as const;
 
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
+export type OrderFulfillmentStatus =
+  (typeof ORDER_FULFILLMENT_STATUSES)[number];
+
+/**
+ * @deprecated 請使用 OrderFulfillmentStatus
+ * 保留向下相容別名，後續版本將移除
+ */
+export type OrderStatus = OrderFulfillmentStatus;
+
+/**
+ * @deprecated 請使用 ORDER_FULFILLMENT_STATUSES
+ */
+export const ORDER_STATUSES = ORDER_FULFILLMENT_STATUSES;
 
 /** 付款狀態 */
 export const PAYMENT_STATUSES = [
@@ -31,18 +46,10 @@ export const PAYMENT_STATUSES = [
 
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-/** 訂單明細狀態 */
-export const ORDER_ITEM_STATUSES = [
-  "pending",
-  "ordered",
-  "received",
-  "shipped",
-  "out_of_stock",
-] as const;
-
-export type OrderItemStatus = (typeof ORDER_ITEM_STATUSES)[number];
-
-export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+export const ORDER_FULFILLMENT_STATUS_LABEL: Record<
+  OrderFulfillmentStatus,
+  string
+> = {
   PENDING: "待處理",
   ORDERED: "已採購",
   RECEIVED: "已到貨",
@@ -52,6 +59,11 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   CANCELLED: "已取消",
 };
 
+/**
+ * @deprecated 請使用 ORDER_FULFILLMENT_STATUS_LABEL
+ */
+export const ORDER_STATUS_LABEL = ORDER_FULFILLMENT_STATUS_LABEL;
+
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   UNPAID: "未付款",
   PAID: "已付款",
@@ -59,23 +71,22 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   PARTIALLY_REFUNDED: "部分退款",
 };
 
-export const ORDER_ITEM_STATUS_LABEL: Record<OrderItemStatus, string> = {
-  pending: "待處理",
-  ordered: "已訂購",
-  received: "已收到",
-  shipped: "已出貨",
-  out_of_stock: "缺貨",
-};
-
-export function isOrderStatus(value: unknown): value is OrderStatus {
+export function isOrderFulfillmentStatus(
+  value: unknown,
+): value is OrderFulfillmentStatus {
   return (
     typeof value === "string" &&
-    (ORDER_STATUSES as readonly string[]).includes(value)
+    (ORDER_FULFILLMENT_STATUSES as readonly string[]).includes(value)
   );
 }
 
-export function normalizeOrderStatus(value: unknown): OrderStatus {
-  if (isOrderStatus(value)) {
+/**
+ * @deprecated 請使用 isOrderFulfillmentStatus
+ */
+export const isOrderStatus = isOrderFulfillmentStatus;
+
+export function normalizeOrderStatus(value: unknown): OrderFulfillmentStatus {
+  if (isOrderFulfillmentStatus(value)) {
     return value;
   }
 
@@ -112,7 +123,7 @@ export function normalizeLegacyOrderStatus(input: {
   status: unknown;
   fulfillmentStatus?: unknown;
   cancelledAt?: unknown;
-}): OrderStatus {
+}): OrderFulfillmentStatus {
   if (input.cancelledAt) {
     return "CANCELLED";
   }
@@ -160,20 +171,6 @@ export function normalizePaymentStatus(value: unknown): PaymentStatus {
   }
 }
 
-export function isOrderItemStatus(value: unknown): value is OrderItemStatus {
-  return (
-    typeof value === "string" &&
-    (ORDER_ITEM_STATUSES as readonly string[]).includes(value)
-  );
-}
-
-export function normalizeOrderItemStatus(value: unknown): OrderItemStatus {
-  if (isOrderItemStatus(value)) {
-    return value;
-  }
-  return "pending";
-}
-
 // ---------------------------------------------------------------------------
 // 共用型別
 // ---------------------------------------------------------------------------
@@ -206,92 +203,93 @@ export interface PaginatedResult<T> {
   nextToken?: string;
 }
 
-/** 訂單分拆分配方式 */
-export interface SplitAllocation {
-  /** 明細項目 ID */
-  orderItemId: string;
-  /** 分配到第幾筆新訂單（0-based） */
-  targetOrderIndex: number;
-}
-
-/** 訂單明細中單一規格選取快照 */
-export interface OrderItemSelectedOptionSnapshot {
+/** 訂單中單一規格選取快照 */
+export interface SelectedOptionSnapshot {
   optionName: string;
   valueName: string;
   priceOffset: number;
   costOffset: number;
 }
 
-// ---------------------------------------------------------------------------
-// 訂單明細（OrderItem）
-// ---------------------------------------------------------------------------
-
-/** 訂單明細項目 */
-export interface OrderItem {
-  /** 唯一識別碼 */
-  id: string;
-  /** 商品 ID */
-  productId: string;
-  /** 商品名稱（反正規化） */
-  productName: string;
-  /** 商品圖片（反正規化） */
-  productImageUrl: string | null;
-  /** 商品 SKU（反正規化） */
-  productSku?: string;
-  /** 規格組合顯示標籤（反正規化，如「黑 L」；無規格組合時為 null） */
-  variantLabel: string | null;
-  /** 下單當下選取的規格值快照 */
-  selectedOptionsSnapshot: OrderItemSelectedOptionSnapshot[];
-  /** 訂購數量（> 0） */
-  quantity: number;
-  /** 單價（使用規格組合的有效單價） */
-  unitPrice: number;
-  /** 單位成本快照 */
-  unitCostSnapshot: number | null;
-  /** 小計 = quantity × unitPrice */
-  subtotal: number;
-  /** 總成本快照 */
-  totalCostSnapshot: number | null;
-  /** 明細狀態 */
-  status: OrderItemStatus;
-  /** ISO 8601 採購日期時間（尚未採購時為 null） */
-  purchasedAt: string | null;
-  /** ISO 8601 收到日期時間（尚未收到時為 null） */
-  receivedAt: string | null;
-  /** ISO 8601 出貨日期時間（尚未出貨時為 null） */
-  shippedAt: string | null;
-  /** ISO 8601 缺貨日期時間（尚未缺貨時為 null） */
-  outOfStockAt: string | null;
-
-  // --- 採購核心數據 ---
-  /** 供應商名稱（反正規化，尚未採購時為 null） */
-  supplierName: string | null;
-  /** 採購單位成本（尚未採購時為 null） */
-  unitCost: number | null;
-}
+/**
+ * @deprecated 請使用 SelectedOptionSnapshot
+ */
+export type OrderItemSelectedOptionSnapshot = SelectedOptionSnapshot;
 
 // ---------------------------------------------------------------------------
-// 訂單（Order）
+// 訂單（Order）— 扁平化結構
 // ---------------------------------------------------------------------------
 
 /** 訂單 */
 export interface Order {
   /** 唯一識別碼 */
   id: string;
-  /** 訂單編號（系統自動產生，唯一） */
+  /** 訂單編號（系統自動產生，格式 ORD-YYYYMMDD-XXXX，唯一） */
   orderNumber: string;
+
+  // --- 客戶快照 ---
   /** 客戶 ID（必填） */
   customerId: string;
-  /** 客戶名稱（反正規化，方便列表顯示） */
-  customerName: string;
-  /** 明細項目列表 */
-  items: OrderItem[];
-  /** 訂單總金額 */
+  /** 客戶名稱快照 */
+  customerNameSnapshot: string;
+  /** 客戶電話快照 */
+  customerPhoneSnapshot: string | null;
+  /** 客戶 Email 快照 */
+  customerEmailSnapshot: string | null;
+  /** 收件地址快照 */
+  shippingAddressSnapshot: string | null;
+
+  // --- 商品快照 ---
+  /** 商品 ID */
+  productId: string;
+  /** 商品名稱快照 */
+  productNameSnapshot: string;
+  /** 商品 SKU 快照 */
+  productSkuSnapshot: string;
+  /** 商品圖片快照 */
+  productImageUrlSnapshot: string | null;
+  /** 規格選取快照陣列 */
+  selectedOptionsSnapshot: SelectedOptionSnapshot[];
+
+  // --- 數量與金額 ---
+  /** 數量（1–9999） */
+  quantity: number;
+  /** 單價快照（0–999,999,999） */
+  unitPriceSnapshot: number;
+  /** 單位成本快照（0–999,999,999，可為 null） */
+  unitCostSnapshot: number | null;
+  /** 總價快照 = quantity × unitPriceSnapshot */
+  totalPriceSnapshot: number;
+  /** 總成本快照 = quantity × unitCostSnapshot（unitCostSnapshot 為 null 時亦為 null） */
+  totalCostSnapshot: number | null;
+  /** 小計 = totalPriceSnapshot */
+  subtotalAmount: number;
+  /** 運費（0–999,999,999） */
+  shippingAmount: number;
+  /** 折扣（0–999,999,999，≤ subtotal + shipping） */
+  discountAmount: number;
+  /** 總金額 = subtotal + shipping - discount */
   totalAmount: number;
-  /** 訂單狀態 */
-  status: OrderStatus;
+
+  // --- 狀態 ---
+  /** 訂單履約狀態 */
+  status: OrderFulfillmentStatus;
   /** 付款狀態 */
   paymentStatus: PaymentStatus;
+
+  // --- 採購與物流 ---
+  /** 供應商名稱 */
+  supplierName: string | null;
+  /** ISO 8601 採購時間 */
+  purchasedAt: string | null;
+  /** ISO 8601 入庫時間 */
+  receivedAt: string | null;
+  /** ISO 8601 出貨時間 */
+  shippedAt: string | null;
+  /** ISO 8601 缺貨時間 */
+  outOfStockAt: string | null;
+
+  // --- 付款與終態時間 ---
   /** ISO 8601 付款時間 */
   paidAt: string | null;
   /** ISO 8601 取消時間 */
@@ -300,8 +298,20 @@ export interface Order {
   refundedAt: string | null;
   /** ISO 8601 完成時間 */
   completedAt: string | null;
+
+  // --- 備註與歷史 ---
+  /** 備註（最大 500 字元） */
+  note: string | null;
   /** 狀態變更歷史 */
   statusHistory: StatusChange[];
+
+  // --- 出貨單關聯 ---
+  /** 關聯的 Shipment ID */
+  shipmentId: string | null;
+
+  // --- 系統欄位 ---
+  /** 啟用旗標 */
+  isActive: boolean;
   /** ISO 8601 建立時間 */
   createdAt: string;
   /** ISO 8601 更新時間 */
@@ -312,48 +322,51 @@ export interface Order {
 // 輸入型別
 // ---------------------------------------------------------------------------
 
-/** 建立訂單明細項目輸入 */
-export interface CreateOrderItemInput {
-  /** 商品 ID（必填） */
-  productId: string;
-  /** 商品名稱（必填，反正規化） */
-  productName: string;
-  /** 商品 SKU（必填，反正規化） */
-  productSku: string;
-  /** 商品圖片（反正規化） */
-  productImageUrl?: string | null;
-  /** 規格組合顯示標籤（商品有規格組合時必填） */
-  variantLabel?: string | null;
-  /** 下單當下選取的規格值快照 */
-  selectedOptionsSnapshot?: OrderItemSelectedOptionSnapshot[];
-  /** 訂購數量（必填，> 0） */
-  quantity: number;
-  /** 單價（必填，>= 0） */
-  unitPrice: number;
-  /** 單位成本（選填） */
-  unitCost?: number | null;
-}
-
-/** 建立訂單輸入 */
+/** 建立訂單輸入（扁平結構） */
 export interface CreateOrderInput {
+  // --- 客戶資訊 ---
   /** 客戶 ID（必填） */
   customerId: string;
-  /** 客戶名稱（必填，反正規化） */
-  customerName: string;
-  /** 明細項目列表（必填，至少一筆） */
-  orderItems: CreateOrderItemInput[];
+  /** 客戶名稱快照（必填） */
+  customerNameSnapshot: string;
+  /** 客戶電話快照 */
+  customerPhoneSnapshot?: string | null;
+  /** 客戶 Email 快照 */
+  customerEmailSnapshot?: string | null;
+  /** 收件地址快照 */
+  shippingAddressSnapshot?: string | null;
+
+  // --- 商品資訊 ---
+  /** 商品 ID（必填） */
+  productId: string;
+  /** 商品名稱快照（必填） */
+  productNameSnapshot: string;
+  /** 商品 SKU 快照（必填） */
+  productSkuSnapshot: string;
+  /** 商品圖片快照 */
+  productImageUrlSnapshot?: string | null;
+  /** 規格選取快照 */
+  selectedOptionsSnapshot?: SelectedOptionSnapshot[];
+
+  // --- 數量與金額 ---
+  /** 數量（必填，1–9999） */
+  quantity: number;
+  /** 單價快照（必填，0–999,999,999） */
+  unitPriceSnapshot: number;
+  /** 單位成本快照（選填） */
+  unitCostSnapshot?: number | null;
+  /** 運費（選填，預設 0） */
+  shippingAmount?: number;
+  /** 折扣（選填，預設 0） */
+  discountAmount?: number;
+
+  // --- 其他 ---
+  /** 備註 */
+  note?: string | null;
 }
 
-/** 確認出貨輸入 */
+/** 確認出貨輸入（單筆 Order 直接出貨，無 Shipment 情境） */
 export interface ConfirmShipmentInput {
-  /** 明細項目 ID（必填） */
-  orderItemId: string;
-}
-
-/** 分拆訂單輸入 */
-export interface SplitOrderInput {
-  /** 原訂單 ID（必填） */
+  /** 訂單 ID（必填） */
   orderId: string;
-  /** 明細項目分配方式（必填） */
-  allocations: SplitAllocation[];
 }
