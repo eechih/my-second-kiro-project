@@ -20,16 +20,16 @@
     - `ShipmentOrderSummary` 包含 orderNumber、customerNameSnapshot、productNameSnapshot、quantity、totalAmount
     - _Requirements: 4.1, 8.4_
 
-- [ ] 2. 重構 Shared Logic — Order 狀態機與計算
-  - [ ] 2.1 重構 `shared/logic/order-status.ts`：重寫 `ALLOWED_TRANSITIONS` 為新狀態機（PENDING→ORDERED/OUT_OF_STOCK/CANCELLED, ORDERED→RECEIVED/OUT_OF_STOCK/CANCELLED, RECEIVED→SHIPPED/CANCELLED, SHIPPED→COMPLETED, OUT_OF_STOCK→CANCELLED）；移除 `deriveOrderStatusFromOrderItems()`；保留並更新 `isValidOrderStatusTransition()` 與 `getNextAllowedOrderStatuses()`
+- [x] 2. 重構 Shared Logic — Order 狀態機與計算
+  - [x] 2.1 重構 `shared/logic/order-status.ts`：重寫 `ALLOWED_TRANSITIONS` 為新狀態機（PENDING→ORDERED/OUT_OF_STOCK/CANCELLED, ORDERED→RECEIVED/OUT_OF_STOCK/CANCELLED, RECEIVED→SHIPPED/CANCELLED, SHIPPED→COMPLETED, OUT_OF_STOCK→CANCELLED）；移除 `deriveOrderStatusFromOrderItems()`；保留並更新 `isValidOrderStatusTransition()` 與 `getNextAllowedOrderStatuses()`
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8_
 
-  - [ ] 2.2 重構 `shared/logic/order-calculations.ts`：改為單筆 Order 金額計算 — `calculateTotalPrice(quantity, unitPrice)`、`calculateTotalCost(quantity, unitCost)` (null-safe)、`calculateTotalAmount(subtotal, shipping, discount)`；新增 `validateOrderFields(input)` 驗證欄位範圍；移除 `calculateOrderTotal(orderItems)`
+  - [x] 2.2 重構 `shared/logic/order-calculations.ts`：改為單筆 Order 金額計算 — `calculateTotalPrice(quantity, unitPrice)`、`calculateTotalCost(quantity, unitCost)` (null-safe)、`calculateTotalAmount(subtotal, shipping, discount)`；新增 `validateOrderFields(input)` 驗證欄位範圍；移除 `calculateOrderTotal(orderItems)`
     - quantity: 1–9999, unitPrice/unitCost/shipping/discount: 0–999,999,999
     - discountAmount ≤ subtotalAmount + shippingAmount
     - _Requirements: 1.2, 1.3, 1.4, 1.5, 1.7, 1.8_
 
-  - [ ] 2.3 新增 `shared/logic/order-number.ts`：實作 `generateOrderNumber()` 產生格式為 `ORD-YYYYMMDD-XXXX` 的唯一訂單編號
+  - [x] 2.3 新增 `shared/logic/order-number.ts`：實作 `generateOrderNumber()` 產生格式為 `ORD-YYYYMMDD-XXXX` 的唯一訂單編號
     - XXXX 為 4 碼隨機大寫英數字
     - _Requirements: 1.6_
 
