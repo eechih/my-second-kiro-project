@@ -46,12 +46,12 @@
     - **Property 3: orderNumber 格式與唯一性** — 驗證產生的 orderNumber 符合 `/^ORD-\d{8}-[A-Z0-9]{4}$/` 且多次產生結果互不相同
     - **Validates: Requirements 1.6**
 
-- [ ] 3. 新增 Shared Logic — Shipment 狀態機與驗證
-  - [ ] 3.1 新增 `shared/logic/shipment-status.ts`：定義 Shipment 狀態轉換表、`isValidShipmentStatusTransition(from, to)`、`getNextAllowedShipmentStatuses(current)`
+- [x] 3. 新增 Shared Logic — Shipment 狀態機與驗證
+  - [x] 3.1 新增 `shared/logic/shipment-status.ts`：定義 Shipment 狀態轉換表、`isValidShipmentStatusTransition(from, to)`、`getNextAllowedShipmentStatuses(current)`
     - 允許轉換：PENDING→SHIPPED, PENDING→CANCELLED, SHIPPED→DELIVERED
     - _Requirements: 5.1, 5.2, 5.4, 5.6, 5.8_
 
-  - [ ] 3.2 新增 `shared/logic/shipment-validation.ts`：實作 `validateOrdersForShipment(orders)` 驗證所有 Order 狀態為 RECEIVED；`validateShipmentInventory(orders, products)` 以 Product 層級彙總出貨數量並驗證庫存；`validateOrderNotInActiveShipment(order)` 驗證 Order 未關聯至未取消的 Shipment；`validateShipmentOrderCount(count)` 驗證 1–50 筆範圍
+  - [x] 3.2 新增 `shared/logic/shipment-validation.ts`：實作 `validateOrdersForShipment(orders)` 驗證所有 Order 狀態為 RECEIVED；`validateShipmentInventory(orders, products)` 以 Product 層級彙總出貨數量並驗證庫存；`validateOrderNotInActiveShipment(order)` 驗證 Order 未關聯至未取消的 Shipment；`validateShipmentOrderCount(count)` 驗證 1–50 筆範圍
     - 錯誤訊息使用繁體中文
     - _Requirements: 4.4, 4.5, 4.6, 4.7, 6.4, 6.5, 7.1, 7.2_
 
