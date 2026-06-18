@@ -11,6 +11,13 @@ import { buildProductOrderSummariesFromOrderItems } from "./product-order-summar
 const REQUIRED_CONFIRMATION = "REBUILD_PRODUCT_SUMMARIES";
 const BATCH_SIZE = 25;
 const MAX_BATCH_RETRIES = 5;
+const STATUS_FIELDS = {
+  pending: "pendingQuantity",
+  ordered: "orderedQuantity",
+  received: "receivedQuantity",
+  shipped: "shippedQuantity",
+  out_of_stock: "outOfStockQuantity",
+};
 
 function parseArgs(argv) {
   const args = {
@@ -45,7 +52,6 @@ async function loadTableNames() {
   const customTables = outputs?.custom?.tables ?? {};
 
   const tableNames = {
-    product: customTables.Product?.tableName ?? null,
     orderItem: customTables.OrderItem?.tableName ?? null,
     productOrderSummary: customTables.ProductOrderSummary?.tableName ?? null,
   };
@@ -145,6 +151,58 @@ async function replaceSummaryTable(ddb, tableName, idsToDelete, summaries) {
   }
 }
 
+function validateSummaryConsistency({ orderItems, summaries }) {
+  const expected = new Map();
+
+  for (const item of orderItems) {
+    const productId = String(item.productId ?? "");
+    const status = String(item.status ?? "");
+    const field = STATUS_FIELDS[status];
+
+    if (!productId || !field) {
+      continue;
+    }
+
+    const quantity = Number(item.quantity ?? 0);
+    const current = expected.get(productId) ?? {
+      totalQuantity: 0,
+      pendingQuantity: 0,
+      orderedQuantity: 0,
+      receivedQuantity: 0,
+      shippedQuantity: 0,
+      outOfStockQuantity: 0,
+    };
+
+    current[field] += quantity;
+    current.totalQuantity += quantity;
+    expected.set(productId, current);
+  }
+
+  for (const summary of summaries) {
+    const productId = String(summary.productId ?? summary.id ?? "");
+    const current = expected.get(productId);
+
+    if (!current) {
+      throw new Error(`商品摘要 ${productId} 找不到對應的 OrderItem 聚合結果`);
+    }
+
+    for (const field of [
+      "pendingQuantity",
+      "orderedQuantity",
+      "receivedQuantity",
+      "shippedQuantity",
+      "outOfStockQuantity",
+      "totalQuantity",
+    ]) {
+      if (Number(summary[field] ?? 0) !== Number(current[field] ?? 0)) {
+        throw new Error(
+          `商品摘要 ${productId} 的 ${field} 與 OrderItem 聚合結果不一致`,
+        );
+      }
+    }
+  }
+}
+
 async function main() {
   await assertLocalDemoScriptEnvironment();
   const args = parseArgs(process.argv.slice(2));
@@ -162,16 +220,15 @@ async function main() {
 
   const tableNames = await loadTableNames();
   const ddb = new DynamoDBClient({});
-  const [products, orderItems, existingSummaries] = await Promise.all([
-    scanAll(ddb, tableNames.product),
+  const [orderItems, existingSummaries] = await Promise.all([
     scanAll(ddb, tableNames.orderItem),
     scanAll(ddb, tableNames.productOrderSummary),
   ]);
 
   const summaries = buildProductOrderSummariesFromOrderItems({
-    products,
     orderItems,
   });
+  validateSummaryConsistency({ orderItems, summaries });
   const existingSummaryIds = existingSummaries
     .map((summary) => String(summary.id ?? ""))
     .filter(Boolean);
@@ -191,7 +248,6 @@ async function main() {
         success: true,
         dryRun: args.dryRun,
         confirmation: args.confirmed,
-        productCount: products.length,
         orderItemCount: orderItems.length,
         deletedSummaryCount: existingSummaryIds.length,
         rebuiltSummaryCount: summaries.length,

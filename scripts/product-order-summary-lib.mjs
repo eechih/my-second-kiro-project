@@ -24,6 +24,20 @@ function getLatestActivityAt(item) {
   );
 }
 
+function getProductNameFromRecord(item, productNames) {
+  const snapshotName = String(item.productNameSnapshot ?? "").trim();
+  if (snapshotName) {
+    return snapshotName;
+  }
+
+  const productName = String(productNames.get(String(item.productId ?? "")) ?? "").trim();
+  if (productName) {
+    return productName;
+  }
+
+  return "未命名商品";
+}
+
 function createSummary({ productId, productName, now }) {
   return {
     id: productId,
@@ -44,7 +58,7 @@ function createSummary({ productId, productName, now }) {
 }
 
 export function buildProductOrderSummariesFromOrderItems({
-  products,
+  products = [],
   orderItems,
   now = new Date().toISOString(),
 }) {
@@ -68,9 +82,8 @@ export function buildProductOrderSummariesFromOrderItems({
     }
 
     const quantity = toQuantity(item.quantity);
-    const productName = String(
-      item.productNameSnapshot ?? productNames.get(productId) ?? "未命名商品",
-    );
+    const latestActivityAt = getLatestActivityAt(item);
+    const productName = getProductNameFromRecord(item, productNames);
     const current =
       summaries.get(productId) ??
       createSummary({
@@ -78,9 +91,14 @@ export function buildProductOrderSummariesFromOrderItems({
         productName,
         now,
       });
-    const latestActivityAt = getLatestActivityAt(item);
 
-    current.productNameSnapshot = productName || current.productNameSnapshot;
+    if (
+      productName &&
+      (!current.latestActivityAt ||
+        (latestActivityAt && latestActivityAt >= current.latestActivityAt))
+    ) {
+      current.productNameSnapshot = productName;
+    }
     current[field] += quantity;
     current.totalQuantity += quantity;
     current.latestActivityAt =

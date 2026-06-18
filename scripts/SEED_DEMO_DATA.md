@@ -1,6 +1,6 @@
 # Seed Demo Data
 
-這份文件說明如何使用 [seed-demo-data.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/seed-demo-data.mjs) 建立測試用的 `Customer`、`Supplier`、`Product`、`Order`、`OrderItem` 與 `CustomerOrderSummary` 假資料。
+這份文件說明如何使用 [seed-demo-data.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/seed-demo-data.mjs) 建立測試用的 `Customer`、`Supplier`、`Product`、`Order`、`OrderItem`、`CustomerOrderSummary` 與 `ProductOrderSummary` 假資料。
 
 如果需要清空資料或重建摘要，也可以搭配 [clear-demo-data.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/clear-demo-data.mjs) 與 [rebuild-customer-order-summaries.mjs](/Volumes/External SSD/code/my-second-kiro-project/scripts/rebuild-customer-order-summaries.mjs) 使用。
 
@@ -82,6 +82,7 @@ node scripts/seed-demo-data.mjs --dry-run
 - 多種 `PaymentStatus` 狀態的 `Order`
 - 對應的 `OrderItem`
 - 客戶出貨列表用的 `CustomerOrderSummary`
+- 單品採購列表用的 `ProductOrderSummary`
 
 並且會一起維護：
 
@@ -98,6 +99,13 @@ node scripts/seed-demo-data.mjs --dry-run
 - `CustomerOrderSummary.latestReceivedAt`
 - `CustomerOrderSummary.completedOrderCount`
 - `CustomerOrderSummary.totalOrderCount`
+- `ProductOrderSummary.pendingQuantity`
+- `ProductOrderSummary.orderedQuantity`
+- `ProductOrderSummary.receivedQuantity`
+- `ProductOrderSummary.shippedQuantity`
+- `ProductOrderSummary.outOfStockQuantity`
+- `ProductOrderSummary.totalQuantity`
+- `ProductOrderSummary.latestActivityAt`
 - `SequenceCounter` 的 `ProductSku` 流水號
 
 ## 假資料特性
@@ -139,6 +147,7 @@ npm run clear:demo -- --confirm DELETE_ALL_DATA
 - `Order`
 - `OrderItem`
 - `CustomerOrderSummary`
+- `ProductOrderSummary`
 - `SequenceCounter`
 
 先看預計刪除數量、不實際刪除：

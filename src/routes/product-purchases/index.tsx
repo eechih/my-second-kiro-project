@@ -21,7 +21,7 @@ function ProductPurchasesPage(): React.ReactElement {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
-    useState<ProductPurchaseStatusFilter>("pending");
+    useState<ProductPurchaseStatusFilter>("all");
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const { data, isLoading, error } = useProductPurchaseSummaries(statusFilter);

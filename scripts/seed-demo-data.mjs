@@ -10,6 +10,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { buildCustomerOrderSummariesFromOrders } from "./customer-order-summary-lib.mjs";
+import { buildProductOrderSummariesFromOrderItems } from "./product-order-summary-lib.mjs";
 import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
 
 const { Random } = Mock;
@@ -366,9 +367,12 @@ function validateSeedConsistency({
   customers,
   orders,
   customerOrderSummaries,
+  products,
+  productOrderSummaries,
 }) {
   const customerIds = new Set(customers.map((customer) => customer.id));
   const customerNames = new Set();
+  const productIds = new Set(products.map((product) => product.id));
 
   for (const customer of customers) {
     if (!customer.id) {
@@ -407,6 +411,23 @@ function validateSeedConsistency({
     ) {
       throw new Error(
         `摘要 ${summary.id} 的 customerNameSnapshot 與客戶主檔不一致`,
+      );
+    }
+  }
+
+  for (const summary of productOrderSummaries) {
+    if (!productIds.has(summary.productId)) {
+      throw new Error(
+        `商品摘要 ${summary.id} 指向不存在的 productId：${summary.productId}`,
+      );
+    }
+
+    if (
+      summary.productNameSnapshot !==
+      products.find((product) => product.id === summary.productId)?.name
+    ) {
+      throw new Error(
+        `商品摘要 ${summary.id} 的 productNameSnapshot 與商品主檔不一致`,
       );
     }
   }
@@ -771,6 +792,7 @@ async function loadTableNames() {
     order: tables.Order?.tableName,
     orderItem: tables.OrderItem?.tableName,
     customerOrderSummary: tables.CustomerOrderSummary?.tableName,
+    productOrderSummary: tables.ProductOrderSummary?.tableName,
     sequenceCounter: tables.SequenceCounter?.tableName,
   };
 
@@ -986,11 +1008,17 @@ async function main() {
       orders,
     },
   );
+  const productOrderSummaries = buildProductOrderSummariesFromOrderItems({
+    products,
+    orderItems,
+  });
 
   validateSeedConsistency({
     customers,
     orders,
     customerOrderSummaries,
+    products,
+    productOrderSummaries,
   });
 
   await Promise.all([
@@ -1036,6 +1064,12 @@ async function main() {
       customerOrderSummaries,
       args.dryRun,
     ),
+    putItems(
+      ddb,
+      tableNames.productOrderSummary,
+      productOrderSummaries,
+      args.dryRun,
+    ),
   ]);
 
   if (!args.dryRun) {
@@ -1059,6 +1093,7 @@ async function main() {
         orders: orders.length,
         orderItems: orderItems.length,
         customerOrderSummaries: customerOrderSummaries.length,
+        productOrderSummaries: productOrderSummaries.length,
         nextProductSequence: startSequence + products.length,
       },
       null,
