@@ -5,10 +5,8 @@ import {
   TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import {
-  normalizeOrderItemStatus,
-  normalizeOrderStatus,
-} from "@shared/models/order";
+import type { OrderFulfillmentStatus } from "@shared/models/order";
+import { isOrderFulfillmentStatus } from "@shared/models/order";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -23,20 +21,24 @@ const FUNCTION_NAME = "cancelPurchase";
 /**
  * 取消採購 Lambda 函式
  *
- * 將 ordered 明細恢復為 pending，並清除採購時間、數量、供應商與成本資料。
+ * 將 Order 的 status 從 ORDERED 回退為 PENDING，
+ * 清除 purchasedAt 與 supplierName，並附加 statusHistory 記錄。
+ *
+ * 注意：ORDERED→PENDING 為回退操作，不在正向狀態轉換表內，
+ * 此處直接驗證目前狀態為 ORDERED 後手動回退。
+ *
+ * 需求：2.5, 3.8
  */
 export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
   event,
 ) => {
-  const { orderItemId } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { orderItemId });
+  const { orderId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { orderId });
 
-  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
 
-  if (!orderItemTable || !orderTable) {
+  if (!orderTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
-      hasOrderItemTable: !!orderItemTable,
       hasOrderTable: !!orderTable,
     });
     return JSON.stringify({
@@ -46,31 +48,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
   }
 
   try {
-    const orderItemResult = await ddb.send(
-      new GetItemCommand({
-        TableName: orderItemTable,
-        Key: marshall({ id: orderItemId }),
-      }),
-    );
-
-    if (!orderItemResult.Item) {
-      logWarn(FUNCTION_NAME, "order item not found", { orderItemId });
-      return JSON.stringify({
-        success: false,
-        message: "找不到指定的明細項目",
-      });
-    }
-
-    const orderItem = unmarshall(orderItemResult.Item);
-    const orderId = String(orderItem["orderId"] ?? "");
-    const status = normalizeOrderItemStatus(orderItem["status"]);
-    logDebug(FUNCTION_NAME, "order item loaded", {
-      orderId,
-      orderItemId,
-      status,
-      rawStatus: orderItem["status"],
-    });
-
+    // 1. 取得 Order 資料
     const orderResult = await ddb.send(
       new GetItemCommand({
         TableName: orderTable,
@@ -79,50 +57,82 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
     );
 
     if (!orderResult.Item) {
-      logWarn(FUNCTION_NAME, "order not found", { orderId, orderItemId });
-      return JSON.stringify({ success: false, message: "找不到指定的訂單" });
-    }
-
-    const order = unmarshall(orderResult.Item);
-    if (normalizeOrderStatus(order["status"]) === "CANCELLED") {
+      logWarn(FUNCTION_NAME, "order not found", { orderId });
       return JSON.stringify({
         success: false,
-        message: "已取消訂單不可取消採購",
+        message: "找不到指定的訂單",
       });
     }
 
-    if (status !== "ordered") {
+    const order = unmarshall(orderResult.Item);
+    const rawStatus = order["status"];
+    logDebug(FUNCTION_NAME, "order loaded", {
+      orderId,
+      rawStatus,
+    });
+
+    // 2. 驗證目前狀態是否為合法的 OrderFulfillmentStatus
+    if (!isOrderFulfillmentStatus(rawStatus)) {
+      logWarn(FUNCTION_NAME, "invalid order status", { orderId, rawStatus });
       return JSON.stringify({
         success: false,
-        message: "僅已訂購明細可取消採購",
+        message: "訂單狀態無法識別，無法取消採購",
+      });
+    }
+
+    const currentStatus: OrderFulfillmentStatus = rawStatus;
+    const targetStatus: OrderFulfillmentStatus = "PENDING";
+
+    // 3. 驗證目前狀態為 ORDERED（僅已採購狀態可取消採購回退至 PENDING）
+    if (currentStatus !== "ORDERED") {
+      logWarn(FUNCTION_NAME, "invalid status for cancel purchase", {
+        orderId,
+        currentStatus,
+      });
+      return JSON.stringify({
+        success: false,
+        message: `無法從「${currentStatus}」狀態取消採購，僅「ORDERED」狀態可取消採購`,
       });
     }
 
     const now = new Date().toISOString();
 
+    // 4. 建立 statusHistory 記錄
+    const existingHistory = Array.isArray(order["statusHistory"])
+      ? (order["statusHistory"] as Record<string, unknown>[])
+      : [];
+    const updatedHistory = [
+      ...existingHistory,
+      {
+        fromStatus: currentStatus,
+        toStatus: targetStatus,
+        changedAt: now,
+      },
+    ];
+
+    // 5. 執行交易：status → PENDING，清除 purchasedAt 與 supplierName，更新 statusHistory
     logDebug(FUNCTION_NAME, "executing transaction", {
       orderId,
-      orderItemId,
-      transactItemCount: 1,
+      currentStatus,
+      targetStatus,
     });
+
     await ddb.send(
       new TransactWriteItemsCommand({
         TransactItems: [
           {
             Update: {
-              TableName: orderItemTable,
-              Key: marshall({ id: orderItemId }),
+              TableName: orderTable,
+              Key: marshall({ id: orderId }),
               UpdateExpression:
-                "SET #st = :pending, updatedAt = :now REMOVE purchasedAt, supplierName, unitCostSnapshot, totalCostSnapshot",
-              ConditionExpression:
-                "orderId = :orderId AND (#st = :ordered OR #st = :legacyOrdered)",
+                "SET #st = :newStatus, statusHistory = :history, updatedAt = :now REMOVE purchasedAt, supplierName",
+              ConditionExpression: "#st = :ordered",
               ExpressionAttributeNames: { "#st": "status" },
               ExpressionAttributeValues: marshall({
-                ":orderId": orderId,
-                ":ordered": "ordered",
-                ":legacyOrdered": "已訂購",
-                ":pending": "pending",
+                ":newStatus": targetStatus,
+                ":ordered": "ORDERED",
                 ":now": now,
+                ":history": updatedHistory,
               }),
             },
           },
@@ -132,22 +142,22 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
       orderId,
-      orderItemId,
-      orderItemStatus: "pending",
+      status: targetStatus,
     });
+
     return JSON.stringify({
       success: true,
       message: "取消採購成功",
       data: {
-        orderItemId,
-        orderItemStatus: "pending",
+        orderId,
+        status: targetStatus,
       },
     });
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        orderItemId,
+        orderId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
       return JSON.stringify({
@@ -156,7 +166,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
       });
     }
 
-    logError(FUNCTION_NAME, "handler failed", error, { orderItemId });
+    logError(FUNCTION_NAME, "handler failed", error, { orderId });
     return JSON.stringify({
       success: false,
       message: `取消採購失敗：${err.message ?? "未知錯誤"}`,

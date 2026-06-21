@@ -89,30 +89,30 @@
   - [x] 6.4 在 `amplify/data/resource.ts` 中新增 ShipmentStatus enum；移除 mergeOrders/splitOrder custom mutations；重構現有 custom mutations（confirmPurchase、cancelPurchase、confirmReceived、cancelReceived、confirmShipment、cancelShipment、confirmOutOfStock、cancelOutOfStock）改為接受 orderId 參數；新增 Shipment custom mutations（createShipment、confirmShipmentDispatch、confirmShipmentDelivery、cancelShipmentOrder、addOrderToShipment、removeOrderFromShipment）
     - _Requirements: 2.5, 4.1, 5.2, 5.4, 5.6, 6.3, 6.6_
 
-- [ ] 7. 重構 Order Lambda Handlers
-  - [ ] 7.1 重構 `amplify/functions/confirm-purchase/handler.ts`：改為接受 `orderId` 參數，直接操作 Order 的 status 欄位從 PENDING→ORDERED，記錄 purchasedAt 與 supplierName，附加 statusHistory 記錄
+- [x] 7. 重構 Order Lambda Handlers
+  - [x] 7.1 重構 `amplify/functions/confirm-purchase/handler.ts`：改為接受 `orderId` 參數，直接操作 Order 的 status 欄位從 PENDING→ORDERED，記錄 purchasedAt 與 supplierName，附加 statusHistory 記錄
     - 使用 shared/logic/order-status.ts 驗證轉換合法性
     - _Requirements: 2.5, 3.2, 3.9_
 
-  - [ ] 7.2 重構 `amplify/functions/cancel-purchase/handler.ts`：改為接受 `orderId`，操作 Order 的 status 欄位從 ORDERED 回退處理
+  - [x] 7.2 重構 `amplify/functions/cancel-purchase/handler.ts`：改為接受 `orderId`，操作 Order 的 status 欄位從 ORDERED 回退處理
     - _Requirements: 2.5, 3.8_
 
-  - [ ] 7.3 重構 `amplify/functions/confirm-received/handler.ts`：改為接受 `orderId`，操作 Order status 從 ORDERED→RECEIVED，記錄 receivedAt
+  - [x] 7.3 重構 `amplify/functions/confirm-received/handler.ts`：改為接受 `orderId`，操作 Order status 從 ORDERED→RECEIVED，記錄 receivedAt
     - _Requirements: 2.5, 3.3, 3.9_
 
-  - [ ] 7.4 重構 `amplify/functions/cancel-received/handler.ts`：改為接受 `orderId`，操作 Order status 回退處理
+  - [x] 7.4 重構 `amplify/functions/cancel-received/handler.ts`：改為接受 `orderId`，操作 Order status 回退處理
     - _Requirements: 2.5, 3.8_
 
-  - [ ] 7.5 重構 `amplify/functions/confirm-shipment/handler.ts`：改為接受 `orderId`，操作 Order status 從 RECEIVED→SHIPPED，記錄 shippedAt（單筆直接出貨情境）
+  - [x] 7.5 重構 `amplify/functions/confirm-shipment/handler.ts`：改為接受 `orderId`，操作 Order status 從 RECEIVED→SHIPPED，記錄 shippedAt（單筆直接出貨情境）
     - _Requirements: 2.5, 3.4, 3.9_
 
-  - [ ] 7.6 重構 `amplify/functions/cancel-shipment/handler.ts`：改為接受 `orderId`，操作 Order status 回退處理
+  - [x] 7.6 重構 `amplify/functions/cancel-shipment/handler.ts`：改為接受 `orderId`，操作 Order status 回退處理
     - _Requirements: 2.5, 3.8_
 
-  - [ ] 7.7 重構 `amplify/functions/confirm-out-of-stock/handler.ts`：改為接受 `orderId`，操作 Order status 從 PENDING/ORDERED→OUT_OF_STOCK，記錄 outOfStockAt
+  - [x] 7.7 重構 `amplify/functions/confirm-out-of-stock/handler.ts`：改為接受 `orderId`，操作 Order status 從 PENDING/ORDERED→OUT_OF_STOCK，記錄 outOfStockAt
     - _Requirements: 2.5, 3.6, 3.9_
 
-  - [ ] 7.8 重構 `amplify/functions/cancel-out-of-stock/handler.ts`：改為接受 `orderId`，操作 Order status 回退處理
+  - [x] 7.8 重構 `amplify/functions/cancel-out-of-stock/handler.ts`：改為接受 `orderId`，操作 Order status 回退處理
     - _Requirements: 2.5, 3.8_
 
 - [ ] 8. 新增 Shipment Lambda Handlers

@@ -1,18 +1,12 @@
 import type { Schema } from "../../data/resource";
+import type { OrderFulfillmentStatus } from "@shared/models/order";
+import { isOrderFulfillmentStatus } from "@shared/models/order";
 import {
   DynamoDBClient,
   GetItemCommand,
-  QueryCommand,
   TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import {
-  deriveOrderStatusFromOrderItems,
-} from "@shared/logic/order-status";
-import {
-  normalizeOrderItemStatus,
-  normalizeOrderStatus,
-} from "@shared/models/order";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -20,12 +14,6 @@ import {
   logInfo,
   logWarn,
 } from "../debug-log";
-import {
-  buildShipmentSummaryDelta,
-  buildShipmentSummaryTransactItem,
-  getReceivedItemCountDelta,
-  deriveLatestReceivedAtAfterTransition,
-} from "../customer-order-summary";
 
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "cancelReceived";
@@ -33,29 +21,28 @@ const FUNCTION_NAME = "cancelReceived";
 /**
  * 撤銷入庫確認 Lambda 函式
  *
- * 使用 DynamoDB TransactWriteItems 在單一交易中執行：
- * - OrderItem status 從 received 改回 ordered，移除 receivedAt
- * - 扣回 Product.stockQuantity（扣回 orderItem.quantity）
+ * 接受 orderId，將 Order 狀態從 RECEIVED 回退為 ORDERED，
+ * 並在同一交易中扣減 Product 庫存（撤銷入庫時增加的庫存）。
  *
- * 僅允許狀態為 received 的明細撤銷（shipped 狀態不可撤銷）。
+ * DynamoDB TransactWriteItems 交易項目：
+ * 1. 更新 Order：status → ORDERED、REMOVE receivedAt、append statusHistory
+ * 2. 扣減 Product.stockQuantity（以 order.quantity 為扣減量）
+ *
+ * 需求：2.5, 3.8
  */
 export const handler: Schema["cancelReceived"]["functionHandler"] = async (
   event,
 ) => {
-  const { orderItemId } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { orderItemId });
+  const { orderId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { orderId });
 
-  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
-  const productTable = process.env["PRODUCT_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
-  const summaryTable = process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+  const productTable = process.env["PRODUCT_TABLE_NAME"];
 
-  if (!orderItemTable || !productTable || !orderTable || !summaryTable) {
+  if (!orderTable || !productTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
-      hasOrderItemTable: !!orderItemTable,
-      hasProductTable: !!productTable,
       hasOrderTable: !!orderTable,
-      hasSummaryTable: !!summaryTable,
+      hasProductTable: !!productTable,
     });
     return JSON.stringify({
       success: false,
@@ -64,261 +51,141 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 OrderItem 資料
-    const orderItemResult = await ddb.send(
-      new GetItemCommand({
-        TableName: orderItemTable,
-        Key: marshall({ id: orderItemId }),
-      }),
-    );
-
-    if (!orderItemResult.Item) {
-      logWarn(FUNCTION_NAME, "order item not found", { orderItemId });
-      return JSON.stringify({
-        success: false,
-        message: "找不到指定的明細項目",
-      });
-    }
-
-    const orderItem = unmarshall(orderItemResult.Item);
-    const status = normalizeOrderItemStatus(orderItem["status"]);
-    const quantity = Number(orderItem["quantity"] ?? 0);
-    const productId = String(orderItem["productId"] ?? "");
-    const orderId = String(orderItem["orderId"] ?? "");
-    logDebug(FUNCTION_NAME, "order item loaded", {
-      orderItemId,
-      orderId,
-      productId,
-      status,
-      rawStatus: orderItem["status"],
-      quantity,
-    });
-
-    // 2. 驗證狀態——僅 received 可撤銷
-    if (status !== "received") {
-      logWarn(FUNCTION_NAME, "invalid order item status", {
-        orderItemId,
-        productId,
-        status,
-      });
-      return JSON.stringify({
-        success: false,
-        message: "僅已到貨的明細可取消到貨",
-      });
-    }
-
-    if (!productId) {
-      return JSON.stringify({
-        success: false,
-        message: "明細商品資料不完整，無法取消到貨",
-      });
-    }
-
-    if (!orderId) {
-      return JSON.stringify({
-        success: false,
-        message: "明細項目缺少訂單關聯",
-      });
-    }
-
-    const now = new Date().toISOString();
+    // 1. 讀取 Order 資料
     const orderResult = await ddb.send(
       new GetItemCommand({
         TableName: orderTable,
         Key: marshall({ id: orderId }),
       }),
     );
+
     if (!orderResult.Item) {
+      logWarn(FUNCTION_NAME, "order not found", { orderId });
       return JSON.stringify({
         success: false,
         message: "找不到指定的訂單",
       });
     }
+
     const order = unmarshall(orderResult.Item);
-    const currentOrderStatus = normalizeOrderStatus(order["status"]);
-    const customerId = String(order["customerId"] ?? "");
-    const customerNameSnapshot = String(
-      order["customerNameSnapshot"] ?? "未命名客戶",
-    );
-    if (!customerId) {
-      return JSON.stringify({
-        success: false,
-        message: "訂單缺少客戶關聯，無法更新出貨摘要",
-      });
-    }
-    const allOrderItemsResult = await ddb.send(
-      new QueryCommand({
-        TableName: orderItemTable,
-        IndexName: "byOrderId",
-        KeyConditionExpression: "orderId = :orderId",
-        ExpressionAttributeValues: marshall({ ":orderId": orderId }),
-      }),
-    );
-    const allOrderItems = (allOrderItemsResult.Items ?? []).map((rawItem) =>
-      unmarshall(rawItem),
-    );
-    const summaryOrderItems = allOrderItems.map((li) => ({
-      id: String(li["id"] ?? ""),
-      status: normalizeOrderItemStatus(li["status"]) as
-        | "ordered"
-        | "received"
-        | "shipped",
-      quantity: Number(li["quantity"] ?? 0),
-      receivedAt:
-        li["receivedAt"] != null ? String(li["receivedAt"]) : undefined,
-    }));
-    const simulatedOrderItems = allOrderItems.map((li) => ({
-      status:
-        li["id"] === orderItemId
-          ? ("ordered" as const)
-          : normalizeOrderItemStatus(li["status"]),
-    }));
-    const derivedOrderStatus =
-      deriveOrderStatusFromOrderItems(simulatedOrderItems);
-    const summaryResult = await ddb.send(
-      new GetItemCommand({
-        TableName: summaryTable,
-        Key: marshall({ id: customerId }),
-      }),
-    );
-    const summaryDelta = buildShipmentSummaryDelta({
-      allOrderItems: summaryOrderItems,
-      fromOrderStatus: currentOrderStatus,
-      toOrderStatus: derivedOrderStatus,
-    });
-    const latestReceivedAt =
-      deriveLatestReceivedAtAfterTransition({
-        allOrderItems: summaryOrderItems,
-        orderItemId,
-        toStatus: "ordered",
-      }) ?? null;
-    const receivedItemCountDelta = getReceivedItemCountDelta({
+    const rawStatus = order["status"];
+    const status: OrderFulfillmentStatus = isOrderFulfillmentStatus(rawStatus)
+      ? rawStatus
+      : "PENDING";
+    const productId = String(order["productId"] ?? "");
+    const quantity = Number(order["quantity"] ?? 0);
+
+    logDebug(FUNCTION_NAME, "order loaded", {
+      orderId,
+      status,
+      rawStatus,
+      productId,
       quantity,
-      fromStatus: status,
-      toStatus: "ordered",
     });
 
-    const transactItems: NonNullable<
-      ConstructorParameters<typeof TransactWriteItemsCommand>[0]
-    >["TransactItems"] = [
+    // 2. 驗證狀態：僅 RECEIVED 可撤銷回 ORDERED
+    if (status !== "RECEIVED") {
+      logWarn(FUNCTION_NAME, "invalid order status for cancel received", {
+        orderId,
+        status,
+      });
+      return JSON.stringify({
+        success: false,
+        message: "僅已到貨的訂單可取消到貨",
+      });
+    }
+
+    if (!productId) {
+      return JSON.stringify({
+        success: false,
+        message: "訂單缺少商品資料，無法取消到貨",
+      });
+    }
+
+    // 3. 準備交易
+    const now = new Date().toISOString();
+    const existingHistory = Array.isArray(order["statusHistory"])
+      ? (order["statusHistory"] as Record<string, unknown>[])
+      : [];
+    const updatedHistory = [
+      ...existingHistory,
       {
-        Update: {
-          TableName: orderItemTable,
-          Key: marshall({ id: orderItemId }),
-          UpdateExpression:
-            "SET #st = :ordered, updatedAt = :now REMOVE receivedAt",
-          ConditionExpression: "#st = :received OR #st = :legacyReceived",
-          ExpressionAttributeNames: { "#st": "status" },
-          ExpressionAttributeValues: marshall({
-            ":ordered": "ordered",
-            ":received": "received",
-            ":legacyReceived": "已收到",
-            ":now": now,
-          }),
-        },
-      },
-      {
-        Update: {
-          TableName: productTable,
-          Key: marshall({ id: productId }),
-          UpdateExpression:
-            "SET stockQuantity = stockQuantity - :qty, updatedAt = :now",
-          ConditionExpression:
-            "attribute_exists(id) AND stockQuantity >= :qty",
-          ExpressionAttributeValues: marshall({
-            ":qty": quantity,
-            ":now": now,
-          }),
-        },
+        fromStatus: "RECEIVED",
+        toStatus: "ORDERED",
+        changedAt: now,
       },
     ];
 
-    if (derivedOrderStatus !== currentOrderStatus) {
-      const existingHistory =
-        Array.isArray(order["statusHistory"])
-          ? (order["statusHistory"] as Record<string, unknown>[])
-          : [];
-      const updatedHistory =
-        derivedOrderStatus !== currentOrderStatus
-          ? [
-              ...existingHistory,
-              {
-                fromStatus: currentOrderStatus,
-                toStatus: derivedOrderStatus,
-                changedAt: now,
-              },
-            ]
-          : existingHistory;
-
-      transactItems.push({
-        Update: {
-          TableName: orderTable,
-          Key: marshall({ id: orderId }),
-          UpdateExpression:
-            "SET #st = :newStatus, statusHistory = :history, updatedAt = :now",
-          ExpressionAttributeNames: { "#st": "status" },
-          ExpressionAttributeValues: marshall({
-            ":newStatus": derivedOrderStatus,
-            ":history": updatedHistory,
-            ":now": now,
-          }),
-        },
-      });
-    }
-
-    const summaryTransactItem = buildShipmentSummaryTransactItem({
-      customerId,
-      customerNameSnapshot,
-      now,
-      summaryResult,
-      summaryTableName: summaryTable,
-      delta: summaryDelta,
-      latestReceivedAt,
-      receivedItemCountDelta,
-    });
-    if (summaryTransactItem) {
-      transactItems.push(summaryTransactItem);
-    }
-
-    // 3. 執行交易：OrderItem 狀態回 ordered + 庫存扣回 + 同步訂單狀態
     logDebug(FUNCTION_NAME, "executing transaction", {
-      orderItemId,
       orderId,
       productId,
       quantity,
-      currentOrderStatus,
-      derivedOrderStatus,
-      transactItemCount: transactItems.length,
+      fromStatus: "RECEIVED",
+      toStatus: "ORDERED",
     });
+
+    // 4. DynamoDB Transaction
     await ddb.send(
       new TransactWriteItemsCommand({
-        TransactItems: transactItems,
+        TransactItems: [
+          // 4a. 更新 Order：status → ORDERED、REMOVE receivedAt、append statusHistory
+          {
+            Update: {
+              TableName: orderTable,
+              Key: marshall({ id: orderId }),
+              UpdateExpression:
+                "SET #st = :ordered, statusHistory = :history, updatedAt = :now REMOVE receivedAt",
+              ConditionExpression: "#st = :received",
+              ExpressionAttributeNames: { "#st": "status" },
+              ExpressionAttributeValues: marshall({
+                ":ordered": "ORDERED",
+                ":received": "RECEIVED",
+                ":history": updatedHistory,
+                ":now": now,
+              }),
+            },
+          },
+          // 4b. 扣減 Product 庫存
+          {
+            Update: {
+              TableName: productTable,
+              Key: marshall({ id: productId }),
+              UpdateExpression:
+                "SET stockQuantity = stockQuantity - :qty, updatedAt = :now",
+              ConditionExpression:
+                "attribute_exists(id) AND stockQuantity >= :qty",
+              ExpressionAttributeValues: marshall({
+                ":qty": quantity,
+                ":now": now,
+              }),
+            },
+          },
+        ],
       }),
     );
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
-      orderItemId,
       orderId,
       productId,
       quantity,
-      orderItemStatus: "ordered",
-      orderStatus: derivedOrderStatus,
+      orderStatus: "ORDERED",
     });
+
     return JSON.stringify({
       success: true,
       message: "取消到貨成功",
       data: {
-        orderItemId,
+        orderId,
+        productId,
         quantity,
-        orderItemStatus: "ordered",
-        orderStatus: derivedOrderStatus,
+        orderStatus: "ORDERED",
       },
     });
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        orderItemId,
+        orderId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
       return JSON.stringify({
@@ -327,7 +194,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
       });
     }
 
-    logError(FUNCTION_NAME, "handler failed", error, { orderItemId });
+    logError(FUNCTION_NAME, "handler failed", error, { orderId });
     return JSON.stringify({
       success: false,
       message: `取消到貨失敗：${err.message ?? "未知錯誤"}`,

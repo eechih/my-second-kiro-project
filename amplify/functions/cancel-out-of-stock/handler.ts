@@ -5,11 +5,8 @@ import {
   TransactWriteItemsCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import {
-  normalizeOrderItemStatus,
-  normalizeOrderStatus,
-  type OrderItemStatus,
-} from "@shared/models/order";
+import type { OrderFulfillmentStatus } from "@shared/models/order";
+import { isOrderFulfillmentStatus } from "@shared/models/order";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -21,38 +18,26 @@ import {
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "cancelOutOfStock";
 
-function restoreStatus(orderItem: Record<string, unknown>): OrderItemStatus {
-  if (orderItem["receivedAt"]) {
-    return "received";
-  }
-  if (orderItem["purchasedAt"]) {
-    return "ordered";
-  }
-  return "pending";
-}
-
 /**
  * 取消缺貨 Lambda 函式
  *
- * 將 out_of_stock 明細恢復到原本流程狀態：
- * - 有 receivedAt 則回 received
- * - 否則有 purchasedAt 則回 ordered
- * - 否則回 pending
+ * 將 Order 的 status 從 OUT_OF_STOCK 回退至先前狀態：
+ * - 檢查 statusHistory 最後一筆的 fromStatus 作為回退目標
+ * - 若無歷史記錄，預設回退至 PENDING
+ * - 有效的回退目標為 PENDING 或 ORDERED（因為只有這兩個狀態可轉為 OUT_OF_STOCK）
  *
- * orderId 從 OrderItem 記錄中讀取，前端只需傳 orderItemId。
+ * 需求：2.5, 3.8
  */
 export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
   event,
 ) => {
-  const { orderItemId } = event.arguments;
-  logInfo(FUNCTION_NAME, "handler started", { orderItemId });
+  const { orderId } = event.arguments;
+  logInfo(FUNCTION_NAME, "handler started", { orderId });
 
-  const orderItemTable = process.env["ORDER_ITEM_TABLE_NAME"];
   const orderTable = process.env["ORDER_TABLE_NAME"];
 
-  if (!orderItemTable || !orderTable) {
+  if (!orderTable) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
-      hasOrderItemTable: !!orderItemTable,
       hasOrderTable: !!orderTable,
     });
     return JSON.stringify({
@@ -62,42 +47,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
   }
 
   try {
-    // 1. 取得 OrderItem 資料（含 orderId）
-    const orderItemResult = await ddb.send(
-      new GetItemCommand({
-        TableName: orderItemTable,
-        Key: marshall({ id: orderItemId }),
-      }),
-    );
-
-    if (!orderItemResult.Item) {
-      logWarn(FUNCTION_NAME, "order item not found", { orderItemId });
-      return JSON.stringify({
-        success: false,
-        message: "找不到指定的明細項目",
-      });
-    }
-
-    const orderItem = unmarshall(orderItemResult.Item);
-    const status = normalizeOrderItemStatus(orderItem["status"]);
-    const orderId = String(orderItem["orderId"] ?? "");
-    logDebug(FUNCTION_NAME, "order item loaded", {
-      orderItemId,
-      orderId,
-      status,
-      rawStatus: orderItem["status"],
-      hasPurchasedAt: !!orderItem["purchasedAt"],
-      hasReceivedAt: !!orderItem["receivedAt"],
-    });
-
-    if (!orderId) {
-      return JSON.stringify({
-        success: false,
-        message: "明細項目缺少訂單關聯",
-      });
-    }
-
-    // 2. 驗證訂單狀態
+    // 1. 取得 Order 資料
     const orderResult = await ddb.send(
       new GetItemCommand({
         TableName: orderTable,
@@ -106,55 +56,102 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     );
 
     if (!orderResult.Item) {
-      logWarn(FUNCTION_NAME, "order not found", { orderId, orderItemId });
-      return JSON.stringify({ success: false, message: "找不到指定的訂單" });
+      logWarn(FUNCTION_NAME, "order not found", { orderId });
+      return JSON.stringify({
+        success: false,
+        message: "找不到指定的訂單",
+      });
     }
 
     const order = unmarshall(orderResult.Item);
-    if (normalizeOrderStatus(order["status"]) === "CANCELLED") {
+    const rawStatus = order["status"];
+    logDebug(FUNCTION_NAME, "order loaded", {
+      orderId,
+      rawStatus,
+    });
+
+    // 2. 驗證目前狀態是否為合法的 OrderFulfillmentStatus
+    if (!isOrderFulfillmentStatus(rawStatus)) {
+      logWarn(FUNCTION_NAME, "invalid order status", { orderId, rawStatus });
       return JSON.stringify({
         success: false,
-        message: "已取消訂單不可取消缺貨",
+        message: "訂單狀態無法識別，無法取消缺貨",
       });
     }
 
-    // 3. 驗證明細狀態
-    if (status !== "out_of_stock") {
+    const currentStatus: OrderFulfillmentStatus = rawStatus;
+
+    // 3. 驗證目前狀態為 OUT_OF_STOCK（僅缺貨狀態可取消缺貨）
+    if (currentStatus !== "OUT_OF_STOCK") {
+      logWarn(FUNCTION_NAME, "invalid status for cancel out of stock", {
+        orderId,
+        currentStatus,
+      });
       return JSON.stringify({
         success: false,
-        message: "僅缺貨明細可取消缺貨",
+        message: `無法從「${currentStatus}」狀態取消缺貨，僅「OUT_OF_STOCK」狀態可取消缺貨`,
       });
     }
 
-    const nextStatus = restoreStatus(orderItem);
+    // 4. 決定回退目標狀態
+    const existingHistory = Array.isArray(order["statusHistory"])
+      ? (order["statusHistory"] as Record<string, unknown>[])
+      : [];
+
+    let restoreTarget: OrderFulfillmentStatus = "PENDING";
+
+    if (existingHistory.length > 0) {
+      const lastEntry = existingHistory[existingHistory.length - 1];
+      const fromStatus = lastEntry?.["fromStatus"];
+      if (
+        isOrderFulfillmentStatus(fromStatus) &&
+        (fromStatus === "PENDING" || fromStatus === "ORDERED")
+      ) {
+        restoreTarget = fromStatus;
+      }
+    }
+
+    logDebug(FUNCTION_NAME, "restore target determined", {
+      orderId,
+      restoreTarget,
+      historyLength: existingHistory.length,
+    });
+
     const now = new Date().toISOString();
 
-    // 4. 執行交易
+    // 5. 建立 statusHistory 記錄
+    const updatedHistory = [
+      ...existingHistory,
+      {
+        fromStatus: currentStatus,
+        toStatus: restoreTarget,
+        changedAt: now,
+      },
+    ];
+
+    // 6. 執行交易：status → restoreTarget，清除 outOfStockAt，更新 statusHistory
     logDebug(FUNCTION_NAME, "executing transaction", {
-      orderItemId,
       orderId,
-      previousStatus: status,
-      nextStatus,
-      transactItemCount: 1,
+      currentStatus,
+      restoreTarget,
     });
+
     await ddb.send(
       new TransactWriteItemsCommand({
         TransactItems: [
           {
             Update: {
-              TableName: orderItemTable,
-              Key: marshall({ id: orderItemId }),
+              TableName: orderTable,
+              Key: marshall({ id: orderId }),
               UpdateExpression:
-                "SET #st = :nextStatus, updatedAt = :now REMOVE outOfStockAt",
-              ConditionExpression:
-                "orderId = :orderId AND (#st = :outOfStock OR #st = :legacyOutOfStock)",
+                "SET #st = :newStatus, statusHistory = :history, updatedAt = :now REMOVE outOfStockAt",
+              ConditionExpression: "#st = :outOfStock",
               ExpressionAttributeNames: { "#st": "status" },
               ExpressionAttributeValues: marshall({
-                ":orderId": orderId,
-                ":outOfStock": "out_of_stock",
-                ":legacyOutOfStock": "缺貨",
-                ":nextStatus": nextStatus,
+                ":newStatus": restoreTarget,
+                ":outOfStock": "OUT_OF_STOCK",
                 ":now": now,
+                ":history": updatedHistory,
               }),
             },
           },
@@ -163,23 +160,23 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
     );
 
     logInfo(FUNCTION_NAME, "handler succeeded", {
-      orderItemId,
       orderId,
-      orderItemStatus: nextStatus,
+      status: restoreTarget,
     });
+
     return JSON.stringify({
       success: true,
       message: "取消缺貨成功",
       data: {
-        orderItemId,
-        orderItemStatus: nextStatus,
+        orderId,
+        status: restoreTarget,
       },
     });
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string };
     if (err.name === "TransactionCanceledException") {
       logWarn(FUNCTION_NAME, "transaction cancelled", {
-        orderItemId,
+        orderId,
         cancellationReasons: getTransactionCancellationReasons(error),
       });
       return JSON.stringify({
@@ -188,7 +185,7 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
       });
     }
 
-    logError(FUNCTION_NAME, "handler failed", error, { orderItemId });
+    logError(FUNCTION_NAME, "handler failed", error, { orderId });
     return JSON.stringify({
       success: false,
       message: `取消缺貨失敗：${err.message ?? "未知錯誤"}`,
