@@ -16,6 +16,12 @@ import { createProduct } from "./functions/create-product/resource";
 import { generateThumbnail } from "./functions/generate-thumbnail/resource";
 import { getCustomerOrderSummaries } from "./functions/list-customer-order-summaries/resource";
 import { getProductOrderSummaries } from "./functions/list-product-order-summaries/resource";
+import { createShipmentFn } from "./functions/create-shipment/resource";
+import { confirmShipmentDispatch } from "./functions/confirm-shipment-dispatch/resource";
+import { confirmShipmentDelivery } from "./functions/confirm-shipment-delivery/resource";
+import { cancelShipmentOrder } from "./functions/cancel-shipment-order/resource";
+import { addOrderToShipment } from "./functions/add-order-to-shipment/resource";
+import { removeOrderFromShipment } from "./functions/remove-order-from-shipment/resource";
 
 const backend = defineBackend({
   auth,
@@ -33,6 +39,12 @@ const backend = defineBackend({
   getCustomerOrderSummaries,
   getProductOrderSummaries,
   generateThumbnail,
+  createShipmentFn,
+  confirmShipmentDispatch,
+  confirmShipmentDelivery,
+  cancelShipmentOrder,
+  addOrderToShipment,
+  removeOrderFromShipment,
 });
 
 // ---------------------------------------------------------------------------
@@ -45,7 +57,7 @@ const tables = backend.data.resources.tables;
 
 // 取得各模型對應的 DynamoDB 表格
 const orderTable = tables["Order"];
-const orderItemTable = tables["OrderItem"];
+const shipmentTable = tables["Shipment"];
 const customerOrderSummaryTable = tables["CustomerOrderSummary"];
 const productOrderSummaryTable = tables["ProductOrderSummary"];
 const productTable = tables["Product"];
@@ -53,14 +65,14 @@ const productCounterTable = tables["SequenceCounter"];
 
 if (
   !orderTable ||
-  !orderItemTable ||
+  !shipmentTable ||
   !customerOrderSummaryTable ||
   !productOrderSummaryTable ||
   !productTable ||
   !productCounterTable
 ) {
   throw new Error(
-    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、OrderItem、CustomerOrderSummary、ProductOrderSummary、Product、SequenceCounter 模型。",
+    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、Shipment、CustomerOrderSummary、ProductOrderSummary、Product、SequenceCounter 模型。",
   );
 }
 
@@ -90,6 +102,12 @@ const transactionalFunctions = [
   backend.createProduct,
   backend.getCustomerOrderSummaries,
   backend.getProductOrderSummaries,
+  backend.createShipmentFn,
+  backend.confirmShipmentDispatch,
+  backend.confirmShipmentDelivery,
+  backend.cancelShipmentOrder,
+  backend.addOrderToShipment,
+  backend.removeOrderFromShipment,
 ];
 
 for (const fn of transactionalFunctions) {
@@ -99,7 +117,7 @@ for (const fn of transactionalFunctions) {
 
   // 設定環境變數——傳遞 DynamoDB 表格名稱
   lambdaFn.addEnvironment("ORDER_TABLE_NAME", orderTable.tableName);
-  lambdaFn.addEnvironment("ORDER_ITEM_TABLE_NAME", orderItemTable.tableName);
+  lambdaFn.addEnvironment("SHIPMENT_TABLE_NAME", shipmentTable.tableName);
   lambdaFn.addEnvironment(
     "CUSTOMER_ORDER_SUMMARY_TABLE_NAME",
     customerOrderSummaryTable.tableName,
@@ -116,19 +134,19 @@ for (const fn of transactionalFunctions) {
 
   // 授予 DynamoDB 讀寫權限
   orderTable.grantReadWriteData(lambdaFn);
-  orderItemTable.grantReadWriteData(lambdaFn);
+  shipmentTable.grantReadWriteData(lambdaFn);
   customerOrderSummaryTable.grantReadWriteData(lambdaFn);
   productOrderSummaryTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
   productCounterTable.grantReadWriteData(lambdaFn);
 
-  // grantReadWriteData does not include GSI ARNs. Several order workflow
-  // functions query OrderItem.byOrderId directly to derive order state.
+  // grantReadWriteData 不包含 GSI ARN。多項流程需要 Query GSI 來進行篩選與反查。
   lambdaFn.addToRolePolicy(
     new PolicyStatement({
       actions: ["dynamodb:Query"],
       resources: [
-        `${orderItemTable.tableArn}/index/*`,
+        `${orderTable.tableArn}/index/*`,
+        `${shipmentTable.tableArn}/index/*`,
         `${customerOrderSummaryTable.tableArn}/index/*`,
         `${productOrderSummaryTable.tableArn}/index/*`,
       ],

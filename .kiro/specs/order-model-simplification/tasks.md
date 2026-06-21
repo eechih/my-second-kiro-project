@@ -144,8 +144,8 @@
   - [x] 10.1 刪除 `amplify/functions/merge-orders/` 與 `amplify/functions/split-order/` 目錄；從 `amplify/backend.ts` 移除對應的 function 註冊
     - _Requirements: 2.5_
 
-- [ ] 11. 註冊新 Lambda Functions
-  - [ ] 11.1 在 `amplify/backend.ts` 中註冊所有新增的 Shipment Lambda functions（create-shipment、confirm-shipment-dispatch、confirm-shipment-delivery、cancel-shipment-order、add-order-to-shipment、remove-order-from-shipment），確保環境變數與 IAM 權限正確設定（DynamoDB 表存取）
+- [x] 11. 註冊新 Lambda Functions
+  - [x] 11.1 在 `amplify/backend.ts` 中註冊所有新增的 Shipment Lambda functions（create-shipment、confirm-shipment-dispatch、confirm-shipment-delivery、cancel-shipment-order、add-order-to-shipment、remove-order-from-shipment），確保環境變數與 IAM 權限正確設定（DynamoDB 表存取）
     - _Requirements: 4.1, 5.2, 5.4, 5.6_
 
 - [ ] 12. 撰寫 Lambda Handler 整合測試
