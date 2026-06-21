@@ -72,8 +72,8 @@
 - [ ] 4. Checkpoint — 確認 shared 層邏輯正確
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. 移除過時的 Shared Logic 檔案
-  - [ ] 5.1 刪除 `shared/logic/order-item-status.ts` 及其測試檔案；刪除 `shared/logic/order-merge.ts` 與 `shared/logic/order-split.ts` 及其測試檔案；確保 shared/logic 的 barrel export（若有 index.ts）移除對應 export
+- [x] 5. 移除過時的 Shared Logic 檔案
+  - [x] 5.1 刪除 `shared/logic/order-item-status.ts` 及其測試檔案；刪除 `shared/logic/order-merge.ts` 與 `shared/logic/order-split.ts` 及其測試檔案；確保 shared/logic 的 barrel export（若有 index.ts）移除對應 export
     - _Requirements: 2.1, 2.5_
 
 - [ ] 6. 重構 Amplify Data Schema
