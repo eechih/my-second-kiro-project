@@ -6,17 +6,17 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
-import { buildProductOrderSummariesFromOrderItems } from "./product-order-summary-lib.mjs";
+import { buildProductOrderSummariesFromOrders } from "./product-order-summary-lib.mjs";
 
 const REQUIRED_CONFIRMATION = "REBUILD_PRODUCT_SUMMARIES";
 const BATCH_SIZE = 25;
 const MAX_BATCH_RETRIES = 5;
 const STATUS_FIELDS = {
-  pending: "pendingQuantity",
-  ordered: "orderedQuantity",
-  received: "receivedQuantity",
-  shipped: "shippedQuantity",
-  out_of_stock: "outOfStockQuantity",
+  PENDING: "pendingQuantity",
+  ORDERED: "orderedQuantity",
+  RECEIVED: "receivedQuantity",
+  SHIPPED: "shippedQuantity",
+  OUT_OF_STOCK: "outOfStockQuantity",
 };
 
 function parseArgs(argv) {
@@ -52,7 +52,7 @@ async function loadTableNames() {
   const customTables = outputs?.custom?.tables ?? {};
 
   const tableNames = {
-    orderItem: customTables.OrderItem?.tableName ?? null,
+    order: customTables.Order?.tableName ?? null,
     product: customTables.Product?.tableName ?? null,
     productOrderSummary: customTables.ProductOrderSummary?.tableName ?? null,
     supplier: customTables.Supplier?.tableName ?? null,
@@ -164,10 +164,10 @@ function createEmptySummaryQuantities() {
   };
 }
 
-function validateSummaryConsistency({ orderItems, summaries }) {
+function validateSummaryConsistency({ orders, summaries }) {
   const expected = new Map();
 
-  for (const item of orderItems) {
+  for (const item of orders) {
     const productId = String(item.productId ?? "");
     const status = String(item.status ?? "");
     const field = STATUS_FIELDS[status];
@@ -198,7 +198,7 @@ function validateSummaryConsistency({ orderItems, summaries }) {
     ]) {
       if (Number(summary[field] ?? 0) !== Number(current[field] ?? 0)) {
         throw new Error(
-          `商品摘要 ${productId} 的 ${field} 與 OrderItem 聚合結果不一致`,
+          `商品摘要 ${productId} 的 ${field} 與 Order 聚合結果不一致`,
         );
       }
     }
@@ -213,7 +213,7 @@ async function main() {
     console.error(
       [
         "這個腳本會重建 ProductOrderSummary 摘要資料。",
-        "它會先清空摘要表，再依現有 OrderItem 重新計算。",
+        "它會先清空摘要表，再依現有 Order 重新計算。",
         `若確定要執行，請加上：--confirm ${REQUIRED_CONFIRMATION}`,
       ].join("\n"),
     );
@@ -222,19 +222,19 @@ async function main() {
 
   const tableNames = await loadTableNames();
   const ddb = new DynamoDBClient({});
-  const [orderItems, products, suppliers, existingSummaries] = await Promise.all([
-    scanAll(ddb, tableNames.orderItem),
+  const [orders, products, suppliers, existingSummaries] = await Promise.all([
+    scanAll(ddb, tableNames.order),
     scanAll(ddb, tableNames.product),
     scanAll(ddb, tableNames.supplier),
     scanAll(ddb, tableNames.productOrderSummary),
   ]);
 
-  const summaries = buildProductOrderSummariesFromOrderItems({
+  const summaries = buildProductOrderSummariesFromOrders({
     products,
     suppliers,
-    orderItems,
+    orders,
   });
-  validateSummaryConsistency({ orderItems, summaries });
+  validateSummaryConsistency({ orders, summaries });
   const existingSummaryIds = existingSummaries
     .map((summary) => String(summary.id ?? ""))
     .filter(Boolean);
@@ -254,7 +254,7 @@ async function main() {
         success: true,
         dryRun: args.dryRun,
         confirmation: args.confirmed,
-        orderItemCount: orderItems.length,
+        orderCount: orders.length,
         deletedSummaryCount: existingSummaryIds.length,
         rebuiltSummaryCount: summaries.length,
       },

@@ -16,7 +16,7 @@ const TABLE_DELETE_ORDER = [
   "CustomerOrderSummary",
   "ProductOrderSummary",
   "SupplierOrderSummary",
-  "OrderItem",
+  "Shipment",
   "Order",
   "ProductOptionValue",
   "ProductOption",
@@ -177,7 +177,7 @@ async function main() {
             `若確定要執行，請加上：--confirm ${REQUIRED_CONFIRMATION}`,
           ].join("\n")
         : [
-            "這個腳本會清除 Customer、Supplier、Product、ProductOption、ProductOptionValue、Order、OrderItem、SequenceCounter 全部資料。",
+            "這個腳本會清除 Customer、Supplier、Product、ProductOption、ProductOptionValue、Order、Shipment、SequenceCounter 全部資料。",
             "另外也會清除 CustomerOrderSummary、ProductOrderSummary、SupplierOrderSummary 摘要資料。",
             `若確定要執行，請加上：--confirm ${REQUIRED_CONFIRMATION}`,
           ].join("\n"),
@@ -225,8 +225,8 @@ async function main() {
     await Promise.all([
       deleteIds(
         ddb,
-        entriesByModel["OrderItem"].tableName,
-        entriesByModel["OrderItem"].ids,
+        entriesByModel["Shipment"].tableName,
+        entriesByModel["Shipment"].ids,
         args.dryRun,
       ),
       deleteIds(

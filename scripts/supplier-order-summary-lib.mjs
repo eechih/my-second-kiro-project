@@ -29,17 +29,17 @@ function createSummary({ supplierName, now }) {
   };
 }
 
-export function buildSupplierOrderSummariesFromOrderItems({
-  orderItems,
+export function buildSupplierOrderSummariesFromOrders({
+  orders,
   now = new Date().toISOString(),
 }) {
   const summaries = new Map();
 
-  for (const item of orderItems) {
+  for (const item of orders) {
     const supplierName = String(item.supplierName ?? "").trim();
     const status = String(item.status ?? "");
 
-    if (!supplierName || (status !== "ordered" && status !== "received")) {
+    if (!supplierName || (status !== "ORDERED" && status !== "RECEIVED")) {
       continue;
     }
 
@@ -54,11 +54,11 @@ export function buildSupplierOrderSummariesFromOrderItems({
 
     current.supplierNameSnapshot = supplierName;
 
-    if (status === "ordered") {
+    if (status === "ORDERED") {
       current.orderedQuantity += quantity;
     }
 
-    if (status === "received") {
+    if (status === "RECEIVED") {
       current.receivedQuantity += quantity;
     }
 

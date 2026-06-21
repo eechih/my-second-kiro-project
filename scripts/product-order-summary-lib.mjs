@@ -1,9 +1,9 @@
 const STATUS_FIELDS = {
-  pending: "pendingQuantity",
-  ordered: "orderedQuantity",
-  received: "receivedQuantity",
-  shipped: "shippedQuantity",
-  out_of_stock: "outOfStockQuantity",
+  PENDING: "pendingQuantity",
+  ORDERED: "orderedQuantity",
+  RECEIVED: "receivedQuantity",
+  SHIPPED: "shippedQuantity",
+  OUT_OF_STOCK: "outOfStockQuantity",
 };
 
 function toQuantity(value) {
@@ -113,10 +113,10 @@ function createSummary({
   };
 }
 
-export function buildProductOrderSummariesFromOrderItems({
+export function buildProductOrderSummariesFromOrders({
   products = [],
   suppliers = [],
-  orderItems,
+  orders,
   now = new Date().toISOString(),
 }) {
   const { productSnapshots, supplierNames } = buildProductMaps(
@@ -142,7 +142,7 @@ export function buildProductOrderSummariesFromOrderItems({
     }),
   );
 
-  for (const item of orderItems) {
+  for (const item of orders) {
     const productId = String(item.productId ?? "");
     const status = String(item.status ?? "");
     const field = STATUS_FIELDS[status];

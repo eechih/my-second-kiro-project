@@ -69,7 +69,7 @@
     - **Property 14: Shipment Order 數量邊界** — 驗證接受 1–50 筆，拒絕 0 或 >50 筆
     - **Validates: Requirements 4.4, 4.5, 4.6, 6.4, 6.5, 6.6, 6.7, 7.1, 7.2, 7.4**
 
-- [ ] 4. Checkpoint — 確認 shared 層邏輯正確
+- [x] 4. Checkpoint — 確認 shared 層邏輯正確
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 5. 移除過時的 Shared Logic 檔案
@@ -163,29 +163,29 @@
     - **Property 15: shipmentNumber 嚴格遞增** — 驗證 SequenceCounter 遞增行為
     - **Validates: Requirements 4.2, 4.3, 4.4, 4.5, 4.6, 4.7**
 
-- [ ] 13. 更新 Demo Scripts
-  - [ ] 13.1 重構 `scripts/seed-demo-data.mjs`：移除 OrderItem 產生邏輯；改為直接建立扁平 Order（含商品快照、金額、狀態欄位）；新增 Shipment 假資料產生（含 PENDING/SHIPPED/DELIVERED/CANCELLED 各狀態）；確保 Shipment 關聯 Order 的 shipmentId 正確設定；確保 SHIPPED Shipment 下 Order status=SHIPPED 且有 shippedAt，DELIVERED Shipment 下 Order status=COMPLETED 且有 completedAt；更新摘要 JSON 輸出（新增 shipments，移除 orderItems）
+- [x] 13. 更新 Demo Scripts
+  - [x] 13.1 重構 `scripts/seed-demo-data.mjs`：移除 OrderItem 產生邏輯；改為直接建立扁平 Order（含商品快照、金額、狀態欄位）；新增 Shipment 假資料產生（含 PENDING/SHIPPED/DELIVERED/CANCELLED 各狀態）；確保 Shipment 關聯 Order 的 shipmentId 正確設定；確保 SHIPPED Shipment 下 Order status=SHIPPED 且有 shippedAt，DELIVERED Shipment 下 Order status=COMPLETED 且有 completedAt；更新摘要 JSON 輸出（新增 shipments，移除 orderItems）
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.7, 10.8_
 
-  - [ ] 13.2 重構 `scripts/clear-demo-data.mjs`：新增 Shipment 資料表清除；移除 OrderItem 資料表清除操作
+  - [x] 13.2 重構 `scripts/clear-demo-data.mjs`：新增 Shipment 資料表清除；移除 OrderItem 資料表清除操作
     - _Requirements: 10.6_
 
-  - [ ] 13.3 更新 `scripts/seed-demo-data.mjs` 中的 `validateSeedConsistency` 函式：驗證新 Order 模型欄位完整性（商品快照、金額計算、狀態一致性）與 Shipment-Order 關聯正確性；移除 OrderItem 相關驗證
+  - [x] 13.3 更新 `scripts/seed-demo-data.mjs` 中的 `validateSeedConsistency` 函式：驗證新 Order 模型欄位完整性（商品快照、金額計算、狀態一致性）與 Shipment-Order 關聯正確性；移除 OrderItem 相關驗證
     - _Requirements: 10.5_
 
-  - [ ] 13.4 重構 `scripts/rebuild-product-order-summaries.mjs`：改為掃描 Order 資料表，依 productId/status/quantity 重新聚合 ProductOrderSummary；移除 orderItem 引用
+  - [x] 13.4 重構 `scripts/rebuild-product-order-summaries.mjs`：改為掃描 Order 資料表，依 productId/status/quantity 重新聚合 ProductOrderSummary；移除 orderItem 引用
     - _Requirements: 10.9_
 
-  - [ ] 13.5 重構 `scripts/rebuild-supplier-order-summaries.mjs`：改為掃描 Order 資料表，依 supplierName/status/quantity 重新聚合 SupplierOrderSummary；移除 orderItem 引用
+  - [x] 13.5 重構 `scripts/rebuild-supplier-order-summaries.mjs`：改為掃描 Order 資料表，依 supplierName/status/quantity 重新聚合 SupplierOrderSummary；移除 orderItem 引用
     - _Requirements: 10.10_
 
-  - [ ] 13.6 重構 `scripts/rebuild-customer-order-summaries.mjs`：改為僅掃描 Order 資料表，直接從 Order 取得商品與金額資訊聚合 CustomerOrderSummary；移除 orderItem 引用
+  - [x] 13.6 重構 `scripts/rebuild-customer-order-summaries.mjs`：改為僅掃描 Order 資料表，直接從 Order 取得商品與金額資訊聚合 CustomerOrderSummary；移除 orderItem 引用
     - _Requirements: 10.11_
 
-  - [ ] 13.7 更新各 rebuild summary 腳本中的 `validateSummaryConsistency` 函式：改為依據 Order 資料驗證摘要聚合結果
+  - [x] 13.7 更新各 rebuild summary 腳本中的 `validateSummaryConsistency` 函式：改為依據 Order 資料驗證摘要聚合結果
     - _Requirements: 10.12_
 
-- [ ] 14. 最終 Checkpoint — 全面驗證
+- [~] 14. 最終 Checkpoint — 全面驗證
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

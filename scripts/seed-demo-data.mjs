@@ -10,8 +10,8 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { buildCustomerOrderSummariesFromOrders } from "./customer-order-summary-lib.mjs";
-import { buildProductOrderSummariesFromOrderItems } from "./product-order-summary-lib.mjs";
-import { buildSupplierOrderSummariesFromOrderItems } from "./supplier-order-summary-lib.mjs";
+import { buildProductOrderSummariesFromOrders } from "./product-order-summary-lib.mjs";
+import { buildSupplierOrderSummariesFromOrders } from "./supplier-order-summary-lib.mjs";
 import { assertLocalDemoScriptEnvironment } from "./demo-script-guard.mjs";
 
 const { Random } = Mock;
@@ -43,43 +43,36 @@ const ORDER_SCENARIOS = [
   {
     status: "PENDING",
     paymentStatus: "UNPAID",
-    itemStatus: "pending",
     timeline: "pending",
   },
   {
     status: "ORDERED",
     paymentStatus: "PAID",
-    itemStatus: "ordered",
     timeline: "ordered",
   },
   {
     status: "RECEIVED",
     paymentStatus: "PAID",
-    itemStatus: "received",
     timeline: "received",
   },
   {
     status: "SHIPPED",
     paymentStatus: "PAID",
-    itemStatus: "shipped",
     timeline: "shipped",
   },
   {
     status: "COMPLETED",
     paymentStatus: "PAID",
-    itemStatus: "shipped",
     timeline: "completed",
   },
   {
     status: "CANCELLED",
     paymentStatus: "UNPAID",
-    itemStatus: "pending",
     timeline: "cancelled",
   },
   {
     status: "COMPLETED",
     paymentStatus: "REFUNDED",
-    itemStatus: "shipped",
     timeline: "refunded",
   },
 ];
@@ -225,6 +218,14 @@ const OPTION_TEMPLATES = [
   },
 ];
 
+const SHIPPING_METHODS = [
+  "黑貓宅急便",
+  "7-11 店到店",
+  "全家店到店",
+  "郵局掛號",
+  "新竹物流",
+];
+
 function parseArgs(argv) {
   const args = {
     customers: DEFAULT_CUSTOMER_COUNT,
@@ -284,6 +285,10 @@ function formatSku(sequenceNumber) {
 function formatOrderNumber(date, orderIndex) {
   const datePart = date.toISOString().slice(0, 10).replaceAll("-", "");
   return `ORD-${datePart}-${String(orderIndex).padStart(4, "0")}`;
+}
+
+function formatShipmentNumber(index) {
+  return `SHP-${String(index + 1).padStart(6, "0")}`;
 }
 
 function offsetIso(dateString, offsetHours) {
@@ -367,6 +372,7 @@ function buildFakeCustomer(index, orderCount, lastOrderedAt) {
 function validateSeedConsistency({
   customers,
   orders,
+  shipments,
   customerOrderSummaries,
   products,
   productOrderSummaries,
@@ -396,6 +402,195 @@ function validateSeedConsistency({
     if (!customerIds.has(order.customerId)) {
       throw new Error(
         `訂單 ${order.id} 指向不存在的 customerId：${order.customerId}`,
+      );
+    }
+  }
+
+  // 1. Order product snapshot completeness
+  for (const order of orders) {
+    const requiredFields = [
+      "productId",
+      "productNameSnapshot",
+      "productSkuSnapshot",
+      "quantity",
+      "unitPriceSnapshot",
+      "totalPriceSnapshot",
+      "subtotalAmount",
+      "totalAmount",
+      "status",
+    ];
+
+    for (const field of requiredFields) {
+      if (order[field] == null) {
+        throw new Error(
+          `訂單 ${order.id} 缺少必要欄位：${field}`,
+        );
+      }
+    }
+  }
+
+  // 2. Order amount calculations
+  for (const order of orders) {
+    if (order.totalPriceSnapshot !== order.quantity * order.unitPriceSnapshot) {
+      throw new Error(
+        `訂單 ${order.id} 的 totalPriceSnapshot 計算不正確：expected ${order.quantity * order.unitPriceSnapshot}, got ${order.totalPriceSnapshot}`,
+      );
+    }
+
+    if (order.unitCostSnapshot != null) {
+      const expectedTotalCost = order.quantity * order.unitCostSnapshot;
+      if (order.totalCostSnapshot !== expectedTotalCost) {
+        throw new Error(
+          `訂單 ${order.id} 的 totalCostSnapshot 計算不正確：expected ${expectedTotalCost}, got ${order.totalCostSnapshot}`,
+        );
+      }
+    }
+
+    if (order.subtotalAmount !== order.totalPriceSnapshot) {
+      throw new Error(
+        `訂單 ${order.id} 的 subtotalAmount 應等於 totalPriceSnapshot：expected ${order.totalPriceSnapshot}, got ${order.subtotalAmount}`,
+      );
+    }
+
+    const expectedTotalAmount =
+      order.subtotalAmount + (order.shippingAmount ?? 0) - (order.discountAmount ?? 0);
+    if (order.totalAmount !== expectedTotalAmount) {
+      throw new Error(
+        `訂單 ${order.id} 的 totalAmount 計算不正確：expected ${expectedTotalAmount}, got ${order.totalAmount}`,
+      );
+    }
+  }
+
+  // 3. Order status-timeline consistency
+  for (const order of orders) {
+    if (order.status === "ORDERED" && order.purchasedAt == null) {
+      throw new Error(
+        `訂單 ${order.id} 狀態為 ORDERED 但缺少 purchasedAt`,
+      );
+    }
+
+    if (order.status === "RECEIVED") {
+      if (order.purchasedAt == null) {
+        throw new Error(
+          `訂單 ${order.id} 狀態為 RECEIVED 但缺少 purchasedAt`,
+        );
+      }
+      if (order.receivedAt == null) {
+        throw new Error(
+          `訂單 ${order.id} 狀態為 RECEIVED 但缺少 receivedAt`,
+        );
+      }
+    }
+
+    if (order.status === "SHIPPED") {
+      if (order.purchasedAt == null) {
+        throw new Error(
+          `訂單 ${order.id} 狀態為 SHIPPED 但缺少 purchasedAt`,
+        );
+      }
+      if (order.receivedAt == null) {
+        throw new Error(
+          `訂單 ${order.id} 狀態為 SHIPPED 但缺少 receivedAt`,
+        );
+      }
+      if (order.shippedAt == null) {
+        throw new Error(
+          `訂單 ${order.id} 狀態為 SHIPPED 但缺少 shippedAt`,
+        );
+      }
+    }
+
+    if (order.status === "COMPLETED") {
+      if (order.shippedAt == null) {
+        throw new Error(
+          `訂單 ${order.id} 狀態為 COMPLETED 但缺少 shippedAt`,
+        );
+      }
+      if (order.completedAt == null) {
+        throw new Error(
+          `訂單 ${order.id} 狀態為 COMPLETED 但缺少 completedAt`,
+        );
+      }
+    }
+
+    if (order.status === "CANCELLED" && order.cancelledAt == null) {
+      throw new Error(
+        `訂單 ${order.id} 狀態為 CANCELLED 但缺少 cancelledAt`,
+      );
+    }
+  }
+
+  // 4. Shipment-Order relationship and status consistency
+  const shipmentIds = new Set(shipments.map((s) => s.id));
+
+  for (const order of orders) {
+    if (order.shipmentId && !shipmentIds.has(order.shipmentId)) {
+      throw new Error(
+        `訂單 ${order.id} 指向不存在的 shipmentId：${order.shipmentId}`,
+      );
+    }
+  }
+
+  // Group orders by shipmentId for shipment-status consistency checks
+  const ordersByShipment = new Map();
+  for (const order of orders) {
+    if (order.shipmentId) {
+      if (!ordersByShipment.has(order.shipmentId)) {
+        ordersByShipment.set(order.shipmentId, []);
+      }
+      ordersByShipment.get(order.shipmentId).push(order);
+    }
+  }
+
+  for (const shipment of shipments) {
+    const associatedOrders = ordersByShipment.get(shipment.id) ?? [];
+
+    if (shipment.status === "SHIPPED") {
+      for (const order of associatedOrders) {
+        if (order.status !== "SHIPPED") {
+          throw new Error(
+            `出貨單 ${shipment.id} 狀態為 SHIPPED，但關聯訂單 ${order.id} 狀態為 ${order.status}（應為 SHIPPED）`,
+          );
+        }
+        if (order.shippedAt == null) {
+          throw new Error(
+            `出貨單 ${shipment.id} 狀態為 SHIPPED，但關聯訂單 ${order.id} 缺少 shippedAt`,
+          );
+        }
+      }
+    }
+
+    if (shipment.status === "DELIVERED") {
+      for (const order of associatedOrders) {
+        if (order.status !== "COMPLETED") {
+          throw new Error(
+            `出貨單 ${shipment.id} 狀態為 DELIVERED，但關聯訂單 ${order.id} 狀態為 ${order.status}（應為 COMPLETED）`,
+          );
+        }
+        if (order.completedAt == null) {
+          throw new Error(
+            `出貨單 ${shipment.id} 狀態為 DELIVERED，但關聯訂單 ${order.id} 缺少 completedAt`,
+          );
+        }
+      }
+    }
+
+    if (shipment.status === "PENDING") {
+      for (const order of associatedOrders) {
+        if (order.status !== "RECEIVED") {
+          throw new Error(
+            `出貨單 ${shipment.id} 狀態為 PENDING，但關聯訂單 ${order.id} 狀態為 ${order.status}（應為 RECEIVED）`,
+          );
+        }
+      }
+    }
+  }
+
+  // 5. Verify productId references
+  for (const order of orders) {
+    if (!productIds.has(order.productId)) {
+      throw new Error(
+        `訂單 ${order.id} 的 productId 指向不存在的商品：${order.productId}`,
       );
     }
   }
@@ -441,33 +636,32 @@ function validateSeedConsistency({
   const expectedSupplierSummaries = new Map();
 
   for (const order of orders) {
-    for (const item of order.items) {
-      const supplierName = String(item.supplierName ?? "").trim();
+    const supplierName = String(order.supplierName ?? "").trim();
+    const status = String(order.status ?? "");
 
-      if (!supplierName) {
-        continue;
-      }
-
-      const current = expectedSupplierSummaries.get(supplierName) ?? {
-        orderedQuantity: 0,
-        receivedQuantity: 0,
-        totalQuantity: 0,
-      };
-
-      if (item.status === "ordered") {
-        current.orderedQuantity += Number(item.quantity ?? 0);
-      }
-
-      if (item.status === "received") {
-        current.receivedQuantity += Number(item.quantity ?? 0);
-      }
-
-      if (item.status === "ordered" || item.status === "received") {
-        current.totalQuantity += Number(item.quantity ?? 0);
-      }
-
-      expectedSupplierSummaries.set(supplierName, current);
+    if (!supplierName) {
+      continue;
     }
+
+    const current = expectedSupplierSummaries.get(supplierName) ?? {
+      orderedQuantity: 0,
+      receivedQuantity: 0,
+      totalQuantity: 0,
+    };
+
+    if (status === "ORDERED") {
+      current.orderedQuantity += Number(order.quantity ?? 0);
+    }
+
+    if (status === "RECEIVED") {
+      current.receivedQuantity += Number(order.quantity ?? 0);
+    }
+
+    if (status === "ORDERED" || status === "RECEIVED") {
+      current.totalQuantity += Number(order.quantity ?? 0);
+    }
+
+    expectedSupplierSummaries.set(supplierName, current);
   }
 
   for (const summary of supplierOrderSummaries) {
@@ -502,30 +696,14 @@ function validateSeedConsistency({
   }
 }
 
-function buildOrderItemTimeline(createdAt, itemStatus) {
-  const purchasedAt =
-    itemStatus === "pending" ? null : offsetIso(createdAt, 6);
-  const receivedAt =
-    itemStatus === "received" || itemStatus === "shipped"
-      ? offsetIso(createdAt, 30)
-      : null;
-  const shippedAt =
-    itemStatus === "shipped" ? offsetIso(createdAt, 54) : null;
-  const outOfStockAt =
-    itemStatus === "out_of_stock" ? offsetIso(createdAt, 12) : null;
-
-  return {
-    purchasedAt,
-    receivedAt,
-    shippedAt,
-    outOfStockAt,
-  };
-}
-
 function buildOrderTimeline(createdAt, scenario) {
   switch (scenario.timeline) {
     case "pending":
       return {
+        purchasedAt: null,
+        receivedAt: null,
+        shippedAt: null,
+        outOfStockAt: null,
         paidAt: null,
         cancelledAt: null,
         refundedAt: null,
@@ -533,6 +711,10 @@ function buildOrderTimeline(createdAt, scenario) {
       };
     case "ordered":
       return {
+        purchasedAt: offsetIso(createdAt, 6),
+        receivedAt: null,
+        shippedAt: null,
+        outOfStockAt: null,
         paidAt: offsetIso(createdAt, 2),
         cancelledAt: null,
         refundedAt: null,
@@ -540,6 +722,10 @@ function buildOrderTimeline(createdAt, scenario) {
       };
     case "received":
       return {
+        purchasedAt: offsetIso(createdAt, 6),
+        receivedAt: offsetIso(createdAt, 30),
+        shippedAt: null,
+        outOfStockAt: null,
         paidAt: offsetIso(createdAt, 2),
         cancelledAt: null,
         refundedAt: null,
@@ -547,6 +733,10 @@ function buildOrderTimeline(createdAt, scenario) {
       };
     case "shipped":
       return {
+        purchasedAt: offsetIso(createdAt, 6),
+        receivedAt: offsetIso(createdAt, 30),
+        shippedAt: offsetIso(createdAt, 54),
+        outOfStockAt: null,
         paidAt: offsetIso(createdAt, 2),
         cancelledAt: null,
         refundedAt: null,
@@ -554,6 +744,10 @@ function buildOrderTimeline(createdAt, scenario) {
       };
     case "completed":
       return {
+        purchasedAt: offsetIso(createdAt, 6),
+        receivedAt: offsetIso(createdAt, 30),
+        shippedAt: offsetIso(createdAt, 54),
+        outOfStockAt: null,
         paidAt: offsetIso(createdAt, 2),
         cancelledAt: null,
         refundedAt: null,
@@ -561,6 +755,10 @@ function buildOrderTimeline(createdAt, scenario) {
       };
     case "cancelled":
       return {
+        purchasedAt: null,
+        receivedAt: null,
+        shippedAt: null,
+        outOfStockAt: null,
         paidAt: null,
         cancelledAt: offsetIso(createdAt, 4),
         refundedAt: null,
@@ -568,13 +766,21 @@ function buildOrderTimeline(createdAt, scenario) {
       };
     case "refunded":
       return {
+        purchasedAt: offsetIso(createdAt, 6),
+        receivedAt: offsetIso(createdAt, 30),
+        shippedAt: offsetIso(createdAt, 54),
+        outOfStockAt: null,
         paidAt: offsetIso(createdAt, 2),
         cancelledAt: null,
         refundedAt: offsetIso(createdAt, 96),
-        completedAt: null,
+        completedAt: offsetIso(createdAt, 72),
       };
     default:
       return {
+        purchasedAt: null,
+        receivedAt: null,
+        shippedAt: null,
+        outOfStockAt: null,
         paidAt: null,
         cancelledAt: null,
         refundedAt: null,
@@ -717,13 +923,18 @@ function buildFakeProduct(index, sequenceNumber, suppliers, totalProducts) {
   };
 }
 
-function buildOrderItem(
-  product,
-  quantity,
-  createdAt,
-  itemStatus,
-  supplierName,
-) {
+function buildOrder(orderIndex, customer, products) {
+  const statusConfig = ORDER_SCENARIOS[orderIndex % ORDER_SCENARIOS.length];
+  const createdAt = new Date(
+    Date.now() - (orderIndex + 1) * 21600000,
+  ).toISOString();
+
+  // Each order is now one product (flat)
+  const product = products[(orderIndex * 2) % products.length];
+  const quantity = 1 + (orderIndex % 4);
+  const supplierName = product.defaultSupplierName ?? null;
+
+  // Build product snapshot fields
   const selectedOptionsSnapshot = (product.seedOptions ?? []).map((option) => {
     const selectedValue = option.values[0];
     return {
@@ -743,75 +954,25 @@ function buildOrderItem(
   );
   const unitPrice = product.price + priceOffset;
   const unitCost = product.cost + costOffset;
-  const timeline = buildOrderItemTimeline(createdAt, itemStatus);
-  return {
-    id: randomUUID(),
-    productId: product.id,
-    status: itemStatus,
-    productNameSnapshot: product.name,
-    productSkuSnapshot: product.sku,
-    productImageUrlSnapshot: null,
-    selectedOptionsSnapshot,
-    unitPriceSnapshot: unitPrice,
-    unitCostSnapshot: unitCost,
-    quantity,
-    totalPriceSnapshot: unitPrice * quantity,
-    totalCostSnapshot: unitCost * quantity,
-    supplierName,
-    purchasedAt: timeline.purchasedAt,
-    receivedAt: timeline.receivedAt,
-    shippedAt: timeline.shippedAt,
-    outOfStockAt: timeline.outOfStockAt,
-    createdAtForSort: createdAt,
-    createdAt,
-    updatedAt:
-      timeline.outOfStockAt ??
-      timeline.shippedAt ??
-      timeline.receivedAt ??
-      timeline.purchasedAt ??
-      createdAt,
-  };
-}
+  const totalPrice = unitPrice * quantity;
+  const totalCost = unitCost * quantity;
 
-function buildOrder(orderIndex, customer, products) {
-  const statusConfig = ORDER_SCENARIOS[orderIndex % ORDER_SCENARIOS.length];
-  const createdAt = new Date(
-    Date.now() - (orderIndex + 1) * 21600000,
-  ).toISOString();
-  const itemCount = resolveOrderItemCount(orderIndex);
-  const usedProducts = [];
-
-  for (let offset = 0; offset < itemCount; offset += 1) {
-    usedProducts.push(products[(orderIndex * 2 + offset) % products.length]);
-  }
-
-  const items = usedProducts.map((product, itemIndex) =>
-    buildOrderItem(
-      product,
-      1 + ((orderIndex + itemIndex) % 4),
-      createdAt,
-      statusConfig.itemStatus,
-      product.defaultSupplierName ?? null,
-    ),
-  );
-
-  const subtotalAmount = items.reduce(
-    (sum, item) => sum + item.totalPriceSnapshot,
-    0,
-  );
   const timeline = buildOrderTimeline(createdAt, statusConfig);
   const statusHistory = buildOrderStatusHistory(
     createdAt,
     statusConfig,
     timeline,
   );
+
   const updatedAtCandidates = [
     createdAt,
     timeline.paidAt,
     timeline.cancelledAt,
     timeline.refundedAt,
     timeline.completedAt,
-    ...items.map((item) => item.updatedAt),
+    timeline.shippedAt,
+    timeline.receivedAt,
+    timeline.purchasedAt,
   ].filter((value) => typeof value === "string");
   const updatedAt = updatedAtCandidates.reduce((latest, current) =>
     current > latest ? current : latest,
@@ -825,25 +986,158 @@ function buildOrder(orderIndex, customer, products) {
     customerPhoneSnapshot: customer.phone,
     customerEmailSnapshot: customer.email,
     shippingAddressSnapshot: customer.address,
+    // Product snapshot (flat)
+    productId: product.id,
+    productNameSnapshot: product.name,
+    productSkuSnapshot: product.sku,
+    productImageUrlSnapshot: null,
+    selectedOptionsSnapshot,
+    // Quantity & price
+    quantity,
+    unitPriceSnapshot: unitPrice,
+    unitCostSnapshot: unitCost,
+    totalPriceSnapshot: totalPrice,
+    totalCostSnapshot: totalCost,
+    subtotalAmount: totalPrice,
+    shippingAmount: 0,
+    discountAmount: 0,
+    totalAmount: totalPrice,
+    // Status
     status: statusConfig.status,
     paymentStatus: statusConfig.paymentStatus,
+    // Procurement & logistics timestamps
+    supplierName,
+    purchasedAt: timeline.purchasedAt,
+    receivedAt: timeline.receivedAt,
+    shippedAt: timeline.shippedAt,
+    outOfStockAt: timeline.outOfStockAt,
+    // Payment & terminal timestamps
     paidAt: timeline.paidAt,
     cancelledAt: timeline.cancelledAt,
     refundedAt: timeline.refundedAt,
     completedAt: timeline.completedAt,
-    subtotalAmount,
-    shippingAmount: 0,
-    discountAmount: 0,
-    totalAmount: subtotalAmount,
+    // Misc
     note: "Seed demo order",
     statusHistory,
+    shipmentId: null,
     isActive: true,
     deletedAt: null,
     gsiPartition: "Order",
     createdAtForSort: createdAt,
     createdAt,
     updatedAt,
-    items,
+  };
+}
+
+function buildFakeShipments(orders) {
+  // Shipment plan: ~3 PENDING, ~4 SHIPPED, ~4 DELIVERED, ~2 CANCELLED
+  const shipmentPlan = [
+    { status: "PENDING", count: 3 },
+    { status: "SHIPPED", count: 4 },
+    { status: "DELIVERED", count: 4 },
+    { status: "CANCELLED", count: 2 },
+  ];
+
+  // Collect orders by status for association
+  const receivedOrders = orders.filter((o) => o.status === "RECEIVED");
+  const shippedOrders = orders.filter((o) => o.status === "SHIPPED");
+  const completedOrders = orders.filter(
+    (o) => o.status === "COMPLETED" && o.paymentStatus === "PAID",
+  );
+
+  const shipments = [];
+  let shipmentIndex = 0;
+  let receivedIdx = 0;
+  let shippedIdx = 0;
+  let completedIdx = 0;
+
+  for (const plan of shipmentPlan) {
+    for (let i = 0; i < plan.count; i += 1) {
+      const createdAt = new Date(
+        Date.now() - (shipmentIndex + 1) * 43200000,
+      ).toISOString();
+
+      const shipment = buildSingleShipment(
+        shipmentIndex,
+        plan.status,
+        createdAt,
+      );
+      shipments.push(shipment);
+
+      // Associate 1-3 orders with this shipment
+      const associationCount = 1 + (shipmentIndex % 3);
+
+      if (plan.status === "PENDING") {
+        // PENDING shipments -> associated orders must be RECEIVED status
+        for (let j = 0; j < associationCount && receivedIdx < receivedOrders.length; j += 1) {
+          receivedOrders[receivedIdx].shipmentId = shipment.id;
+          receivedIdx += 1;
+        }
+      } else if (plan.status === "SHIPPED") {
+        // SHIPPED shipments -> associated orders must be SHIPPED with shippedAt
+        for (let j = 0; j < associationCount && shippedIdx < shippedOrders.length; j += 1) {
+          shippedOrders[shippedIdx].shipmentId = shipment.id;
+          shippedIdx += 1;
+        }
+      } else if (plan.status === "DELIVERED") {
+        // DELIVERED shipments -> associated orders must be COMPLETED with completedAt
+        for (let j = 0; j < associationCount && completedIdx < completedOrders.length; j += 1) {
+          completedOrders[completedIdx].shipmentId = shipment.id;
+          completedIdx += 1;
+        }
+      } else if (plan.status === "CANCELLED") {
+        // CANCELLED shipments -> associated orders should be RECEIVED (reverted)
+        for (let j = 0; j < associationCount && receivedIdx < receivedOrders.length; j += 1) {
+          receivedOrders[receivedIdx].shipmentId = shipment.id;
+          receivedIdx += 1;
+        }
+      }
+
+      shipmentIndex += 1;
+    }
+  }
+
+  return shipments;
+}
+
+function buildSingleShipment(index, status, createdAt) {
+  const shippedAt =
+    status === "SHIPPED" || status === "DELIVERED"
+      ? offsetIso(createdAt, 24)
+      : null;
+  const deliveredAt =
+    status === "DELIVERED" ? offsetIso(createdAt, 72) : null;
+  const cancelledAt =
+    status === "CANCELLED" ? offsetIso(createdAt, 12) : null;
+
+  const updatedAtCandidates = [
+    createdAt,
+    shippedAt,
+    deliveredAt,
+    cancelledAt,
+  ].filter((v) => typeof v === "string");
+  const updatedAt = updatedAtCandidates.reduce((latest, current) =>
+    current > latest ? current : latest,
+  );
+
+  return {
+    id: randomUUID(),
+    shipmentNumber: formatShipmentNumber(index),
+    recipientName: `收件人${index + 1}`,
+    recipientPhone: `09${String(Random.integer(10000000, 99999999))}`,
+    recipientAddress: `${Random.pick(CITY_NAMES)}測試路${index + 1}號`,
+    status,
+    shippingMethod: Random.pick(SHIPPING_METHODS),
+    trackingNumber: status !== "PENDING" ? `TRK${String(100000 + index)}` : null,
+    actualShippingCost: status !== "PENDING" ? 60 + (index % 5) * 20 : 0,
+    shippedAt,
+    deliveredAt,
+    cancelledAt,
+    note: status === "CANCELLED" ? "客戶取消" : null,
+    gsiPartition: "Shipment",
+    createdAtForSort: createdAt,
+    createdAt,
+    updatedAt,
   };
 }
 
@@ -859,7 +1153,7 @@ async function loadTableNames() {
     productOption: tables.ProductOption?.tableName,
     productOptionValue: tables.ProductOptionValue?.tableName,
     order: tables.Order?.tableName,
-    orderItem: tables.OrderItem?.tableName,
+    shipment: tables.Shipment?.tableName,
     customerOrderSummary: tables.CustomerOrderSummary?.tableName,
     productOrderSummary: tables.ProductOrderSummary?.tableName,
     supplierOrderSummary: tables.SupplierOrderSummary?.tableName,
@@ -1066,30 +1360,28 @@ async function main() {
     lastOrderedAtForSort: customerLastOrderedAt[index] ?? customer.createdAt,
   }));
 
-  const orderItems = orders.flatMap((order) =>
-    order.items.map((item) => ({
-      ...item,
-      orderId: order.id,
-    })),
-  );
+  // Build shipments and associate them with orders (mutates order.shipmentId)
+  const shipments = buildFakeShipments(orders);
+
   const customerOrderSummaries = buildCustomerOrderSummariesFromOrders(
     {
       customers,
       orders,
     },
   );
-  const productOrderSummaries = buildProductOrderSummariesFromOrderItems({
+  const productOrderSummaries = buildProductOrderSummariesFromOrders({
     products,
     suppliers,
-    orderItems,
+    orders,
   });
-  const supplierOrderSummaries = buildSupplierOrderSummariesFromOrderItems({
-    orderItems,
+  const supplierOrderSummaries = buildSupplierOrderSummariesFromOrders({
+    orders,
   });
 
   validateSeedConsistency({
     customers,
     orders,
+    shipments,
     customerOrderSummaries,
     products,
     productOrderSummaries,
@@ -1121,18 +1413,8 @@ async function main() {
   ]);
 
   await Promise.all([
-    putItems(
-      ddb,
-      tableNames.order,
-      orders.map(({ items, ...order }) => order),
-      args.dryRun,
-    ),
-    putItems(
-      ddb,
-      tableNames.orderItem,
-      orderItems.map(({ defaultSupplierName: _ignored, ...item }) => item),
-      args.dryRun,
-    ),
+    putItems(ddb, tableNames.order, orders, args.dryRun),
+    putItems(ddb, tableNames.shipment, shipments, args.dryRun),
     putItems(
       ddb,
       tableNames.customerOrderSummary,
@@ -1172,7 +1454,7 @@ async function main() {
         productOptions: productOptions.length,
         productOptionValues: productOptionValues.length,
         orders: orders.length,
-        orderItems: orderItems.length,
+        shipments: shipments.length,
         customerOrderSummaries: customerOrderSummaries.length,
         productOrderSummaries: productOrderSummaries.length,
         supplierOrderSummaries: supplierOrderSummaries.length,
@@ -1212,12 +1494,4 @@ function buildProductOption(template, sortOrder) {
       sortOrder: valueIndex,
     })),
   };
-}
-
-function resolveOrderItemCount(orderIndex) {
-  if (orderIndex % 10 < 7) {
-    return 1;
-  }
-
-  return 2 + (orderIndex % 9);
 }

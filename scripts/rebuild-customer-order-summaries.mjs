@@ -47,7 +47,6 @@ async function loadTableNames() {
   const tableNames = {
     customer: customTables.Customer?.tableName ?? null,
     order: customTables.Order?.tableName ?? null,
-    orderItem: customTables.OrderItem?.tableName ?? null,
     customerOrderSummary:
       customTables.CustomerOrderSummary?.tableName ?? null,
   };
@@ -147,6 +146,78 @@ async function replaceSummaryTable(ddb, tableName, idsToDelete, summaries) {
   }
 }
 
+function isShipmentRelevantOrder(order) {
+  return (
+    order.status !== "CANCELLED" &&
+    order.paymentStatus !== "REFUNDED" &&
+    order.paymentStatus !== "PARTIALLY_REFUNDED"
+  );
+}
+
+function isReadyToShipOrder(order) {
+  return order.status === "RECEIVED" && isShipmentRelevantOrder(order);
+}
+
+function validateSummaryConsistency({ orders, summaries }) {
+  const expected = new Map();
+
+  for (const order of orders) {
+    const customerId = String(order.customerId ?? "").trim();
+
+    if (!customerId) {
+      continue;
+    }
+
+    const current = expected.get(customerId) ?? {
+      readyToShipOrderCount: 0,
+      receivedItemCount: 0,
+      completedOrderCount: 0,
+      totalOrderCount: 0,
+    };
+
+    if (isReadyToShipOrder(order)) {
+      current.readyToShipOrderCount += 1;
+    }
+
+    if (order.status === "RECEIVED") {
+      current.receivedItemCount += Number(order.quantity ?? 0);
+    }
+
+    if (order.status === "COMPLETED") {
+      current.completedOrderCount += 1;
+    }
+
+    if (isShipmentRelevantOrder(order)) {
+      current.totalOrderCount += 1;
+    }
+
+    expected.set(customerId, current);
+  }
+
+  for (const summary of summaries) {
+    const customerId = String(summary.customerId ?? summary.id ?? "").trim();
+    const current = expected.get(customerId) ?? {
+      readyToShipOrderCount: 0,
+      receivedItemCount: 0,
+      completedOrderCount: 0,
+      totalOrderCount: 0,
+    };
+
+    for (const field of [
+      "readyToShipOrderCount",
+      "receivedItemCount",
+      "completedOrderCount",
+      "totalOrderCount",
+    ]) {
+      if (Number(summary[field] ?? 0) !== Number(current[field] ?? 0)) {
+        throw new Error(
+          `客戶摘要 ${customerId} 的 ${field} 與 Order 聚合結果不一致`,
+        );
+      }
+    }
+  }
+}
+
 async function main() {
   await assertLocalDemoScriptEnvironment();
   const args = parseArgs(process.argv.slice(2));
@@ -155,7 +226,7 @@ async function main() {
     console.error(
       [
         "這個腳本會重建 CustomerOrderSummary 摘要資料。",
-        "它會先清空摘要表，再依現有 Order 與 OrderItem 重新計算。",
+        "它會先清空摘要表，再依現有 Order 重新計算。",
         `若確定要執行，請加上：--confirm ${REQUIRED_CONFIRMATION}`,
       ].join("\n"),
     );
@@ -164,34 +235,17 @@ async function main() {
 
   const tableNames = await loadTableNames();
   const ddb = new DynamoDBClient({});
-  const [customers, orders, orderItems, existingSummaries] = await Promise.all([
+  const [customers, orders, existingSummaries] = await Promise.all([
     scanAll(ddb, tableNames.customer),
     scanAll(ddb, tableNames.order),
-    scanAll(ddb, tableNames.orderItem),
     scanAll(ddb, tableNames.customerOrderSummary),
   ]);
 
-  const itemsByOrderId = new Map();
-  for (const item of orderItems) {
-    const orderId = String(item.orderId ?? "");
-    if (!orderId) {
-      continue;
-    }
-
-    const existing = itemsByOrderId.get(orderId) ?? [];
-    existing.push(item);
-    itemsByOrderId.set(orderId, existing);
-  }
-
-  const ordersWithItems = orders.map((order) => ({
-    ...order,
-    items: itemsByOrderId.get(String(order.id ?? "")) ?? [],
-  }));
-
   const summaries = buildCustomerOrderSummariesFromOrders({
     customers,
-    orders: ordersWithItems,
+    orders,
   });
+  validateSummaryConsistency({ orders, summaries });
   const existingSummaryIds = existingSummaries
     .map((summary) => String(summary.id ?? ""))
     .filter(Boolean);
@@ -213,7 +267,6 @@ async function main() {
         confirmation: args.confirmed,
         customerCount: customers.length,
         orderCount: orders.length,
-        orderItemCount: orderItems.length,
         deletedSummaryCount: existingSummaryIds.length,
         rebuiltSummaryCount: summaries.length,
       },

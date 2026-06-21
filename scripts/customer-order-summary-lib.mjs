@@ -1,23 +1,3 @@
-function getLatestReceivedAt(items) {
-  return items
-    .filter((item) => item.status === "received" && item.receivedAt)
-    .reduce(
-      (latest, item) =>
-        latest && latest > item.receivedAt ? latest : item.receivedAt,
-      null,
-    );
-}
-
-function getReceivedItemCount(items) {
-  return items.reduce((sum, item) => {
-    if (item.status !== "received") {
-      return sum;
-    }
-
-    return sum + Number(item.quantity ?? 0);
-  }, 0);
-}
-
 function isShipmentRelevantOrder(order) {
   return (
     order.status !== "CANCELLED" &&
@@ -48,10 +28,9 @@ export function buildCustomerOrderSummariesFromOrders(input) {
       continue;
     }
 
-    const items = Array.isArray(order.items) ? order.items : [];
     const customerNameSnapshot = order.customerNameSnapshot ?? "未命名客戶";
-    const receivedItemCount = getReceivedItemCount(items);
-    const latestReceivedAt = getLatestReceivedAt(items);
+    const receivedItemCount = order.status === "RECEIVED" ? Number(order.quantity ?? 0) : 0;
+    const latestReceivedAt = order.status === "RECEIVED" ? (order.receivedAt ?? null) : null;
     const totalOrderCount = isShipmentRelevantOrder(order) ? 1 : 0;
     const completedOrderCount = order.status === "COMPLETED" ? 1 : 0;
     const readyToShipOrderCount = isReadyToShipOrder(order) ? 1 : 0;
