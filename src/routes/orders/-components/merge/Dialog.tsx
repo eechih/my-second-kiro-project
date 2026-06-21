@@ -60,7 +60,7 @@ export function MergeDialog({
               <Box>
                 <Typography variant="body2">{order.orderNumber}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {order.customerName}
+                  {order.customerNameSnapshot}
                 </Typography>
               </Box>
               <Typography variant="body2">

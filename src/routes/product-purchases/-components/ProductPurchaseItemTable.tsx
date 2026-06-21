@@ -7,7 +7,6 @@ import {
 import {
   ORDER_ITEM_STATUS_LABEL,
   ORDER_STATUS_LABEL,
-  type OrderItem,
 } from "@shared/models";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -41,7 +40,7 @@ function canToggleOrdered(record: ProductOrderItemRecord): boolean {
     return false;
   }
 
-  return record.item.status === "pending" || record.item.status === "ordered";
+  return record.item.status === "PENDING" || record.item.status === "ORDERED";
 }
 
 function canToggleOutOfStock(record: ProductOrderItemRecord): boolean {
@@ -52,17 +51,17 @@ function canToggleOutOfStock(record: ProductOrderItemRecord): boolean {
   const { item } = record;
 
   return (
-    item.status === "pending" ||
-    item.status === "ordered" ||
-    item.status === "received" ||
-    item.status === "out_of_stock"
+    item.status === "PENDING" ||
+    item.status === "ORDERED" ||
+    item.status === "RECEIVED" ||
+    item.status === "OUT_OF_STOCK"
   );
 }
 
 function canEditRecord(record: ProductOrderItemRecord): boolean {
   return (
     (record.orderStatus === "PENDING" || record.orderStatus === "ORDERED") &&
-    (record.item.status === "pending" || record.item.status === "ordered")
+    (record.item.status === "PENDING" || record.item.status === "ORDERED")
   );
 }
 
@@ -124,13 +123,13 @@ export function ProductPurchaseItemTable({
               <TableRow key={item.id} hover>
                 <TableCell>{record.orderNumber}</TableCell>
                 <TableCell>{record.customerName}</TableCell>
-                <TableCell>{item.variantLabel || "-"}</TableCell>
+                <TableCell>{item.selectedOptionsSnapshot?.map((opt) => opt.valueName).join(" / ") || "-"}</TableCell>
                 <TableCell align="right">{item.quantity}</TableCell>
                 <TableCell align="right">
-                  {formatCurrency(item.unitPrice)}
+                  {formatCurrency(item.unitPriceSnapshot)}
                 </TableCell>
                 <TableCell align="right">
-                  {item.unitCost != null ? formatCurrency(item.unitCost) : "-"}
+                  {item.unitCostSnapshot != null ? formatCurrency(item.unitCostSnapshot) : "-"}
                 </TableCell>
                 <TableCell>{item.supplierName || "-"}</TableCell>
                 <TableCell align="center">
@@ -191,7 +190,7 @@ export function ProductPurchaseItemTable({
                         <Button
                           size="small"
                           variant={
-                            item.status === "out_of_stock"
+                            item.status === "OUT_OF_STOCK"
                               ? "contained"
                               : "outlined"
                           }
@@ -205,11 +204,11 @@ export function ProductPurchaseItemTable({
                               orderId: record.orderId,
                               orderItemId: item.id,
                               flag: "outOfStock",
-                              checked: item.status !== "out_of_stock",
+                              checked: item.status !== "OUT_OF_STOCK",
                             })
                           }
                         >
-                          {item.status === "out_of_stock"
+                          {item.status === "OUT_OF_STOCK"
                             ? "取消缺貨"
                             : "標記缺貨"}
                         </Button>

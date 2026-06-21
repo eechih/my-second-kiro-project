@@ -1,28 +1,20 @@
 import { client } from "@/lib/amplify-client";
 import {
-  calculateOrderItemSubtotal,
-  calculateOrderTotal,
+  calculateTotalPrice,
+  calculateTotalCost,
+  calculateTotalAmount,
 } from "@shared/logic/order-calculations";
-import { validateMergeOrders } from "@shared/logic/order-merge";
-import { validateSplitOrder } from "@shared/logic/order-split";
-import {
-  deriveOrderStatusFromOrderItems,
-  isValidOrderStatusTransition,
-} from "@shared/logic/order-status";
+import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 import {
   normalizeLegacyOrderStatus,
-  normalizeOrderItemStatus,
-  normalizeOrderStatus,
   normalizePaymentStatus,
   type ConfirmShipmentInput,
   type CreateOrderInput,
-  type OrderItem,
-  type OrderItemSelectedOptionSnapshot,
+  type SelectedOptionSnapshot,
   type Order,
   type PaymentStatus,
   type OrderStatus,
   type PaginatedResult,
-  type SplitAllocation,
   type StatusChange,
 } from "@shared/models";
 import {
@@ -65,21 +57,21 @@ export interface ProductOrderItemListParams {
   productId: string;
   pageSize: number;
   nextToken?: string;
-  status?: OrderItem["status"];
-  statuses?: OrderItem["status"][];
+  status?: OrderStatus;
+  statuses?: OrderStatus[];
 }
 
 export interface AllProductOrderItemListParams {
   productId: string;
-  status?: OrderItem["status"];
-  statuses?: OrderItem["status"][];
+  status?: OrderStatus;
+  statuses?: OrderStatus[];
 }
 
 export interface SupplierOrderItemListParams {
   supplierName: string;
   pageSize: number;
   nextToken?: string;
-  status?: "ordered" | "received";
+  status?: "ORDERED" | "RECEIVED";
 }
 
 export interface ProductOrderItemRecord {
@@ -88,7 +80,7 @@ export interface ProductOrderItemRecord {
   customerName: string;
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
-  item: OrderItem;
+  item: Order;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,44 +120,48 @@ const ORDER_DETAIL_SELECTION_SET = [
   "customerId",
   "orderNumber",
   "customerNameSnapshot",
-  "totalAmount",
+  "customerPhoneSnapshot",
+  "customerEmailSnapshot",
+  "shippingAddressSnapshot",
+  "productId",
+  "productNameSnapshot",
+  "productSkuSnapshot",
+  "productImageUrlSnapshot",
+  "selectedOptionsSnapshot",
+  "quantity",
+  "unitPriceSnapshot",
+  "unitCostSnapshot",
+  "totalPriceSnapshot",
+  "totalCostSnapshot",
   "subtotalAmount",
+  "shippingAmount",
+  "discountAmount",
+  "totalAmount",
   "status",
   "paymentStatus",
+  "supplierName",
+  "purchasedAt",
+  "receivedAt",
+  "shippedAt",
+  "outOfStockAt",
   "paidAt",
   "cancelledAt",
   "refundedAt",
   "completedAt",
+  "shipmentId",
+  "note",
   "statusHistory",
+  "isActive",
   "createdAt",
   "updatedAt",
   "createdAtForSort",
-  "items.*",
 ] as const;
 
-const ORDER_VALIDATION_SELECTION_SET = [
+const PRODUCT_ORDER_SELECTION_SET = [
   "id",
-  "customerId",
   "orderNumber",
+  "customerId",
   "customerNameSnapshot",
-  "totalAmount",
-  "subtotalAmount",
-  "status",
-  "paymentStatus",
-  "paidAt",
-  "cancelledAt",
-  "refundedAt",
-  "completedAt",
-  "statusHistory",
-  "createdAt",
-  "updatedAt",
-  "createdAtForSort",
-  "items.*",
-] as const;
-
-const PRODUCT_ORDER_ITEM_SELECTION_SET = [
-  "id",
-  "orderId",
   "productId",
   "productNameSnapshot",
   "productImageUrlSnapshot",
@@ -177,18 +173,14 @@ const PRODUCT_ORDER_ITEM_SELECTION_SET = [
   "totalPriceSnapshot",
   "totalCostSnapshot",
   "status",
+  "paymentStatus",
+  "supplierName",
   "purchasedAt",
   "receivedAt",
   "shippedAt",
   "outOfStockAt",
-  "supplierName",
   "createdAt",
   "updatedAt",
-  "order.id",
-  "order.orderNumber",
-  "order.customerNameSnapshot",
-  "order.status",
-  "order.paymentStatus",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -204,22 +196,18 @@ type UpdateOrderStatusInput = {
 };
 
 type ConfirmReceivedInput = {
-  orderItemId: string;
   orderId: string;
 };
 
 type MarkProcurementInput = {
-  orderItemId: string;
   orderId: string;
 };
 
 type CancelProcurementInput = {
-  orderItemId: string;
   orderId: string;
 };
 
 type ConfirmShipmentBaseInput = {
-  orderItemId: string;
   orderId: string;
 };
 
@@ -227,7 +215,7 @@ type OrderItemStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
 type UpdateOrderItemStatusFlagInput = {
   orderId: string;
-  orderItemId: string;
+  orderItemId?: string; // kept for backward compat, uses orderId
   flag: OrderItemStatusFlag;
   checked: boolean;
 };
@@ -240,28 +228,37 @@ function buildOrderFilter({
   search,
   customerId,
   status,
-}: Pick<
-  OrderListParams,
-  "search" | "customerId" | "status"
->): Record<string, unknown> {
-  const filter: Record<string, unknown> = {};
-
-  if (search) {
-    filter.or = [
-      { orderNumber: { contains: search } },
-      { customerNameSnapshot: { contains: search } },
-    ];
-  }
-
-  if (status) {
-    filter.status = { eq: status };
-  }
+}: Pick<OrderListParams, "search" | "customerId" | "status">): Record<
+  string,
+  unknown
+> | undefined {
+  const conditions: Record<string, unknown>[] = [];
 
   if (customerId) {
-    filter.customerId = { eq: customerId };
+    conditions.push({ customerId: { eq: customerId } });
   }
 
-  return filter;
+  if (status && status !== ("all" as string)) {
+    conditions.push({ status: { eq: status } });
+  }
+
+  if (search) {
+    const trimmed = search.trim();
+    if (trimmed) {
+      conditions.push({
+        or: [
+          { orderNumber: { contains: trimmed } },
+          { customerNameSnapshot: { contains: trimmed } },
+        ],
+      });
+    }
+  }
+
+  if (conditions.length === 0) {
+    return undefined;
+  }
+
+  return conditions.length === 1 ? conditions[0] : { and: conditions };
 }
 
 function buildOrderListParams({
@@ -272,101 +269,105 @@ function buildOrderListParams({
   status,
 }: OrderListParams): Record<string, unknown> {
   const filter = buildOrderFilter({ search, customerId, status });
-  const listParams: Record<string, unknown> = {
+  return {
+    filter,
     limit: pageSize,
+    ...(nextToken ? { nextToken } : {}),
     selectionSet: ORDER_LIST_SELECTION_SET,
   };
-
-  if (Object.keys(filter).length > 0) {
-    listParams.filter = filter;
-  }
-
-  if (nextToken) {
-    listParams.nextToken = nextToken;
-  }
-
-  return listParams;
 }
 
 async function fetchOrderList(
   params: OrderListParams,
 ): Promise<PaginatedResult<string>> {
   const listParams = buildOrderListParams(params);
-  const {
-    data,
-    errors,
-    nextToken: responseNextToken,
-  } = await client.models.Order.listOrdersByCreatedDate(
-    { gsiPartition: "Order" },
-    {
-      ...listParams,
-      sortDirection: "DESC",
-    } as Record<string, unknown>,
-  );
+
+  const { data, errors, nextToken } =
+    params.customerId
+      ? await client.models.Order.listOrdersByCustomer(
+          { customerId: params.customerId },
+          {
+            sortDirection: "DESC",
+            ...listParams,
+          } as Record<string, unknown>,
+        )
+      : await client.models.Order.listOrdersByCreatedDate(
+          { gsiPartition: "Order" },
+          {
+            sortDirection: "DESC",
+            ...listParams,
+          } as Record<string, unknown>,
+        );
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "查詢訂單列表失敗");
   }
 
-  const items = (data ?? []).map((order) => String(order.id ?? ""));
+  const items = (data ?? []).map((item) => String(item.id ?? ""));
 
   return {
     items,
     totalCount: items.length,
-    nextToken: responseNextToken ?? undefined,
+    nextToken: nextToken ?? undefined,
   };
 }
 
 async function fetchCustomerOrderList(
   params: CustomerOrderListParams,
-): Promise<PaginatedResult<Order>> {
-  const {
-    data,
-    errors,
-    nextToken: responseNextToken,
-  } = await client.models.Order.listOrdersByCustomer(
-    { customerId: params.customerId },
-    {
-      sortDirection: "DESC",
-      limit: params.pageSize,
-      ...(params.nextToken ? { nextToken: params.nextToken } : {}),
-      selectionSet: ORDER_DETAIL_SELECTION_SET,
-    } as Record<string, unknown>,
-  );
+): Promise<PaginatedResult<string>> {
+  const { data, errors, nextToken } =
+    await client.models.Order.listOrdersByCustomer(
+      { customerId: params.customerId },
+      {
+        sortDirection: "DESC",
+        limit: params.pageSize,
+        ...(params.nextToken ? { nextToken: params.nextToken } : {}),
+        selectionSet: ORDER_LIST_SELECTION_SET,
+      } as Record<string, unknown>,
+    );
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "查詢客戶訂單失敗");
   }
 
-  const items = (data ?? []).map((order) =>
-    mapToOrder(order as unknown as Record<string, unknown>),
-  );
+  const items = (data ?? []).map((item) => String(item.id ?? ""));
 
   return {
     items,
     totalCount: items.length,
-    nextToken: responseNextToken ?? undefined,
+    nextToken: nextToken ?? undefined,
   };
 }
 
 export async function fetchAllCustomerOrders(
   customerId: string,
 ): Promise<Order[]> {
-  const items: Order[] = [];
+  const orders: Order[] = [];
   let nextToken: string | undefined;
 
   do {
-    const page = await fetchCustomerOrderList({
-      customerId,
-      pageSize: 100,
-      nextToken,
-    });
+    const { data, errors, nextToken: responseNextToken } =
+      await client.models.Order.listOrdersByCustomer(
+        { customerId },
+        {
+          sortDirection: "DESC",
+          limit: 100,
+          ...(nextToken ? { nextToken } : {}),
+          selectionSet: ORDER_DETAIL_SELECTION_SET,
+        } as Record<string, unknown>,
+      );
 
-    items.push(...page.items);
-    nextToken = page.nextToken;
+    if (errors && errors.length > 0) {
+      throw new Error(errors[0]?.message ?? "查詢客戶訂單失敗");
+    }
+
+    for (const raw of data ?? []) {
+      orders.push(mapToOrder(raw as unknown as Record<string, unknown>));
+    }
+    nextToken = responseNextToken ?? undefined;
   } while (nextToken);
 
-  return items;
+  return orders;
 }
 
 async function fetchProductOrderItemList(
@@ -383,14 +384,14 @@ async function fetchProductOrderItemList(
       : undefined;
 
   const { data, errors, nextToken } =
-    await client.models.OrderItem.listOrderItemsByProductId(
+    await client.models.Order.listOrdersByProductId(
       { productId: params.productId },
       {
         sortDirection: "DESC",
         limit: params.pageSize,
         ...(params.nextToken ? { nextToken: params.nextToken } : {}),
         ...(statusFilter ? { filter: statusFilter } : {}),
-        selectionSet: PRODUCT_ORDER_ITEM_SELECTION_SET,
+        selectionSet: PRODUCT_ORDER_SELECTION_SET,
       } as Record<string, unknown>,
     );
 
@@ -398,23 +399,15 @@ async function fetchProductOrderItemList(
     throw new Error(errors[0]?.message ?? "查詢單品採購資料失敗");
   }
 
-  const items = (data ?? []).map((raw) => {
-    const record = raw as unknown as Record<string, unknown>;
-    const orderRaw =
-      record.order && typeof record.order === "object"
-        ? (record.order as Record<string, unknown>)
-        : {};
-
+  const items = (data ?? []).map((raw: Record<string, unknown>) => {
+    const order = mapToOrder(raw as unknown as Record<string, unknown>);
     return {
-      orderId: String(record.orderId ?? orderRaw.id ?? ""),
-      orderNumber: String(orderRaw.orderNumber ?? ""),
-      customerName: String(orderRaw.customerNameSnapshot ?? ""),
-      orderStatus: normalizeLegacyOrderStatus({
-        status: orderRaw.status,
-        fulfillmentStatus: orderRaw.fulfillmentStatus,
-      }),
-      paymentStatus: normalizePaymentStatus(orderRaw.paymentStatus),
-      item: mapToOrderItem(record),
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerNameSnapshot,
+      orderStatus: order.status,
+      paymentStatus: order.paymentStatus,
+      item: order,
     } satisfies ProductOrderItemRecord;
   });
 
@@ -548,8 +541,8 @@ function buildSupplierOrderItemFilter({
     ? { status: { eq: status } }
     : {
         or: [
-          { status: { eq: "ordered" } },
-          { status: { eq: "received" } },
+          { status: { eq: "ORDERED" } },
+          { status: { eq: "RECEIVED" } },
         ],
       };
 
@@ -561,35 +554,27 @@ function buildSupplierOrderItemFilter({
 async function fetchSupplierOrderItemList(
   params: SupplierOrderItemListParams,
 ): Promise<PaginatedResult<ProductOrderItemRecord>> {
-  const { data, errors, nextToken } = await client.models.OrderItem.list({
+  const { data, errors, nextToken } = await client.models.Order.list({
     filter: buildSupplierOrderItemFilter(params),
     limit: params.pageSize,
     ...(params.nextToken ? { nextToken: params.nextToken } : {}),
-    selectionSet: PRODUCT_ORDER_ITEM_SELECTION_SET,
-  });
+    selectionSet: PRODUCT_ORDER_SELECTION_SET,
+  } as Record<string, unknown>);
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "查詢供應商入庫資料失敗");
   }
 
   const items = (data ?? [])
-    .map((raw) => {
-      const record = raw as unknown as Record<string, unknown>;
-      const orderRaw =
-        record.order && typeof record.order === "object"
-          ? (record.order as Record<string, unknown>)
-          : {};
-
+    .map((raw: Record<string, unknown>) => {
+      const order = mapToOrder(raw as unknown as Record<string, unknown>);
       return {
-        orderId: String(record.orderId ?? orderRaw.id ?? ""),
-        orderNumber: String(orderRaw.orderNumber ?? ""),
-        customerName: String(orderRaw.customerNameSnapshot ?? ""),
-        orderStatus: normalizeLegacyOrderStatus({
-          status: orderRaw.status,
-          fulfillmentStatus: orderRaw.fulfillmentStatus,
-        }),
-        paymentStatus: normalizePaymentStatus(orderRaw.paymentStatus),
-        item: mapToOrderItem(record),
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.customerNameSnapshot,
+        orderStatus: order.status,
+        paymentStatus: order.paymentStatus,
+        item: order,
       } satisfies ProductOrderItemRecord;
     })
     .sort((a, b) => {
@@ -623,24 +608,7 @@ async function fetchOrder(id: string): Promise<Order> {
     throw new Error("找不到該訂單");
   }
 
-  return mapToOrder(data);
-}
-
-async function fetchOrderForValidation(id: string): Promise<Order> {
-  const { data, errors } = await client.models.Order.get(
-    { id },
-    { selectionSet: ORDER_VALIDATION_SELECTION_SET },
-  );
-
-  if (errors && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "查詢訂單失敗");
-  }
-
-  if (!data) {
-    throw new Error(`找不到訂單：${id}`);
-  }
-
-  return mapToOrder(data);
+  return mapToOrder(data as unknown as Record<string, unknown>);
 }
 
 /** 產生訂單編號（格式：ORD-YYYYMMDD-XXXX） */
@@ -665,29 +633,61 @@ function mapToOrder(raw: Record<string, unknown>): Order {
     }
   }
 
-  let items: OrderItem[] = [];
-  if (raw.items && Array.isArray(raw.items)) {
-    items = (raw.items as Record<string, unknown>[]).map(mapToOrderItem);
-  }
+  const selectedOptionsSnapshot = parseSelectedOptionsSnapshot(
+    raw.selectedOptionsSnapshot,
+  );
 
   return {
     id: String(raw.id ?? ""),
     orderNumber: String(raw.orderNumber ?? ""),
     customerId: String(raw.customerId ?? ""),
-    customerName: String(raw.customerNameSnapshot ?? raw.customerName ?? ""),
-    items,
-    totalAmount: Number(raw.totalAmount ?? raw.subtotalAmount ?? 0),
+    customerNameSnapshot: String(raw.customerNameSnapshot ?? ""),
+    customerPhoneSnapshot: raw.customerPhoneSnapshot
+      ? String(raw.customerPhoneSnapshot)
+      : null,
+    customerEmailSnapshot: raw.customerEmailSnapshot
+      ? String(raw.customerEmailSnapshot)
+      : null,
+    shippingAddressSnapshot: raw.shippingAddressSnapshot
+      ? String(raw.shippingAddressSnapshot)
+      : null,
+    productId: String(raw.productId ?? ""),
+    productNameSnapshot: String(raw.productNameSnapshot ?? ""),
+    productSkuSnapshot: String(raw.productSkuSnapshot ?? ""),
+    productImageUrlSnapshot: raw.productImageUrlSnapshot
+      ? String(raw.productImageUrlSnapshot)
+      : null,
+    selectedOptionsSnapshot,
+    quantity: Number(raw.quantity ?? 0),
+    unitPriceSnapshot: Number(raw.unitPriceSnapshot ?? 0),
+    unitCostSnapshot:
+      raw.unitCostSnapshot != null ? Number(raw.unitCostSnapshot) : null,
+    totalPriceSnapshot: Number(raw.totalPriceSnapshot ?? 0),
+    totalCostSnapshot:
+      raw.totalCostSnapshot != null ? Number(raw.totalCostSnapshot) : null,
+    subtotalAmount: Number(raw.subtotalAmount ?? 0),
+    shippingAmount: Number(raw.shippingAmount ?? 0),
+    discountAmount: Number(raw.discountAmount ?? 0),
+    totalAmount: Number(raw.totalAmount ?? 0),
     status: normalizeLegacyOrderStatus({
       status: raw.status,
       fulfillmentStatus: raw.fulfillmentStatus,
       cancelledAt: raw.cancelledAt,
     }),
     paymentStatus: normalizePaymentStatus(raw.paymentStatus),
+    supplierName: raw.supplierName ? String(raw.supplierName) : null,
+    purchasedAt: raw.purchasedAt ? String(raw.purchasedAt) : null,
+    receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
+    shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
+    outOfStockAt: raw.outOfStockAt ? String(raw.outOfStockAt) : null,
     paidAt: raw.paidAt ? String(raw.paidAt) : null,
     cancelledAt: raw.cancelledAt ? String(raw.cancelledAt) : null,
     refundedAt: raw.refundedAt ? String(raw.refundedAt) : null,
     completedAt: raw.completedAt ? String(raw.completedAt) : null,
+    note: raw.note ? String(raw.note) : null,
     statusHistory,
+    shipmentId: raw.shipmentId ? String(raw.shipmentId) : null,
+    isActive: raw.isActive !== false,
     createdAt: String(raw.createdAt ?? ""),
     updatedAt: String(raw.updatedAt ?? ""),
   };
@@ -695,7 +695,7 @@ function mapToOrder(raw: Record<string, unknown>): Order {
 
 function parseSelectedOptionsSnapshot(
   raw: unknown,
-): OrderItemSelectedOptionSnapshot[] {
+): SelectedOptionSnapshot[] {
   if (!raw) {
     return [];
   }
@@ -725,87 +725,21 @@ function parseSelectedOptionsSnapshot(
   }
 }
 
-function buildVariantLabelFromSnapshot(
-  snapshots: OrderItemSelectedOptionSnapshot[],
-): string | null {
-  if (snapshots.length === 0) {
-    return null;
-  }
-
-  const names = snapshots
-    .map((snapshot) => snapshot.valueName.trim())
-    .filter(Boolean);
-
-  return names.length > 0 ? names.join(" / ") : null;
-}
-
-/** 將 Amplify Data 回傳的原始資料映射為 OrderItem 型別 */
-function mapToOrderItem(raw: Record<string, unknown>): OrderItem {
-  const selectedOptionsSnapshot = parseSelectedOptionsSnapshot(
-    raw.selectedOptionsSnapshot,
-  );
-
-  return {
-    id: String(raw.id ?? ""),
-    productId: String(raw.productId ?? ""),
-    productName: String(raw.productNameSnapshot ?? raw.productName ?? ""),
-    productImageUrl: raw.productImageUrlSnapshot
-      ? String(raw.productImageUrlSnapshot)
-      : null,
-    productSku:
-      raw.productSkuSnapshot !== undefined && raw.productSkuSnapshot !== null
-        ? String(raw.productSkuSnapshot)
-        : "",
-    variantLabel: buildVariantLabelFromSnapshot(selectedOptionsSnapshot),
-    selectedOptionsSnapshot,
-    quantity: Number(raw.quantity ?? 0),
-    unitPrice: Number(raw.unitPriceSnapshot ?? 0),
-    unitCostSnapshot:
-      raw.unitCostSnapshot != null
-        ? Number(raw.unitCostSnapshot)
-        : null,
-    subtotal: Number(
-      raw.totalPriceSnapshot ?? raw.subtotal ?? 0,
-    ),
-    totalCostSnapshot:
-      raw.totalCostSnapshot != null ? Number(raw.totalCostSnapshot) : null,
-    status: normalizeOrderItemStatus(raw.status),
-    purchasedAt: raw.purchasedAt ? String(raw.purchasedAt) : null,
-    receivedAt: raw.receivedAt ? String(raw.receivedAt) : null,
-    shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
-    outOfStockAt: raw.outOfStockAt ? String(raw.outOfStockAt) : null,
-    supplierName: raw.supplierName ? String(raw.supplierName) : null,
-    unitCost:
-      raw.unitCostSnapshot != null
-        ? Number(raw.unitCostSnapshot)
-        : null,
-  };
-}
 
 async function createOrder(input: CreateOrderInput): Promise<Order> {
-  const orderItemsWithSubtotal = input.orderItems.map((item) => ({
-    ...item,
-    subtotal: calculateOrderItemSubtotal(item.quantity, item.unitPrice),
-  }));
+  const quantity = input.quantity;
+  const unitPrice = input.unitPriceSnapshot;
+  const unitCost = input.unitCostSnapshot ?? null;
 
-  const totalAmount = calculateOrderTotal(
-    orderItemsWithSubtotal.map((item) => ({
-      ...item,
-      id: "",
-      status: "pending" as const,
-      purchasedAt: null,
-      receivedAt: null,
-      shippedAt: null,
-      outOfStockAt: null,
-      productImageUrl: item.productImageUrl ?? null,
-      variantLabel: item.variantLabel ?? null,
-      selectedOptionsSnapshot: item.selectedOptionsSnapshot ?? [],
-      supplierName: null,
-      unitCost: item.unitCost ?? null,
-      unitCostSnapshot: item.unitCost ?? null,
-      totalCostSnapshot:
-        item.unitCost != null ? item.unitCost * item.quantity : null,
-    })),
+  const totalPriceSnapshot = calculateTotalPrice(quantity, unitPrice);
+  const totalCostSnapshot = calculateTotalCost(quantity, unitCost);
+  const shippingAmount = input.shippingAmount ?? 0;
+  const discountAmount = input.discountAmount ?? 0;
+  const subtotalAmount = totalPriceSnapshot;
+  const totalAmount = calculateTotalAmount(
+    subtotalAmount,
+    shippingAmount,
+    discountAmount,
   );
 
   const orderNumber = generateOrderNumber();
@@ -815,13 +749,28 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     await client.models.Order.create({
       customerId: input.customerId,
       orderNumber,
-      customerNameSnapshot: input.customerName,
-      paymentStatus: "UNPAID",
-      subtotalAmount: totalAmount,
+      customerNameSnapshot: input.customerNameSnapshot,
+      customerPhoneSnapshot: input.customerPhoneSnapshot ?? null,
+      customerEmailSnapshot: input.customerEmailSnapshot ?? null,
+      shippingAddressSnapshot: input.shippingAddressSnapshot ?? null,
+      productId: input.productId,
+      productNameSnapshot: input.productNameSnapshot,
+      productSkuSnapshot: input.productSkuSnapshot,
+      productImageUrlSnapshot: input.productImageUrlSnapshot ?? null,
+      selectedOptionsSnapshot: JSON.stringify(
+        input.selectedOptionsSnapshot ?? [],
+      ),
+      quantity,
+      unitPriceSnapshot: unitPrice,
+      unitCostSnapshot: unitCost,
+      totalPriceSnapshot,
+      totalCostSnapshot,
+      subtotalAmount,
+      shippingAmount,
+      discountAmount,
       totalAmount,
-      shippingAmount: 0,
-      discountAmount: 0,
       status: "PENDING",
+      paymentStatus: "UNPAID",
       statusHistory: JSON.stringify([]),
       isActive: true,
       gsiPartition: "Order",
@@ -841,39 +790,7 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     throw new Error("建立訂單失敗：未回傳訂單 ID");
   }
 
-  const createdOrderItems: OrderItem[] = [];
-  for (const item of orderItemsWithSubtotal) {
-    const orderItemPayload: Record<string, unknown> = {
-      orderId,
-      productId: item.productId,
-      productNameSnapshot: item.productName,
-      productImageUrlSnapshot: item.productImageUrl ?? null,
-      productSkuSnapshot: item.productSku,
-      quantity: item.quantity,
-      selectedOptionsSnapshot: JSON.stringify(item.selectedOptionsSnapshot ?? []),
-      unitPriceSnapshot: item.unitPrice,
-      unitCostSnapshot: item.unitCost ?? null,
-      totalPriceSnapshot: item.subtotal,
-      totalCostSnapshot:
-        item.unitCost != null ? item.unitCost * item.quantity : null,
-      status: "pending",
-      createdAtForSort: now,
-    };
-
-    const { data: orderItemData, errors: orderItemErrors } =
-      await client.models.OrderItem.create(
-        orderItemPayload as Parameters<typeof client.models.OrderItem.create>[0],
-      );
-
-    if (orderItemErrors && orderItemErrors.length > 0) {
-      throw new Error(orderItemErrors[0]?.message ?? "建立明細項目失敗");
-    }
-
-    if (orderItemData) {
-      createdOrderItems.push(mapToOrderItem(orderItemData));
-    }
-  }
-
+  // 更新客戶訂單次數
   const { data: customerData, errors: customerErrors } =
     await client.models.Customer.get({ id: input.customerId });
 
@@ -883,13 +800,14 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
 
   if (customerData) {
     const nextOrderCount = Number(customerData.orderCount ?? 0) + 1;
-    const { errors: customerUpdateErrors } = await client.models.Customer.update({
-      id: input.customerId,
-      orderCount: nextOrderCount,
-      orderCountForSort: nextOrderCount,
-      lastOrderedAt: now,
-      lastOrderedAtForSort: now,
-    });
+    const { errors: customerUpdateErrors } =
+      await client.models.Customer.update({
+        id: input.customerId,
+        orderCount: nextOrderCount,
+        orderCountForSort: nextOrderCount,
+        lastOrderedAt: now,
+        lastOrderedAtForSort: now,
+      });
 
     if (customerUpdateErrors && customerUpdateErrors.length > 0) {
       throw new Error(
@@ -898,23 +816,7 @@ async function createOrder(input: CreateOrderInput): Promise<Order> {
     }
   }
 
-  return {
-    id: orderId,
-    orderNumber,
-    customerId: input.customerId,
-    customerName: input.customerName,
-    items: createdOrderItems,
-    totalAmount,
-    status: "PENDING",
-    paymentStatus: "UNPAID",
-    paidAt: null,
-    cancelledAt: null,
-    refundedAt: null,
-    completedAt: null,
-    statusHistory: [],
-    createdAt: now,
-    updatedAt: now,
-  };
+  return mapToOrder(orderData as unknown as Record<string, unknown>);
 }
 
 async function updateOrderStatus(
@@ -940,7 +842,7 @@ async function updateOrderStatus(
     { fromStatus: currentStatus, toStatus: newStatus, changedAt: now },
   ];
 
-  let paymentStatus = currentPaymentStatus;
+  let paymentStatus: PaymentStatus = currentPaymentStatus;
   let paidAt: string | null | undefined;
   let cancelledAt: string | null | undefined;
   let refundedAt: string | null | undefined;
@@ -995,12 +897,12 @@ async function updateOrderStatus(
     throw new Error("更新訂單狀態失敗：未回傳資料");
   }
 
-  return mapToOrder(data);
+  return mapToOrder(data as unknown as Record<string, unknown>);
 }
 
-async function confirmReceived(input: ConfirmReceivedInput): Promise<OrderItem> {
+async function confirmReceived(input: ConfirmReceivedInput): Promise<Order> {
   const { data, errors } = await client.mutations.confirmReceived({
-    orderItemId: input.orderItemId,
+    orderId: input.orderId,
   });
 
   if (errors && errors.length > 0) {
@@ -1009,10 +911,7 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<OrderItem> 
 
   assertCustomMutationSuccess(data, "入庫確認失敗");
 
-  return fetchOrderItemAfterCustomMutation(
-    input.orderItemId,
-    "入庫確認失敗：找不到明細項目",
-  );
+  return fetchOrder(input.orderId);
 }
 
 function parseCustomMutationResult(
@@ -1054,9 +953,9 @@ function assertCustomMutationSuccess(
   }
 }
 
-async function cancelReceived(input: ConfirmReceivedInput): Promise<OrderItem> {
+async function cancelReceived(input: ConfirmReceivedInput): Promise<Order> {
   const { data: result, errors } = await client.mutations.cancelReceived({
-    orderItemId: input.orderItemId,
+    orderId: input.orderId,
   });
 
   if (errors && errors.length > 0) {
@@ -1065,45 +964,14 @@ async function cancelReceived(input: ConfirmReceivedInput): Promise<OrderItem> {
 
   assertCustomMutationSuccess(result, "取消到貨失敗");
 
-  const { data, errors: getErrors } = await client.models.OrderItem.get({
-    id: input.orderItemId,
-  });
-
-  if (getErrors && getErrors.length > 0) {
-    throw new Error(getErrors[0]?.message ?? "查詢明細狀態失敗");
-  }
-
-  if (!data) {
-    throw new Error("取消到貨失敗：找不到明細項目");
-  }
-
-  return mapToOrderItem(data as unknown as Record<string, unknown>);
-}
-
-async function fetchOrderItemAfterCustomMutation(
-  orderItemId: string,
-  fallbackMessage: string,
-): Promise<OrderItem> {
-  const { data, errors } = await client.models.OrderItem.get({
-    id: orderItemId,
-  });
-
-  if (errors && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "查詢明細狀態失敗");
-  }
-
-  if (!data) {
-    throw new Error(fallbackMessage);
-  }
-
-  return mapToOrderItem(data as unknown as Record<string, unknown>);
+  return fetchOrder(input.orderId);
 }
 
 async function confirmOutOfStock(
-  input: Pick<UpdateOrderItemStatusFlagInput, "orderItemId">,
-): Promise<OrderItem> {
+  input: Pick<UpdateOrderItemStatusFlagInput, "orderId">,
+): Promise<Order> {
   const { data: result, errors } = await client.mutations.confirmOutOfStock({
-    orderItemId: input.orderItemId,
+    orderId: input.orderId,
   });
 
   if (errors && errors.length > 0) {
@@ -1112,17 +980,14 @@ async function confirmOutOfStock(
 
   assertCustomMutationSuccess(result, "確認缺貨失敗");
 
-  return fetchOrderItemAfterCustomMutation(
-    input.orderItemId,
-    "確認缺貨失敗：找不到明細項目",
-  );
+  return fetchOrder(input.orderId);
 }
 
 async function cancelOutOfStock(
-  input: Pick<UpdateOrderItemStatusFlagInput, "orderItemId">,
-): Promise<OrderItem> {
+  input: Pick<UpdateOrderItemStatusFlagInput, "orderId">,
+): Promise<Order> {
   const { data: result, errors } = await client.mutations.cancelOutOfStock({
-    orderItemId: input.orderItemId,
+    orderId: input.orderId,
   });
 
   if (errors && errors.length > 0) {
@@ -1131,17 +996,15 @@ async function cancelOutOfStock(
 
   assertCustomMutationSuccess(result, "取消缺貨失敗");
 
-  return fetchOrderItemAfterCustomMutation(
-    input.orderItemId,
-    "取消缺貨失敗：找不到明細項目",
-  );
+  return fetchOrder(input.orderId);
 }
 
 async function confirmPurchase(
-  input: Pick<MarkProcurementInput, "orderItemId">,
-): Promise<OrderItem> {
+  input: Pick<MarkProcurementInput, "orderId">,
+): Promise<Order> {
   const { data: result, errors } = await client.mutations.confirmPurchase({
-    orderItemId: input.orderItemId,
+    orderId: input.orderId,
+    supplierName: "",
   });
 
   if (errors && errors.length > 0) {
@@ -1150,21 +1013,18 @@ async function confirmPurchase(
 
   assertCustomMutationSuccess(result, "採購下單失敗");
 
-  return fetchOrderItemAfterCustomMutation(
-    input.orderItemId,
-    "採購下單失敗：找不到明細項目",
-  );
+  return fetchOrder(input.orderId);
 }
 
-async function markProcurement(input: MarkProcurementInput): Promise<OrderItem> {
+async function markProcurement(input: MarkProcurementInput): Promise<Order> {
   return confirmPurchase(input);
 }
 
 async function cancelProcurement(
   input: CancelProcurementInput,
-): Promise<OrderItem> {
+): Promise<Order> {
   const { data: result, errors } = await client.mutations.cancelPurchase({
-    orderItemId: input.orderItemId,
+    orderId: input.orderId,
   });
 
   if (errors && errors.length > 0) {
@@ -1173,97 +1033,46 @@ async function cancelProcurement(
 
   assertCustomMutationSuccess(result, "取消採購失敗");
 
-  return fetchOrderItemAfterCustomMutation(
-    input.orderItemId,
-    "取消採購失敗：找不到明細項目",
-  );
-}
-
-function buildOrderItemStatusFlagOptimisticUpdate(
-  orderItem: OrderItem,
-  flag: OrderItemStatusFlag,
-  checked: boolean,
-  now: string,
-): Partial<OrderItem> {
-  if (flag === "ordered") {
-    return checked
-      ? {
-          status: "ordered",
-          purchasedAt: now,
-        }
-      : {
-          status: "pending",
-          purchasedAt: null,
-          supplierName: null,
-          unitCost: null,
-        };
-  }
-
-  if (flag === "received") {
-    return checked
-      ? { status: "received", receivedAt: now }
-      : { status: "ordered", receivedAt: null };
-  }
-
-  if (flag === "shipped") {
-    return checked
-      ? {
-          status: "shipped",
-          shippedAt: now,
-        }
-      : {
-          status: "received",
-          shippedAt: null,
-        };
-  }
-
-  return checked
-    ? { status: "out_of_stock", outOfStockAt: now }
-    : {
-        status: orderItem.receivedAt
-          ? "received"
-          : orderItem.purchasedAt
-            ? "ordered"
-            : "pending",
-        outOfStockAt: null,
-      };
+  return fetchOrder(input.orderId);
 }
 
 async function updateOrderItemStatusFlag(
   input: UpdateOrderItemStatusFlagInput,
-): Promise<OrderItem> {
+): Promise<Order> {
+  const orderId = input.orderId;
+
   if (input.flag === "ordered") {
-    return input.checked ? confirmPurchase(input) : cancelProcurement(input);
+    return input.checked
+      ? confirmPurchase({ orderId })
+      : cancelProcurement({ orderId });
   }
 
   if (input.flag === "received") {
-    return input.checked ? confirmReceived(input) : cancelReceived(input);
+    return input.checked
+      ? confirmReceived({ orderId })
+      : cancelReceived({ orderId });
   }
 
   if (input.flag === "shipped") {
     return input.checked
-      ? confirmShipmentRemaining({
-          orderId: input.orderId,
-          orderItemId: input.orderItemId,
-        })
-      : cancelShipment({
-          orderId: input.orderId,
-          orderItemId: input.orderItemId,
-        });
+      ? confirmShipmentDirect({ orderId })
+      : cancelShipmentDirect({ orderId });
   }
 
   if (input.flag === "outOfStock") {
-    return input.checked ? confirmOutOfStock(input) : cancelOutOfStock(input);
+    return input.checked
+      ? confirmOutOfStock({ orderId })
+      : cancelOutOfStock({ orderId });
   }
 
   throw new Error("不支援的明細狀態操作");
 }
 
-async function confirmShipment(input: {
-  orderItemId: string;
-}): Promise<OrderItem> {
+async function confirmShipmentDirect(
+  input: ConfirmShipmentBaseInput,
+): Promise<Order> {
   const { data, errors } = await client.mutations.confirmShipment({
-    orderItemId: input.orderItemId,
+    orderId: input.orderId,
   });
 
   if (errors && errors.length > 0) {
@@ -1272,25 +1081,14 @@ async function confirmShipment(input: {
 
   assertCustomMutationSuccess(data, "出貨操作失敗");
 
-  return fetchOrderItemAfterCustomMutation(
-    input.orderItemId,
-    "出貨操作失敗：找不到明細項目",
-  );
+  return fetchOrder(input.orderId);
 }
 
-async function confirmShipmentRemaining(
+async function cancelShipmentDirect(
   input: ConfirmShipmentBaseInput,
-): Promise<OrderItem> {
-  return confirmShipment({
-    orderItemId: input.orderItemId,
-  });
-}
-
-async function cancelShipment(
-  input: ConfirmShipmentBaseInput,
-): Promise<OrderItem> {
+): Promise<Order> {
   const { data: result, errors } = await client.mutations.cancelShipment({
-    orderItemId: input.orderItemId,
+    orderId: input.orderId,
   });
 
   if (errors && errors.length > 0) {
@@ -1299,89 +1097,7 @@ async function cancelShipment(
 
   assertCustomMutationSuccess(result, "取消出貨失敗");
 
-  const { data, errors: getErrors } = await client.models.OrderItem.get({
-    id: input.orderItemId,
-  });
-
-  if (getErrors && getErrors.length > 0) {
-    throw new Error(getErrors[0]?.message ?? "查詢明細狀態失敗");
-  }
-
-  if (!data) {
-    throw new Error("取消出貨失敗：找不到明細項目");
-  }
-
-  return mapToOrderItem(data as unknown as Record<string, unknown>);
-}
-
-async function mergeOrders(input: { orderIds: string[] }): Promise<Order> {
-  const orders = await Promise.all(input.orderIds.map(fetchOrderForValidation));
-  const validation = validateMergeOrders(orders);
-  if (!validation.valid) {
-    throw new Error(validation.error ?? "合併驗證失敗");
-  }
-
-  const { data, errors } = await client.mutations.mergeOrders({
-    orderIds: input.orderIds,
-  });
-
-  if (errors && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "合併訂單失敗");
-  }
-
-  if (!data) {
-    throw new Error("合併訂單失敗：未回傳資料");
-  }
-
-  const resultRecord = parseCustomMutationResult(data) ?? {};
-  const orderData =
-    resultRecord.data && typeof resultRecord.data === "object"
-      ? (resultRecord.data as Record<string, unknown>)
-      : resultRecord;
-  if (resultRecord.success === false) {
-    throw new Error(String(resultRecord.message ?? "合併訂單失敗"));
-  }
-  return mapToOrder(orderData);
-}
-
-async function splitOrder(input: {
-  orderId: string;
-  allocations: SplitAllocation[];
-}): Promise<Order[]> {
-  const order = await fetchOrderForValidation(input.orderId);
-  const validation = validateSplitOrder(order, input.allocations);
-  if (!validation.valid) {
-    throw new Error(validation.error ?? "分拆驗證失敗");
-  }
-
-  const { data, errors } = await client.mutations.splitOrder({
-    orderId: input.orderId,
-    allocations: JSON.stringify(input.allocations),
-  });
-
-  if (errors && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "分拆訂單失敗");
-  }
-
-  if (!data) {
-    throw new Error("分拆訂單失敗：未回傳資料");
-  }
-
-  const resultRecord = parseCustomMutationResult(data) ?? {};
-  if (resultRecord.success === false) {
-    throw new Error(String(resultRecord.message ?? "分拆訂單失敗"));
-  }
-  const splitData = resultRecord.data ?? resultRecord;
-  if (
-    splitData &&
-    typeof splitData === "object" &&
-    Array.isArray((splitData as Record<string, unknown>).newOrders)
-  ) {
-    return ((splitData as Record<string, unknown>).newOrders as unknown[]).map(
-      (item: unknown) => mapToOrder(item as Record<string, unknown>),
-    );
-  }
-  return [mapToOrder(resultRecord)];
+  return fetchOrder(input.orderId);
 }
 
 // ---------------------------------------------------------------------------
@@ -1392,8 +1108,6 @@ async function splitOrder(input: {
  * 訂單列表查詢 hook
  *
  * 支援游標式分頁與搜尋（依訂單編號或客戶名稱）。
- *
- * 需求：4.2, 4.15
  */
 export function useOrderList(
   params: OrderListParams,
@@ -1401,33 +1115,31 @@ export function useOrderList(
   return useQuery({
     queryKey: ORDER_KEYS.list(params),
     queryFn: () => fetchOrderList(params),
-    enabled: params.enabled ?? true,
+    enabled: params.enabled !== false,
   });
 }
 
 export function useCustomerOrderList(
   params: CustomerOrderListParams,
-): UseQueryResult<PaginatedResult<Order>> {
+): UseQueryResult<PaginatedResult<string>> {
   return useQuery({
     queryKey: ORDER_KEYS.customerList(params),
     queryFn: () => fetchCustomerOrderList(params),
-    enabled: !!params.customerId,
   });
 }
 
 function invalidateProductOrderSummaryQueries(
   queryClient: ReturnType<typeof useQueryClient>,
 ): void {
-  void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.productItems() });
   void queryClient.invalidateQueries({
     queryKey: ORDER_KEYS.productOrderSummaries(),
   });
+  void queryClient.invalidateQueries({ queryKey: ["product-purchases"] });
 }
 
 function invalidateSupplierReceivingQueries(
   queryClient: ReturnType<typeof useQueryClient>,
 ): void {
-  void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.supplierItems() });
   void queryClient.invalidateQueries({
     queryKey: SUPPLIER_RECEIVING_KEYS.all,
   });
@@ -1439,7 +1151,6 @@ export function useProductOrderItemList(
   return useQuery({
     queryKey: ORDER_KEYS.productItemList(params),
     queryFn: () => fetchProductOrderItemList(params),
-    enabled: !!params.productId,
   });
 }
 
@@ -1457,8 +1168,6 @@ export function useAllProductOrderItems(
   return useQuery({
     queryKey: ORDER_KEYS.allProductItemList(params),
     queryFn: () => fetchAllProductOrderItems(params),
-    enabled: !!params.productId,
-    staleTime: 60_000,
   });
 }
 
@@ -1468,15 +1177,9 @@ export function useSupplierOrderItemList(
   return useQuery({
     queryKey: ORDER_KEYS.supplierItemList(params),
     queryFn: () => fetchSupplierOrderItemList(params),
-    enabled: params.supplierName.trim().length > 0,
   });
 }
 
-/**
- * 單一訂單查詢 hook（含 OrderItems）
- *
- * 需求：4.3, 4.4
- */
 export function useOrder(id: string): UseQueryResult<Order> {
   return useQuery({
     queryKey: ORDER_KEYS.detail(id),
@@ -1485,14 +1188,6 @@ export function useOrder(id: string): UseQueryResult<Order> {
   });
 }
 
-/**
- * 預取訂單詳情 hook
- *
- * 供列表頁面在游標懸停時預取訂單詳情（含 OrderItems），
- * 使用 queryClient.prefetchQuery 提升進入詳情頁的流暢感。
- *
- * 需求：4.15
- */
 export function usePrefetchOrder(): (orderId: string) => void {
   const queryClient = useQueryClient();
 
@@ -1500,7 +1195,6 @@ export function usePrefetchOrder(): (orderId: string) => void {
     void queryClient.prefetchQuery({
       queryKey: ORDER_KEYS.detail(orderId),
       queryFn: () => fetchOrder(orderId),
-      staleTime: 30_000, // 30 秒內不重複預取
     });
   };
 }
@@ -1511,11 +1205,6 @@ export function usePrefetchOrder(): (orderId: string) => void {
 
 /**
  * 建立訂單 mutation hook
- *
- * 建立訂單時自動計算明細小計與總金額。
- * 新明細項目初始狀態為「待處理」。
- *
- * 需求：4.1, 4.11
  */
 export function useCreateOrder(): UseMutationResult<
   Order,
@@ -1528,16 +1217,16 @@ export function useCreateOrder(): UseMutationResult<
     mutationFn: createOrder,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: ORDER_KEYS.customerLists(),
+      });
+      invalidateProductOrderSummaryQueries(queryClient);
     },
   });
 }
 
 /**
  * 更新訂單狀態 mutation hook
- *
- * 驗證狀態轉換合法性，記錄狀態歷史。
- *
- * 需求：5.2
  */
 export function useUpdateOrderStatus(): UseMutationResult<
   Order,
@@ -1548,11 +1237,12 @@ export function useUpdateOrderStatus(): UseMutationResult<
 
   return useMutation({
     mutationFn: updateOrderStatus,
-    onSuccess: (_, { orderId }) => {
-      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+    onSuccess: (_, input) => {
       void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(orderId),
+        queryKey: ORDER_KEYS.detail(input.orderId),
       });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateProductOrderSummaryQueries(queryClient);
     },
   });
 }
@@ -1560,13 +1250,11 @@ export function useUpdateOrderStatus(): UseMutationResult<
 /**
  * 入庫確認 mutation hook
  *
- * 呼叫 confirmReceived custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems）。
- * 實作樂觀更新：立即更新快取中的 OrderItem 狀態為「已收到」。
- *
- * 需求：4.7, 6.5, 6.6, 6.8, 6.10
+ * 呼叫 confirmReceived custom mutation。
+ * 實作樂觀更新：立即更新快取中的 Order 狀態為「已收到」。
  */
 export function useConfirmReceived(): UseMutationResult<
-  OrderItem,
+  Order,
   Error,
   ConfirmReceivedInput,
   { previousOrder?: Order; previousSupplierName?: string | null }
@@ -1576,47 +1264,34 @@ export function useConfirmReceived(): UseMutationResult<
   return useMutation({
     mutationFn: confirmReceived,
     onMutate: async (input) => {
-      // Cancel outgoing refetches
       const orderKey = ORDER_KEYS.detail(input.orderId);
       await queryClient.cancelQueries({ queryKey: orderKey });
 
-      // Snapshot previous value
       const previousOrder = queryClient.getQueryData<Order>(orderKey);
 
-      // Optimistic update
       if (previousOrder) {
-        const updatedOrder = { ...previousOrder };
-        updatedOrder.items = updatedOrder.items.map((li) => {
-          if (li.id === input.orderItemId) {
-            return {
-              ...li,
-              status: "received" as const,
-              receivedAt: new Date().toISOString(),
-            };
-          }
-          return li;
+        queryClient.setQueryData(orderKey, {
+          ...previousOrder,
+          status: "RECEIVED" as const,
+          receivedAt: new Date().toISOString(),
         });
-        queryClient.setQueryData(orderKey, updatedOrder);
       }
 
       return {
         previousOrder,
-        previousSupplierName:
-          previousOrder?.items.find((li) => li.id === input.orderItemId)
-            ?.supplierName ?? null,
+        previousSupplierName: previousOrder?.supplierName ?? null,
       };
     },
     onError: (_err, input, context) => {
-      // Rollback
       if (context?.previousOrder) {
         const orderKey = ORDER_KEYS.detail(input.orderId);
         queryClient.setQueryData(orderKey, context.previousOrder);
       }
     },
-    onSuccess: async (orderItem, _input, context) => {
+    onSuccess: async (order, _input, context) => {
       await syncSupplierOrderSummariesByNames([
         context?.previousSupplierName,
-        orderItem.supplierName,
+        order.supplierName,
       ]);
     },
     onSettled: (_, __, input) => {
@@ -1625,7 +1300,6 @@ export function useConfirmReceived(): UseMutationResult<
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateSupplierReceivingQueries(queryClient);
-      // Invalidate product caches for stock update
       void queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
@@ -1633,13 +1307,9 @@ export function useConfirmReceived(): UseMutationResult<
 
 /**
  * 採購下單 mutation hook
- *
- * 將「待處理」狀態的明細項目標記為已採購，設定供應商與成本資訊。
- *
- * 需求：3.1, 3.4, 3.5, 3.6, 3.7
  */
 export function useMarkProcurement(): UseMutationResult<
-  OrderItem,
+  Order,
   Error,
   MarkProcurementInput
 > {
@@ -1647,8 +1317,8 @@ export function useMarkProcurement(): UseMutationResult<
 
   return useMutation({
     mutationFn: markProcurement,
-    onSuccess: async (orderItem, input) => {
-      await syncSupplierOrderSummariesByNames([orderItem.supplierName]);
+    onSuccess: async (order, input) => {
+      await syncSupplierOrderSummariesByNames([order.supplierName]);
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
@@ -1661,13 +1331,9 @@ export function useMarkProcurement(): UseMutationResult<
 
 /**
  * 採購取消 mutation hook
- *
- * 將「已訂購」狀態的明細項目恢復為待處理，並清除採購資料。
- *
- * 需求：5.1, 5.3, 5.4
  */
 export function useCancelProcurement(): UseMutationResult<
-  OrderItem,
+  Order,
   Error,
   CancelProcurementInput,
   { previousSupplierName?: string | null }
@@ -1682,12 +1348,10 @@ export function useCancelProcurement(): UseMutationResult<
       );
 
       return {
-        previousSupplierName:
-          previousOrder?.items.find((li) => li.id === input.orderItemId)
-            ?.supplierName ?? null,
+        previousSupplierName: previousOrder?.supplierName ?? null,
       };
     },
-    onSuccess: async (_orderItem, input, context) => {
+    onSuccess: async (_order, input, context) => {
       await syncSupplierOrderSummariesByNames([context?.previousSupplierName]);
       void queryClient.invalidateQueries({
         queryKey: ORDER_KEYS.detail(input.orderId),
@@ -1700,12 +1364,12 @@ export function useCancelProcurement(): UseMutationResult<
 }
 
 /**
- * 更新明細快速狀態旗標。
+ * 更新訂單狀態旗標 mutation hook
  *
- * 用於訂單列表內的快速 checkbox 操作，更新 OrderItem 的日期與狀態。
+ * 用於訂單列表內的快速 checkbox 操作。
  */
 export function useUpdateOrderItemStatusFlag(): UseMutationResult<
-  OrderItem,
+  Order,
   Error,
   UpdateOrderItemStatusFlagInput,
   { previousOrder?: Order; previousSupplierName?: string | null }
@@ -1719,40 +1383,10 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
       await queryClient.cancelQueries({ queryKey: orderKey });
 
       const previousOrder = queryClient.getQueryData<Order>(orderKey);
-      const now = new Date().toISOString();
-
-      if (previousOrder) {
-        const targetOrderItem = previousOrder.items.find(
-          (orderItem) => orderItem.id === input.orderItemId,
-        );
-
-        if (targetOrderItem) {
-          const update = buildOrderItemStatusFlagOptimisticUpdate(
-            targetOrderItem,
-            input.flag,
-            input.checked,
-            now,
-          );
-
-          queryClient.setQueryData<Order>(orderKey, {
-            ...previousOrder,
-            items: previousOrder.items.map((orderItem) =>
-              orderItem.id === input.orderItemId
-                ? {
-                    ...orderItem,
-                    ...update,
-                  }
-                : orderItem,
-            ),
-          });
-        }
-      }
 
       return {
         previousOrder,
-        previousSupplierName:
-          previousOrder?.items.find((li) => li.id === input.orderItemId)
-            ?.supplierName ?? null,
+        previousSupplierName: previousOrder?.supplierName ?? null,
       };
     },
     onError: (_error, input, context) => {
@@ -1763,10 +1397,10 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
         );
       }
     },
-    onSuccess: async (orderItem, _input, context) => {
+    onSuccess: async (order, _input, context) => {
       await syncSupplierOrderSummariesByNames([
         context?.previousSupplierName,
-        orderItem.supplierName,
+        order.supplierName,
       ]);
     },
     onSettled: (_, __, input) => {
@@ -1786,13 +1420,10 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
 /**
  * 出貨操作 mutation hook
  *
- * 呼叫 confirmShipment custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems）。
- * 實作樂觀更新：立即更新快取中的 OrderItem 狀態為「已出貨」、扣減庫存。
- *
- * 需求：4.8, 5.5, 5.6, 7.1, 7.2, 7.3, 7.4, 7.5
+ * 呼叫 confirmShipment custom mutation。
  */
 export function useConfirmShipment(): UseMutationResult<
-  OrderItem,
+  Order,
   Error,
   ConfirmShipmentInput & { orderId: string },
   { previousOrder?: Order; previousSupplierName?: string | null }
@@ -1800,52 +1431,36 @@ export function useConfirmShipment(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input) => confirmShipment({ orderItemId: input.orderItemId }),
+    mutationFn: (input) => confirmShipmentDirect({ orderId: input.orderId }),
     onMutate: async (input) => {
-      // Cancel outgoing refetches
       const orderKey = ORDER_KEYS.detail(input.orderId);
       await queryClient.cancelQueries({ queryKey: orderKey });
 
-      // Snapshot previous value
       const previousOrder = queryClient.getQueryData<Order>(orderKey);
 
-      // Optimistic update
       if (previousOrder) {
-        const updatedOrder = { ...previousOrder };
-        updatedOrder.items = updatedOrder.items.map((li) => {
-          if (li.id === input.orderItemId) {
-            return {
-              ...li,
-              status: "shipped" as const,
-              shippedAt: new Date().toISOString(),
-            };
-          }
-          return li;
+        queryClient.setQueryData(orderKey, {
+          ...previousOrder,
+          status: "SHIPPED" as const,
+          shippedAt: new Date().toISOString(),
         });
-
-        updatedOrder.status = deriveOrderStatusFromOrderItems(updatedOrder.items);
-
-        queryClient.setQueryData(orderKey, updatedOrder);
       }
 
       return {
         previousOrder,
-        previousSupplierName:
-          previousOrder?.items.find((li) => li.id === input.orderItemId)
-            ?.supplierName ?? null,
+        previousSupplierName: previousOrder?.supplierName ?? null,
       };
     },
     onError: (_err, input, context) => {
-      // Rollback
       if (context?.previousOrder) {
         const orderKey = ORDER_KEYS.detail(input.orderId);
         queryClient.setQueryData(orderKey, context.previousOrder);
       }
     },
-    onSuccess: async (orderItem, _input, context) => {
+    onSuccess: async (order, _input, context) => {
       await syncSupplierOrderSummariesByNames([
         context?.previousSupplierName,
-        orderItem.supplierName,
+        order.supplierName,
       ]);
     },
     onSettled: (_, __, input) => {
@@ -1855,27 +1470,17 @@ export function useConfirmShipment(): UseMutationResult<
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderSummaryQueries(queryClient);
       invalidateSupplierReceivingQueries(queryClient);
-      // Invalidate product caches for stock update
       void queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 }
 
 // ---------------------------------------------------------------------------
-// Merge Orders Hook
+// Merge Orders Hook (deprecated — feature removed)
 // ---------------------------------------------------------------------------
 
 /**
- * 訂單合併 mutation hook
- *
- * 呼叫 mergeOrders custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行）：
- * - 建立新 Order（包含所有來源訂單的 OrderItems，總金額為所有來源訂單加總）
- * - 搬移所有 OrderItems 的 orderId 至新 Order
- * - 將所有來源 Orders 狀態變更為 cancelled，記錄狀態歷史
- *
- * 前端使用 validateMergeOrders 純函式進行提交前驗證。
- *
- * 需求：9.1, 9.2, 9.3, 9.4
+ * @deprecated 訂單合併功能已移除
  */
 export function useMergeOrders(): UseMutationResult<
   Order,
@@ -1885,7 +1490,9 @@ export function useMergeOrders(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: mergeOrders,
+    mutationFn: async (_input: { orderIds: string[] }): Promise<Order> => {
+      throw new Error("訂單合併功能已停用");
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.details() });
@@ -1894,30 +1501,25 @@ export function useMergeOrders(): UseMutationResult<
 }
 
 // ---------------------------------------------------------------------------
-// Split Order Hook
+// Split Order Hook (deprecated — feature removed)
 // ---------------------------------------------------------------------------
 
 /**
- * 訂單分拆 mutation hook
- *
- * 呼叫 splitOrder custom mutation（Lambda 函式透過 DynamoDB TransactWriteItems 原子性執行）：
- * - 建立多筆新 Orders（各自包含指定的 OrderItems）
- * - 依分配方式將 OrderItems 的 orderId 更新至對應的新 Order
- * - 將原 Order 狀態變更為 cancelled，記錄狀態歷史
- *
- * 前端使用 validateSplitOrder 純函式進行提交前驗證。
- *
- * 需求：9.5, 9.6, 9.7
+ * @deprecated 訂單分拆功能已移除
  */
 export function useSplitOrder(): UseMutationResult<
   Order[],
   Error,
-  { orderId: string; allocations: SplitAllocation[] }
+  { orderId: string; allocations: unknown[] }
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: splitOrder,
+    mutationFn: async (
+      _input: { orderId: string; allocations: unknown[] },
+    ): Promise<Order[]> => {
+      throw new Error("訂單分拆功能已停用");
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.details() });
@@ -1929,7 +1531,7 @@ export { ORDER_KEYS };
 export type { ProductOrderSummary };
 
 // ---------------------------------------------------------------------------
-// Order Item CRUD Hooks (Order Detail)
+// Order Update Hooks (flat model — no separate OrderItem CRUD)
 // ---------------------------------------------------------------------------
 
 type AddOrderItemToOrderInput = {
@@ -1939,7 +1541,7 @@ type AddOrderItemToOrderInput = {
   productImageUrl: string | null;
   productSku: string;
   variantLabel: string | null;
-  selectedOptionsSnapshot: OrderItemSelectedOptionSnapshot[];
+  selectedOptionsSnapshot: SelectedOptionSnapshot[];
   quantity: number;
   unitPrice: number;
   unitCost: number | null;
@@ -1954,7 +1556,7 @@ type UpdateOrderItemInput = {
   productImageUrl: string | null;
   productSku: string;
   variantLabel: string | null;
-  selectedOptionsSnapshot: OrderItemSelectedOptionSnapshot[];
+  selectedOptionsSnapshot: SelectedOptionSnapshot[];
   quantity: number;
   unitPrice: number;
   unitCost: number | null;
@@ -1966,48 +1568,71 @@ type DeleteOrderItemInput = {
   orderItemId: string;
 };
 
+/**
+ * 在扁平化模型中，「新增明細」等同於建立新的 Order。
+ * 此 hook 保留舊 API 簽名供向下相容，內部以 Order.create 實作。
+ */
 async function addOrderItemToOrder(
   input: AddOrderItemToOrderInput,
 ): Promise<void> {
-  const subtotal = calculateOrderItemSubtotal(input.quantity, input.unitPrice);
+  const totalPriceSnapshot = calculateTotalPrice(input.quantity, input.unitPrice);
+  const totalCostSnapshot = calculateTotalCost(input.quantity, input.unitCost);
+  const subtotalAmount = totalPriceSnapshot;
+  const totalAmount = calculateTotalAmount(subtotalAmount, 0, 0);
 
-  const orderItemPayload: Record<string, unknown> = {
-    orderId: input.orderId,
+  // 查詢原訂單以取得客戶資訊
+  const sourceOrder = await fetchOrder(input.orderId);
+  const orderNumber = generateOrderNumber();
+  const now = new Date().toISOString();
+
+  const { errors } = await client.models.Order.create({
+    customerId: sourceOrder.customerId,
+    orderNumber,
+    customerNameSnapshot: sourceOrder.customerNameSnapshot,
+    customerPhoneSnapshot: sourceOrder.customerPhoneSnapshot,
+    customerEmailSnapshot: sourceOrder.customerEmailSnapshot,
+    shippingAddressSnapshot: sourceOrder.shippingAddressSnapshot,
     productId: input.productId,
     productNameSnapshot: input.productName,
-    productImageUrlSnapshot: input.productImageUrl,
     productSkuSnapshot: input.productSku,
+    productImageUrlSnapshot: input.productImageUrl,
     selectedOptionsSnapshot: JSON.stringify(input.selectedOptionsSnapshot),
     quantity: input.quantity,
     unitPriceSnapshot: input.unitPrice,
     unitCostSnapshot: input.unitCost,
-    totalPriceSnapshot: subtotal,
-    totalCostSnapshot:
-      input.unitCost != null ? input.unitCost * input.quantity : null,
+    totalPriceSnapshot,
+    totalCostSnapshot,
+    subtotalAmount,
+    shippingAmount: 0,
+    discountAmount: 0,
+    totalAmount,
     supplierName: input.supplierName ?? null,
-    status: "pending",
-    createdAtForSort: new Date().toISOString(),
-  };
+    status: "PENDING",
+    paymentStatus: "UNPAID",
+    statusHistory: JSON.stringify([]),
+    isActive: true,
+    gsiPartition: "Order",
+    createdAtForSort: now,
+  });
 
-  const { errors: orderItemErrors } = await client.models.OrderItem.create(
-    orderItemPayload as Parameters<typeof client.models.OrderItem.create>[0],
-  );
-
-  if (orderItemErrors && orderItemErrors.length > 0) {
-    throw new Error(orderItemErrors[0]?.message ?? "新增明細項目失敗");
+  if (errors && errors.length > 0) {
+    throw new Error(errors[0]?.message ?? "新增訂單失敗");
   }
-
-  // 重新計算訂單總金額
-  await recalculateOrderTotal(input.orderId);
 }
 
+/**
+ * 更新訂單商品資訊
+ */
 async function updateOrderItemInOrder(
   input: UpdateOrderItemInput,
 ): Promise<void> {
-  const subtotal = calculateOrderItemSubtotal(input.quantity, input.unitPrice);
+  const totalPriceSnapshot = calculateTotalPrice(input.quantity, input.unitPrice);
+  const totalCostSnapshot = calculateTotalCost(input.quantity, input.unitCost);
+  const subtotalAmount = totalPriceSnapshot;
+  const totalAmount = calculateTotalAmount(subtotalAmount, 0, 0);
 
-  const updatePayload: Record<string, unknown> = {
-    id: input.orderItemId,
+  const { errors } = await client.models.Order.update({
+    id: input.orderId,
     productId: input.productId,
     productNameSnapshot: input.productName,
     productImageUrlSnapshot: input.productImageUrl,
@@ -2016,87 +1641,38 @@ async function updateOrderItemInOrder(
     quantity: input.quantity,
     unitPriceSnapshot: input.unitPrice,
     unitCostSnapshot: input.unitCost,
-    totalPriceSnapshot: subtotal,
-    totalCostSnapshot:
-      input.unitCost != null ? input.unitCost * input.quantity : null,
+    totalPriceSnapshot,
+    totalCostSnapshot,
+    subtotalAmount,
+    totalAmount,
     supplierName: input.supplierName ?? null,
-  };
-
-  const { errors } = await client.models.OrderItem.update(
-    updatePayload as Parameters<typeof client.models.OrderItem.update>[0],
-  );
+  });
 
   if (errors && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "更新明細項目失敗");
+    throw new Error(errors[0]?.message ?? "更新訂單失敗");
   }
-
-  // 重新計算訂單總金額
-  await recalculateOrderTotal(input.orderId);
 }
 
+/**
+ * 刪除訂單（軟刪除）
+ */
 async function deleteOrderItemFromOrder(
   input: DeleteOrderItemInput,
 ): Promise<void> {
-  const { errors } = await client.models.OrderItem.delete({
-    id: input.orderItemId,
+  const now = new Date().toISOString();
+  const { errors } = await client.models.Order.update({
+    id: input.orderId,
+    isActive: false,
+    deletedAt: now,
+    status: "CANCELLED",
   });
 
   if (errors && errors.length > 0) {
-    throw new Error(errors[0]?.message ?? "刪除明細項目失敗");
-  }
-
-  // 重新計算訂單總金額
-  await recalculateOrderTotal(input.orderId);
-}
-
-/** 重新查詢訂單所有明細並更新訂單總金額 */
-async function recalculateOrderTotal(orderId: string): Promise<void> {
-  const { data: orderItemsData, errors: queryErrors } =
-    await client.models.OrderItem.listOrderItemsByOrderId(
-      { orderId },
-      { selectionSet: ["id", "quantity", "unitPriceSnapshot"] },
-    );
-
-  if (queryErrors && queryErrors.length > 0) {
-    throw new Error(queryErrors[0]?.message ?? "查詢明細項目失敗");
-  }
-
-  const items = (orderItemsData ?? []).map((li) => ({
-    id: String(li.id ?? ""),
-    productId: "",
-    productName: "",
-    productImageUrl: null,
-    productSku: "",
-    variantLabel: null,
-    selectedOptionsSnapshot: [],
-    quantity: Number(li.quantity ?? 0),
-    unitPrice: Number(li.unitPriceSnapshot ?? 0),
-    unitCostSnapshot: null,
-    subtotal: 0,
-    totalCostSnapshot: null,
-    status: "pending" as const,
-    purchasedAt: null,
-    receivedAt: null,
-    shippedAt: null,
-    outOfStockAt: null,
-    supplierName: null,
-    unitCost: null,
-  }));
-
-  const newTotal = calculateOrderTotal(items);
-
-  const { errors: updateErrors } = await client.models.Order.update({
-    id: orderId,
-    subtotalAmount: newTotal,
-    totalAmount: newTotal,
-  });
-
-  if (updateErrors && updateErrors.length > 0) {
-    throw new Error(updateErrors[0]?.message ?? "更新訂單總金額失敗");
+    throw new Error(errors[0]?.message ?? "刪除訂單失敗");
   }
 }
 
-/** 新增明細項目至既有訂單 */
+/** 新增明細項目至既有訂單（向下相容） */
 export function useAddOrderItemToOrder(): UseMutationResult<
   void,
   Error,
@@ -2118,7 +1694,7 @@ export function useAddOrderItemToOrder(): UseMutationResult<
   });
 }
 
-/** 更新既有訂單的明細項目 */
+/** 更新既有訂單的商品資訊 */
 export function useUpdateOrderItemInOrder(): UseMutationResult<
   void,
   Error,
@@ -2135,9 +1711,7 @@ export function useUpdateOrderItemInOrder(): UseMutationResult<
       );
 
       return {
-        previousSupplierName:
-          previousOrder?.items.find((li) => li.id === input.orderItemId)
-            ?.supplierName ?? null,
+        previousSupplierName: previousOrder?.supplierName ?? null,
       };
     },
     onSuccess: async (_, input, context) => {
@@ -2155,7 +1729,7 @@ export function useUpdateOrderItemInOrder(): UseMutationResult<
   });
 }
 
-/** 刪除既有訂單的明細項目 */
+/** 刪除既有訂單 */
 export function useDeleteOrderItemFromOrder(): UseMutationResult<
   void,
   Error,
@@ -2172,9 +1746,7 @@ export function useDeleteOrderItemFromOrder(): UseMutationResult<
       );
 
       return {
-        previousSupplierName:
-          previousOrder?.items.find((li) => li.id === input.orderItemId)
-            ?.supplierName ?? null,
+        previousSupplierName: previousOrder?.supplierName ?? null,
       };
     },
     onSuccess: async (_, input, context) => {

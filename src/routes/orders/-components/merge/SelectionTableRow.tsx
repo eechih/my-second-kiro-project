@@ -94,7 +94,7 @@ export function SelectionTableRow({
         />
       </TableCell>
       <TableCell align="right">{formatCurrency(order.totalAmount)}</TableCell>
-      <TableCell>{order.items.length} 項</TableCell>
+      <TableCell>1 項</TableCell>
       <TableCell>
         {order.createdAt
           ? new Date(order.createdAt).toLocaleDateString("zh-TW")

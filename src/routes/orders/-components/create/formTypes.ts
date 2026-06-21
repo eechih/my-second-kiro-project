@@ -1,4 +1,4 @@
-import type { OrderItemSelectedOptionSnapshot } from "@shared/models";
+import type { SelectedOptionSnapshot } from "@shared/models";
 
 export interface OrderItemFormData {
   /** 臨時 ID（用於 React key） */
@@ -8,7 +8,7 @@ export interface OrderItemFormData {
   productImageUrl?: string | null;
   productSku: string;
   variantLabel: string | null;
-  selectedOptionsSnapshot?: OrderItemSelectedOptionSnapshot[];
+  selectedOptionsSnapshot?: SelectedOptionSnapshot[];
   quantity: number;
   unitPrice: number;
   unitCost?: number | null;

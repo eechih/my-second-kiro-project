@@ -21,11 +21,11 @@ export const ORDER_ITEM_STATUS_COLOR_MAP: Record<
   string,
   "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"
 > = {
-  pending: "warning",
-  ordered: "info",
-  received: "primary",
-  shipped: "success",
-  out_of_stock: "error",
+  PENDING: "warning",
+  ORDERED: "info",
+  RECEIVED: "primary",
+  SHIPPED: "success",
+  OUT_OF_STOCK: "error",
 };
 
 export async function searchSuppliers(query: string): Promise<Supplier[]> {

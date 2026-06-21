@@ -47,7 +47,7 @@ export function InfoCard({
           <Typography variant="h6" gutterBottom>
             訂單資訊
           </Typography>
-          <Typography variant="body1">客戶：{order.customerName}</Typography>
+          <Typography variant="body1">客戶：{order.customerNameSnapshot}</Typography>
           <Typography variant="body2" color="text.secondary">
             建立日期：{formatDate(order.createdAt)}
           </Typography>

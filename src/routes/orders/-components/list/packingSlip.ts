@@ -1,9 +1,9 @@
 import { formatCurrency } from "@/lib/currency";
-import type { Order, OrderItem } from "@shared/models";
+import type { Order } from "@shared/models";
 import { formatOrderDate } from "./tableUtils";
 
 export interface PackingSlipOptions {
-  itemFilter?: (item: OrderItem) => boolean;
+  orderFilter?: (order: Order) => boolean;
   emptyMessage?: string;
 }
 
@@ -40,7 +40,7 @@ export function buildPackingSlipHtml(
   options: PackingSlipOptions = {},
 ): string {
   const {
-    itemFilter = (item: OrderItem) => Boolean(item.shippedAt),
+    orderFilter = (order: Order) => Boolean(order.shippedAt),
     emptyMessage = "沒有商品需要出貨",
   } = options;
   const printedAt = new Date().toLocaleString("zh-TW", {
@@ -54,50 +54,47 @@ export function buildPackingSlipHtml(
 
   const slips = orders
     .map((order) => {
-      const shippingOrderItems = order.items.filter(itemFilter);
-      const rows =
-        shippingOrderItems.length > 0
-          ? shippingOrderItems
-              .map((item) => {
-                const productLabel = item.variantLabel
-                  ? `${item.productName} (${item.variantLabel})`
-                  : item.productName;
+      const variantLabel =
+        order.selectedOptionsSnapshot
+          ?.map((opt) => opt.valueName)
+          .join(" / ") || null;
 
-                return `
+      const shouldShow = orderFilter(order);
+      const rows = shouldShow
+        ? (() => {
+            const productLabel = variantLabel
+              ? `${order.productNameSnapshot} (${variantLabel})`
+              : order.productNameSnapshot;
+
+            return `
             <tr>
               <td>
                 <div class="item-name">${escapeHtml(productLabel)}</div>
               </td>
-              <td class="number">${item.quantity.toLocaleString("zh-TW")}</td>
-              <td class="number">${escapeHtml(formatCurrency(item.unitPrice))}</td>
-              <td class="number">${escapeHtml(formatCurrency(item.subtotal))}</td>
+              <td class="number">${order.quantity.toLocaleString("zh-TW")}</td>
+              <td class="number">${escapeHtml(formatCurrency(order.unitPriceSnapshot))}</td>
+              <td class="number">${escapeHtml(formatCurrency(order.subtotalAmount))}</td>
               <td class="check-cell"></td>
               <td class="check-cell"></td>
             </tr>
           `;
-              })
-              .join("")
-          : `
+          })()
+        : `
             <tr>
               <td class="empty-message" colspan="6">${escapeHtml(emptyMessage)}</td>
             </tr>
           `;
 
-      const totalQuantity = shippingOrderItems.reduce(
-        (sum, item) => sum + item.quantity,
-        0,
-      );
-      const totalAmount = shippingOrderItems.reduce(
-        (sum, item) => sum + item.subtotal,
-        0,
-      );
+      const totalQuantity = shouldShow ? order.quantity : 0;
+      const totalAmount = shouldShow ? order.subtotalAmount : 0;
+      const itemCount = shouldShow ? 1 : 0;
 
       return `
         <section class="slip">
           <div class="info-grid">
             <div>
               <span>客戶：</span>
-              <span>${escapeHtml(order.customerName)}</span>
+              <span>${escapeHtml(order.customerNameSnapshot)}</span>
             </div>
             <div>
               <span>購買日期：</span>
@@ -128,7 +125,7 @@ export function buildPackingSlipHtml(
               <div class="printed-at">列印日期：${escapeHtml(printedAt)}</div>
             </div>
             <div class="summary-right">
-              <div>品項數：${shippingOrderItems.length.toLocaleString("zh-TW")}</div>
+              <div>品項數：${itemCount.toLocaleString("zh-TW")}</div>
               <div>總數量：${totalQuantity.toLocaleString("zh-TW")}</div>
               <div>訂單金額：${escapeHtml(formatCurrency(totalAmount))}</div>
             </div>

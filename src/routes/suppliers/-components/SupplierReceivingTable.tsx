@@ -56,7 +56,7 @@ function formatDate(value: string | null): string {
 }
 
 function canToggleReceived(item: OrderItem): boolean {
-  return item.status === "ordered" || item.status === "received";
+  return item.status === "ORDERED" || item.status === "RECEIVED";
 }
 
 export interface SupplierReceivingTableProps {
@@ -78,11 +78,16 @@ export function SupplierReceivingTable({
   const [statusFilter, setStatusFilter] =
     useState<SupplierReceivingStatusFilter>("all");
   const updateStatusFlag = useUpdateOrderItemStatusFlag();
+  const statusFilterMap: Record<SupplierReceivingStatusFilter, "ORDERED" | "RECEIVED" | undefined> = {
+    all: undefined,
+    ordered: "ORDERED",
+    received: "RECEIVED",
+  };
   const { data, isLoading, error } = useSupplierOrderItemList({
     supplierName,
     pageSize,
     nextToken: currentToken,
-    status: statusFilter === "all" ? undefined : statusFilter,
+    status: statusFilterMap[statusFilter],
   });
 
   useEffect(() => {
@@ -94,8 +99,8 @@ export function SupplierReceivingTable({
     () =>
       records.reduce(
         (acc, record) => {
-          if (record.item.status === "ordered") acc.ordered += 1;
-          if (record.item.status === "received") acc.received += 1;
+          if (record.item.status === "ORDERED") acc.ordered += 1;
+          if (record.item.status === "RECEIVED") acc.received += 1;
           return acc;
         },
         { ordered: 0, received: 0 },
@@ -193,12 +198,12 @@ export function SupplierReceivingTable({
                   <TableRow key={record.item.id} hover>
                     <TableCell>{record.orderNumber}</TableCell>
                     <TableCell>{record.customerName}</TableCell>
-                    <TableCell>{record.item.productName}</TableCell>
-                    <TableCell>{record.item.variantLabel || "-"}</TableCell>
+                    <TableCell>{record.item.productNameSnapshot}</TableCell>
+                    <TableCell>{record.item.selectedOptionsSnapshot?.map((opt) => opt.valueName).join(" / ") || "-"}</TableCell>
                     <TableCell align="right">{record.item.quantity}</TableCell>
                     <TableCell align="right">
-                      {record.item.unitCost != null
-                        ? formatCurrency(record.item.unitCost)
+                      {record.item.unitCostSnapshot != null
+                        ? formatCurrency(record.item.unitCostSnapshot)
                         : "-"}
                     </TableCell>
                     <TableCell align="center">

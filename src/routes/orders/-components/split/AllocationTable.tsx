@@ -16,15 +16,23 @@ export interface SplitAllocationTableProps {
   order: Order;
   allocations: Map<string, number>;
   maxNewOrders: number;
-  onAllocationChange: (orderItemId: string, targetIndex: number) => void;
+  onAllocationChange: (orderId: string, targetIndex: number) => void;
 }
 
+/**
+ * @deprecated 訂單分拆功能已移除，此元件僅保留向下相容。
+ */
 export function SplitAllocationTable({
   order,
   allocations,
   maxNewOrders,
   onAllocationChange,
 }: SplitAllocationTableProps): React.ReactElement {
+  const variantLabel =
+    order.selectedOptionsSnapshot
+      ?.map((opt) => opt.valueName)
+      .join(" / ") || null;
+
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" sx={{ mb: 2 }}>
@@ -47,50 +55,43 @@ export function SplitAllocationTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {order.items.map((orderItem) => (
-              <TableRow key={orderItem.id}>
-                <TableCell>{orderItem.productName}</TableCell>
-                <TableCell>{orderItem.variantLabel ?? "-"}</TableCell>
-                <TableCell align="right">{orderItem.quantity}</TableCell>
-                <TableCell align="right">
-                  {formatCurrency(orderItem.unitPrice)}
-                </TableCell>
-                <TableCell align="right">
-                  {formatCurrency(orderItem.subtotal)}
-                </TableCell>
-                <TableCell>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={allocations.get(orderItem.id) ?? ""}
-                      onChange={(event) =>
-                        onAllocationChange(
-                          orderItem.id,
-                          Number(event.target.value),
-                        )
-                      }
-                      displayEmpty
-                    >
-                      <MenuItem value="" disabled>
-                        選取
-                      </MenuItem>
-                      {Array.from(
-                        {
-                          length: Math.min(
-                            maxNewOrders,
-                            order.items.length,
-                          ),
-                        },
-                        (_, index) => (
-                          <MenuItem key={index} value={index}>
-                            新訂單 {index + 1}
-                          </MenuItem>
-                        ),
-                      )}
-                    </Select>
-                  </FormControl>
-                </TableCell>
-              </TableRow>
-            ))}
+            <TableRow>
+              <TableCell>{order.productNameSnapshot}</TableCell>
+              <TableCell>{variantLabel ?? "-"}</TableCell>
+              <TableCell align="right">{order.quantity}</TableCell>
+              <TableCell align="right">
+                {formatCurrency(order.unitPriceSnapshot)}
+              </TableCell>
+              <TableCell align="right">
+                {formatCurrency(order.subtotalAmount)}
+              </TableCell>
+              <TableCell>
+                <FormControl size="small" fullWidth>
+                  <Select
+                    value={allocations.get(order.id) ?? ""}
+                    onChange={(event) =>
+                      onAllocationChange(
+                        order.id,
+                        Number(event.target.value),
+                      )
+                    }
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>
+                      選取
+                    </MenuItem>
+                    {Array.from(
+                      { length: maxNewOrders },
+                      (_, index) => (
+                        <MenuItem key={index} value={index}>
+                          新訂單 {index + 1}
+                        </MenuItem>
+                      ),
+                    )}
+                  </Select>
+                </FormControl>
+              </TableCell>
+            </TableRow>
           </TableBody>
         </Table>
       </TableContainer>

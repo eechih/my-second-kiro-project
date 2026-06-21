@@ -56,13 +56,13 @@ function formatDate(value: string | null): string {
 }
 
 function canToggleOrdered(record: ProductOrderItemRecord): boolean {
-  return record.item.status === "pending" || record.item.status === "ordered";
+  return record.item.status === "PENDING" || record.item.status === "ORDERED";
 }
 
 function canEditRecord(record: ProductOrderItemRecord): boolean {
   return (
     (record.orderStatus === "PENDING" || record.orderStatus === "ORDERED") &&
-    (record.item.status === "pending" || record.item.status === "ordered")
+    (record.item.status === "PENDING" || record.item.status === "ORDERED")
   );
 }
 
@@ -71,14 +71,19 @@ function toEditData(
 ): ProductPurchaseItemEditData | null {
   if (!record) return null;
 
+  const variantLabel =
+    record.item.selectedOptionsSnapshot
+      ?.map((opt) => opt.valueName)
+      .join(" / ") || null;
+
   return {
     orderId: record.orderId,
     quantity: record.item.quantity,
-    unitPrice: record.item.unitPrice,
-    unitCost: record.item.unitCost,
+    unitPrice: record.item.unitPriceSnapshot,
+    unitCost: record.item.unitCostSnapshot,
     supplierName: record.item.supplierName,
     selectedOptionsSnapshot: record.item.selectedOptionsSnapshot,
-    variantLabel: record.item.variantLabel,
+    variantLabel,
   };
 }
 
@@ -102,7 +107,7 @@ export function ProductProcurementPanel({
     productId: product.id,
     pageSize,
     nextToken: currentToken,
-    statuses: ["pending", "ordered"],
+    statuses: ["PENDING", "ORDERED"],
   });
   const addOrderItem = useAddOrderItemToOrder();
   const updateOrderItem = useUpdateOrderItemInOrder();
@@ -127,8 +132,8 @@ export function ProductProcurementPanel({
     () =>
       records.reduce(
         (acc, record) => {
-          if (record.item.status === "pending") acc.pending += 1;
-          if (record.item.status === "ordered") acc.ordered += 1;
+          if (record.item.status === "PENDING") acc.pending += 1;
+          if (record.item.status === "ORDERED") acc.ordered += 1;
           return acc;
         },
         { pending: 0, ordered: 0 },
@@ -305,16 +310,16 @@ export function ProductProcurementPanel({
                         <TableRow key={record.item.id} hover>
                           <TableCell>{record.orderNumber}</TableCell>
                           <TableCell>{record.customerName}</TableCell>
-                          <TableCell>{record.item.variantLabel || "-"}</TableCell>
+                          <TableCell>{record.item.selectedOptionsSnapshot?.map((opt) => opt.valueName).join(" / ") || "-"}</TableCell>
                           <TableCell align="right">
                             {record.item.quantity}
                           </TableCell>
                           <TableCell align="right">
-                            {formatCurrency(record.item.unitPrice)}
+                            {formatCurrency(record.item.unitPriceSnapshot)}
                           </TableCell>
                           <TableCell align="right">
-                            {record.item.unitCost != null
-                              ? formatCurrency(record.item.unitCost)
+                            {record.item.unitCostSnapshot != null
+                              ? formatCurrency(record.item.unitCostSnapshot)
                               : "-"}
                           </TableCell>
                           <TableCell>{record.item.supplierName || "-"}</TableCell>

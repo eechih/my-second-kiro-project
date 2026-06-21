@@ -60,11 +60,11 @@ function buildProductPurchaseSummary(
   records: readonly ProductOrderItemRecord[],
 ): ProductPurchaseSummary {
   return records.reduce<ProductPurchaseSummary>((acc, record) => {
-    if (record.item.status === "pending") acc.pending += 1;
-    if (record.item.status === "ordered") acc.ordered += 1;
-    if (record.item.status === "received") acc.received += 1;
-    if (record.item.status === "shipped") acc.shipped += 1;
-    if (record.item.status === "out_of_stock") acc.outOfStock += 1;
+    if (record.item.status === "PENDING") acc.pending += 1;
+    if (record.item.status === "ORDERED") acc.ordered += 1;
+    if (record.item.status === "RECEIVED") acc.received += 1;
+    if (record.item.status === "SHIPPED") acc.shipped += 1;
+    if (record.item.status === "OUT_OF_STOCK") acc.outOfStock += 1;
     return acc;
   }, { ...INITIAL_SUMMARY });
 }
@@ -74,14 +74,19 @@ function toEditData(
 ): ProductPurchaseItemEditData | null {
   if (!record) return null;
 
+  const variantLabel =
+    record.item.selectedOptionsSnapshot
+      ?.map((opt) => opt.valueName)
+      .join(" / ") || null;
+
   return {
     orderId: record.orderId,
     quantity: record.item.quantity,
-    unitPrice: record.item.unitPrice,
-    unitCost: record.item.unitCost,
+    unitPrice: record.item.unitPriceSnapshot,
+    unitCost: record.item.unitCostSnapshot,
     supplierName: record.item.supplierName,
     selectedOptionsSnapshot: record.item.selectedOptionsSnapshot,
-    variantLabel: record.item.variantLabel,
+    variantLabel,
   };
 }
 
@@ -178,7 +183,7 @@ export function ProductPurchasesRow({
     productId,
     pageSize: pagination.pageSize,
     nextToken: pagination.currentToken,
-    status: statusFilter === "all" ? undefined : statusFilter,
+    status: statusFilter === "all" ? undefined : "PENDING",
   });
   const addOrderItem = useAddOrderItemToOrder();
   const updateOrderItem = useUpdateOrderItemInOrder();

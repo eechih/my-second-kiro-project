@@ -153,3 +153,30 @@ export function validateOrderFields(
     errors,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Backward-compatibility aliases
+// ---------------------------------------------------------------------------
+
+/**
+ * @deprecated 請使用 calculateTotalPrice
+ */
+export function calculateOrderItemSubtotal(
+  quantity: number,
+  unitPrice: number,
+): number {
+  return calculateTotalPrice(quantity, unitPrice);
+}
+
+/**
+ * @deprecated 訂單模型簡化後不再有多筆 OrderItem。
+ * 此函式保留向下相容，回傳所有 items subtotal 加總。
+ */
+export function calculateOrderTotal(
+  items: readonly { quantity: number; unitPrice: number }[],
+): number {
+  return items.reduce(
+    (sum, item) => sum + calculateTotalPrice(item.quantity, item.unitPrice),
+    0,
+  );
+}

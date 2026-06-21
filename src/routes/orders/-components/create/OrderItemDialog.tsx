@@ -10,7 +10,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import type {
-  OrderItemSelectedOptionSnapshot,
+  SelectedOptionSnapshot,
   Product,
   ProductOptionValue,
 } from "@shared/models";
@@ -31,7 +31,7 @@ export interface OrderItemEditData {
   productImageUrl?: string | null;
   productSku: string;
   variantLabel: string | null;
-  selectedOptionsSnapshot?: OrderItemSelectedOptionSnapshot[];
+  selectedOptionsSnapshot?: SelectedOptionSnapshot[];
   quantity: number;
   unitPrice: number;
   unitCost?: number | null;

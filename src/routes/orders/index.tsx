@@ -11,7 +11,6 @@ import { requireAuth } from "@/lib/route-guards";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import { validateMergeOrders } from "@shared/logic/order-merge";
 import type { Order } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,6 +18,19 @@ import { MergeDialog } from "./-components/merge/Dialog";
 import { OrderTable } from "./-components/list/OrderTable";
 import { Toolbar } from "./-components/list/Toolbar";
 import { printPackingSlips } from "./-components/list/packingSlip";
+
+/** 簡易合併驗證（order-merge 模組已移除） */
+function validateMergeOrders(orders: Order[]): { valid: boolean; error?: string } {
+  if (orders.length < 2) return { valid: false, error: "至少需選取 2 筆訂單" };
+  const firstCustomerId = orders[0]?.customerId;
+  if (!orders.every((o) => o.customerId === firstCustomerId)) {
+    return { valid: false, error: "所有訂單必須屬於同一客戶" };
+  }
+  if (!orders.every((o) => o.status === "PENDING" || o.status === "ORDERED")) {
+    return { valid: false, error: "所有訂單狀態必須為「待處理」或「已採購」" };
+  }
+  return { valid: true };
+}
 
 export const Route = createFileRoute("/orders/")({
   beforeLoad: requireAuth,
@@ -68,7 +80,7 @@ function OrderListPage(): React.ReactElement {
   const activeOrderList = customerId ? customerOrderListQuery : orderListQuery;
   const orderIds = useMemo(() => {
     if (customerId) {
-      return (customerOrderListQuery.data?.items ?? []).map((order) => order.id);
+      return customerOrderListQuery.data?.items ?? [];
     }
 
     return orderListQuery.data?.items ?? [];
@@ -160,10 +172,7 @@ function OrderListPage(): React.ReactElement {
     (sum, order) => sum + order.totalAmount,
     0,
   );
-  const selectedOrderItemCount = selectedOrders.reduce(
-    (sum, order) => sum + order.items.length,
-    0,
-  );
+  const selectedOrderItemCount = selectedOrders.length;
 
   const handleEdit = useCallback(
     (orderId: string): void => {
@@ -232,7 +241,7 @@ function OrderListPage(): React.ReactElement {
               onClick={() =>
                 void navigate({
                   to: "/orders",
-                  search: {},
+                  search: { customerId: undefined, customerName: undefined },
                 })
               }
             >

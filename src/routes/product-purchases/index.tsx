@@ -73,7 +73,7 @@ function ProductPurchasesPage(): React.ReactElement {
           return summary.totalQuantity > 0;
         }
 
-        return summary.statusQuantities[statusFilter] > 0;
+        return (summary.statusQuantities[statusFilter.toUpperCase()] ?? 0) > 0;
       })
       .filter((summary) =>
         supplierFilter

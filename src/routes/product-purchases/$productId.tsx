@@ -21,8 +21,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import {
   ORDER_ITEM_STATUSES,
-  ORDER_ITEM_STATUS_LABEL,
-  type OrderItem,
+  type OrderFulfillmentStatus,
 } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
@@ -33,16 +32,16 @@ import {
 } from "./-components/ProductPurchaseItemDialog";
 import { ProductPurchaseItemTable } from "./-components/ProductPurchaseItemTable";
 
-type ProductPurchaseDetailStatusFilter = "all" | OrderItem["status"];
+type ProductPurchaseDetailStatusFilter = "all" | OrderFulfillmentStatus;
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS: readonly ListToolbarOption<ProductPurchaseDetailStatusFilter>[] = [
   { value: "all", label: "全部狀態" },
-  { value: "pending", label: ORDER_ITEM_STATUS_LABEL.pending },
-  { value: "ordered", label: ORDER_ITEM_STATUS_LABEL.ordered },
-  { value: "received", label: ORDER_ITEM_STATUS_LABEL.received },
-  { value: "shipped", label: ORDER_ITEM_STATUS_LABEL.shipped },
-  { value: "out_of_stock", label: ORDER_ITEM_STATUS_LABEL.out_of_stock },
-] as const satisfies readonly ListToolbarOption<ProductPurchaseDetailStatusFilter>[];
+  { value: "PENDING", label: "待處理" },
+  { value: "ORDERED", label: "已採購" },
+  { value: "RECEIVED", label: "已到貨" },
+  { value: "SHIPPED", label: "已出貨" },
+  { value: "OUT_OF_STOCK", label: "缺貨" },
+];
 
 const ORDER_ITEM_STATUS_SORT_INDEX = new Map(
   ORDER_ITEM_STATUSES.map((status, index) => [status, index] as const),
@@ -53,14 +52,19 @@ function toEditData(
 ): ProductPurchaseItemEditData | null {
   if (!record) return null;
 
+  const variantLabel =
+    record.item.selectedOptionsSnapshot
+      ?.map((opt) => opt.valueName)
+      .join(" / ") || null;
+
   return {
     orderId: record.orderId,
     quantity: record.item.quantity,
-    unitPrice: record.item.unitPrice,
-    unitCost: record.item.unitCost,
+    unitPrice: record.item.unitPriceSnapshot,
+    unitCost: record.item.unitCostSnapshot,
     supplierName: record.item.supplierName,
     selectedOptionsSnapshot: record.item.selectedOptionsSnapshot,
-    variantLabel: record.item.variantLabel,
+    variantLabel,
   };
 }
 
@@ -141,7 +145,7 @@ function ProductPurchaseDetailPage(): React.ReactElement {
         return [
           record.orderNumber,
           record.customerName,
-          record.item.variantLabel ?? "",
+          record.item.selectedOptionsSnapshot?.map((opt) => opt.valueName).join(" / ") ?? "",
           record.item.supplierName ?? "",
         ].some((value) => value.toLowerCase().includes(keyword));
       });

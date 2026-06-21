@@ -10,11 +10,11 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import type { OrderItem } from "@shared/models";
+import type { Order } from "@shared/models";
 
 export interface SplitPreviewGroup {
   index: number;
-  items: OrderItem[];
+  items: Order[];
   totalAmount: number;
 }
 
@@ -23,6 +23,9 @@ export interface SplitPreviewProps {
   newOrderCount: number;
 }
 
+/**
+ * @deprecated 訂單分拆功能已移除，此元件僅保留向下相容。
+ */
 export function SplitPreview({
   groups,
   newOrderCount,
@@ -61,16 +64,22 @@ export function SplitPreview({
                 </TableRow>
               </TableHead>
               <TableBody>
-                {group.items.map((orderItem) => (
-                  <TableRow key={orderItem.id}>
-                    <TableCell>{orderItem.productName}</TableCell>
-                    <TableCell>{orderItem.variantLabel ?? "-"}</TableCell>
-                    <TableCell align="right">{orderItem.quantity}</TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(orderItem.subtotal)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {group.items.map((orderItem) => {
+                  const variantLabel =
+                    orderItem.selectedOptionsSnapshot
+                      ?.map((opt) => opt.valueName)
+                      .join(" / ") || null;
+                  return (
+                    <TableRow key={orderItem.id}>
+                      <TableCell>{orderItem.productNameSnapshot}</TableCell>
+                      <TableCell>{variantLabel ?? "-"}</TableCell>
+                      <TableCell align="right">{orderItem.quantity}</TableCell>
+                      <TableCell align="right">
+                        {formatCurrency(orderItem.subtotalAmount)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>

@@ -58,7 +58,7 @@ function OrderDetailPage(): React.ReactElement {
     return (
       <Box>
         <Alert severity="error">{queryError?.message ?? "找不到該訂單"}</Alert>
-        <Button sx={{ mt: 2 }} onClick={() => void navigate({ to: "/orders" })}>
+        <Button sx={{ mt: 2 }} onClick={() => void navigate({ to: "/orders", search: { customerId: undefined, customerName: undefined } })}>
           返回訂單列表
         </Button>
       </Box>
@@ -78,26 +78,11 @@ function OrderDetailPage(): React.ReactElement {
             <Button
               size="small"
               startIcon={<ArrowBackIcon />}
-              onClick={() => void navigate({ to: "/orders" })}
+              onClick={() => void navigate({ to: "/orders", search: { customerId: undefined, customerName: undefined } })}
             >
               返回
             </Button>
             <Chip label={order.orderNumber} variant="outlined" />
-            {(order.status === "PENDING" || order.status === "ORDERED") &&
-              order.items.length >= 2 && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() =>
-                    navigate({
-                      to: "/orders/$orderId/split",
-                      params: { orderId },
-                    })
-                  }
-                >
-                  分拆訂單
-                </Button>
-              )}
           </>
         }
       />

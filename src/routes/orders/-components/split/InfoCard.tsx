@@ -8,6 +8,9 @@ export interface SplitInfoCardProps {
   order: Order;
 }
 
+/**
+ * @deprecated 訂單分拆功能已移除，此元件僅保留向下相容。
+ */
 export function SplitInfoCard({
   order,
 }: SplitInfoCardProps): React.ReactElement {
@@ -21,7 +24,7 @@ export function SplitInfoCard({
           <Typography variant="body2" color="text.secondary">
             客戶
           </Typography>
-          <Typography>{order.customerName}</Typography>
+          <Typography>{order.customerNameSnapshot}</Typography>
         </Box>
         <Box>
           <Typography variant="body2" color="text.secondary">
@@ -33,7 +36,7 @@ export function SplitInfoCard({
           <Typography variant="body2" color="text.secondary">
             明細項目數
           </Typography>
-          <Typography>{order.items.length} 項</Typography>
+          <Typography>1 項</Typography>
         </Box>
       </Box>
     </Paper>

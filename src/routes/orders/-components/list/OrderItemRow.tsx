@@ -44,21 +44,21 @@ const LINE_ITEM_STATUS_FLAGS: OrderItemStatusFlagConfig[] = [
   {
     key: "outOfStock",
     getLabel: (checked: boolean) => (checked ? "斷貨" : "未斷貨"),
-    isChecked: (item: OrderItem) => item.status === "out_of_stock",
+    isChecked: (item: OrderItem) => item.status === "OUT_OF_STOCK",
     checkedColor: "error.main",
     uncheckedColor: "text.secondary",
   },
 ];
 
 const NON_CANCELABLE_ORDERED_STATUSES = new Set<OrderItem["status"]>([
-  "received",
-  "shipped",
-  "out_of_stock",
+  "RECEIVED",
+  "SHIPPED",
+  "OUT_OF_STOCK",
 ]);
 
 const NON_CANCELABLE_RECEIVED_STATUSES = new Set<OrderItem["status"]>([
-  "shipped",
-  "out_of_stock",
+  "SHIPPED",
+  "OUT_OF_STOCK",
 ]);
 
 function isEditableStatusFlag(key: string): key is EditableStatusFlag {
@@ -79,30 +79,30 @@ function isStatusFlagDisabled(
     if (checked) {
       return NON_CANCELABLE_ORDERED_STATUSES.has(item.status);
     }
-    return item.status === "out_of_stock";
+    return item.status === "OUT_OF_STOCK";
   }
 
   if (flag === "received") {
     if (checked) {
       return NON_CANCELABLE_RECEIVED_STATUSES.has(item.status);
     }
-    return item.status !== "ordered";
+    return item.status !== "ORDERED";
   }
 
   if (flag === "shipped") {
     if (checked) {
-      return item.status === "out_of_stock";
+      return item.status === "OUT_OF_STOCK";
     }
-    return item.status !== "received";
+    return item.status !== "RECEIVED";
   }
 
   if (checked) {
-    return item.status !== "out_of_stock";
+    return item.status !== "OUT_OF_STOCK";
   }
   return (
-    item.status !== "pending" &&
-    item.status !== "ordered" &&
-    item.status !== "received"
+    item.status !== "PENDING" &&
+    item.status !== "ORDERED" &&
+    item.status !== "RECEIVED"
   );
 }
 
@@ -117,6 +117,11 @@ export function OrderItemRow({
 }: OrderItemRowProps): React.ReactElement {
   const updateOrderItemStatusFlag = useUpdateOrderItemStatusFlag();
 
+  const variantLabel =
+    item.selectedOptionsSnapshot
+      ?.map((opt) => opt.valueName)
+      .join(" / ") || null;
+
   return (
     <TableRow
       sx={{
@@ -125,11 +130,11 @@ export function OrderItemRow({
       }}
     >
       <TableCell sx={{ width: 330, minWidth: 330, maxWidth: 330 }}>
-        <Typography variant="body2">{item.productName}</Typography>
+        <Typography variant="body2">{item.productNameSnapshot}</Typography>
       </TableCell>
       <TableCell sx={{ minWidth: 150 }}>
-        {item.variantLabel ? (
-          <Chip label={item.variantLabel} size="small" variant="outlined" />
+        {variantLabel ? (
+          <Chip label={variantLabel} size="small" variant="outlined" />
         ) : (
           <Typography variant="body2" color="text.secondary">
             —
@@ -140,7 +145,7 @@ export function OrderItemRow({
         {item.quantity}
       </TableCell>
       <TableCell align="right" sx={{ width: 60, minWidth: 60, maxWidth: 60 }}>
-        {formatCurrency(item.unitPrice)}
+        {formatCurrency(item.unitPriceSnapshot)}
       </TableCell>
       <TableCell align="center">
         <StatusChip

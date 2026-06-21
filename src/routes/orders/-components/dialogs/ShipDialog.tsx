@@ -11,13 +11,13 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { resolveStockQuantity, validateShipment } from "@shared/logic/shipment";
-import type { OrderItem, Order } from "@shared/models";
+import type { Order } from "@shared/models";
 import { useState } from "react";
 
 export interface ShipDialogProps {
   open: boolean;
   onClose: () => void;
-  orderItem: OrderItem;
+  orderItem: Order;
   order: Order;
 }
 
@@ -33,6 +33,11 @@ export function ShipDialog({
 
   const stockQty = product ? resolveStockQuantity(product) : 0;
 
+  const variantLabel =
+    orderItem.selectedOptionsSnapshot
+      ?.map((opt) => opt.valueName)
+      .join(" / ") || null;
+
   const handleSubmit = async (): Promise<void> => {
     setError(null);
     const validation = validateShipment(orderItem.quantity, stockQty);
@@ -44,7 +49,6 @@ export function ShipDialog({
     try {
       await confirmShipment.mutateAsync({
         orderId: order.id,
-        orderItemId: orderItem.id,
       });
       onClose();
     } catch (err) {
@@ -55,8 +59,8 @@ export function ShipDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        出貨 — {orderItem.productName}
-        {orderItem.variantLabel ? ` (${orderItem.variantLabel})` : ""}
+        出貨 — {orderItem.productNameSnapshot}
+        {variantLabel ? ` (${variantLabel})` : ""}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>

@@ -12,14 +12,14 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { validateProcurementOrder } from "@shared/logic/procurement";
-import type { OrderItem, Order, Supplier } from "@shared/models";
+import type { Order, Supplier } from "@shared/models";
 import { useEffect, useState } from "react";
 import { searchSuppliers } from "../detail/detailUtils";
 
 export interface PurchaseDialogProps {
   open: boolean;
   onClose: () => void;
-  orderItem: OrderItem;
+  orderItem: Order;
   order: Order;
 }
 
@@ -33,6 +33,11 @@ export function PurchaseDialog({
   const [unitCost, setUnitCost] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const markProcurement = useMarkProcurement();
+
+  const variantLabel =
+    orderItem.selectedOptionsSnapshot
+      ?.map((opt) => opt.valueName)
+      .join(" / ") || null;
 
   useEffect(() => {
     if (!open) return;
@@ -60,18 +65,17 @@ export function PurchaseDialog({
     }
 
     try {
-      // 1. 先更新 OrderItem 的供應商與成本資料
-      await client.models.OrderItem.update({
+      // 1. 先更新 Order 的供應商與成本資料
+      await client.models.Order.update({
         id: orderItem.id,
         supplierName: supplier.name,
         unitCostSnapshot: unitCost,
         totalCostSnapshot: unitCost * orderItem.quantity,
       });
 
-      // 2. 再呼叫 confirmPurchase 做狀態轉換 pending → ordered
+      // 2. 再呼叫 confirmPurchase 做狀態轉換 PENDING → ORDERED
       await markProcurement.mutateAsync({
         orderId: order.id,
-        orderItemId: orderItem.id,
       });
       onClose();
     } catch (err) {
@@ -82,8 +86,8 @@ export function PurchaseDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        標記採購 — {orderItem.productName}
-        {orderItem.variantLabel ? ` (${orderItem.variantLabel})` : ""}
+        標記採購 — {orderItem.productNameSnapshot}
+        {variantLabel ? ` (${variantLabel})` : ""}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>

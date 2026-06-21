@@ -41,7 +41,7 @@ export function MainRow({
         />
       </TableCell>
       <TableCell>{order.orderNumber}</TableCell>
-      <TableCell>{order.customerName}</TableCell>
+      <TableCell>{order.customerNameSnapshot}</TableCell>
       <TableCell>
         <Box>
           <Typography variant="body2">

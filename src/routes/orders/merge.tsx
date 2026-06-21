@@ -6,9 +6,21 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import { validateMergeOrders } from "@shared/logic/order-merge";
 import type { Order } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+
+/** 簡易合併驗證（order-merge 模組已移除） */
+function validateMergeOrders(orders: Order[]): { valid: boolean; error?: string } {
+  if (orders.length < 2) return { valid: false, error: "至少需選取 2 筆訂單" };
+  const firstCustomerId = orders[0]?.customerId;
+  if (!orders.every((o) => o.customerId === firstCustomerId)) {
+    return { valid: false, error: "所有訂單必須屬於同一客戶" };
+  }
+  if (!orders.every((o) => o.status === "PENDING" || o.status === "ORDERED")) {
+    return { valid: false, error: "所有訂單狀態必須為「待處理」或「已採購」" };
+  }
+  return { valid: true };
+}
 import { useCallback, useMemo, useState } from "react";
 import {
   MergeCustomerSection,
@@ -68,7 +80,6 @@ function OrderMergePage() {
         current &&
         current.status === order.status &&
         current.totalAmount === order.totalAmount &&
-        current.items.length === order.items.length &&
         current.updatedAt === order.updatedAt
       ) {
         return prev;
@@ -144,10 +155,7 @@ function OrderMergePage() {
     (sum, order) => sum + order.totalAmount,
     0,
   );
-  const totalOrderItemCount = selectedOrders.reduce(
-    (sum, order) => sum + order.items.length,
-    0,
-  );
+  const totalOrderItemCount = selectedOrders.length;
 
   return (
     <Box>
@@ -159,7 +167,7 @@ function OrderMergePage() {
           <Button
             size="small"
             startIcon={<ArrowBackIcon />}
-            onClick={() => navigate({ to: "/orders" })}
+            onClick={() => navigate({ to: "/orders", search: { customerId: undefined, customerName: undefined } })}
           >
             返回
           </Button>

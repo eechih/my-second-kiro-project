@@ -31,12 +31,12 @@ async function fetchSupplierOrderItems(
 
   do {
     const { data, errors, nextToken: responseNextToken } =
-      await client.models.OrderItem.list({
+      await client.models.Order.list({
         filter: {
           and: [
             { supplierName: { eq: supplierName } },
             {
-              or: [{ status: { eq: "ordered" } }, { status: { eq: "received" } }],
+              or: [{ status: { eq: "ORDERED" } }, { status: { eq: "RECEIVED" } }],
             },
           ],
         },
@@ -89,17 +89,24 @@ export async function syncSupplierOrderSummaryBySupplierName(
     return;
   }
 
-  const aggregate = items.reduce(
+  interface SupplierAggregate {
+    orderedQuantity: number;
+    receivedQuantity: number;
+    totalQuantity: number;
+    latestActivityAt: string | null;
+  }
+
+  const aggregate = items.reduce<SupplierAggregate>(
     (acc, item) => {
       const status = String(item.status ?? "");
       const quantity = Number(item.quantity ?? 0);
       const latestActivityAt = getLatestActivityAt(item);
 
-      if (status === "ordered") {
+      if (status === "ORDERED") {
         acc.orderedQuantity += quantity;
       }
 
-      if (status === "received") {
+      if (status === "RECEIVED") {
         acc.receivedQuantity += quantity;
       }
 
@@ -116,9 +123,12 @@ export async function syncSupplierOrderSummaryBySupplierName(
       orderedQuantity: 0,
       receivedQuantity: 0,
       totalQuantity: 0,
-      latestActivityAt: null as string | null,
+      latestActivityAt: null,
     },
   );
+
+  const createdAtForSortValue: string =
+    aggregate.latestActivityAt ?? new Date().toISOString();
 
   const payload = {
     supplierNameSnapshot: trimmedSupplierName,
@@ -126,7 +136,7 @@ export async function syncSupplierOrderSummaryBySupplierName(
     receivedQuantity: aggregate.receivedQuantity,
     totalQuantity: aggregate.totalQuantity,
     latestActivityAt: aggregate.latestActivityAt,
-    createdAtForSort: aggregate.latestActivityAt ?? new Date().toISOString(),
+    createdAtForSort: createdAtForSortValue,
   };
 
   if (existingSummary) {

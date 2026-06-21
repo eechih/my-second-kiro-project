@@ -36,7 +36,12 @@ export function OrderItemRow({
 }: OrderItemRowProps): React.ReactElement {
   const [expanded, setExpanded] = useState(false);
 
-  const showActions = canEdit && orderItem.status === "pending";
+  const variantLabel =
+    orderItem.selectedOptionsSnapshot
+      ?.map((opt) => opt.valueName)
+      .join(" / ") || null;
+
+  const showActions = canEdit && orderItem.status === "PENDING";
 
   return (
     <>
@@ -46,13 +51,13 @@ export function OrderItemRow({
             {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
         </TableCell>
-        <TableCell>{orderItem.productName}</TableCell>
-        <TableCell>{orderItem.variantLabel ?? "—"}</TableCell>
+        <TableCell>{orderItem.productNameSnapshot}</TableCell>
+        <TableCell>{variantLabel ?? "—"}</TableCell>
         <TableCell align="right">{orderItem.quantity}</TableCell>
         <TableCell align="right">
-          {formatCurrency(orderItem.unitPrice)}
+          {formatCurrency(orderItem.unitPriceSnapshot)}
         </TableCell>
-        <TableCell align="right">{formatCurrency(orderItem.subtotal)}</TableCell>
+        <TableCell align="right">{formatCurrency(orderItem.subtotalAmount)}</TableCell>
         <TableCell>
           <Typography
             variant="body2"
@@ -65,11 +70,11 @@ export function OrderItemRow({
           <Typography
             variant="body2"
             color={
-              orderItem.unitCost != null ? "text.primary" : "text.secondary"
+              orderItem.unitCostSnapshot != null ? "text.primary" : "text.secondary"
             }
           >
-            {orderItem.unitCost != null
-              ? formatCurrency(orderItem.unitCost)
+            {orderItem.unitCostSnapshot != null
+              ? formatCurrency(orderItem.unitCostSnapshot)
               : "—"}
           </Typography>
         </TableCell>
@@ -118,8 +123,8 @@ export function OrderItemRow({
                   sx={{ mb: 2 }}
                 >
                   供應商：{orderItem.supplierName} 單位成本：
-                  {orderItem.unitCost != null
-                    ? formatCurrency(orderItem.unitCost)
+                  {orderItem.unitCostSnapshot != null
+                    ? formatCurrency(orderItem.unitCostSnapshot)
                     : "—"}
                 </Typography>
               )}

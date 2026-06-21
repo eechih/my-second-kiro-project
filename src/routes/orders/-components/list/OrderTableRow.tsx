@@ -77,7 +77,7 @@ export function OrderTableRow({
         </TableBody>
       </Table>
       <OrderItemsTable
-        items={order.items}
+        items={[order]}
         orderId={order.id}
       />
     </TableContainer>

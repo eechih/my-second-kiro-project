@@ -5,7 +5,7 @@ import {
   validateOptionValuesRequired,
 } from "@shared/logic/product-variant";
 import type {
-  OrderItemSelectedOptionSnapshot,
+  SelectedOptionSnapshot,
   Product,
   ProductOptionValue,
 } from "@shared/models";
@@ -57,7 +57,7 @@ export function getOrderItemDraftError(draft: OrderItemDraft): string | null {
 function buildSelectedOptionsSnapshot(
   product: Product,
   selectedValues: ProductOptionValue[],
-): OrderItemSelectedOptionSnapshot[] {
+): SelectedOptionSnapshot[] {
   if (selectedValues.length === 0) {
     return [];
   }

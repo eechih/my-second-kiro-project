@@ -36,8 +36,8 @@ function sortProductPurchaseSummaries(
   _statusFilter: ProductPurchaseStatusFilter,
 ): ProductPurchaseSummary[] {
   return [...summaries].sort((a, b) => {
-    const primaryA = a.statusQuantities.pending;
-    const primaryB = b.statusQuantities.pending;
+    const primaryA = a.statusQuantities["pending"] ?? 0;
+    const primaryB = b.statusQuantities["pending"] ?? 0;
 
     if (primaryB !== primaryA) {
       return primaryB - primaryA;

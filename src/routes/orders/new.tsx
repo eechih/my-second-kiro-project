@@ -63,22 +63,22 @@ function OrderNewPage() {
       }
 
       try {
-        await createMutation.mutateAsync({
-          customerId: value.customerId,
-          customerName: value.customerName,
-          orderItems: orderItems.map((item) => ({
+        // 每筆明細項目建立一筆獨立訂單
+        for (const item of orderItems) {
+          await createMutation.mutateAsync({
+            customerId: value.customerId,
+            customerNameSnapshot: value.customerName,
             productId: item.productId,
-            productName: item.productName,
-            productImageUrl: item.productImageUrl ?? null,
-            productSku: item.productSku,
-            variantLabel: item.variantLabel,
+            productNameSnapshot: item.productName,
+            productImageUrlSnapshot: item.productImageUrl ?? null,
+            productSkuSnapshot: item.productSku,
             selectedOptionsSnapshot: item.selectedOptionsSnapshot ?? [],
             quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            unitCost: item.unitCost ?? null,
-          })),
-        });
-        void navigate({ to: "/orders" });
+            unitPriceSnapshot: item.unitPrice,
+            unitCostSnapshot: item.unitCost ?? null,
+          });
+        }
+        void navigate({ to: "/orders", search: { customerId: undefined, customerName: undefined } });
       } catch (err) {
         setSubmitError(err instanceof Error ? err.message : "建立訂單失敗");
       }
@@ -171,7 +171,7 @@ function OrderNewPage() {
 
           <FormActions
             isSubmitting={createMutation.isPending}
-            onCancel={() => void navigate({ to: "/orders" })}
+            onCancel={() => void navigate({ to: "/orders", search: { customerId: undefined, customerName: undefined } })}
           />
         </Stack>
       </form>

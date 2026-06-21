@@ -30,31 +30,31 @@ const PRODUCT_PURCHASE_COLUMNS: readonly ProductPurchaseColumn[] = [
   { key: "cost", label: "成本", width: 96, align: "right" },
   {
     key: "pending",
-    label: ORDER_ITEM_STATUS_LABEL.pending,
+    label: ORDER_ITEM_STATUS_LABEL["PENDING"] ?? "待處理",
     width: 96,
     align: "right",
   },
   {
     key: "ordered",
-    label: ORDER_ITEM_STATUS_LABEL.ordered,
+    label: ORDER_ITEM_STATUS_LABEL["ORDERED"] ?? "已採購",
     width: 80,
     align: "right",
   },
   {
     key: "received",
-    label: ORDER_ITEM_STATUS_LABEL.received,
+    label: ORDER_ITEM_STATUS_LABEL["RECEIVED"] ?? "已到貨",
     width: 80,
     align: "right",
   },
   {
     key: "shipped",
-    label: ORDER_ITEM_STATUS_LABEL.shipped,
+    label: ORDER_ITEM_STATUS_LABEL["SHIPPED"] ?? "已出貨",
     width: 80,
     align: "right",
   },
   {
     key: "out_of_stock",
-    label: ORDER_ITEM_STATUS_LABEL.out_of_stock,
+    label: ORDER_ITEM_STATUS_LABEL["OUT_OF_STOCK"] ?? "缺貨",
     width: 80,
     align: "right",
   },
@@ -202,11 +202,11 @@ export function ProductPurchasesTable({
                       {formatCurrency(summary.cost)}
                     </TableCell>
                     {ORDER_ITEM_STATUSES.map((status) => {
-                      const value = summary.statusQuantities[status];
+                      const value = summary.statusQuantities[status] ?? 0;
 
                       return (
                         <TableCell key={status} align="right">
-                          {status === "pending" ? (
+                          {status === "PENDING" ? (
                             <Chip
                               label={value}
                               color={value > 0 ? "warning" : "default"}
