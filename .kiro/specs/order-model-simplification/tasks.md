@@ -76,17 +76,17 @@
   - [x] 5.1 刪除 `shared/logic/order-item-status.ts` 及其測試檔案；刪除 `shared/logic/order-merge.ts` 與 `shared/logic/order-split.ts` 及其測試檔案；確保 shared/logic 的 barrel export（若有 index.ts）移除對應 export
     - _Requirements: 2.1, 2.5_
 
-- [ ] 6. 重構 Amplify Data Schema
-  - [ ] 6.1 修改 `amplify/data/resource.ts`：在 Order model 中新增整合自 OrderItem 的欄位（productId、productNameSnapshot、productSkuSnapshot、productImageUrlSnapshot、selectedOptionsSnapshot、quantity、unitPriceSnapshot、unitCostSnapshot、totalPriceSnapshot、totalCostSnapshot、supplierName、purchasedAt、receivedAt、shippedAt、outOfStockAt、shipmentId）；新增 GSI（byStatus、byProductId、byShipmentId）；移除 `items: a.hasMany("OrderItem", "orderId")`
+- [x] 6. 重構 Amplify Data Schema
+  - [x] 6.1 修改 `amplify/data/resource.ts`：在 Order model 中新增整合自 OrderItem 的欄位（productId、productNameSnapshot、productSkuSnapshot、productImageUrlSnapshot、selectedOptionsSnapshot、quantity、unitPriceSnapshot、unitCostSnapshot、totalPriceSnapshot、totalCostSnapshot、supplierName、purchasedAt、receivedAt、shippedAt、outOfStockAt、shipmentId）；新增 GSI（byStatus、byProductId、byShipmentId）；移除 `items: a.hasMany("OrderItem", "orderId")`
     - _Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 9.1, 9.2, 9.3, 9.4, 9.5_
 
-  - [ ] 6.2 移除 `amplify/data/resource.ts` 中的 OrderItem model 定義、相關 enum 引用與 secondaryIndexes
+  - [x] 6.2 移除 `amplify/data/resource.ts` 中的 OrderItem model 定義、相關 enum 引用與 secondaryIndexes
     - _Requirements: 2.1_
 
-  - [ ] 6.3 在 `amplify/data/resource.ts` 中新增 Shipment model 定義，包含所有欄位（shipmentNumber、recipientName、recipientPhone、recipientAddress、status、shippingMethod、trackingNumber、actualShippingCost、shippedAt、deliveredAt、cancelledAt、note、gsiPartition、createdAtForSort）與 GSI（byShipmentNumber、byCreatedAt、byStatus）
+  - [x] 6.3 在 `amplify/data/resource.ts` 中新增 Shipment model 定義，包含所有欄位（shipmentNumber、recipientName、recipientPhone、recipientAddress、status、shippingMethod、trackingNumber、actualShippingCost、shippedAt、deliveredAt、cancelledAt、note、gsiPartition、createdAtForSort）與 GSI（byShipmentNumber、byCreatedAt、byStatus）
     - _Requirements: 4.1, 4.2, 8.1, 8.2, 8.3_
 
-  - [ ] 6.4 在 `amplify/data/resource.ts` 中新增 ShipmentStatus enum；移除 mergeOrders/splitOrder custom mutations；重構現有 custom mutations（confirmPurchase、cancelPurchase、confirmReceived、cancelReceived、confirmShipment、cancelShipment、confirmOutOfStock、cancelOutOfStock）改為接受 orderId 參數；新增 Shipment custom mutations（createShipment、confirmShipmentDispatch、confirmShipmentDelivery、cancelShipmentOrder、addOrderToShipment、removeOrderFromShipment）
+  - [x] 6.4 在 `amplify/data/resource.ts` 中新增 ShipmentStatus enum；移除 mergeOrders/splitOrder custom mutations；重構現有 custom mutations（confirmPurchase、cancelPurchase、confirmReceived、cancelReceived、confirmShipment、cancelShipment、confirmOutOfStock、cancelOutOfStock）改為接受 orderId 參數；新增 Shipment custom mutations（createShipment、confirmShipmentDispatch、confirmShipmentDelivery、cancelShipmentOrder、addOrderToShipment、removeOrderFromShipment）
     - _Requirements: 2.5, 4.1, 5.2, 5.4, 5.6, 6.3, 6.6_
 
 - [ ] 7. 重構 Order Lambda Handlers

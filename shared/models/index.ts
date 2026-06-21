@@ -31,35 +31,43 @@ export type { PreorderStatus } from "./product";
 
 export type {
   ConfirmShipmentInput,
-  CreateOrderItemInput,
   CreateOrderInput,
-  OrderItem,
-  OrderItemSelectedOptionSnapshot,
-  OrderItemStatus,
   Order,
   OrderStatus,
+  OrderFulfillmentStatus,
   PaginatedResult,
   PaymentStatus,
-  SplitAllocation,
-  SplitOrderInput,
+  SelectedOptionSnapshot,
   StatusChange,
   ValidationResult,
 } from "./order";
 
 export {
-  isOrderItemStatus,
-  ORDER_ITEM_STATUS_LABEL,
-  ORDER_ITEM_STATUSES,
-  isPaymentStatus,
+  isOrderFulfillmentStatus,
   isOrderStatus,
+  isPaymentStatus,
   normalizeLegacyOrderStatus,
-  normalizeOrderItemStatus,
   normalizeOrderStatus,
   normalizePaymentStatus,
+  ORDER_FULFILLMENT_STATUS_LABEL,
+  ORDER_FULFILLMENT_STATUSES,
   ORDER_STATUS_LABEL,
   ORDER_STATUSES,
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUSES,
 } from "./order";
+
+export type {
+  Shipment,
+  ShipmentStatus,
+  ShipmentOrderSummary,
+  CreateShipmentInput,
+} from "./shipment";
+
+export {
+  SHIPMENT_STATUSES,
+  SHIPMENT_STATUS_LABEL,
+  isShipmentStatus,
+} from "./shipment";
 
 export type { SupplierOrderSummary } from "./supplier-order-summary";

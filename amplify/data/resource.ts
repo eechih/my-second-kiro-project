@@ -1,9 +1,9 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import {
-  ORDER_ITEM_STATUSES,
-  ORDER_STATUSES,
+  ORDER_FULFILLMENT_STATUSES,
   PAYMENT_STATUSES,
 } from "@shared/models/order";
+import { SHIPMENT_STATUSES } from "@shared/models/shipment";
 import { cancelOutOfStock } from "../functions/cancel-out-of-stock/resource";
 import { cancelPurchase } from "../functions/cancel-purchase/resource";
 import { cancelReceived } from "../functions/cancel-received/resource";
@@ -13,10 +13,14 @@ import { confirmPurchase } from "../functions/confirm-purchase/resource";
 import { confirmReceived } from "../functions/confirm-received/resource";
 import { confirmShipment } from "../functions/confirm-shipment/resource";
 import { createProduct } from "../functions/create-product/resource";
+import { createShipmentFn } from "../functions/create-shipment/resource";
+import { confirmShipmentDispatch } from "../functions/confirm-shipment-dispatch/resource";
+import { confirmShipmentDelivery } from "../functions/confirm-shipment-delivery/resource";
+import { cancelShipmentOrder } from "../functions/cancel-shipment-order/resource";
+import { addOrderToShipment } from "../functions/add-order-to-shipment/resource";
+import { removeOrderFromShipment } from "../functions/remove-order-from-shipment/resource";
 import { getCustomerOrderSummaries } from "../functions/list-customer-order-summaries/resource";
 import { getProductOrderSummaries } from "../functions/list-product-order-summaries/resource";
-import { mergeOrders } from "../functions/merge-orders/resource";
-import { splitOrder } from "../functions/split-order/resource";
 
 const SORT_PARTITIONS = {
   customer: "Customer",
@@ -26,6 +30,7 @@ const SORT_PARTITIONS = {
   supplier: "Supplier",
   product: "Product",
   order: "Order",
+  shipment: "Shipment",
 } as const;
 
 const PREORDER_STATUSES = ["OPEN", "CLOSED"] as const;
@@ -52,21 +57,6 @@ function sortFields(partition: SortPartition) {
   };
 }
 
-function orderItemIdArgument() {
-  return {
-    orderItemId: a.string().required(),
-  };
-}
-
-function authenticatedOrderItemMutation(resource: FunctionResource) {
-  return a
-    .mutation()
-    .arguments(orderItemIdArgument())
-    .returns(a.json())
-    .authorization((allow) => [allow.authenticated()])
-    .handler(a.handler.function(resource));
-}
-
 function authenticatedJsonMutation<
   TArguments extends Parameters<ReturnType<typeof a.mutation>["arguments"]>[0],
 >(argumentsShape: TArguments, resource: FunctionResource) {
@@ -87,12 +77,12 @@ function authenticatedJsonQuery(resource: FunctionResource) {
 }
 
 const schema = a.schema({
-  // 訂單主狀態（沿用 shared/models/order.ts 的狀態值）
-  OrderStatus: a.enum(ORDER_STATUSES),
+  // 訂單履約狀態（沿用 shared/models/order.ts 的狀態值）
+  OrderStatus: a.enum(ORDER_FULFILLMENT_STATUSES),
   // 訂單付款狀態（沿用 shared/models/order.ts 的狀態值）
   PaymentStatus: a.enum(PAYMENT_STATUSES),
-  // 訂單明細流程狀態（沿用 shared/models/order.ts 的狀態值）
-  OrderItemStatus: a.enum(ORDER_ITEM_STATUSES),
+  // 出貨單狀態（沿用 shared/models/shipment.ts 的狀態值）
+  ShipmentStatus: a.enum(SHIPMENT_STATUSES),
 
   Customer: a
     .model({
@@ -169,7 +159,6 @@ const schema = a.schema({
       deletedAt: a.datetime(),
       ...sortFields(SORT_PARTITIONS.product),
       options: a.hasMany("ProductOption", "productId"),
-      orderItems: a.hasMany("OrderItem", "productId"),
     })
     .secondaryIndexes((index) => [
       index("sku").queryField("productBySku").name("bySku"),
@@ -229,6 +218,20 @@ const schema = a.schema({
       customerEmailSnapshot: a.string(),
       shippingAddressSnapshot: a.string(),
 
+      // 商品快照（原 OrderItem 整合）
+      productId: a.id().required(),
+      productNameSnapshot: a.string().required(),
+      productSkuSnapshot: a.string().required(),
+      productImageUrlSnapshot: a.string(),
+      selectedOptionsSnapshot: a.json(),
+
+      // 數量與金額快照（原 OrderItem 整合）
+      quantity: a.integer().required(),
+      unitPriceSnapshot: a.integer(),
+      unitCostSnapshot: a.integer(),
+      totalPriceSnapshot: a.integer(),
+      totalCostSnapshot: a.integer(),
+
       // 訂單狀態摘要
       status: a.ref("OrderStatus").required(),
       paymentStatus: a.ref("PaymentStatus"),
@@ -238,6 +241,16 @@ const schema = a.schema({
       cancelledAt: a.datetime(),
       refundedAt: a.datetime(),
       completedAt: a.datetime(),
+
+      // 採購與物流時間戳記（原 OrderItem 整合）
+      supplierName: a.string(),
+      purchasedAt: a.datetime(),
+      receivedAt: a.datetime(),
+      shippedAt: a.datetime(),
+      outOfStockAt: a.datetime(),
+
+      // 出貨單關聯
+      shipmentId: a.string(),
 
       // 金額快照
       subtotalAmount: a.integer().required(),
@@ -251,7 +264,6 @@ const schema = a.schema({
       isActive: activeFlagField(),
       deletedAt: a.datetime(),
       ...sortFields(SORT_PARTITIONS.order),
-      items: a.hasMany("OrderItem", "orderId"),
     })
     .secondaryIndexes((index) => [
       index("orderNumber").queryField("orderByNumber").name("byOrderNumber"),
@@ -267,66 +279,47 @@ const schema = a.schema({
         .sortKeys(["createdAtForSort"])
         .queryField("listOrdersByPaymentStatus")
         .name("byPaymentStatus"),
+      index("status")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listOrdersByStatus")
+        .name("byStatus"),
+      index("productId")
+        .sortKeys(["createdAtForSort"])
+        .queryField("listOrdersByProductId")
+        .name("byProductId"),
+      index("shipmentId")
+        .queryField("listOrdersByShipmentId")
+        .name("byShipmentId"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 
-  OrderItem: a
+  Shipment: a
     .model({
-      orderId: a.id().required(),
-      productId: a.id().required(),
-
-      // 訂單明細流程狀態（採購 / 入庫 / 出貨）
-      status: a.ref("OrderItemStatus").required(),
-
-      // 商品快照
-      productNameSnapshot: a.string().required(),
-      productSkuSnapshot: a.string().required(),
-      productImageUrlSnapshot: a.string(),
-
-      // 下單當下選到的規格快照
-      // 例如：
-      // [
-      //   { optionName: "顏色", valueName: "紅色", priceOffset: 0, costOffset: 0 },
-      //   { optionName: "尺寸", valueName: "XL", priceOffset: 60, costOffset: 20 }
-      // ]
-      selectedOptionsSnapshot: a.json(),
-
-      // 單價 / 成本快照
-      unitPriceSnapshot: a.integer(),
-      unitCostSnapshot: a.integer(),
-
-      quantity: a.integer().required(),
-
-      // 總額 / 總成本快照
-      totalPriceSnapshot: a.integer(),
-      totalCostSnapshot: a.integer(),
-
-      // 採購資訊
-      supplierName: a.string(),
-
-      // 明細流程時間戳記
-      purchasedAt: a.datetime(),
-      receivedAt: a.datetime(),
+      shipmentNumber: a.string().required(),
+      recipientName: a.string().required(),
+      recipientPhone: a.string(),
+      recipientAddress: a.string(),
+      status: a.ref("ShipmentStatus").required(),
+      shippingMethod: a.string(),
+      trackingNumber: a.string(),
+      actualShippingCost: a.integer().required().default(0),
       shippedAt: a.datetime(),
-      outOfStockAt: a.datetime(),
-
-      createdAtForSort: createdAtForSortField(),
-
-      order: a.belongsTo("Order", "orderId"),
-      product: a.belongsTo("Product", "productId"),
+      deliveredAt: a.datetime(),
+      cancelledAt: a.datetime(),
+      note: a.string(),
+      ...sortFields(SORT_PARTITIONS.shipment),
     })
     .secondaryIndexes((index) => [
-      index("orderId")
+      index("shipmentNumber")
+        .queryField("shipmentByNumber")
+        .name("byShipmentNumber"),
+      index("gsiPartition")
         .sortKeys(["createdAtForSort"])
-        .queryField("listOrderItemsByOrderId")
-        .name("byOrderId"),
-      index("productId")
-        .sortKeys(["createdAtForSort"])
-        .queryField("listOrderItemsByProductId")
-        .name("byProductId"),
+        .queryField("listShipmentsByCreatedDate")
+        .name("byCreatedAt"),
       index("status")
         .sortKeys(["createdAtForSort"])
-        .queryField("listOrderItemsByStatus")
+        .queryField("listShipmentsByStatus")
         .name("byStatus"),
     ])
     .authorization((allow) => [allow.authenticated()]),
@@ -424,34 +417,78 @@ const schema = a.schema({
     createProduct,
   ),
 
-  confirmPurchase: authenticatedOrderItemMutation(confirmPurchase),
-  cancelPurchase: authenticatedOrderItemMutation(cancelPurchase),
-  confirmReceived: authenticatedOrderItemMutation(confirmReceived),
-  cancelReceived: authenticatedOrderItemMutation(cancelReceived),
-  confirmShipment: authenticatedOrderItemMutation(confirmShipment),
-  cancelShipment: authenticatedOrderItemMutation(cancelShipment),
-  confirmOutOfStock: authenticatedOrderItemMutation(confirmOutOfStock),
-  cancelOutOfStock: authenticatedOrderItemMutation(cancelOutOfStock),
+  confirmPurchase: authenticatedJsonMutation(
+    { orderId: a.string().required(), supplierName: a.string().required() },
+    confirmPurchase,
+  ),
+  cancelPurchase: authenticatedJsonMutation(
+    { orderId: a.string().required() },
+    cancelPurchase,
+  ),
+  confirmReceived: authenticatedJsonMutation(
+    { orderId: a.string().required() },
+    confirmReceived,
+  ),
+  cancelReceived: authenticatedJsonMutation(
+    { orderId: a.string().required() },
+    cancelReceived,
+  ),
+  confirmShipment: authenticatedJsonMutation(
+    { orderId: a.string().required() },
+    confirmShipment,
+  ),
+  cancelShipment: authenticatedJsonMutation(
+    { orderId: a.string().required() },
+    cancelShipment,
+  ),
+  confirmOutOfStock: authenticatedJsonMutation(
+    { orderId: a.string().required() },
+    confirmOutOfStock,
+  ),
+  cancelOutOfStock: authenticatedJsonMutation(
+    { orderId: a.string().required() },
+    cancelOutOfStock,
+  ),
+
+  // Shipment mutations
+  createShipment: authenticatedJsonMutation(
+    {
+      recipientName: a.string().required(),
+      recipientPhone: a.string(),
+      recipientAddress: a.string(),
+      shippingMethod: a.string(),
+      trackingNumber: a.string(),
+      actualShippingCost: a.integer(),
+      note: a.string(),
+      orderIds: a.string().required().array().required(),
+    },
+    createShipmentFn,
+  ),
+  confirmShipmentDispatch: authenticatedJsonMutation(
+    { shipmentId: a.string().required() },
+    confirmShipmentDispatch,
+  ),
+  confirmShipmentDelivery: authenticatedJsonMutation(
+    { shipmentId: a.string().required() },
+    confirmShipmentDelivery,
+  ),
+  cancelShipmentOrder: authenticatedJsonMutation(
+    { shipmentId: a.string().required() },
+    cancelShipmentOrder,
+  ),
+  addOrderToShipment: authenticatedJsonMutation(
+    { shipmentId: a.string().required(), orderId: a.string().required() },
+    addOrderToShipment,
+  ),
+  removeOrderFromShipment: authenticatedJsonMutation(
+    { shipmentId: a.string().required(), orderId: a.string().required() },
+    removeOrderFromShipment,
+  ),
   getCustomerOrderSummaries: authenticatedJsonQuery(
     getCustomerOrderSummaries,
   ),
   getProductOrderSummaries: authenticatedJsonQuery(
     getProductOrderSummaries,
-  ),
-
-  mergeOrders: authenticatedJsonMutation(
-    {
-      orderIds: a.string().required().array().required(),
-    },
-    mergeOrders,
-  ),
-
-  splitOrder: authenticatedJsonMutation(
-    {
-      orderId: a.string().required(),
-      allocations: a.json().required(),
-    },
-    splitOrder,
   ),
 });
 
