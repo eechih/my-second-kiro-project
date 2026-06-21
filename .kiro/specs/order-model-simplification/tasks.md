@@ -115,26 +115,26 @@
   - [x] 7.8 重構 `amplify/functions/cancel-out-of-stock/handler.ts`：改為接受 `orderId`，操作 Order status 回退處理
     - _Requirements: 2.5, 3.8_
 
-- [ ] 8. 新增 Shipment Lambda Handlers
-  - [ ] 8.1 新增 `amplify/functions/create-shipment/handler.ts`：驗證 Orders 狀態皆為 RECEIVED、驗證無重複關聯、驗證數量 1–50、建立 Shipment（透過 SequenceCounter 產生 shipmentNumber）、設定各 Order 的 shipmentId
+- [x] 8. 新增 Shipment Lambda Handlers
+  - [x] 8.1 新增 `amplify/functions/create-shipment/handler.ts`：驗證 Orders 狀態皆為 RECEIVED、驗證無重複關聯、驗證數量 1–50、建立 Shipment（透過 SequenceCounter 產生 shipmentNumber）、設定各 Order 的 shipmentId
     - 使用 shared/logic/shipment-validation.ts 驗證邏輯
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 6.3, 6.4, 6.5_
 
-  - [ ] 8.2 新增 `amplify/functions/confirm-shipment-dispatch/handler.ts`：在單一 DynamoDB TransactWriteItems 中完成庫存驗證→庫存扣減→Shipment 狀態更新為 SHIPPED→所有關聯 Order 狀態更新為 SHIPPED（含 shippedAt），處理 TransactionCanceledException
+  - [x] 8.2 新增 `amplify/functions/confirm-shipment-dispatch/handler.ts`：在單一 DynamoDB TransactWriteItems 中完成庫存驗證→庫存扣減→Shipment 狀態更新為 SHIPPED→所有關聯 Order 狀態更新為 SHIPPED（含 shippedAt），處理 TransactionCanceledException
     - 使用 shared/logic/shipment-validation.ts 驗證庫存
     - 使用 shared/logic/shipment-status.ts 驗證狀態轉換
     - _Requirements: 5.2, 5.3, 5.9, 7.1, 7.2, 7.3, 7.5_
 
-  - [ ] 8.3 新增 `amplify/functions/confirm-shipment-delivery/handler.ts`：將 Shipment 狀態從 SHIPPED→DELIVERED，同時將所有關聯 Order 狀態更新為 COMPLETED（含 completedAt、deliveredAt）
+  - [x] 8.3 新增 `amplify/functions/confirm-shipment-delivery/handler.ts`：將 Shipment 狀態從 SHIPPED→DELIVERED，同時將所有關聯 Order 狀態更新為 COMPLETED（含 completedAt、deliveredAt）
     - _Requirements: 5.4, 5.5_
 
-  - [ ] 8.4 新增 `amplify/functions/cancel-shipment-order/handler.ts`：將 PENDING 狀態的 Shipment 轉為 CANCELLED，回退 Orders 狀態為 RECEIVED 並清除 shipmentId；若 Shipment 為 SHIPPED 狀態則額外回補庫存
+  - [x] 8.4 新增 `amplify/functions/cancel-shipment-order/handler.ts`：將 PENDING 狀態的 Shipment 轉為 CANCELLED，回退 Orders 狀態為 RECEIVED 並清除 shipmentId；若 Shipment 為 SHIPPED 狀態則額外回補庫存
     - _Requirements: 5.6, 5.7, 5.9, 7.4_
 
-  - [ ] 8.5 新增 `amplify/functions/add-order-to-shipment/handler.ts`：驗證 Order 狀態為 RECEIVED、未關聯其他未取消 Shipment、Shipment 為 PENDING 且未超過 50 筆，然後設定 Order.shipmentId
+  - [x] 8.5 新增 `amplify/functions/add-order-to-shipment/handler.ts`：驗證 Order 狀態為 RECEIVED、未關聯其他未取消 Shipment、Shipment 為 PENDING 且未超過 50 筆，然後設定 Order.shipmentId
     - _Requirements: 4.4, 4.5, 4.6, 6.3, 6.4, 6.5_
 
-  - [ ] 8.6 新增 `amplify/functions/remove-order-from-shipment/handler.ts`：驗證 Shipment 狀態為 PENDING，然後清除 Order.shipmentId
+  - [x] 8.6 新增 `amplify/functions/remove-order-from-shipment/handler.ts`：驗證 Shipment 狀態為 PENDING，然後清除 Order.shipmentId
     - _Requirements: 6.6, 6.7_
 
 - [ ] 9. Checkpoint — 確認 schema 與 Lambda handlers 正確
