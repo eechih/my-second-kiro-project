@@ -137,11 +137,11 @@
   - [x] 8.6 新增 `amplify/functions/remove-order-from-shipment/handler.ts`：驗證 Shipment 狀態為 PENDING，然後清除 Order.shipmentId
     - _Requirements: 6.6, 6.7_
 
-- [ ] 9. Checkpoint — 確認 schema 與 Lambda handlers 正確
+- [x] 9. Checkpoint — 確認 schema 與 Lambda handlers 正確
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. 移除過時的 Lambda Handlers
-  - [ ] 10.1 刪除 `amplify/functions/merge-orders/` 與 `amplify/functions/split-order/` 目錄；從 `amplify/backend.ts` 移除對應的 function 註冊
+- [x] 10. 移除過時的 Lambda Handlers
+  - [x] 10.1 刪除 `amplify/functions/merge-orders/` 與 `amplify/functions/split-order/` 目錄；從 `amplify/backend.ts` 移除對應的 function 註冊
     - _Requirements: 2.5_
 
 - [ ] 11. 註冊新 Lambda Functions

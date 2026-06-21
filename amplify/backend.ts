@@ -13,8 +13,6 @@ import { confirmPurchase } from "./functions/confirm-purchase/resource";
 import { confirmShipment } from "./functions/confirm-shipment/resource";
 import { confirmReceived } from "./functions/confirm-received/resource";
 import { createProduct } from "./functions/create-product/resource";
-import { mergeOrders } from "./functions/merge-orders/resource";
-import { splitOrder } from "./functions/split-order/resource";
 import { generateThumbnail } from "./functions/generate-thumbnail/resource";
 import { getCustomerOrderSummaries } from "./functions/list-customer-order-summaries/resource";
 import { getProductOrderSummaries } from "./functions/list-product-order-summaries/resource";
@@ -34,8 +32,6 @@ const backend = defineBackend({
   createProduct,
   getCustomerOrderSummaries,
   getProductOrderSummaries,
-  mergeOrders,
-  splitOrder,
   generateThumbnail,
 });
 
@@ -94,8 +90,6 @@ const transactionalFunctions = [
   backend.createProduct,
   backend.getCustomerOrderSummaries,
   backend.getProductOrderSummaries,
-  backend.mergeOrders,
-  backend.splitOrder,
 ];
 
 for (const fn of transactionalFunctions) {
