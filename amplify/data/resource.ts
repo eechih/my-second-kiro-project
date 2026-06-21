@@ -451,7 +451,7 @@ const schema = a.schema({
   ),
 
   // Shipment mutations
-  createShipment: authenticatedJsonMutation(
+  createShipmentWithOrders: authenticatedJsonMutation(
     {
       recipientName: a.string().required(),
       recipientPhone: a.string(),

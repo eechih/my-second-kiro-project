@@ -33,7 +33,7 @@ const FUNCTION_NAME = "createShipment";
  *
  * 需求：4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 6.3, 6.4, 6.5
  */
-export const handler: Schema["createShipment"]["functionHandler"] = async (
+export const handler: Schema["createShipmentWithOrders"]["functionHandler"] = async (
   event,
 ) => {
   const {
