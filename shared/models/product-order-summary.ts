@@ -1,5 +1,3 @@
-import type { OrderItemStatus } from "./order";
-
 export interface ProductOrderSummary {
   productId: string;
   productName: string;
@@ -8,7 +6,7 @@ export interface ProductOrderSummary {
   cost: number;
   supplierName: string | null;
   totalQuantity: number;
-  statusQuantities: Record<OrderItemStatus, number>;
+  statusQuantities: Record<string, number>;
   latestActivityAt?: string;
 }
 
@@ -47,11 +45,13 @@ export function normalizeProductOrderSummary(
           : null,
     totalQuantity: toInteger(raw["totalQuantity"]),
     statusQuantities: {
-      pending: toInteger(raw["pendingQuantity"]),
-      ordered: toInteger(raw["orderedQuantity"]),
-      received: toInteger(raw["receivedQuantity"]),
-      shipped: toInteger(raw["shippedQuantity"]),
-      out_of_stock: toInteger(raw["outOfStockQuantity"]),
+      PENDING: toInteger(raw["pendingQuantity"]),
+      ORDERED: toInteger(raw["orderedQuantity"]),
+      RECEIVED: toInteger(raw["receivedQuantity"]),
+      SHIPPED: toInteger(raw["shippedQuantity"]),
+      OUT_OF_STOCK: toInteger(raw["outOfStockQuantity"]),
+      COMPLETED: toInteger(raw["completedQuantity"]),
+      CANCELLED: toInteger(raw["cancelledQuantity"]),
     },
     latestActivityAt:
       raw["latestActivityAt"] != null

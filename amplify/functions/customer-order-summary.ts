@@ -288,5 +288,5 @@ export function deriveLatestShippedAtAfterTransition({
     }
 
     return latest;
-  }, undefined);
+  }, null);
 }
