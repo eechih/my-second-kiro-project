@@ -14,6 +14,7 @@ import {
   logInfo,
   logWarn,
 } from "../debug-log";
+import { buildOrderSummaryTransactItems } from "../order-summary-sync";
 
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "confirmShipmentDelivery";
@@ -33,11 +34,25 @@ export const handler: Schema["confirmShipmentDelivery"]["functionHandler"] =
 
     const orderTable = process.env["ORDER_TABLE_NAME"];
     const shipmentTable = process.env["SHIPMENT_TABLE_NAME"];
+    const customerSummaryTable =
+      process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+    const productSummaryTable = process.env["PRODUCT_ORDER_SUMMARY_TABLE_NAME"];
+    const supplierSummaryTable =
+      process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
 
-    if (!orderTable || !shipmentTable) {
+    if (
+      !orderTable ||
+      !shipmentTable ||
+      !customerSummaryTable ||
+      !productSummaryTable ||
+      !supplierSummaryTable
+    ) {
       logWarn(FUNCTION_NAME, "missing environment variables", {
         hasOrderTable: !!orderTable,
         hasShipmentTable: !!shipmentTable,
+        hasCustomerSummaryTable: !!customerSummaryTable,
+        hasProductSummaryTable: !!productSummaryTable,
+        hasSupplierSummaryTable: !!supplierSummaryTable,
       });
       return JSON.stringify({
         success: false,
@@ -102,6 +117,25 @@ export const handler: Schema["confirmShipmentDelivery"]["functionHandler"] =
 
       // 4. 建立交易
       const now = new Date().toISOString();
+      const summaryItems = await buildOrderSummaryTransactItems({
+        ddb,
+        tables: {
+          orderTable,
+          customerSummaryTable,
+          productSummaryTable,
+          supplierSummaryTable,
+        },
+        changes: orders.map((order) => ({
+          before: order,
+          after: {
+            ...order,
+            status: "COMPLETED",
+            completedAt: now,
+            updatedAt: now,
+          },
+        })),
+        now,
+      });
 
       const transactItems: NonNullable<
         ConstructorParameters<typeof TransactWriteItemsCommand>[0]
@@ -156,6 +190,8 @@ export const handler: Schema["confirmShipmentDelivery"]["functionHandler"] =
           },
         });
       }
+
+      transactItems.push(...summaryItems);
 
       // 5. 執行交易
       logDebug(FUNCTION_NAME, "executing transaction", {

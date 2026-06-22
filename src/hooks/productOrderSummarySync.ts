@@ -79,6 +79,8 @@ export async function syncProductOrderSummaryFromProduct(
       receivedQuantity: 0,
       shippedQuantity: 0,
       outOfStockQuantity: 0,
+      completedQuantity: 0,
+      cancelledQuantity: 0,
       totalQuantity: 0,
       gsiPartition: "ProductOrderSummary",
       createdAtForSort: now,

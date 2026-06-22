@@ -359,6 +359,8 @@ const schema = a.schema({
       receivedQuantity: a.integer().required().default(0),
       shippedQuantity: a.integer().required().default(0),
       outOfStockQuantity: a.integer().required().default(0),
+      completedQuantity: a.integer().required().default(0),
+      cancelledQuantity: a.integer().required().default(0),
       totalQuantity: a.integer().required().default(0),
       latestActivityAt: a.datetime(),
       ...sortFields(SORT_PARTITIONS.productOrderSummary),

@@ -16,6 +16,7 @@ import {
   logWarn,
   getTransactionCancellationReasons,
 } from "../debug-log";
+import { buildOrderSummaryTransactItems } from "../order-summary-sync";
 
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "confirmShipmentDispatch";
@@ -39,12 +40,27 @@ export const handler: Schema["confirmShipmentDispatch"]["functionHandler"] =
     const orderTable = process.env["ORDER_TABLE_NAME"];
     const productTable = process.env["PRODUCT_TABLE_NAME"];
     const shipmentTable = process.env["SHIPMENT_TABLE_NAME"];
+    const customerSummaryTable =
+      process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+    const productSummaryTable = process.env["PRODUCT_ORDER_SUMMARY_TABLE_NAME"];
+    const supplierSummaryTable =
+      process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
 
-    if (!orderTable || !productTable || !shipmentTable) {
+    if (
+      !orderTable ||
+      !productTable ||
+      !shipmentTable ||
+      !customerSummaryTable ||
+      !productSummaryTable ||
+      !supplierSummaryTable
+    ) {
       logWarn(FUNCTION_NAME, "missing environment variables", {
         hasOrderTable: !!orderTable,
         hasProductTable: !!productTable,
         hasShipmentTable: !!shipmentTable,
+        hasCustomerSummaryTable: !!customerSummaryTable,
+        hasProductSummaryTable: !!productSummaryTable,
+        hasSupplierSummaryTable: !!supplierSummaryTable,
       });
       return JSON.stringify({
         success: false,
@@ -203,6 +219,25 @@ export const handler: Schema["confirmShipmentDispatch"]["functionHandler"] =
       }
 
       const now = new Date().toISOString();
+      const summaryItems = await buildOrderSummaryTransactItems({
+        ddb,
+        tables: {
+          orderTable,
+          customerSummaryTable,
+          productSummaryTable,
+          supplierSummaryTable,
+        },
+        changes: orders.map((order) => ({
+          before: order,
+          after: {
+            ...order,
+            status: "SHIPPED",
+            shippedAt: now,
+            updatedAt: now,
+          },
+        })),
+        now,
+      });
 
       // 7. 建立 TransactWriteItems
       const transactItems: NonNullable<
@@ -277,6 +312,8 @@ export const handler: Schema["confirmShipmentDispatch"]["functionHandler"] =
           },
         });
       }
+
+      transactItems.push(...summaryItems);
 
       logDebug(FUNCTION_NAME, "executing transaction", {
         shipmentId,

@@ -13,6 +13,7 @@ import {
   logInfo,
   logWarn,
 } from "../debug-log";
+import { buildOrderSummaryTransactItems } from "../order-summary-sync";
 
 const ddb = new DynamoDBClient({});
 const FUNCTION_NAME = "cancelShipmentOrder";
@@ -34,12 +35,27 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
   const shipmentTable = process.env["SHIPMENT_TABLE_NAME"];
+  const customerSummaryTable =
+    process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+  const productSummaryTable = process.env["PRODUCT_ORDER_SUMMARY_TABLE_NAME"];
+  const supplierSummaryTable =
+    process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
 
-  if (!orderTable || !productTable || !shipmentTable) {
+  if (
+    !orderTable ||
+    !productTable ||
+    !shipmentTable ||
+    !customerSummaryTable ||
+    !productSummaryTable ||
+    !supplierSummaryTable
+  ) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
       hasOrderTable: !!orderTable,
       hasProductTable: !!productTable,
       hasShipmentTable: !!shipmentTable,
+      hasCustomerSummaryTable: !!customerSummaryTable,
+      hasProductSummaryTable: !!productSummaryTable,
+      hasSupplierSummaryTable: !!supplierSummaryTable,
     });
     return JSON.stringify({
       success: false,
@@ -97,6 +113,26 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
     });
 
     const now = new Date().toISOString();
+    const summaryItems = await buildOrderSummaryTransactItems({
+      ddb,
+      tables: {
+        orderTable,
+        customerSummaryTable,
+        productSummaryTable,
+        supplierSummaryTable,
+      },
+      changes: orders.map((order) => ({
+        before: order,
+        after: {
+          ...order,
+          status: "RECEIVED",
+          shipmentId: null,
+          ...(currentStatus === "SHIPPED" ? { shippedAt: null } : {}),
+          updatedAt: now,
+        },
+      })),
+      now,
+    });
 
     // 4. 建立交易項目
     const transactItems: NonNullable<
@@ -188,6 +224,8 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
         });
       }
     }
+
+    transactItems.push(...summaryItems);
 
     // 4c. 若 Shipment 為 SHIPPED，回補庫存
     if (currentStatus === "SHIPPED") {

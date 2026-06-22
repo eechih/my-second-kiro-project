@@ -8,6 +8,7 @@ import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { isValidOrderStatusTransition } from "@shared/logic/order-status";
 import type { OrderFulfillmentStatus } from "@shared/models/order";
 import { isOrderFulfillmentStatus } from "@shared/models/order";
+import { buildOrderSummaryTransactItems } from "../order-summary-sync";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -36,11 +37,25 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
 
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
+  const customerSummaryTable =
+    process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+  const productSummaryTable = process.env["PRODUCT_ORDER_SUMMARY_TABLE_NAME"];
+  const supplierSummaryTable =
+    process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
 
-  if (!orderTable || !productTable) {
+  if (
+    !orderTable ||
+    !productTable ||
+    !customerSummaryTable ||
+    !productSummaryTable ||
+    !supplierSummaryTable
+  ) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
       hasOrderTable: !!orderTable,
       hasProductTable: !!productTable,
+      hasCustomerSummaryTable: !!customerSummaryTable,
+      hasProductSummaryTable: !!productSummaryTable,
+      hasSupplierSummaryTable: !!supplierSummaryTable,
     });
     return JSON.stringify({
       success: false,
@@ -109,6 +124,23 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
     }
 
     const now = new Date().toISOString();
+    const nextOrder = {
+      ...order,
+      status: targetStatus,
+      receivedAt: now,
+      updatedAt: now,
+    };
+    const summaryItems = await buildOrderSummaryTransactItems({
+      ddb,
+      tables: {
+        orderTable,
+        customerSummaryTable,
+        productSummaryTable,
+        supplierSummaryTable,
+      },
+      changes: [{ before: order, after: nextOrder }],
+      now,
+    });
 
     // 4. 建立 statusHistory 記錄
     const existingHistory = Array.isArray(order["statusHistory"])
@@ -166,6 +198,7 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
               }),
             },
           },
+          ...summaryItems,
         ],
       }),
     );

@@ -583,6 +583,8 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
                 receivedQuantity: productSummary.receivedQuantity,
                 shippedQuantity: productSummary.shippedQuantity,
                 outOfStockQuantity: productSummary.outOfStockQuantity,
+                completedQuantity: 0,
+                cancelledQuantity: 0,
                 totalQuantity: productSummary.totalQuantity,
                 latestActivityAt: productSummary.latestActivityAt,
                 gsiPartition: "ProductOrderSummary",

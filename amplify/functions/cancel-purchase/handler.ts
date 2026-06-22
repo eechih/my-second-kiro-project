@@ -7,6 +7,7 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import type { OrderFulfillmentStatus } from "@shared/models/order";
 import { isOrderFulfillmentStatus } from "@shared/models/order";
+import { buildOrderSummaryTransactItems } from "../order-summary-sync";
 import {
   getTransactionCancellationReasons,
   logDebug,
@@ -36,10 +37,23 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
   logInfo(FUNCTION_NAME, "handler started", { orderId });
 
   const orderTable = process.env["ORDER_TABLE_NAME"];
+  const customerSummaryTable =
+    process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+  const productSummaryTable = process.env["PRODUCT_ORDER_SUMMARY_TABLE_NAME"];
+  const supplierSummaryTable =
+    process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
 
-  if (!orderTable) {
+  if (
+    !orderTable ||
+    !customerSummaryTable ||
+    !productSummaryTable ||
+    !supplierSummaryTable
+  ) {
     logWarn(FUNCTION_NAME, "missing environment variables", {
       hasOrderTable: !!orderTable,
+      hasCustomerSummaryTable: !!customerSummaryTable,
+      hasProductSummaryTable: !!productSummaryTable,
+      hasSupplierSummaryTable: !!supplierSummaryTable,
     });
     return JSON.stringify({
       success: false,
@@ -96,6 +110,24 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
     }
 
     const now = new Date().toISOString();
+    const nextOrder = {
+      ...order,
+      status: targetStatus,
+      purchasedAt: null,
+      supplierName: null,
+      updatedAt: now,
+    };
+    const summaryItems = await buildOrderSummaryTransactItems({
+      ddb,
+      tables: {
+        orderTable,
+        customerSummaryTable,
+        productSummaryTable,
+        supplierSummaryTable,
+      },
+      changes: [{ before: order, after: nextOrder }],
+      now,
+    });
 
     // 4. 建立 statusHistory 記錄
     const existingHistory = Array.isArray(order["statusHistory"])
@@ -136,6 +168,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
               }),
             },
           },
+          ...summaryItems,
         ],
       }),
     );
