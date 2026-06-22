@@ -13,29 +13,56 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import TableSortLabel from "@mui/material/TableSortLabel";
 import Typography from "@mui/material/Typography";
 import {
   ORDER_FULFILLMENT_STATUSES,
   ORDER_ITEM_STATUS_LABEL,
   type OrderFulfillmentStatus,
 } from "@shared/models";
+import { useMemo, useState } from "react";
 
-type ProductPurchaseColumn = {
-  key: string;
-  label: string;
-  width?: number;
-  align?: "left" | "right" | "center";
-};
-
-const PRODUCT_PURCHASE_BASE_COLUMNS: readonly ProductPurchaseColumn[] = [
-  { key: "name", label: "商品", width: undefined, align: undefined },
-  { key: "supplier", label: "供應商", width: 120, align: undefined },
-  { key: "price", label: "售價", width: 96, align: "right" },
-  { key: "cost", label: "成本", width: 96, align: "right" },
-];
+type SortKey = "sku" | "supplier" | "pending" | "ordered";
+type SortDirection = "asc" | "desc";
 
 const PRODUCT_PURCHASE_STATUS_COLUMNS: readonly OrderFulfillmentStatus[] =
   ORDER_FULFILLMENT_STATUSES;
+
+function compareSummaries(
+  a: ProductPurchaseSummary,
+  b: ProductPurchaseSummary,
+  sortKey: SortKey,
+  direction: SortDirection,
+): number {
+  let result = 0;
+
+  switch (sortKey) {
+    case "sku":
+      result = (a.productSku ?? "").localeCompare(
+        b.productSku ?? "",
+        "zh-Hant",
+      );
+      break;
+    case "supplier":
+      result = (a.supplierName ?? "").localeCompare(
+        b.supplierName ?? "",
+        "zh-Hant",
+      );
+      break;
+    case "pending":
+      result =
+        (a.statusQuantities["PENDING"] ?? 0) -
+        (b.statusQuantities["PENDING"] ?? 0);
+      break;
+    case "ordered":
+      result =
+        (a.statusQuantities["ORDERED"] ?? 0) -
+        (b.statusQuantities["ORDERED"] ?? 0);
+      break;
+  }
+
+  return direction === "desc" ? -result : result;
+}
 
 export interface ProductPurchasesTableProps {
   summaries: ProductPurchaseSummary[];
@@ -48,6 +75,9 @@ export function ProductPurchasesTable({
   isLoading,
   onSelectProduct,
 }: ProductPurchasesTableProps): React.ReactElement {
+  const [sortKey, setSortKey] = useState<SortKey>("pending");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
   const imageKeys = Array.from(
     new Set(
       summaries
@@ -59,6 +89,23 @@ export function ProductPurchasesTable({
   const thumbnailUrlMap = new Map(
     imageKeys.map((key, index) => [key, thumbnailUrls[index] ?? undefined]),
   );
+
+  const sortedSummaries = useMemo(
+    () =>
+      [...summaries].sort((a, b) =>
+        compareSummaries(a, b, sortKey, sortDirection),
+      ),
+    [summaries, sortKey, sortDirection],
+  );
+
+  const handleSort = (key: SortKey): void => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection(key === "sku" || key === "supplier" ? "asc" : "desc");
+    }
+  };
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -77,27 +124,63 @@ export function ProductPurchasesTable({
           <Table size="small" sx={listTableBodyTextSx}>
             <TableHead>
               <TableRow>
-                {PRODUCT_PURCHASE_BASE_COLUMNS.map((column) => (
-                  <TableCell
-                    key={column.key}
-                    align={column.align}
-                    sx={{ width: column.width }}
+                <TableCell>
+                  <TableSortLabel
+                    active={sortKey === "sku"}
+                    direction={sortKey === "sku" ? sortDirection : "asc"}
+                    onClick={() => handleSort("sku")}
                   >
-                    {column.label}
-                  </TableCell>
-                ))}
-                {PRODUCT_PURCHASE_STATUS_COLUMNS.map((status) => (
-                  <TableCell key={status} align="right" sx={{ width: 80 }}>
-                    {ORDER_ITEM_STATUS_LABEL[status] ?? status}
-                  </TableCell>
-                ))}
+                    商品
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ width: 120 }}>
+                  <TableSortLabel
+                    active={sortKey === "supplier"}
+                    direction={sortKey === "supplier" ? sortDirection : "asc"}
+                    onClick={() => handleSort("supplier")}
+                  >
+                    供應商
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell align="right" sx={{ width: 96 }}>
+                  售價
+                </TableCell>
+                <TableCell align="right" sx={{ width: 96 }}>
+                  成本
+                </TableCell>
+                {PRODUCT_PURCHASE_STATUS_COLUMNS.map((status) => {
+                  const isSortable =
+                    status === "PENDING" || status === "ORDERED";
+                  const key =
+                    status === "PENDING"
+                      ? "pending"
+                      : status === "ORDERED"
+                        ? "ordered"
+                        : null;
+
+                  return (
+                    <TableCell key={status} align="right" sx={{ width: 80 }}>
+                      {isSortable && key ? (
+                        <TableSortLabel
+                          active={sortKey === key}
+                          direction={sortKey === key ? sortDirection : "desc"}
+                          onClick={() => handleSort(key)}
+                        >
+                          {ORDER_ITEM_STATUS_LABEL[status] ?? status}
+                        </TableSortLabel>
+                      ) : (
+                        (ORDER_ITEM_STATUS_LABEL[status] ?? status)
+                      )}
+                    </TableCell>
+                  );
+                })}
                 <TableCell align="right" sx={{ width: 96 }}>
                   有效總計
                 </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {summaries.map((summary) => {
+              {sortedSummaries.map((summary) => {
                 const thumbnailUrl = summary.productImageUrl
                   ? thumbnailUrlMap.get(summary.productImageUrl)
                   : undefined;
