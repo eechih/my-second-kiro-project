@@ -23,7 +23,7 @@ const FUNCTION_NAME = "cancelPurchase";
  * 取消採購 Lambda 函式
  *
  * 將 Order 的 status 從 ORDERED 回退為 PENDING，
- * 清除 purchasedAt 與 supplierName，並附加 statusHistory 記錄。
+ * 清除 purchasedAt，保留 supplierName，並附加 statusHistory 記錄。
  *
  * 注意：ORDERED→PENDING 為回退操作，不在正向狀態轉換表內，
  * 此處直接驗證目前狀態為 ORDERED 後手動回退。
@@ -114,7 +114,6 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
       ...order,
       status: targetStatus,
       purchasedAt: null,
-      supplierName: null,
       updatedAt: now,
     };
     const summaryItems = await buildOrderSummaryTransactItems({
@@ -142,7 +141,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
       },
     ];
 
-    // 5. 執行交易：status → PENDING，清除 purchasedAt 與 supplierName，更新 statusHistory
+    // 5. 執行交易：status → PENDING，清除 purchasedAt，更新 statusHistory
     logDebug(FUNCTION_NAME, "executing transaction", {
       orderId,
       currentStatus,
@@ -157,7 +156,7 @@ export const handler: Schema["cancelPurchase"]["functionHandler"] = async (
               TableName: orderTable,
               Key: marshall({ id: orderId }),
               UpdateExpression:
-                "SET #st = :newStatus, statusHistory = :history, updatedAt = :now REMOVE purchasedAt, supplierName",
+                "SET #st = :newStatus, statusHistory = :history, updatedAt = :now REMOVE purchasedAt",
               ConditionExpression: "#st = :ordered",
               ExpressionAttributeNames: { "#st": "status" },
               ExpressionAttributeValues: marshall({

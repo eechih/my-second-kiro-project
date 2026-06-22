@@ -1137,11 +1137,25 @@ function invalidateProductOrderSummaryQueries(
   void queryClient.invalidateQueries({ queryKey: ["product-purchases"] });
 }
 
+function invalidateProductOrderItemQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+): void {
+  void queryClient.invalidateQueries({
+    queryKey: ORDER_KEYS.productItems(),
+  });
+  void queryClient.invalidateQueries({
+    queryKey: ORDER_KEYS.allProductItems(),
+  });
+}
+
 function invalidateSupplierReceivingQueries(
   queryClient: ReturnType<typeof useQueryClient>,
 ): void {
   void queryClient.invalidateQueries({
     queryKey: SUPPLIER_RECEIVING_KEYS.all,
+  });
+  void queryClient.invalidateQueries({
+    queryKey: ORDER_KEYS.supplierItems(),
   });
 }
 
@@ -1408,6 +1422,7 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateProductOrderItemQueries(queryClient);
       invalidateProductOrderSummaryQueries(queryClient);
       invalidateSupplierReceivingQueries(queryClient);
       if (input.flag === "received" || input.flag === "shipped") {
@@ -1688,6 +1703,7 @@ export function useAddOrderItemToOrder(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateProductOrderItemQueries(queryClient);
       invalidateProductOrderSummaryQueries(queryClient);
       invalidateSupplierReceivingQueries(queryClient);
     },
@@ -1723,6 +1739,7 @@ export function useUpdateOrderItemInOrder(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateProductOrderItemQueries(queryClient);
       invalidateProductOrderSummaryQueries(queryClient);
       invalidateSupplierReceivingQueries(queryClient);
     },
@@ -1755,6 +1772,7 @@ export function useDeleteOrderItemFromOrder(): UseMutationResult<
         queryKey: ORDER_KEYS.detail(input.orderId),
       });
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      invalidateProductOrderItemQueries(queryClient);
       invalidateProductOrderSummaryQueries(queryClient);
       invalidateSupplierReceivingQueries(queryClient);
     },
