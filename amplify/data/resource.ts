@@ -350,6 +350,7 @@ const schema = a.schema({
     .model({
       productId: a.id().required(),
       productNameSnapshot: a.string().required(),
+      productSkuSnapshot: a.string(),
       productImageUrlSnapshot: a.string(),
       priceSnapshot: a.integer().required().default(0),
       costSnapshot: a.integer().required().default(0),

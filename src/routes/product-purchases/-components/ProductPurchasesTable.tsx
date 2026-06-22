@@ -160,7 +160,7 @@ export function ProductPurchasesTable({
                             {summary.productName}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            點選查看作業明細
+                            {summary.productSku || "—"}
                           </Typography>
                         </Box>
                       </Stack>

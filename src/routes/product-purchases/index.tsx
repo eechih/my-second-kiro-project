@@ -81,9 +81,7 @@ function ProductPurchasesPage(): React.ReactElement {
           : true,
       )
       .filter((summary) =>
-        keyword
-          ? matchesProductPurchaseKeyword(summary, keyword)
-          : true,
+        keyword ? matchesProductPurchaseKeyword(summary, keyword) : true,
       );
   }, [data, search, statusFilter, supplierFilter]);
 
@@ -156,10 +154,12 @@ function matchesProductPurchaseKeyword(
   keyword: string,
 ): boolean {
   const productName = summary.productName.toLowerCase();
+  const productSku = summary.productSku?.toLowerCase() ?? "";
   const supplierName = summary.supplierName?.toLowerCase() ?? "";
 
   return (
     productName.includes(keyword) ||
+    productSku.includes(keyword) ||
     supplierName.includes(keyword)
   );
 }

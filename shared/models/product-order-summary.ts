@@ -1,6 +1,7 @@
 export interface ProductOrderSummary {
   productId: string;
   productName: string;
+  productSku: string | null;
   productImageUrl: string | null;
   price: number;
   cost: number;
@@ -29,6 +30,12 @@ export function normalizeProductOrderSummary(
     productName: String(
       raw["productName"] ?? raw["productNameSnapshot"] ?? "未命名商品",
     ),
+    productSku:
+      raw["productSku"] != null
+        ? String(raw["productSku"])
+        : raw["productSkuSnapshot"] != null
+          ? String(raw["productSkuSnapshot"])
+          : null,
     productImageUrl:
       raw["productImageUrl"] != null
         ? String(raw["productImageUrl"])

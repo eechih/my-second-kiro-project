@@ -327,7 +327,10 @@ function aggregateSupplierOrderSummary(
   );
 }
 
-function summaryCreatedAt(existingSummary: RawOrder | null, now: string): string {
+function summaryCreatedAt(
+  existingSummary: RawOrder | null,
+  now: string,
+): string {
   return String(
     existingSummary?.["createdAtForSort"] ??
       existingSummary?.["createdAt"] ??
@@ -419,6 +422,11 @@ export async function buildOrderSummaryTransactItems({
             snapshotOrder?.["productNameSnapshot"] ??
               existingSummary?.["productNameSnapshot"] ??
               "未命名商品",
+          ),
+          productSkuSnapshot: String(
+            snapshotOrder?.["productSkuSnapshot"] ??
+              existingSummary?.["productSkuSnapshot"] ??
+              "",
           ),
           productImageUrlSnapshot:
             snapshotOrder?.["productImageUrlSnapshot"] ??
