@@ -21,7 +21,7 @@ import {
 } from "@shared/models";
 import { useMemo, useState } from "react";
 
-type SortKey = "sku" | "supplier" | "pending" | "ordered";
+type SortKey = "sku" | "supplier" | "pending" | "ordered" | "lastUpdated";
 type SortDirection = "asc" | "desc";
 
 const PRODUCT_PURCHASE_STATUS_COLUMNS: readonly OrderFulfillmentStatus[] = [
@@ -60,6 +60,11 @@ function compareSummaries(
       result =
         (a.statusQuantities["ORDERED"] ?? 0) -
         (b.statusQuantities["ORDERED"] ?? 0);
+      break;
+    case "lastUpdated":
+      result = (a.latestActivityAt ?? "").localeCompare(
+        b.latestActivityAt ?? "",
+      );
       break;
   }
 
@@ -180,7 +185,15 @@ export function ProductPurchasesTable({
                   align="center"
                   sx={{ width: 120, whiteSpace: "nowrap" }}
                 >
-                  最後更新
+                  <TableSortLabel
+                    active={sortKey === "lastUpdated"}
+                    direction={
+                      sortKey === "lastUpdated" ? sortDirection : "desc"
+                    }
+                    onClick={() => handleSort("lastUpdated")}
+                  >
+                    最後更新
+                  </TableSortLabel>
                 </TableCell>
               </TableRow>
             </TableHead>
