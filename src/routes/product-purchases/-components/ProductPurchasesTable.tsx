@@ -16,7 +16,6 @@ import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import Typography from "@mui/material/Typography";
 import {
-  ORDER_FULFILLMENT_STATUSES,
   ORDER_ITEM_STATUS_LABEL,
   type OrderFulfillmentStatus,
 } from "@shared/models";
@@ -25,8 +24,11 @@ import { useMemo, useState } from "react";
 type SortKey = "sku" | "supplier" | "pending" | "ordered";
 type SortDirection = "asc" | "desc";
 
-const PRODUCT_PURCHASE_STATUS_COLUMNS: readonly OrderFulfillmentStatus[] =
-  ORDER_FULFILLMENT_STATUSES;
+const PRODUCT_PURCHASE_STATUS_COLUMNS: readonly OrderFulfillmentStatus[] = [
+  "PENDING",
+  "ORDERED",
+  "RECEIVED",
+];
 
 function compareSummaries(
   a: ProductPurchaseSummary,
@@ -174,9 +176,6 @@ export function ProductPurchasesTable({
                     </TableCell>
                   );
                 })}
-                <TableCell align="right" sx={{ width: 96 }}>
-                  有效總計
-                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -286,7 +285,6 @@ export function ProductPurchasesTable({
                         </TableCell>
                       );
                     })}
-                    <TableCell align="right">{summary.totalQuantity}</TableCell>
                   </TableRow>
                 );
               })}
