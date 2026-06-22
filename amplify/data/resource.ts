@@ -427,7 +427,7 @@ const schema = a.schema({
     confirmPurchase,
   ),
   cancelPurchase: authenticatedJsonMutation(
-    { orderId: a.string().required() },
+    { orderIds: a.string().array().required() },
     cancelPurchase,
   ),
   confirmReceived: authenticatedJsonMutation(
@@ -447,11 +447,11 @@ const schema = a.schema({
     cancelShipment,
   ),
   confirmOutOfStock: authenticatedJsonMutation(
-    { orderId: a.string().required() },
+    { orderIds: a.string().array().required() },
     confirmOutOfStock,
   ),
   cancelOutOfStock: authenticatedJsonMutation(
-    { orderId: a.string().required() },
+    { orderIds: a.string().array().required() },
     cancelOutOfStock,
   ),
 
@@ -489,12 +489,8 @@ const schema = a.schema({
     { shipmentId: a.string().required(), orderId: a.string().required() },
     removeOrderFromShipment,
   ),
-  getCustomerOrderSummaries: authenticatedJsonQuery(
-    getCustomerOrderSummaries,
-  ),
-  getProductOrderSummaries: authenticatedJsonQuery(
-    getProductOrderSummaries,
-  ),
+  getCustomerOrderSummaries: authenticatedJsonQuery(getCustomerOrderSummaries),
+  getProductOrderSummaries: authenticatedJsonQuery(getProductOrderSummaries),
 });
 
 export type Schema = ClientSchema<typeof schema>;

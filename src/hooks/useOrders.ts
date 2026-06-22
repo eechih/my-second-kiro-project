@@ -204,7 +204,7 @@ type MarkProcurementInput = {
 };
 
 type CancelProcurementInput = {
-  orderId: string;
+  orderIds: string[];
 };
 
 type ConfirmShipmentBaseInput = {
@@ -221,17 +221,17 @@ type SingleOrderItemStatusFlagInput = {
   orderIds?: never;
 };
 
-type BatchConfirmPurchaseStatusFlagInput = {
+type BatchOrderItemStatusFlagInput = {
   orderIds: string[];
-  flag: "ordered";
-  checked: true;
+  flag: "ordered" | "outOfStock";
+  checked: boolean;
   orderId?: never;
   orderItemId?: never;
 };
 
 type UpdateOrderItemStatusFlagInput =
   | SingleOrderItemStatusFlagInput
-  | BatchConfirmPurchaseStatusFlagInput;
+  | BatchOrderItemStatusFlagInput;
 
 type CachedOrderSnapshot = {
   orderId: string;
@@ -243,9 +243,9 @@ type StatusFlagMutationContext = {
   supplierNames: Array<string | null | undefined>;
 };
 
-function isBatchConfirmPurchaseStatusFlagInput(
+function isBatchOrderItemStatusFlagInput(
   input: UpdateOrderItemStatusFlagInput,
-): input is BatchConfirmPurchaseStatusFlagInput {
+): input is BatchOrderItemStatusFlagInput {
   return Array.isArray(input.orderIds);
 }
 
@@ -257,10 +257,9 @@ function buildOrderFilter({
   search,
   customerId,
   status,
-}: Pick<OrderListParams, "search" | "customerId" | "status">): Record<
-  string,
-  unknown
-> | undefined {
+}: Pick<OrderListParams, "search" | "customerId" | "status">):
+  | Record<string, unknown>
+  | undefined {
   const conditions: Record<string, unknown>[] = [];
 
   if (customerId) {
@@ -311,22 +310,21 @@ async function fetchOrderList(
 ): Promise<PaginatedResult<string>> {
   const listParams = buildOrderListParams(params);
 
-  const { data, errors, nextToken } =
-    params.customerId
-      ? await client.models.Order.listOrdersByCustomer(
-          { customerId: params.customerId },
-          {
-            sortDirection: "DESC",
-            ...listParams,
-          } as Record<string, unknown>,
-        )
-      : await client.models.Order.listOrdersByCreatedDate(
-          { gsiPartition: "Order" },
-          {
-            sortDirection: "DESC",
-            ...listParams,
-          } as Record<string, unknown>,
-        );
+  const { data, errors, nextToken } = params.customerId
+    ? await client.models.Order.listOrdersByCustomer(
+        { customerId: params.customerId },
+        {
+          sortDirection: "DESC",
+          ...listParams,
+        } as Record<string, unknown>,
+      )
+    : await client.models.Order.listOrdersByCreatedDate(
+        { gsiPartition: "Order" },
+        {
+          sortDirection: "DESC",
+          ...listParams,
+        } as Record<string, unknown>,
+      );
 
   if (errors && errors.length > 0) {
     throw new Error(errors[0]?.message ?? "查詢訂單列表失敗");
@@ -375,16 +373,16 @@ export async function fetchAllCustomerOrders(
   let nextToken: string | undefined;
 
   do {
-    const { data, errors, nextToken: responseNextToken } =
-      await client.models.Order.listOrdersByCustomer(
-        { customerId },
-        {
-          sortDirection: "DESC",
-          limit: 100,
-          ...(nextToken ? { nextToken } : {}),
-          selectionSet: ORDER_DETAIL_SELECTION_SET,
-        } as Record<string, unknown>,
-      );
+    const {
+      data,
+      errors,
+      nextToken: responseNextToken,
+    } = await client.models.Order.listOrdersByCustomer({ customerId }, {
+      sortDirection: "DESC",
+      limit: 100,
+      ...(nextToken ? { nextToken } : {}),
+      selectionSet: ORDER_DETAIL_SELECTION_SET,
+    } as Record<string, unknown>);
 
     if (errors && errors.length > 0) {
       throw new Error(errors[0]?.message ?? "查詢客戶訂單失敗");
@@ -569,10 +567,7 @@ function buildSupplierOrderItemFilter({
   const statusFilter = status
     ? { status: { eq: status } }
     : {
-        or: [
-          { status: { eq: "ORDERED" } },
-          { status: { eq: "RECEIVED" } },
-        ],
+        or: [{ status: { eq: "ORDERED" } }, { status: { eq: "RECEIVED" } }],
       };
 
   return {
@@ -722,16 +717,13 @@ function mapToOrder(raw: Record<string, unknown>): Order {
   };
 }
 
-function parseSelectedOptionsSnapshot(
-  raw: unknown,
-): SelectedOptionSnapshot[] {
+function parseSelectedOptionsSnapshot(raw: unknown): SelectedOptionSnapshot[] {
   if (!raw) {
     return [];
   }
 
   try {
-    const parsed =
-      typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
+    const parsed = typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
 
     if (!Array.isArray(parsed)) {
       return [];
@@ -748,12 +740,13 @@ function parseSelectedOptionsSnapshot(
         priceOffset: Number(item.priceOffset ?? 0),
         costOffset: Number(item.costOffset ?? 0),
       }))
-      .filter((item) => item.optionName.length > 0 && item.valueName.length > 0);
+      .filter(
+        (item) => item.optionName.length > 0 && item.valueName.length > 0,
+      );
   } catch {
     return [];
   }
 }
-
 
 async function createOrder(input: CreateOrderInput): Promise<Order> {
   const quantity = input.quantity;
@@ -996,11 +989,16 @@ async function cancelReceived(input: ConfirmReceivedInput): Promise<Order> {
   return fetchOrder(input.orderId);
 }
 
-async function confirmOutOfStock(
-  input: { orderId: string },
-): Promise<Order> {
+async function confirmOutOfStock(input: {
+  orderIds: string[];
+}): Promise<Order> {
+  const resultOrderId = input.orderIds[0];
+  if (!resultOrderId) {
+    throw new Error("請指定要確認缺貨的訂單");
+  }
+
   const { data: result, errors } = await client.mutations.confirmOutOfStock({
-    orderId: input.orderId,
+    orderIds: input.orderIds,
   });
 
   if (errors && errors.length > 0) {
@@ -1009,14 +1007,17 @@ async function confirmOutOfStock(
 
   assertCustomMutationSuccess(result, "確認缺貨失敗");
 
-  return fetchOrder(input.orderId);
+  return fetchOrder(resultOrderId);
 }
 
-async function cancelOutOfStock(
-  input: { orderId: string },
-): Promise<Order> {
+async function cancelOutOfStock(input: { orderIds: string[] }): Promise<Order> {
+  const resultOrderId = input.orderIds[0];
+  if (!resultOrderId) {
+    throw new Error("請指定要取消缺貨的訂單");
+  }
+
   const { data: result, errors } = await client.mutations.cancelOutOfStock({
-    orderId: input.orderId,
+    orderIds: input.orderIds,
   });
 
   if (errors && errors.length > 0) {
@@ -1025,12 +1026,10 @@ async function cancelOutOfStock(
 
   assertCustomMutationSuccess(result, "取消缺貨失敗");
 
-  return fetchOrder(input.orderId);
+  return fetchOrder(resultOrderId);
 }
 
-async function confirmPurchase(
-  input: { orderIds: string[] },
-): Promise<Order> {
+async function confirmPurchase(input: { orderIds: string[] }): Promise<Order> {
   const resultOrderId = input.orderIds[0];
   if (!resultOrderId) {
     throw new Error("請指定要確認採購的訂單");
@@ -1057,8 +1056,13 @@ async function markProcurement(input: MarkProcurementInput): Promise<Order> {
 async function cancelProcurement(
   input: CancelProcurementInput,
 ): Promise<Order> {
+  const resultOrderId = input.orderIds[0];
+  if (!resultOrderId) {
+    throw new Error("請指定要取消採購的訂單");
+  }
+
   const { data: result, errors } = await client.mutations.cancelPurchase({
-    orderId: input.orderId,
+    orderIds: input.orderIds,
   });
 
   if (errors && errors.length > 0) {
@@ -1067,20 +1071,28 @@ async function cancelProcurement(
 
   assertCustomMutationSuccess(result, "取消採購失敗");
 
-  return fetchOrder(input.orderId);
+  return fetchOrder(resultOrderId);
 }
 
 async function updateOrderItemStatusFlag(
   input: UpdateOrderItemStatusFlagInput,
 ): Promise<Order> {
-  if (isBatchConfirmPurchaseStatusFlagInput(input)) {
-    return confirmPurchase({ orderIds: input.orderIds });
+  if (isBatchOrderItemStatusFlagInput(input)) {
+    if (input.flag === "ordered") {
+      return input.checked
+        ? confirmPurchase({ orderIds: input.orderIds })
+        : cancelProcurement({ orderIds: input.orderIds });
+    }
+
+    return input.checked
+      ? confirmOutOfStock({ orderIds: input.orderIds })
+      : cancelOutOfStock({ orderIds: input.orderIds });
   }
 
   if (input.flag === "ordered") {
     return input.checked
       ? confirmPurchase({ orderIds: [input.orderId] })
-      : cancelProcurement({ orderId: input.orderId });
+      : cancelProcurement({ orderIds: [input.orderId] });
   }
 
   if (input.flag === "received") {
@@ -1097,8 +1109,8 @@ async function updateOrderItemStatusFlag(
 
   if (input.flag === "outOfStock") {
     return input.checked
-      ? confirmOutOfStock({ orderId: input.orderId })
-      : cancelOutOfStock({ orderId: input.orderId });
+      ? confirmOutOfStock({ orderIds: [input.orderId] })
+      : cancelOutOfStock({ orderIds: [input.orderId] });
   }
 
   throw new Error("不支援的明細狀態操作");
@@ -1198,7 +1210,7 @@ function invalidateSupplierReceivingQueries(
 function orderIdsFromStatusFlagInput(
   input: UpdateOrderItemStatusFlagInput,
 ): string[] {
-  const orderIds = isBatchConfirmPurchaseStatusFlagInput(input)
+  const orderIds = isBatchOrderItemStatusFlagInput(input)
     ? input.orderIds
     : [input.orderId];
 
@@ -1265,7 +1277,9 @@ export function useProductOrderItemList(
   });
 }
 
-export function useProductOrderSummaries(): UseQueryResult<ProductOrderSummary[]> {
+export function useProductOrderSummaries(): UseQueryResult<
+  ProductOrderSummary[]
+> {
   return useQuery({
     queryKey: ORDER_KEYS.productOrderSummaries(),
     queryFn: fetchProductOrderSummaries,
@@ -1454,9 +1468,10 @@ export function useCancelProcurement(): UseMutationResult<
   return useMutation({
     mutationFn: cancelProcurement,
     onMutate: (input) => {
-      const previousOrder = queryClient.getQueryData<Order>(
-        ORDER_KEYS.detail(input.orderId),
-      );
+      const resultOrderId = input.orderIds[0];
+      const previousOrder = resultOrderId
+        ? queryClient.getQueryData<Order>(ORDER_KEYS.detail(resultOrderId))
+        : undefined;
 
       return {
         previousSupplierName: previousOrder?.supplierName ?? null,
@@ -1464,9 +1479,11 @@ export function useCancelProcurement(): UseMutationResult<
     },
     onSuccess: async (_order, input, context) => {
       await syncSupplierOrderSummariesByNames([context?.previousSupplierName]);
-      void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(input.orderId),
-      });
+      for (const orderId of input.orderIds) {
+        void queryClient.invalidateQueries({
+          queryKey: ORDER_KEYS.detail(orderId),
+        });
+      }
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderSummaryQueries(queryClient);
       invalidateSupplierReceivingQueries(queryClient);
@@ -1623,9 +1640,10 @@ export function useSplitOrder(): UseMutationResult<
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (
-      _input: { orderId: string; allocations: unknown[] },
-    ): Promise<Order[]> => {
+    mutationFn: async (_input: {
+      orderId: string;
+      allocations: unknown[];
+    }): Promise<Order[]> => {
       throw new Error("訂單分拆功能已停用");
     },
     onSuccess: () => {
@@ -1683,7 +1701,10 @@ type DeleteOrderItemInput = {
 async function addOrderItemToOrder(
   input: AddOrderItemToOrderInput,
 ): Promise<void> {
-  const totalPriceSnapshot = calculateTotalPrice(input.quantity, input.unitPrice);
+  const totalPriceSnapshot = calculateTotalPrice(
+    input.quantity,
+    input.unitPrice,
+  );
   const totalCostSnapshot = calculateTotalCost(input.quantity, input.unitCost);
   const subtotalAmount = totalPriceSnapshot;
   const totalAmount = calculateTotalAmount(subtotalAmount, 0, 0);
@@ -1734,7 +1755,10 @@ async function addOrderItemToOrder(
 async function updateOrderItemInOrder(
   input: UpdateOrderItemInput,
 ): Promise<void> {
-  const totalPriceSnapshot = calculateTotalPrice(input.quantity, input.unitPrice);
+  const totalPriceSnapshot = calculateTotalPrice(
+    input.quantity,
+    input.unitPrice,
+  );
   const totalCostSnapshot = calculateTotalCost(input.quantity, input.unitCost);
   const subtotalAmount = totalPriceSnapshot;
   const totalAmount = calculateTotalAmount(subtotalAmount, 0, 0);

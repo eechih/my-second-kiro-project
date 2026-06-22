@@ -4,10 +4,7 @@ import {
   useUpdateOrderItemStatusFlag,
   type ProductOrderItemRecord,
 } from "@/hooks/useOrders";
-import {
-  ORDER_ITEM_STATUS_LABEL,
-  ORDER_STATUS_LABEL,
-} from "@shared/models";
+import { ORDER_ITEM_STATUS_LABEL, ORDER_STATUS_LABEL } from "@shared/models";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -30,9 +27,7 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
-import {
-  ORDER_ITEM_STATUS_COLOR_MAP,
-} from "../../orders/-components/detail/detailUtils";
+import { ORDER_ITEM_STATUS_COLOR_MAP } from "../../orders/-components/detail/detailUtils";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "-";
@@ -173,22 +168,11 @@ export function ProductPurchaseItemTable({
     setBatchError(null);
 
     try {
-      if (action.flag === "ordered" && action.checked) {
-        await updateStatusFlag.mutateAsync({
-          orderIds: targets.map((record) => record.orderId),
-          flag: action.flag,
-          checked: action.checked,
-        });
-      } else {
-        for (const record of targets) {
-          await updateStatusFlag.mutateAsync({
-            orderId: record.orderId,
-            orderItemId: record.item.id,
-            flag: action.flag,
-            checked: action.checked,
-          });
-        }
-      }
+      await updateStatusFlag.mutateAsync({
+        orderIds: targets.map((record) => record.orderId),
+        flag: action.flag,
+        checked: action.checked,
+      });
 
       setSelectedIds((current) => {
         const next = new Set(current);
@@ -242,7 +226,10 @@ export function ProductPurchaseItemTable({
           <Stack
             direction="row"
             spacing={1}
-            sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" } }}
+            sx={{
+              flexWrap: "wrap",
+              justifyContent: { xs: "flex-start", md: "flex-end" },
+            }}
           >
             <Button
               size="small"
@@ -404,7 +391,9 @@ export function ProductPurchaseItemTable({
                       colorMap={ORDER_ITEM_STATUS_COLOR_MAP}
                     />
                   </TableCell>
-                  <TableCell align="center">{formatDate(item.purchasedAt)}</TableCell>
+                  <TableCell align="center">
+                    {formatDate(item.purchasedAt)}
+                  </TableCell>
                   <TableCell align="center">
                     <Box
                       sx={{
