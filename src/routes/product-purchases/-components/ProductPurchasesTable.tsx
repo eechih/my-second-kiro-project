@@ -306,12 +306,14 @@ export function ProductPurchasesTable({
                     })}
                     <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                       {summary.latestActivityAt
-                        ? new Date(summary.latestActivityAt).toLocaleDateString(
+                        ? new Date(summary.latestActivityAt).toLocaleString(
                             "zh-TW",
                             {
                               year: "numeric",
                               month: "2-digit",
                               day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
                             },
                           )
                         : "—"}
