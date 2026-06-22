@@ -103,14 +103,7 @@ const PRODUCT_NOUNS = [
   "便條夾",
 ];
 
-const CITY_NAMES = [
-  "台北市",
-  "新北市",
-  "桃園市",
-  "台中市",
-  "台南市",
-  "高雄市",
-];
+const CITY_NAMES = ["台北市", "新北市", "桃園市", "台中市", "台南市", "高雄市"];
 
 const CUSTOMER_SURNAMES = [
   "陳",
@@ -292,8 +285,9 @@ function formatShipmentNumber(index) {
 }
 
 function offsetIso(dateString, offsetHours) {
-  return new Date(new Date(dateString).getTime() + offsetHours * 3600000)
-    .toISOString();
+  return new Date(
+    new Date(dateString).getTime() + offsetHours * 3600000,
+  ).toISOString();
 }
 
 function weightedCustomerIndex(orderIndex, customerCount) {
@@ -329,7 +323,9 @@ function buildFakeCustomerName(index) {
 
 function buildFakeCustomer(index, orderCount, lastOrderedAt) {
   const city = Random.pick(CITY_NAMES);
-  const createdAt = new Date(Date.now() - (index + 14) * 86400000).toISOString();
+  const createdAt = new Date(
+    Date.now() - (index + 14) * 86400000,
+  ).toISOString();
   const district = Random.pick([
     "中正區",
     "大安區",
@@ -422,9 +418,7 @@ function validateSeedConsistency({
 
     for (const field of requiredFields) {
       if (order[field] == null) {
-        throw new Error(
-          `訂單 ${order.id} 缺少必要欄位：${field}`,
-        );
+        throw new Error(`訂單 ${order.id} 缺少必要欄位：${field}`);
       }
     }
   }
@@ -453,7 +447,9 @@ function validateSeedConsistency({
     }
 
     const expectedTotalAmount =
-      order.subtotalAmount + (order.shippingAmount ?? 0) - (order.discountAmount ?? 0);
+      order.subtotalAmount +
+      (order.shippingAmount ?? 0) -
+      (order.discountAmount ?? 0);
     if (order.totalAmount !== expectedTotalAmount) {
       throw new Error(
         `訂單 ${order.id} 的 totalAmount 計算不正確：expected ${expectedTotalAmount}, got ${order.totalAmount}`,
@@ -464,59 +460,41 @@ function validateSeedConsistency({
   // 3. Order status-timeline consistency
   for (const order of orders) {
     if (order.status === "ORDERED" && order.purchasedAt == null) {
-      throw new Error(
-        `訂單 ${order.id} 狀態為 ORDERED 但缺少 purchasedAt`,
-      );
+      throw new Error(`訂單 ${order.id} 狀態為 ORDERED 但缺少 purchasedAt`);
     }
 
     if (order.status === "RECEIVED") {
       if (order.purchasedAt == null) {
-        throw new Error(
-          `訂單 ${order.id} 狀態為 RECEIVED 但缺少 purchasedAt`,
-        );
+        throw new Error(`訂單 ${order.id} 狀態為 RECEIVED 但缺少 purchasedAt`);
       }
       if (order.receivedAt == null) {
-        throw new Error(
-          `訂單 ${order.id} 狀態為 RECEIVED 但缺少 receivedAt`,
-        );
+        throw new Error(`訂單 ${order.id} 狀態為 RECEIVED 但缺少 receivedAt`);
       }
     }
 
     if (order.status === "SHIPPED") {
       if (order.purchasedAt == null) {
-        throw new Error(
-          `訂單 ${order.id} 狀態為 SHIPPED 但缺少 purchasedAt`,
-        );
+        throw new Error(`訂單 ${order.id} 狀態為 SHIPPED 但缺少 purchasedAt`);
       }
       if (order.receivedAt == null) {
-        throw new Error(
-          `訂單 ${order.id} 狀態為 SHIPPED 但缺少 receivedAt`,
-        );
+        throw new Error(`訂單 ${order.id} 狀態為 SHIPPED 但缺少 receivedAt`);
       }
       if (order.shippedAt == null) {
-        throw new Error(
-          `訂單 ${order.id} 狀態為 SHIPPED 但缺少 shippedAt`,
-        );
+        throw new Error(`訂單 ${order.id} 狀態為 SHIPPED 但缺少 shippedAt`);
       }
     }
 
     if (order.status === "COMPLETED") {
       if (order.shippedAt == null) {
-        throw new Error(
-          `訂單 ${order.id} 狀態為 COMPLETED 但缺少 shippedAt`,
-        );
+        throw new Error(`訂單 ${order.id} 狀態為 COMPLETED 但缺少 shippedAt`);
       }
       if (order.completedAt == null) {
-        throw new Error(
-          `訂單 ${order.id} 狀態為 COMPLETED 但缺少 completedAt`,
-        );
+        throw new Error(`訂單 ${order.id} 狀態為 COMPLETED 但缺少 completedAt`);
       }
     }
 
     if (order.status === "CANCELLED" && order.cancelledAt == null) {
-      throw new Error(
-        `訂單 ${order.id} 狀態為 CANCELLED 但缺少 cancelledAt`,
-      );
+      throw new Error(`訂單 ${order.id} 狀態為 CANCELLED 但缺少 cancelledAt`);
     }
   }
 
@@ -669,12 +647,13 @@ function validateSeedConsistency({
       throw new Error("供應商摘要缺少 supplierNameSnapshot");
     }
 
-    const expected =
-      expectedSupplierSummaries.get(summary.supplierNameSnapshot) ?? {
-        orderedQuantity: 0,
-        receivedQuantity: 0,
-        totalQuantity: 0,
-      };
+    const expected = expectedSupplierSummaries.get(
+      summary.supplierNameSnapshot,
+    ) ?? {
+      orderedQuantity: 0,
+      receivedQuantity: 0,
+      totalQuantity: 0,
+    };
 
     if (summary.orderedQuantity !== expected.orderedQuantity) {
       throw new Error(
@@ -854,7 +833,9 @@ function buildOrderStatusHistory(createdAt, scenario, timeline) {
 }
 
 function buildFakeSupplier(index) {
-  const createdAt = new Date(Date.now() - (index + 21) * 86400000).toISOString();
+  const createdAt = new Date(
+    Date.now() - (index + 21) * 86400000,
+  ).toISOString();
   const city = CITY_NAMES[index % CITY_NAMES.length];
   const translationParser =
     TRANSLATION_SUPPLIERS[index % TRANSLATION_SUPPLIERS.length];
@@ -889,8 +870,7 @@ function buildFakeProduct(index, sequenceNumber, suppliers, totalProducts) {
   const productOptions = optionTemplates.map((template, optionIndex) =>
     buildProductOption(template, optionIndex),
   );
-  const preorderStatus =
-    index % 10 < 7 ? "OPEN" : "CLOSED";
+  const preorderStatus = index % 10 < 7 ? "OPEN" : "CLOSED";
   const preorderCloseAt =
     preorderStatus === "OPEN"
       ? offsetIso(createdAt, 24 * 7)
@@ -1019,7 +999,7 @@ function buildOrder(orderIndex, customer, products) {
     // Misc
     note: "Seed demo order",
     statusHistory,
-    shipmentId: null,
+    shipmentId: undefined,
     isActive: true,
     deletedAt: null,
     gsiPartition: "Order",
@@ -1069,25 +1049,41 @@ function buildFakeShipments(orders) {
 
       if (plan.status === "PENDING") {
         // PENDING shipments -> associated orders must be RECEIVED status
-        for (let j = 0; j < associationCount && receivedIdx < receivedOrders.length; j += 1) {
+        for (
+          let j = 0;
+          j < associationCount && receivedIdx < receivedOrders.length;
+          j += 1
+        ) {
           receivedOrders[receivedIdx].shipmentId = shipment.id;
           receivedIdx += 1;
         }
       } else if (plan.status === "SHIPPED") {
         // SHIPPED shipments -> associated orders must be SHIPPED with shippedAt
-        for (let j = 0; j < associationCount && shippedIdx < shippedOrders.length; j += 1) {
+        for (
+          let j = 0;
+          j < associationCount && shippedIdx < shippedOrders.length;
+          j += 1
+        ) {
           shippedOrders[shippedIdx].shipmentId = shipment.id;
           shippedIdx += 1;
         }
       } else if (plan.status === "DELIVERED") {
         // DELIVERED shipments -> associated orders must be COMPLETED with completedAt
-        for (let j = 0; j < associationCount && completedIdx < completedOrders.length; j += 1) {
+        for (
+          let j = 0;
+          j < associationCount && completedIdx < completedOrders.length;
+          j += 1
+        ) {
           completedOrders[completedIdx].shipmentId = shipment.id;
           completedIdx += 1;
         }
       } else if (plan.status === "CANCELLED") {
         // CANCELLED shipments -> associated orders should be RECEIVED (reverted)
-        for (let j = 0; j < associationCount && receivedIdx < receivedOrders.length; j += 1) {
+        for (
+          let j = 0;
+          j < associationCount && receivedIdx < receivedOrders.length;
+          j += 1
+        ) {
           receivedOrders[receivedIdx].shipmentId = shipment.id;
           receivedIdx += 1;
         }
@@ -1105,10 +1101,8 @@ function buildSingleShipment(index, status, createdAt) {
     status === "SHIPPED" || status === "DELIVERED"
       ? offsetIso(createdAt, 24)
       : null;
-  const deliveredAt =
-    status === "DELIVERED" ? offsetIso(createdAt, 72) : null;
-  const cancelledAt =
-    status === "CANCELLED" ? offsetIso(createdAt, 12) : null;
+  const deliveredAt = status === "DELIVERED" ? offsetIso(createdAt, 72) : null;
+  const cancelledAt = status === "CANCELLED" ? offsetIso(createdAt, 12) : null;
 
   const updatedAtCandidates = [
     createdAt,
@@ -1128,7 +1122,8 @@ function buildSingleShipment(index, status, createdAt) {
     recipientAddress: `${Random.pick(CITY_NAMES)}測試路${index + 1}號`,
     status,
     shippingMethod: Random.pick(SHIPPING_METHODS),
-    trackingNumber: status !== "PENDING" ? `TRK${String(100000 + index)}` : null,
+    trackingNumber:
+      status !== "PENDING" ? `TRK${String(100000 + index)}` : null,
     actualShippingCost: status !== "PENDING" ? 60 + (index % 5) * 20 : 0,
     shippedAt,
     deliveredAt,
@@ -1142,7 +1137,10 @@ function buildSingleShipment(index, status, createdAt) {
 }
 
 async function loadTableNames() {
-  const raw = await readFile(new URL("../amplify_outputs.json", import.meta.url), "utf8");
+  const raw = await readFile(
+    new URL("../amplify_outputs.json", import.meta.url),
+    "utf8",
+  );
   const outputs = JSON.parse(raw);
   const tables = outputs?.custom?.tables ?? {};
 
@@ -1335,12 +1333,16 @@ async function main() {
 
   const customerOrderCounts = new Array(args.customers).fill(0);
   const customerLastOrderedAt = new Array(args.customers).fill(null);
-  const provisionalCustomers = Array.from({ length: args.customers }, (_, index) =>
-    buildFakeCustomer(index, 0, null),
+  const provisionalCustomers = Array.from(
+    { length: args.customers },
+    (_, index) => buildFakeCustomer(index, 0, null),
   );
 
   const orders = Array.from({ length: args.orders }, (_, index) => {
-    const customerIndex = weightedCustomerIndex(index, provisionalCustomers.length);
+    const customerIndex = weightedCustomerIndex(
+      index,
+      provisionalCustomers.length,
+    );
     const customer = provisionalCustomers[customerIndex];
     const order = buildOrder(index, customer, products);
     customerOrderCounts[customerIndex] += 1;
@@ -1363,12 +1365,10 @@ async function main() {
   // Build shipments and associate them with orders (mutates order.shipmentId)
   const shipments = buildFakeShipments(orders);
 
-  const customerOrderSummaries = buildCustomerOrderSummariesFromOrders(
-    {
-      customers,
-      orders,
-    },
-  );
+  const customerOrderSummaries = buildCustomerOrderSummariesFromOrders({
+    customers,
+    orders,
+  });
   const productOrderSummaries = buildProductOrderSummariesFromOrders({
     products,
     suppliers,
@@ -1398,8 +1398,11 @@ async function main() {
       ddb,
       tableNames.product,
       products.map(
-        ({ defaultSupplierName: _ignored, seedOptions: _seedOptions, ...product }) =>
-          product,
+        ({
+          defaultSupplierName: _ignored,
+          seedOptions: _seedOptions,
+          ...product
+        }) => product,
       ),
       args.dryRun,
     ),
