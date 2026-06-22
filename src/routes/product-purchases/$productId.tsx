@@ -1,5 +1,4 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { CursorPagination } from "@/components/CursorPagination";
 import { ListToolbar, type ListToolbarOption } from "@/components/ListToolbar";
 import { PageHeader } from "@/components/PageHeader";
 import {
@@ -83,8 +82,6 @@ function ProductPurchaseDetailPage(): React.ReactElement {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<ProductPurchaseDetailStatusFilter>("all");
-  const [pageSize, setPageSize] = useState(10);
-  const [pageIndex, setPageIndex] = useState(0);
   const {
     data: records,
     isLoading: isLoadingRecords,
@@ -154,14 +151,7 @@ function ProductPurchaseDetailPage(): React.ReactElement {
       });
   }, [records, search]);
 
-  const pagedRecords = useMemo(() => {
-    const start = pageIndex * pageSize;
-    return filteredRecords.slice(start, start + pageSize);
-  }, [filteredRecords, pageIndex, pageSize]);
-
   const editData = useMemo(() => toEditData(editTarget), [editTarget]);
-  const hasPrevPage = pageIndex > 0;
-  const hasNextPage = (pageIndex + 1) * pageSize < filteredRecords.length;
 
   const handleSubmit = useCallback(
     async (input: ProductPurchaseItemSubmitInput): Promise<void> => {
@@ -274,17 +264,11 @@ function ProductPurchaseDetailPage(): React.ReactElement {
 
         <ListToolbar
           search={search}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setPageIndex(0);
-          }}
+          onSearchChange={setSearch}
           totalCount={filteredRecords.length}
           statusSelect={{
             value: statusFilter,
-            onChange: (value) => {
-              setStatusFilter(value);
-              setPageIndex(0);
-            },
+            onChange: setStatusFilter,
             options: STATUS_OPTIONS,
             ariaLabel: "單品採購明細狀態篩選",
           }}
@@ -296,7 +280,7 @@ function ProductPurchaseDetailPage(): React.ReactElement {
           </Box>
         ) : (
           <ProductPurchaseItemTable
-            records={pagedRecords}
+            records={filteredRecords}
             onEdit={(record) => {
               setEditTarget(record);
               setDialogOpen(true);
@@ -304,27 +288,6 @@ function ProductPurchaseDetailPage(): React.ReactElement {
             onDelete={setDeleteTarget}
           />
         )}
-
-        <CursorPagination
-          pageSize={pageSize}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setPageIndex(0);
-          }}
-          hasNextPage={hasNextPage}
-          hasPrevPage={hasPrevPage}
-          onNextPage={() => {
-            if (hasNextPage) {
-              setPageIndex((current) => current + 1);
-            }
-          }}
-          onPrevPage={() => {
-            if (hasPrevPage) {
-              setPageIndex((current) => current - 1);
-            }
-          }}
-          currentCount={pagedRecords.length}
-        />
       </Stack>
 
       <ProductPurchaseItemDialog
