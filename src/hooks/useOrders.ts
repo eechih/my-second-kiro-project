@@ -213,12 +213,41 @@ type ConfirmShipmentBaseInput = {
 
 type OrderItemStatusFlag = "ordered" | "received" | "shipped" | "outOfStock";
 
-type UpdateOrderItemStatusFlagInput = {
+type SingleOrderItemStatusFlagInput = {
   orderId: string;
   orderItemId?: string; // kept for backward compat, uses orderId
   flag: OrderItemStatusFlag;
   checked: boolean;
+  orderIds?: never;
 };
+
+type BatchConfirmPurchaseStatusFlagInput = {
+  orderIds: string[];
+  flag: "ordered";
+  checked: true;
+  orderId?: never;
+  orderItemId?: never;
+};
+
+type UpdateOrderItemStatusFlagInput =
+  | SingleOrderItemStatusFlagInput
+  | BatchConfirmPurchaseStatusFlagInput;
+
+type CachedOrderSnapshot = {
+  orderId: string;
+  order?: Order;
+};
+
+type StatusFlagMutationContext = {
+  previousOrders: CachedOrderSnapshot[];
+  supplierNames: Array<string | null | undefined>;
+};
+
+function isBatchConfirmPurchaseStatusFlagInput(
+  input: UpdateOrderItemStatusFlagInput,
+): input is BatchConfirmPurchaseStatusFlagInput {
+  return Array.isArray(input.orderIds);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -968,7 +997,7 @@ async function cancelReceived(input: ConfirmReceivedInput): Promise<Order> {
 }
 
 async function confirmOutOfStock(
-  input: Pick<UpdateOrderItemStatusFlagInput, "orderId">,
+  input: { orderId: string },
 ): Promise<Order> {
   const { data: result, errors } = await client.mutations.confirmOutOfStock({
     orderId: input.orderId,
@@ -984,7 +1013,7 @@ async function confirmOutOfStock(
 }
 
 async function cancelOutOfStock(
-  input: Pick<UpdateOrderItemStatusFlagInput, "orderId">,
+  input: { orderId: string },
 ): Promise<Order> {
   const { data: result, errors } = await client.mutations.cancelOutOfStock({
     orderId: input.orderId,
@@ -1000,10 +1029,15 @@ async function cancelOutOfStock(
 }
 
 async function confirmPurchase(
-  input: Pick<MarkProcurementInput, "orderId">,
+  input: { orderIds: string[] },
 ): Promise<Order> {
+  const resultOrderId = input.orderIds[0];
+  if (!resultOrderId) {
+    throw new Error("請指定要確認採購的訂單");
+  }
+
   const { data: result, errors } = await client.mutations.confirmPurchase({
-    orderId: input.orderId,
+    orderIds: input.orderIds,
     supplierName: "",
   });
 
@@ -1013,11 +1047,11 @@ async function confirmPurchase(
 
   assertCustomMutationSuccess(result, "採購下單失敗");
 
-  return fetchOrder(input.orderId);
+  return fetchOrder(resultOrderId);
 }
 
 async function markProcurement(input: MarkProcurementInput): Promise<Order> {
-  return confirmPurchase(input);
+  return confirmPurchase({ orderIds: [input.orderId] });
 }
 
 async function cancelProcurement(
@@ -1039,30 +1073,32 @@ async function cancelProcurement(
 async function updateOrderItemStatusFlag(
   input: UpdateOrderItemStatusFlagInput,
 ): Promise<Order> {
-  const orderId = input.orderId;
+  if (isBatchConfirmPurchaseStatusFlagInput(input)) {
+    return confirmPurchase({ orderIds: input.orderIds });
+  }
 
   if (input.flag === "ordered") {
     return input.checked
-      ? confirmPurchase({ orderId })
-      : cancelProcurement({ orderId });
+      ? confirmPurchase({ orderIds: [input.orderId] })
+      : cancelProcurement({ orderId: input.orderId });
   }
 
   if (input.flag === "received") {
     return input.checked
-      ? confirmReceived({ orderId })
-      : cancelReceived({ orderId });
+      ? confirmReceived({ orderId: input.orderId })
+      : cancelReceived({ orderId: input.orderId });
   }
 
   if (input.flag === "shipped") {
     return input.checked
-      ? confirmShipmentDirect({ orderId })
-      : cancelShipmentDirect({ orderId });
+      ? confirmShipmentDirect({ orderId: input.orderId })
+      : cancelShipmentDirect({ orderId: input.orderId });
   }
 
   if (input.flag === "outOfStock") {
     return input.checked
-      ? confirmOutOfStock({ orderId })
-      : cancelOutOfStock({ orderId });
+      ? confirmOutOfStock({ orderId: input.orderId })
+      : cancelOutOfStock({ orderId: input.orderId });
   }
 
   throw new Error("不支援的明細狀態操作");
@@ -1157,6 +1193,67 @@ function invalidateSupplierReceivingQueries(
   void queryClient.invalidateQueries({
     queryKey: ORDER_KEYS.supplierItems(),
   });
+}
+
+function orderIdsFromStatusFlagInput(
+  input: UpdateOrderItemStatusFlagInput,
+): string[] {
+  const orderIds = isBatchConfirmPurchaseStatusFlagInput(input)
+    ? input.orderIds
+    : [input.orderId];
+
+  return Array.from(
+    new Set(orderIds.map((orderId) => orderId.trim()).filter(Boolean)),
+  );
+}
+
+async function snapshotOrderDetails(
+  queryClient: ReturnType<typeof useQueryClient>,
+  orderIds: readonly string[],
+): Promise<CachedOrderSnapshot[]> {
+  await Promise.all(
+    orderIds.map((orderId) =>
+      queryClient.cancelQueries({ queryKey: ORDER_KEYS.detail(orderId) }),
+    ),
+  );
+
+  return orderIds.map((orderId) => ({
+    orderId,
+    order: queryClient.getQueryData<Order>(ORDER_KEYS.detail(orderId)),
+  }));
+}
+
+function restoreOrderSnapshots(
+  queryClient: ReturnType<typeof useQueryClient>,
+  snapshots: readonly CachedOrderSnapshot[],
+): void {
+  for (const snapshot of snapshots) {
+    if (!snapshot.order) {
+      continue;
+    }
+
+    queryClient.setQueryData(
+      ORDER_KEYS.detail(snapshot.orderId),
+      snapshot.order,
+    );
+  }
+}
+
+function supplierNamesFromSnapshots(
+  snapshots: readonly CachedOrderSnapshot[],
+): Array<string | null | undefined> {
+  return snapshots.map(({ order }) => order?.supplierName ?? null);
+}
+
+function invalidateOrderDetailQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  orderIds: readonly string[],
+): void {
+  for (const orderId of orderIds) {
+    void queryClient.invalidateQueries({
+      queryKey: ORDER_KEYS.detail(orderId),
+    });
+  }
 }
 
 export function useProductOrderItemList(
@@ -1386,41 +1483,37 @@ export function useUpdateOrderItemStatusFlag(): UseMutationResult<
   Order,
   Error,
   UpdateOrderItemStatusFlagInput,
-  { previousOrder?: Order; previousSupplierName?: string | null }
+  StatusFlagMutationContext
 > {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: updateOrderItemStatusFlag,
     onMutate: async (input) => {
-      const orderKey = ORDER_KEYS.detail(input.orderId);
-      await queryClient.cancelQueries({ queryKey: orderKey });
-
-      const previousOrder = queryClient.getQueryData<Order>(orderKey);
+      const orderIds = orderIdsFromStatusFlagInput(input);
+      const previousOrders = await snapshotOrderDetails(queryClient, orderIds);
 
       return {
-        previousOrder,
-        previousSupplierName: previousOrder?.supplierName ?? null,
+        previousOrders,
+        supplierNames: supplierNamesFromSnapshots(previousOrders),
       };
     },
-    onError: (_error, input, context) => {
-      if (context?.previousOrder) {
-        queryClient.setQueryData(
-          ORDER_KEYS.detail(input.orderId),
-          context.previousOrder,
-        );
+    onError: (_error, _input, context) => {
+      if (context) {
+        restoreOrderSnapshots(queryClient, context.previousOrders);
       }
     },
     onSuccess: async (order, _input, context) => {
       await syncSupplierOrderSummariesByNames([
-        context?.previousSupplierName,
+        ...(context?.supplierNames ?? []),
         order.supplierName,
       ]);
     },
     onSettled: (_, __, input) => {
-      void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(input.orderId),
-      });
+      invalidateOrderDetailQueries(
+        queryClient,
+        orderIdsFromStatusFlagInput(input),
+      );
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateProductOrderItemQueries(queryClient);
       invalidateProductOrderSummaryQueries(queryClient);

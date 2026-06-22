@@ -420,7 +420,10 @@ const schema = a.schema({
   ),
 
   confirmPurchase: authenticatedJsonMutation(
-    { orderId: a.string().required(), supplierName: a.string().required() },
+    {
+      orderIds: a.string().array().required(),
+      supplierName: a.string().required(),
+    },
     confirmPurchase,
   ),
   cancelPurchase: authenticatedJsonMutation(
