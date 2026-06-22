@@ -8,7 +8,6 @@ import type { ProductPurchaseStatusFilter } from "@/hooks/useProductPurchases";
 export type { ProductPurchaseStatusFilter } from "@/hooks/useProductPurchases";
 
 export const PRODUCT_PURCHASE_STATUS_OPTIONS = [
-  { value: "all", label: "全部" },
   { value: "pending", label: "待處理" },
   { value: "ordered", label: "已採購" },
 ] satisfies readonly ListToolbarOption<ProductPurchaseStatusFilter>[];

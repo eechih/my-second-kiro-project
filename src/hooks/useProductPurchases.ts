@@ -6,7 +6,7 @@ import {
   type ProductOrderSummary,
 } from "@shared/models/product-order-summary";
 
-export type ProductPurchaseStatusFilter = "all" | "pending" | "ordered";
+export type ProductPurchaseStatusFilter = "pending" | "ordered";
 export type ProductPurchaseSummary = ProductOrderSummary;
 
 const PRODUCT_PURCHASE_KEYS = {
@@ -79,7 +79,7 @@ async function fetchProductPurchaseSummaries(): Promise<
 }
 
 export function useProductPurchaseSummaries(
-  statusFilter: ProductPurchaseStatusFilter = "all",
+  statusFilter: ProductPurchaseStatusFilter = "pending",
 ): UseQueryResult<ProductPurchaseSummary[]> {
   return useQuery({
     queryKey: [...PRODUCT_PURCHASE_KEYS.summaries(), statusFilter],

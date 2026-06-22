@@ -69,10 +69,6 @@ function ProductPurchasesPage(): React.ReactElement {
 
     return (data ?? [])
       .filter((summary) => {
-        if (statusFilter === "all") {
-          return summary.totalQuantity > 0;
-        }
-
         return (summary.statusQuantities[statusFilter.toUpperCase()] ?? 0) > 0;
       })
       .filter((summary) =>
