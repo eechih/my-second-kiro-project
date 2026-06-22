@@ -22,7 +22,6 @@ function ProductPurchasesPage(): React.ReactElement {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<ProductPurchaseStatusFilter>("pending");
-  const [supplierFilter, setSupplierFilter] = useState("");
   const { data, isLoading, error } = useProductPurchaseSummaries(statusFilter);
 
   const handleSearchChange = useCallback((value: string): void => {
@@ -36,28 +35,6 @@ function ProductPurchasesPage(): React.ReactElement {
     [],
   );
 
-  const handleSupplierFilterChange = useCallback((value: string): void => {
-    setSupplierFilter(value);
-  }, []);
-
-  const supplierOptions = useMemo(() => {
-    const names = Array.from(
-      new Set(
-        (data ?? [])
-          .map((summary) => summary.supplierName?.trim() ?? "")
-          .filter(Boolean),
-      ),
-    ).sort((a, b) => a.localeCompare(b, "zh-Hant"));
-
-    return [
-      { value: "", label: "全部供應商" },
-      ...names.map((name) => ({
-        value: name,
-        label: name,
-      })),
-    ];
-  }, [data]);
-
   const filteredSummaries = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
@@ -66,14 +43,9 @@ function ProductPurchasesPage(): React.ReactElement {
         return (summary.statusQuantities[statusFilter.toUpperCase()] ?? 0) > 0;
       })
       .filter((summary) =>
-        supplierFilter
-          ? (summary.supplierName?.trim() ?? "") === supplierFilter
-          : true,
-      )
-      .filter((summary) =>
         keyword ? matchesProductPurchaseKeyword(summary, keyword) : true,
       );
-  }, [data, search, statusFilter, supplierFilter]);
+  }, [data, search, statusFilter]);
 
   return (
     <Box>
@@ -91,9 +63,6 @@ function ProductPurchasesPage(): React.ReactElement {
         totalCount={filteredSummaries.length}
         statusFilter={statusFilter}
         onStatusFilterChange={handleStatusFilterChange}
-        supplierFilter={supplierFilter}
-        onSupplierFilterChange={handleSupplierFilterChange}
-        supplierOptions={supplierOptions}
       />
 
       <ProductPurchasesTable
