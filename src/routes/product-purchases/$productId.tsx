@@ -3,7 +3,6 @@ import { CursorPagination } from "@/components/CursorPagination";
 import { ListToolbar, type ListToolbarOption } from "@/components/ListToolbar";
 import { PageHeader } from "@/components/PageHeader";
 import {
-  useAddOrderItemToOrder,
   useAllProductOrderItems,
   useDeleteOrderItemFromOrder,
   useUpdateOrderItemInOrder,
@@ -12,7 +11,6 @@ import {
 import { useProduct } from "@/hooks/useProducts";
 import { requireAuth } from "@/lib/route-guards";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import AddIcon from "@mui/icons-material/Add";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -34,14 +32,15 @@ import { ProductPurchaseItemTable } from "./-components/ProductPurchaseItemTable
 
 type ProductPurchaseDetailStatusFilter = "all" | OrderFulfillmentStatus;
 
-const STATUS_OPTIONS: readonly ListToolbarOption<ProductPurchaseDetailStatusFilter>[] = [
-  { value: "all", label: "全部狀態" },
-  { value: "PENDING", label: "待處理" },
-  { value: "ORDERED", label: "已採購" },
-  { value: "RECEIVED", label: "已到貨" },
-  { value: "SHIPPED", label: "已出貨" },
-  { value: "OUT_OF_STOCK", label: "缺貨" },
-];
+const STATUS_OPTIONS: readonly ListToolbarOption<ProductPurchaseDetailStatusFilter>[] =
+  [
+    { value: "all", label: "全部狀態" },
+    { value: "PENDING", label: "待處理" },
+    { value: "ORDERED", label: "已採購" },
+    { value: "RECEIVED", label: "已到貨" },
+    { value: "SHIPPED", label: "已出貨" },
+    { value: "OUT_OF_STOCK", label: "缺貨" },
+  ];
 
 const ORDER_ITEM_STATUS_SORT_INDEX = new Map(
   ORDER_ITEM_STATUSES.map((status, index) => [status, index] as const),
@@ -76,8 +75,11 @@ export const Route = createFileRoute("/product-purchases/$productId")({
 function ProductPurchaseDetailPage(): React.ReactElement {
   const { productId } = Route.useParams();
   const navigate = useNavigate();
-  const { data: product, isLoading: isLoadingProduct, error: productError } =
-    useProduct(productId);
+  const {
+    data: product,
+    isLoading: isLoadingProduct,
+    error: productError,
+  } = useProduct(productId);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<ProductPurchaseDetailStatusFilter>("all");
@@ -91,7 +93,6 @@ function ProductPurchaseDetailPage(): React.ReactElement {
     productId,
     status: statusFilter === "all" ? undefined : statusFilter,
   });
-  const addOrderItem = useAddOrderItemToOrder();
   const updateOrderItem = useUpdateOrderItemInOrder();
   const deleteOrderItem = useDeleteOrderItemFromOrder();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -145,7 +146,9 @@ function ProductPurchaseDetailPage(): React.ReactElement {
         return [
           record.orderNumber,
           record.customerName,
-          record.item.selectedOptionsSnapshot?.map((opt) => opt.valueName).join(" / ") ?? "",
+          record.item.selectedOptionsSnapshot
+            ?.map((opt) => opt.valueName)
+            .join(" / ") ?? "",
           record.item.supplierName ?? "",
         ].some((value) => value.toLowerCase().includes(keyword));
       });
@@ -160,14 +163,12 @@ function ProductPurchaseDetailPage(): React.ReactElement {
   const hasPrevPage = pageIndex > 0;
   const hasNextPage = (pageIndex + 1) * pageSize < filteredRecords.length;
 
-  const handleSubmit = useCallback(async (
-    input: ProductPurchaseItemSubmitInput,
-  ): Promise<void> => {
-    if (!product) return;
+  const handleSubmit = useCallback(
+    async (input: ProductPurchaseItemSubmitInput): Promise<void> => {
+      if (!product || !editTarget) return;
 
-    setActionError(null);
-    try {
-      if (editTarget) {
+      setActionError(null);
+      try {
         await updateOrderItem.mutateAsync({
           orderId: editTarget.orderId,
           orderItemId: editTarget.item.id,
@@ -182,28 +183,15 @@ function ProductPurchaseDetailPage(): React.ReactElement {
           unitCost: input.unitCost,
           supplierName: input.supplierName,
         });
-      } else {
-        await addOrderItem.mutateAsync({
-          orderId: input.orderId,
-          productId: product.id,
-          productName: product.name,
-          productImageUrl: product.imageUrls[0] ?? null,
-          productSku: product.sku,
-          variantLabel: input.variantLabel,
-          selectedOptionsSnapshot: input.selectedOptionsSnapshot,
-          quantity: input.quantity,
-          unitPrice: input.unitPrice,
-          unitCost: input.unitCost,
-          supplierName: input.supplierName,
-        });
-      }
 
-      handleDialogClose();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "儲存作業資料失敗");
-      throw err;
-    }
-  }, [addOrderItem, editTarget, handleDialogClose, product, updateOrderItem]);
+        handleDialogClose();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : "儲存作業資料失敗");
+        throw err;
+      }
+    },
+    [editTarget, handleDialogClose, product, updateOrderItem],
+  );
 
   const handleDelete = useCallback(async (): Promise<void> => {
     if (!deleteTarget) return;
@@ -232,7 +220,9 @@ function ProductPurchaseDetailPage(): React.ReactElement {
   if (productError || !product) {
     return (
       <Box>
-        <Alert severity="error">{productError?.message ?? "找不到該商品"}</Alert>
+        <Alert severity="error">
+          {productError?.message ?? "找不到該商品"}
+        </Alert>
         <Button
           sx={{ mt: 2 }}
           onClick={() => void navigate({ to: "/product-purchases" })}
@@ -298,18 +288,6 @@ function ProductPurchaseDetailPage(): React.ReactElement {
             options: STATUS_OPTIONS,
             ariaLabel: "單品採購明細狀態篩選",
           }}
-          actions={
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                setEditTarget(null);
-                setDialogOpen(true);
-              }}
-            >
-              新增作業
-            </Button>
-          }
         />
 
         {isLoadingRecords ? (
@@ -353,7 +331,7 @@ function ProductPurchaseDetailPage(): React.ReactElement {
         open={dialogOpen}
         product={product}
         editData={editData}
-        isSubmitting={addOrderItem.isPending || updateOrderItem.isPending}
+        isSubmitting={updateOrderItem.isPending}
         onClose={handleDialogClose}
         onSubmit={handleSubmit}
       />
