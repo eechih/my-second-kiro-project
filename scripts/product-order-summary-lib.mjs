@@ -33,6 +33,7 @@ function buildProductMaps(products, suppliers) {
           productName: String(
             product.name ?? product.productNameSnapshot ?? "未命名商品",
           ),
+          productSku: String(product.sku ?? "").trim() || null,
           productImageUrl: Array.isArray(product.imageUrls)
             ? String(product.imageUrls[0] ?? "").trim() || null
             : null,
@@ -65,7 +66,9 @@ function getSupplierSnapshot(item, productSnapshots, supplierNames) {
   const productSnapshot = productSnapshots.get(productId);
   const productSupplierId = productSnapshot?.defaultSupplierId ?? null;
   const supplierNameFromProduct =
-    productSupplierId != null ? supplierNames.get(productSupplierId) ?? null : null;
+    productSupplierId != null
+      ? (supplierNames.get(productSupplierId) ?? null)
+      : null;
 
   return {
     supplierName: itemSupplierName || supplierNameFromProduct,
@@ -77,6 +80,7 @@ function getProductSnapshot(productId, productSnapshots) {
 
   return {
     productName: productSnapshot?.productName ?? "未命名商品",
+    productSku: productSnapshot?.productSku ?? null,
     productImageUrl: productSnapshot?.productImageUrl ?? null,
     price: Number.isFinite(productSnapshot?.price) ? productSnapshot.price : 0,
     cost: Number.isFinite(productSnapshot?.cost) ? productSnapshot.cost : 0,
@@ -86,6 +90,7 @@ function getProductSnapshot(productId, productSnapshots) {
 function createSummary({
   productId,
   productName,
+  productSku,
   productImageUrl,
   price,
   cost,
@@ -95,6 +100,7 @@ function createSummary({
     id: productId,
     productId,
     productNameSnapshot: productName,
+    productSkuSnapshot: productSku,
     productImageUrlSnapshot: productImageUrl,
     priceSnapshot: price,
     costSnapshot: cost,
@@ -133,6 +139,7 @@ export function buildProductOrderSummariesFromOrders({
         createSummary({
           productId,
           productName: productSnapshot.productName,
+          productSku: productSnapshot.productSku,
           productImageUrl: productSnapshot.productImageUrl,
           price: productSnapshot.price,
           cost: productSnapshot.cost,
@@ -155,7 +162,8 @@ export function buildProductOrderSummariesFromOrders({
     const latestActivityAt = getLatestActivityAt(item);
     const productSnapshot = getProductSnapshot(productId, productSnapshots);
     const productName =
-      String(item.productNameSnapshot ?? "").trim() || productSnapshot.productName;
+      String(item.productNameSnapshot ?? "").trim() ||
+      productSnapshot.productName;
     const supplierSnapshot = getSupplierSnapshot(
       item,
       productSnapshots,
@@ -166,6 +174,7 @@ export function buildProductOrderSummariesFromOrders({
       createSummary({
         productId,
         productName,
+        productSku: productSnapshot.productSku,
         productImageUrl: productSnapshot.productImageUrl,
         price: productSnapshot.price,
         cost: productSnapshot.cost,
@@ -178,6 +187,7 @@ export function buildProductOrderSummariesFromOrders({
         (latestActivityAt && latestActivityAt >= current.latestActivityAt))
     ) {
       current.productNameSnapshot = productName;
+      current.productSkuSnapshot = productSnapshot.productSku;
     }
     current.productImageUrlSnapshot = productSnapshot.productImageUrl;
     current.priceSnapshot = productSnapshot.price;
@@ -187,7 +197,8 @@ export function buildProductOrderSummariesFromOrders({
     }
     if (
       latestActivityAt &&
-      (!current.latestActivityAt || latestActivityAt >= current.latestActivityAt)
+      (!current.latestActivityAt ||
+        latestActivityAt >= current.latestActivityAt)
     ) {
       if (supplierSnapshot.supplierName) {
         current.supplierNameSnapshot = supplierSnapshot.supplierName;
