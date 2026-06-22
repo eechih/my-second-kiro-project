@@ -304,18 +304,27 @@ export function ProductPurchasesTable({
                         </TableCell>
                       );
                     })}
-                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                    <TableCell align="center">
                       {summary.latestActivityAt
-                        ? new Date(summary.latestActivityAt).toLocaleString(
-                            "zh-TW",
-                            {
+                        ? (() => {
+                            const d = new Date(summary.latestActivityAt);
+                            const date = d.toLocaleDateString("zh-TW", {
                               year: "numeric",
                               month: "2-digit",
                               day: "2-digit",
+                            });
+                            const time = d.toLocaleTimeString("zh-TW", {
                               hour: "2-digit",
                               minute: "2-digit",
-                            },
-                          )
+                            });
+                            return (
+                              <>
+                                {date}
+                                <br />
+                                {time}
+                              </>
+                            );
+                          })()
                         : "—"}
                     </TableCell>
                   </TableRow>
