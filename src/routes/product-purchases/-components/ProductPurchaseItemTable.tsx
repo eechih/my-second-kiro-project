@@ -199,33 +199,33 @@ export function ProductPurchaseItemTable({
   }
 
   return (
-    <Stack spacing={1.5} sx={{ mt: 2 }}>
+    <Stack spacing={1} sx={{ mt: 1 }}>
       {batchError ? (
         <Alert severity="error" onClose={() => setBatchError(null)}>
           {batchError}
         </Alert>
       ) : null}
 
-      <Paper variant="outlined" sx={{ px: 2, py: 1.5 }}>
+      <Paper variant="outlined" sx={{ px: 1.5, py: 1 }}>
         <Stack
           direction={{ xs: "column", md: "row" }}
-          spacing={1}
+          spacing={0.5}
           sx={{
             alignItems: { xs: "stretch", md: "center" },
             justifyContent: "space-between",
           }}
         >
           <Box>
-            <Typography sx={{ fontWeight: 600 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
               已選取 {selectedCount} 筆
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" color="text.secondary">
               {batchStatusText}
             </Typography>
           </Box>
           <Stack
             direction="row"
-            spacing={1}
+            spacing={0.5}
             sx={{
               flexWrap: "wrap",
               justifyContent: { xs: "flex-start", md: "flex-end" },
@@ -308,7 +308,7 @@ export function ProductPurchaseItemTable({
         variant="outlined"
         sx={{ overflowX: "auto" }}
       >
-        <Table sx={{ minWidth: 1480 }}>
+        <Table size="small" sx={{ minWidth: 1200 }}>
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox">
@@ -327,17 +327,31 @@ export function ProductPurchaseItemTable({
                   }}
                 />
               </TableCell>
-              <TableCell>訂單編號</TableCell>
-              <TableCell>客戶名稱</TableCell>
-              <TableCell>規格</TableCell>
-              <TableCell align="right">數量</TableCell>
-              <TableCell align="right">單價</TableCell>
-              <TableCell align="right">採購成本</TableCell>
-              <TableCell>供應商</TableCell>
-              <TableCell align="center">狀態</TableCell>
-              <TableCell align="center">訂貨日期</TableCell>
-              <TableCell align="center">快捷操作</TableCell>
-              <TableCell align="center">操作</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>訂單編號</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>客戶</TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>規格</TableCell>
+              <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                數量
+              </TableCell>
+              <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                單價
+              </TableCell>
+              <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                成本
+              </TableCell>
+              <TableCell sx={{ whiteSpace: "nowrap" }}>供應商</TableCell>
+              <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                狀態
+              </TableCell>
+              <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                訂貨日
+              </TableCell>
+              <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                快捷操作
+              </TableCell>
+              <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                操作
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -367,23 +381,29 @@ export function ProductPurchaseItemTable({
                       }}
                     />
                   </TableCell>
-                  <TableCell>{record.orderNumber}</TableCell>
-                  <TableCell>{record.customerName}</TableCell>
-                  <TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                    {record.orderNumber}
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                    {record.customerName}
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
                     {item.selectedOptionsSnapshot
                       ?.map((opt) => opt.valueName)
                       .join(" / ") || "-"}
                   </TableCell>
                   <TableCell align="right">{item.quantity}</TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                     {formatCurrency(item.unitPriceSnapshot)}
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                     {item.unitCostSnapshot != null
                       ? formatCurrency(item.unitCostSnapshot)
                       : "-"}
                   </TableCell>
-                  <TableCell>{item.supplierName || "-"}</TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                    {item.supplierName || "-"}
+                  </TableCell>
                   <TableCell align="center">
                     <StatusChip
                       status={item.status}
@@ -399,8 +419,8 @@ export function ProductPurchaseItemTable({
                       sx={{
                         display: "flex",
                         justifyContent: "center",
-                        gap: 1,
-                        flexWrap: "wrap",
+                        gap: 0.5,
+                        flexWrap: "nowrap",
                       }}
                     >
                       <Tooltip
@@ -418,6 +438,7 @@ export function ProductPurchaseItemTable({
                             }
                             color="warning"
                             disabled={!canToggleOrdered(record) || isBusy}
+                            sx={{ minWidth: 0, px: 1, whiteSpace: "nowrap" }}
                             onClick={() =>
                               updateStatusFlag.mutate({
                                 orderId: record.orderId,
@@ -448,6 +469,7 @@ export function ProductPurchaseItemTable({
                             }
                             color="error"
                             disabled={!canToggleOutOfStock(record) || isBusy}
+                            sx={{ minWidth: 0, px: 1, whiteSpace: "nowrap" }}
                             onClick={() =>
                               updateStatusFlag.mutate({
                                 orderId: record.orderId,
@@ -470,7 +492,7 @@ export function ProductPurchaseItemTable({
                       sx={{
                         display: "flex",
                         justifyContent: "center",
-                        gap: 1,
+                        gap: 0.5,
                       }}
                     >
                       <Tooltip title="編輯">

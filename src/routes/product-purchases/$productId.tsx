@@ -9,13 +9,17 @@ import {
 } from "@/hooks/useOrders";
 import { useProduct } from "@/hooks/useProducts";
 import { requireAuth } from "@/lib/route-guards";
+import { formatCurrency } from "@/lib/currency";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Alert from "@mui/material/Alert";
+import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import {
   ORDER_ITEM_STATUSES,
   type OrderFulfillmentStatus,
@@ -244,9 +248,46 @@ function ProductPurchaseDetailPage(): React.ReactElement {
       />
 
       <Stack spacing={2}>
-        <Alert severity="info">
-          目前顯示「{product.name}」的全部 OrderItem 作業明細。
-        </Alert>
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+            <Avatar
+              variant="rounded"
+              src={product.imageUrls[0] ?? undefined}
+              alt={product.name}
+              sx={{ width: 56, height: 56 }}
+            >
+              {product.name.charAt(0)}
+            </Avatar>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                {product.name}
+              </Typography>
+              <Stack
+                direction="row"
+                spacing={1.5}
+                sx={{ flexWrap: "wrap", mt: 0.5 }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  SKU：{product.sku}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  售價：{formatCurrency(product.price)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  成本：{formatCurrency(product.cost)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  庫存：{product.stockQuantity}
+                </Typography>
+                {filteredRecords.length > 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    明細筆數：{filteredRecords.length}
+                  </Typography>
+                ) : null}
+              </Stack>
+            </Box>
+          </Stack>
+        </Paper>
 
         {actionError ? (
           <Alert severity="error" onClose={() => setActionError(null)}>
