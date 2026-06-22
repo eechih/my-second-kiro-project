@@ -1,4 +1,3 @@
-import { CursorPagination } from "@/components/CursorPagination";
 import { PageHeader } from "@/components/PageHeader";
 import {
   useProductPurchaseSummaries,
@@ -24,26 +23,21 @@ function ProductPurchasesPage(): React.ReactElement {
   const [statusFilter, setStatusFilter] =
     useState<ProductPurchaseStatusFilter>("pending");
   const [supplierFilter, setSupplierFilter] = useState("");
-  const [pageSize, setPageSize] = useState(10);
-  const [pageIndex, setPageIndex] = useState(0);
   const { data, isLoading, error } = useProductPurchaseSummaries(statusFilter);
 
   const handleSearchChange = useCallback((value: string): void => {
     setSearch(value);
-    setPageIndex(0);
   }, []);
 
   const handleStatusFilterChange = useCallback(
     (value: ProductPurchaseStatusFilter): void => {
       setStatusFilter(value);
-      setPageIndex(0);
     },
     [],
   );
 
   const handleSupplierFilterChange = useCallback((value: string): void => {
     setSupplierFilter(value);
-    setPageIndex(0);
   }, []);
 
   const supplierOptions = useMemo(() => {
@@ -81,14 +75,6 @@ function ProductPurchasesPage(): React.ReactElement {
       );
   }, [data, search, statusFilter, supplierFilter]);
 
-  const pagedSummaries = useMemo(() => {
-    const start = pageIndex * pageSize;
-    return filteredSummaries.slice(start, start + pageSize);
-  }, [filteredSummaries, pageIndex, pageSize]);
-
-  const hasPrevPage = pageIndex > 0;
-  const hasNextPage = (pageIndex + 1) * pageSize < filteredSummaries.length;
-
   return (
     <Box>
       <PageHeader section="單品採購" current="列表" title="單品採購" />
@@ -111,7 +97,7 @@ function ProductPurchasesPage(): React.ReactElement {
       />
 
       <ProductPurchasesTable
-        summaries={pagedSummaries}
+        summaries={filteredSummaries}
         isLoading={isLoading}
         onSelectProduct={(summary) =>
           void navigate({
@@ -119,27 +105,6 @@ function ProductPurchasesPage(): React.ReactElement {
             params: { productId: summary.productId },
           })
         }
-      />
-
-      <CursorPagination
-        pageSize={pageSize}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPageIndex(0);
-        }}
-        hasNextPage={hasNextPage}
-        hasPrevPage={hasPrevPage}
-        onNextPage={() => {
-          if (hasNextPage) {
-            setPageIndex((current) => current + 1);
-          }
-        }}
-        onPrevPage={() => {
-          if (hasPrevPage) {
-            setPageIndex((current) => current - 1);
-          }
-        }}
-        currentCount={pagedSummaries.length}
       />
     </Box>
   );
