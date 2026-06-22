@@ -60,6 +60,7 @@ const orderTable = tables["Order"];
 const shipmentTable = tables["Shipment"];
 const customerOrderSummaryTable = tables["CustomerOrderSummary"];
 const productOrderSummaryTable = tables["ProductOrderSummary"];
+const supplierOrderSummaryTable = tables["SupplierOrderSummary"];
 const productTable = tables["Product"];
 const productCounterTable = tables["SequenceCounter"];
 
@@ -68,11 +69,12 @@ if (
   !shipmentTable ||
   !customerOrderSummaryTable ||
   !productOrderSummaryTable ||
+  !supplierOrderSummaryTable ||
   !productTable ||
   !productCounterTable
 ) {
   throw new Error(
-    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、Shipment、CustomerOrderSummary、ProductOrderSummary、Product、SequenceCounter 模型。",
+    "缺少必要的 DynamoDB 表格定義。請確認 data schema 中已定義 Order、Shipment、CustomerOrderSummary、ProductOrderSummary、SupplierOrderSummary、Product、SequenceCounter 模型。",
   );
 }
 
@@ -126,6 +128,10 @@ for (const fn of transactionalFunctions) {
     "PRODUCT_ORDER_SUMMARY_TABLE_NAME",
     productOrderSummaryTable.tableName,
   );
+  lambdaFn.addEnvironment(
+    "SUPPLIER_ORDER_SUMMARY_TABLE_NAME",
+    supplierOrderSummaryTable.tableName,
+  );
   lambdaFn.addEnvironment("PRODUCT_TABLE_NAME", productTable.tableName);
   lambdaFn.addEnvironment(
     "SEQUENCECOUNTER_TABLE_NAME",
@@ -137,6 +143,7 @@ for (const fn of transactionalFunctions) {
   shipmentTable.grantReadWriteData(lambdaFn);
   customerOrderSummaryTable.grantReadWriteData(lambdaFn);
   productOrderSummaryTable.grantReadWriteData(lambdaFn);
+  supplierOrderSummaryTable.grantReadWriteData(lambdaFn);
   productTable.grantReadWriteData(lambdaFn);
   productCounterTable.grantReadWriteData(lambdaFn);
 
@@ -149,6 +156,7 @@ for (const fn of transactionalFunctions) {
         `${shipmentTable.tableArn}/index/*`,
         `${customerOrderSummaryTable.tableArn}/index/*`,
         `${productOrderSummaryTable.tableArn}/index/*`,
+        `${supplierOrderSummaryTable.tableArn}/index/*`,
       ],
     }),
   );
