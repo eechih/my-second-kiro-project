@@ -133,7 +133,13 @@ export function ProductPurchasesTable({
                     商品
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ width: 120 }}>
+                <TableCell align="right" sx={{ width: 96 }}>
+                  售價
+                </TableCell>
+                <TableCell align="right" sx={{ width: 96 }}>
+                  成本
+                </TableCell>
+                <TableCell align="center" sx={{ width: 120 }}>
                   <TableSortLabel
                     active={sortKey === "supplier"}
                     direction={sortKey === "supplier" ? sortDirection : "asc"}
@@ -141,12 +147,6 @@ export function ProductPurchasesTable({
                   >
                     供應商
                   </TableSortLabel>
-                </TableCell>
-                <TableCell align="right" sx={{ width: 96 }}>
-                  售價
-                </TableCell>
-                <TableCell align="right" sx={{ width: 96 }}>
-                  成本
                 </TableCell>
                 {PRODUCT_PURCHASE_STATUS_COLUMNS.map((status) => {
                   const isSortable =
@@ -248,7 +248,14 @@ export function ProductPurchasesTable({
                         </Box>
                       </Stack>
                     </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(summary.price)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(summary.cost)}
+                    </TableCell>
                     <TableCell
+                      align="center"
                       sx={{
                         color: summary.supplierName
                           ? "text.primary"
@@ -256,12 +263,6 @@ export function ProductPurchasesTable({
                       }}
                     >
                       {summary.supplierName || "—"}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(summary.price)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(summary.cost)}
                     </TableCell>
                     {PRODUCT_PURCHASE_STATUS_COLUMNS.map((status) => {
                       const value = summary.statusQuantities[status] ?? 0;
