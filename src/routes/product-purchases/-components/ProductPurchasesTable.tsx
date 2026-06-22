@@ -14,7 +14,11 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import { ORDER_ITEM_STATUSES, ORDER_ITEM_STATUS_LABEL } from "@shared/models";
+import {
+  ORDER_FULFILLMENT_STATUSES,
+  ORDER_ITEM_STATUS_LABEL,
+  type OrderFulfillmentStatus,
+} from "@shared/models";
 
 type ProductPurchaseColumn = {
   key: string;
@@ -23,48 +27,15 @@ type ProductPurchaseColumn = {
   align?: "left" | "right" | "center";
 };
 
-const PRODUCT_PURCHASE_COLUMNS: readonly ProductPurchaseColumn[] = [
+const PRODUCT_PURCHASE_BASE_COLUMNS: readonly ProductPurchaseColumn[] = [
   { key: "name", label: "商品", width: undefined, align: undefined },
-  { key: "supplier", label: "供應商", width: 96, align: undefined },
+  { key: "supplier", label: "供應商", width: 120, align: undefined },
   { key: "price", label: "售價", width: 96, align: "right" },
   { key: "cost", label: "成本", width: 96, align: "right" },
-  {
-    key: "pending",
-    label: ORDER_ITEM_STATUS_LABEL["PENDING"] ?? "待處理",
-    width: 96,
-    align: "right",
-  },
-  {
-    key: "ordered",
-    label: ORDER_ITEM_STATUS_LABEL["ORDERED"] ?? "已採購",
-    width: 80,
-    align: "right",
-  },
-  {
-    key: "received",
-    label: ORDER_ITEM_STATUS_LABEL["RECEIVED"] ?? "已到貨",
-    width: 80,
-    align: "right",
-  },
-  {
-    key: "shipped",
-    label: ORDER_ITEM_STATUS_LABEL["SHIPPED"] ?? "已出貨",
-    width: 80,
-    align: "right",
-  },
-  {
-    key: "out_of_stock",
-    label: ORDER_ITEM_STATUS_LABEL["OUT_OF_STOCK"] ?? "缺貨",
-    width: 80,
-    align: "right",
-  },
-  {
-    key: "total",
-    label: "總計",
-    width: 80,
-    align: "right",
-  },
 ];
+
+const PRODUCT_PURCHASE_STATUS_COLUMNS: readonly OrderFulfillmentStatus[] =
+  ORDER_FULFILLMENT_STATUSES;
 
 export interface ProductPurchasesTableProps {
   summaries: ProductPurchaseSummary[];
@@ -106,7 +77,7 @@ export function ProductPurchasesTable({
           <Table size="small" sx={listTableBodyTextSx}>
             <TableHead>
               <TableRow>
-                {PRODUCT_PURCHASE_COLUMNS.map((column) => (
+                {PRODUCT_PURCHASE_BASE_COLUMNS.map((column) => (
                   <TableCell
                     key={column.key}
                     align={column.align}
@@ -115,6 +86,14 @@ export function ProductPurchasesTable({
                     {column.label}
                   </TableCell>
                 ))}
+                {PRODUCT_PURCHASE_STATUS_COLUMNS.map((status) => (
+                  <TableCell key={status} align="right" sx={{ width: 80 }}>
+                    {ORDER_ITEM_STATUS_LABEL[status] ?? status}
+                  </TableCell>
+                ))}
+                <TableCell align="right" sx={{ width: 96 }}>
+                  有效總計
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -201,7 +180,7 @@ export function ProductPurchasesTable({
                     <TableCell align="right">
                       {formatCurrency(summary.cost)}
                     </TableCell>
-                    {ORDER_ITEM_STATUSES.map((status) => {
+                    {PRODUCT_PURCHASE_STATUS_COLUMNS.map((status) => {
                       const value = summary.statusQuantities[status] ?? 0;
 
                       return (

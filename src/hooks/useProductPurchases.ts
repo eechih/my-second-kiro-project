@@ -27,6 +27,8 @@ const PRODUCT_ORDER_SUMMARY_SELECTION_SET = [
   "receivedQuantity",
   "shippedQuantity",
   "outOfStockQuantity",
+  "completedQuantity",
+  "cancelledQuantity",
   "totalQuantity",
   "latestActivityAt",
 ] as const;
@@ -36,8 +38,8 @@ function sortProductPurchaseSummaries(
   _statusFilter: ProductPurchaseStatusFilter,
 ): ProductPurchaseSummary[] {
   return [...summaries].sort((a, b) => {
-    const primaryA = a.statusQuantities["pending"] ?? 0;
-    const primaryB = b.statusQuantities["pending"] ?? 0;
+    const primaryA = a.statusQuantities["PENDING"] ?? 0;
+    const primaryB = b.statusQuantities["PENDING"] ?? 0;
 
     if (primaryB !== primaryA) {
       return primaryB - primaryA;
