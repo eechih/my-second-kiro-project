@@ -20,10 +20,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import {
-  ORDER_ITEM_STATUSES,
-  type OrderFulfillmentStatus,
-} from "@shared/models";
+import { ORDER_ITEM_STATUSES } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -33,16 +30,13 @@ import {
 } from "./-components/ProductPurchaseItemDialog";
 import { ProductPurchaseItemTable } from "./-components/ProductPurchaseItemTable";
 
-type ProductPurchaseDetailStatusFilter = "all" | OrderFulfillmentStatus;
+type ProductPurchaseDetailStatusFilter = "all" | "PENDING" | "ORDERED";
 
 const STATUS_OPTIONS: readonly ListToolbarOption<ProductPurchaseDetailStatusFilter>[] =
   [
-    { value: "all", label: "全部狀態" },
+    { value: "all", label: "全部" },
     { value: "PENDING", label: "待處理" },
     { value: "ORDERED", label: "已採購" },
-    { value: "RECEIVED", label: "已到貨" },
-    { value: "SHIPPED", label: "已出貨" },
-    { value: "OUT_OF_STOCK", label: "缺貨" },
   ];
 
 const ORDER_ITEM_STATUS_SORT_INDEX = new Map(
