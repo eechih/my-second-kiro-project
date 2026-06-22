@@ -6,7 +6,7 @@ import {
   type ProductOrderSummary,
 } from "@shared/models/product-order-summary";
 
-export type ProductPurchaseStatusFilter = "all" | "pending";
+export type ProductPurchaseStatusFilter = "all" | "pending" | "ordered";
 export type ProductPurchaseSummary = ProductOrderSummary;
 
 const PRODUCT_PURCHASE_KEYS = {
@@ -53,7 +53,9 @@ function sortProductPurchaseSummaries(
   });
 }
 
-async function fetchProductPurchaseSummaries(): Promise<ProductPurchaseSummary[]> {
+async function fetchProductPurchaseSummaries(): Promise<
+  ProductPurchaseSummary[]
+> {
   const { data, errors } =
     await client.models.ProductOrderSummary.listProductOrderSummariesByPendingQuantity(
       { gsiPartition: "ProductOrderSummary" },
@@ -82,7 +84,8 @@ export function useProductPurchaseSummaries(
   return useQuery({
     queryKey: [...PRODUCT_PURCHASE_KEYS.summaries(), statusFilter],
     queryFn: fetchProductPurchaseSummaries,
-    select: (summaries) => sortProductPurchaseSummaries(summaries, statusFilter),
+    select: (summaries) =>
+      sortProductPurchaseSummaries(summaries, statusFilter),
     staleTime: 60_000,
   });
 }
