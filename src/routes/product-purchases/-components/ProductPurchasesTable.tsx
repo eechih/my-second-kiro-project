@@ -176,6 +176,12 @@ export function ProductPurchasesTable({
                     </TableCell>
                   );
                 })}
+                <TableCell
+                  align="center"
+                  sx={{ width: 120, whiteSpace: "nowrap" }}
+                >
+                  最後更新
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -285,6 +291,18 @@ export function ProductPurchasesTable({
                         </TableCell>
                       );
                     })}
+                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                      {summary.latestActivityAt
+                        ? new Date(summary.latestActivityAt).toLocaleDateString(
+                            "zh-TW",
+                            {
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                            },
+                          )
+                        : "—"}
+                    </TableCell>
                   </TableRow>
                 );
               })}
