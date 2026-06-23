@@ -733,7 +733,10 @@ export function ProductPurchasesTable({
                           : "—"}
                       </TableCell>
                     </TableRow>
-                    <TableRow key={`${summary.productId}-detail`}>
+                    <TableRow
+                      key={`${summary.productId}-detail`}
+                      sx={{ display: isExpanded ? undefined : "none" }}
+                    >
                       <TableCell sx={{ py: 0, px: 0 }} colSpan={COLUMN_COUNT}>
                         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                           <Box sx={{ px: 2, py: 1.5, bgcolor: "action.hover" }}>
