@@ -6,6 +6,7 @@ import {
   useUpdateOrderItemStatusFlag,
   type CreateShipmentWithOrdersInput,
 } from "@/hooks/useOrders";
+import { client } from "@/lib/amplify-client";
 import { formatCurrency } from "@/lib/currency";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import PrintIcon from "@mui/icons-material/Print";
@@ -30,6 +31,11 @@ import TableSortLabel from "@mui/material/TableSortLabel";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { ORDER_FULFILLMENT_STATUS_LABEL, type Order } from "@shared/models";
+import {
+  SHIPMENT_STATUS_LABEL,
+  type Shipment,
+  type ShipmentStatus,
+} from "@shared/models/shipment";
 import { useEffect, useMemo, useState } from "react";
 import { printPackingSlips } from "../../orders/-components/list/packingSlip";
 import { ORDER_STATUS_COLOR_MAP } from "../../orders/-components/detail/detailUtils";
@@ -692,6 +698,177 @@ export function CustomerShipmentTable({
         onClose={() => setShipmentDialogOpen(false)}
         onSubmit={handleCreateShipment}
       />
+
+      <ShipmentHistory orders={allOrders} />
     </Paper>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shipment History
+// ---------------------------------------------------------------------------
+
+const SHIPMENT_SELECTION_SET = [
+  "id",
+  "shipmentNumber",
+  "recipientName",
+  "recipientPhone",
+  "recipientAddress",
+  "status",
+  "shippingMethod",
+  "trackingNumber",
+  "actualShippingCost",
+  "shippedAt",
+  "deliveredAt",
+  "cancelledAt",
+  "note",
+  "createdAt",
+  "updatedAt",
+] as const;
+
+const SHIPMENT_STATUS_COLOR_MAP: Record<
+  ShipmentStatus,
+  "default" | "info" | "success" | "warning" | "error"
+> = {
+  PENDING: "warning",
+  SHIPPED: "info",
+  DELIVERED: "success",
+  CANCELLED: "error",
+};
+
+function mapToShipment(raw: Record<string, unknown>): Shipment {
+  return {
+    id: String(raw.id ?? ""),
+    shipmentNumber: String(raw.shipmentNumber ?? ""),
+    recipientName: String(raw.recipientName ?? ""),
+    recipientPhone: raw.recipientPhone ? String(raw.recipientPhone) : null,
+    recipientAddress: raw.recipientAddress
+      ? String(raw.recipientAddress)
+      : null,
+    status: (raw.status as ShipmentStatus) ?? "PENDING",
+    shippingMethod: raw.shippingMethod ? String(raw.shippingMethod) : null,
+    trackingNumber: raw.trackingNumber ? String(raw.trackingNumber) : null,
+    actualShippingCost: Number(raw.actualShippingCost ?? 0),
+    shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
+    deliveredAt: raw.deliveredAt ? String(raw.deliveredAt) : null,
+    cancelledAt: raw.cancelledAt ? String(raw.cancelledAt) : null,
+    note: raw.note ? String(raw.note) : null,
+    createdAt: String(raw.createdAt ?? ""),
+    updatedAt: String(raw.updatedAt ?? ""),
+  };
+}
+
+function ShipmentHistory({ orders }: { orders: Order[] }): React.ReactElement {
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const shipmentIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const o of orders) {
+      if (o.shipmentId) ids.add(o.shipmentId);
+    }
+    return Array.from(ids);
+  }, [orders]);
+
+  useEffect(() => {
+    if (shipmentIds.length === 0) {
+      setShipments([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+
+    Promise.all(
+      shipmentIds.map(async (id) => {
+        const { data } = await client.models.Shipment.get(
+          { id },
+          { selectionSet: SHIPMENT_SELECTION_SET },
+        );
+        return data
+          ? mapToShipment(data as unknown as Record<string, unknown>)
+          : null;
+      }),
+    )
+      .then((results) => {
+        if (!cancelled) {
+          setShipments(
+            results
+              .filter((s): s is Shipment => s !== null)
+              .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+          );
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shipmentIds]);
+
+  if (shipmentIds.length === 0) return <></>;
+
+  return (
+    <Box sx={{ mt: 3 }}>
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
+        出貨單紀錄
+      </Typography>
+
+      {isLoading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      ) : (
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>出貨單號</TableCell>
+                <TableCell>收件人</TableCell>
+                <TableCell>寄送方式</TableCell>
+                <TableCell>追蹤碼</TableCell>
+                <TableCell align="center">狀態</TableCell>
+                <TableCell align="center">出貨日</TableCell>
+                <TableCell align="center">送達日</TableCell>
+                <TableCell align="center">建立日</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {shipments.map((s) => (
+                <TableRow key={s.id} hover>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                    {s.shipmentNumber}
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                    {s.recipientName}
+                  </TableCell>
+                  <TableCell>{s.shippingMethod || "-"}</TableCell>
+                  <TableCell>{s.trackingNumber || "-"}</TableCell>
+                  <TableCell align="center">
+                    <StatusChip
+                      status={s.status}
+                      label={SHIPMENT_STATUS_LABEL[s.status]}
+                      colorMap={SHIPMENT_STATUS_COLOR_MAP}
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    {formatDate(s.shippedAt)}
+                  </TableCell>
+                  <TableCell align="center">
+                    {formatDate(s.deliveredAt)}
+                  </TableCell>
+                  <TableCell align="center">
+                    {formatDate(s.createdAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
   );
 }
