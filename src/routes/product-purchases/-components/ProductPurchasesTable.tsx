@@ -1,10 +1,21 @@
 import { listTableBodyTextSx } from "@/components/listTableStyles";
+import { StatusChip } from "@/components/StatusChip";
 import { useProductThumbnailUrls } from "@/hooks/useProductImages";
 import type { ProductPurchaseSummary } from "@/hooks/useProductPurchases";
+import {
+  useAllProductOrderItems,
+  useUpdateOrderItemStatusFlag,
+  type ProductOrderItemRecord,
+} from "@/hooks/useOrders";
 import { formatCurrency } from "@/lib/currency";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Collapse from "@mui/material/Collapse";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -14,12 +25,14 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import {
   ORDER_ITEM_STATUS_LABEL,
   type OrderFulfillmentStatus,
 } from "@shared/models";
 import { useMemo, useState } from "react";
+import { ORDER_ITEM_STATUS_COLOR_MAP } from "../../orders/-components/detail/detailUtils";
 
 type SortKey = "sku" | "supplier" | "pending" | "ordered" | "lastUpdated";
 type SortDirection = "asc" | "desc";
@@ -29,6 +42,8 @@ const PRODUCT_PURCHASE_STATUS_COLUMNS: readonly OrderFulfillmentStatus[] = [
   "ORDERED",
   "RECEIVED",
 ];
+
+const COLUMN_COUNT = 8; // checkbox-less: product + price + cost + supplier + 3 statuses + lastUpdated
 
 function compareSummaries(
   a: ProductPurchaseSummary,
@@ -71,6 +86,176 @@ function compareSummaries(
   return direction === "desc" ? -result : result;
 }
 
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "-";
+  return new Date(dateStr).toLocaleDateString("zh-TW", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Detail Panel (expanded row content)
+// ---------------------------------------------------------------------------
+
+function DetailPanel({ productId }: { productId: string }): React.ReactElement {
+  const { data: records, isLoading } = useAllProductOrderItems({
+    productId,
+    status: undefined,
+  });
+  const updateStatusFlag = useUpdateOrderItemStatusFlag();
+  const isBusy = updateStatusFlag.isPending;
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+        <CircularProgress size={24} />
+      </Box>
+    );
+  }
+
+  if (!records || records.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ py: 2, pl: 2 }}>
+        沒有作業明細
+      </Typography>
+    );
+  }
+
+  return (
+    <Table size="small">
+      <TableHead>
+        <TableRow>
+          <TableCell>訂單編號</TableCell>
+          <TableCell>客戶</TableCell>
+          <TableCell>規格</TableCell>
+          <TableCell align="right">數量</TableCell>
+          <TableCell>供應商</TableCell>
+          <TableCell align="center">狀態</TableCell>
+          <TableCell align="center">訂貨日</TableCell>
+          <TableCell align="center">操作</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {records.map((record) => (
+          <DetailRow
+            key={record.orderId}
+            record={record}
+            isBusy={isBusy}
+            onToggleOrdered={(r) =>
+              updateStatusFlag.mutate({
+                orderId: r.orderId,
+                orderItemId: r.item.id,
+                flag: "ordered",
+                checked: !r.item.purchasedAt,
+              })
+            }
+            onToggleOutOfStock={(r) =>
+              updateStatusFlag.mutate({
+                orderId: r.orderId,
+                orderItemId: r.item.id,
+                flag: "outOfStock",
+                checked: r.item.status !== "OUT_OF_STOCK",
+              })
+            }
+          />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+function DetailRow({
+  record,
+  isBusy,
+  onToggleOrdered,
+  onToggleOutOfStock,
+}: {
+  record: ProductOrderItemRecord;
+  isBusy: boolean;
+  onToggleOrdered: (r: ProductOrderItemRecord) => void;
+  onToggleOutOfStock: (r: ProductOrderItemRecord) => void;
+}): React.ReactElement {
+  const { item } = record;
+  const canOrdered =
+    record.orderStatus !== "CANCELLED" &&
+    (item.status === "PENDING" || item.status === "ORDERED");
+  const canOutOfStock =
+    record.orderStatus !== "CANCELLED" &&
+    (item.status === "PENDING" ||
+      item.status === "ORDERED" ||
+      item.status === "OUT_OF_STOCK");
+
+  return (
+    <TableRow hover>
+      <TableCell sx={{ whiteSpace: "nowrap" }}>{record.orderNumber}</TableCell>
+      <TableCell sx={{ whiteSpace: "nowrap" }}>{record.customerName}</TableCell>
+      <TableCell sx={{ whiteSpace: "nowrap" }}>
+        {item.selectedOptionsSnapshot
+          ?.map((opt) => opt.valueName)
+          .join(" / ") || "-"}
+      </TableCell>
+      <TableCell align="right">{item.quantity}</TableCell>
+      <TableCell sx={{ whiteSpace: "nowrap" }}>
+        {item.supplierName || "-"}
+      </TableCell>
+      <TableCell align="center">
+        <StatusChip
+          status={item.status}
+          label={ORDER_ITEM_STATUS_LABEL[item.status]}
+          colorMap={ORDER_ITEM_STATUS_COLOR_MAP}
+        />
+      </TableCell>
+      <TableCell align="center">{formatDate(item.purchasedAt)}</TableCell>
+      <TableCell align="center">
+        <Stack direction="row" spacing={0.5} sx={{ justifyContent: "center" }}>
+          <Tooltip title={canOrdered ? "" : "不可操作"}>
+            <span>
+              <Button
+                size="small"
+                variant={item.purchasedAt ? "contained" : "outlined"}
+                color="warning"
+                disabled={!canOrdered || isBusy}
+                sx={{ minWidth: 0, px: 1 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleOrdered(record);
+                }}
+              >
+                {item.purchasedAt ? "取消訂貨" : "確認訂貨"}
+              </Button>
+            </span>
+          </Tooltip>
+          <Tooltip title={canOutOfStock ? "" : "不可操作"}>
+            <span>
+              <Button
+                size="small"
+                variant={
+                  item.status === "OUT_OF_STOCK" ? "contained" : "outlined"
+                }
+                color="error"
+                disabled={!canOutOfStock || isBusy}
+                sx={{ minWidth: 0, px: 1 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleOutOfStock(record);
+                }}
+              >
+                {item.status === "OUT_OF_STOCK" ? "取消缺貨" : "缺貨"}
+              </Button>
+            </span>
+          </Tooltip>
+        </Stack>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Table
+// ---------------------------------------------------------------------------
+
 export interface ProductPurchasesTableProps {
   summaries: ProductPurchaseSummary[];
   isLoading: boolean;
@@ -84,6 +269,7 @@ export function ProductPurchasesTable({
 }: ProductPurchasesTableProps): React.ReactElement {
   const [sortKey, setSortKey] = useState<SortKey>("pending");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
 
   const imageKeys = Array.from(
     new Set(
@@ -114,6 +300,18 @@ export function ProductPurchasesTable({
     }
   };
 
+  const toggleExpand = (productId: string): void => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
   return (
     <Box sx={{ mt: 2 }}>
       {isLoading ? (
@@ -131,6 +329,7 @@ export function ProductPurchasesTable({
           <Table size="small" sx={listTableBodyTextSx}>
             <TableHead>
               <TableRow>
+                <TableCell sx={{ width: 40 }} />
                 <TableCell>
                   <TableSortLabel
                     active={sortKey === "sku"}
@@ -202,132 +401,181 @@ export function ProductPurchasesTable({
                 const thumbnailUrl = summary.productImageUrl
                   ? thumbnailUrlMap.get(summary.productImageUrl)
                   : undefined;
+                const isExpanded = expandedIds.has(summary.productId);
 
                 return (
-                  <TableRow
-                    key={summary.productId}
-                    hover
-                    onClick={() => onSelectProduct(summary)}
-                    sx={{ cursor: "pointer" }}
-                  >
-                    <TableCell sx={{ fontWeight: 600 }}>
-                      <Stack
-                        direction="row"
-                        spacing={1.5}
-                        sx={{ alignItems: "center", minWidth: 0 }}
-                      >
-                        {thumbnailUrl ? (
-                          <Box
-                            component="img"
-                            src={thumbnailUrl}
-                            alt={summary.productName}
-                            sx={{
-                              width: 48,
-                              height: 48,
-                              objectFit: "cover",
-                              borderRadius: 1,
-                              border: "1px solid",
-                              borderColor: "divider",
-                              flexShrink: 0,
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            sx={{
-                              width: 48,
-                              height: 48,
-                              borderRadius: 1,
-                              border: "1px dashed",
-                              borderColor: "divider",
-                              color: "text.disabled",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                            }}
-                          >
-                            —
-                          </Box>
-                        )}
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography
-                            sx={{
-                              fontWeight: 600,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {summary.productName}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {summary.productSku || "—"}
-                          </Typography>
-                        </Box>
-                      </Stack>
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(summary.price)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(summary.cost)}
-                    </TableCell>
-                    <TableCell
-                      align="center"
+                  <>
+                    <TableRow
+                      key={summary.productId}
+                      hover
                       sx={{
-                        color: summary.supplierName
-                          ? "text.primary"
-                          : "text.secondary",
+                        cursor: "pointer",
+                        "& > *": {
+                          borderBottom: isExpanded ? "unset" : undefined,
+                        },
                       }}
                     >
-                      {summary.supplierName || "—"}
-                    </TableCell>
-                    {PRODUCT_PURCHASE_STATUS_COLUMNS.map((status) => {
-                      const value = summary.statusQuantities[status] ?? 0;
-
-                      return (
-                        <TableCell key={status} align="right">
-                          {status === "PENDING" ? (
-                            <Chip
-                              label={value}
-                              color={value > 0 ? "warning" : "default"}
-                              size="small"
+                      <TableCell sx={{ width: 40, px: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpand(summary.productId);
+                          }}
+                          aria-label={isExpanded ? "收合明細" : "展開明細"}
+                        >
+                          {isExpanded ? (
+                            <KeyboardArrowUpIcon />
+                          ) : (
+                            <KeyboardArrowDownIcon />
+                          )}
+                        </IconButton>
+                      </TableCell>
+                      <TableCell
+                        sx={{ fontWeight: 600 }}
+                        onClick={() => onSelectProduct(summary)}
+                      >
+                        <Stack
+                          direction="row"
+                          spacing={1.5}
+                          sx={{ alignItems: "center", minWidth: 0 }}
+                        >
+                          {thumbnailUrl ? (
+                            <Box
+                              component="img"
+                              src={thumbnailUrl}
+                              alt={summary.productName}
                               sx={{
-                                minWidth: 52,
-                                fontWeight: 700,
-                                justifyContent: "center",
+                                width: 48,
+                                height: 48,
+                                objectFit: "cover",
+                                borderRadius: 1,
+                                border: "1px solid",
+                                borderColor: "divider",
+                                flexShrink: 0,
                               }}
                             />
                           ) : (
-                            value
+                            <Box
+                              sx={{
+                                width: 48,
+                                height: 48,
+                                borderRadius: 1,
+                                border: "1px dashed",
+                                borderColor: "divider",
+                                color: "text.disabled",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                              }}
+                            >
+                              —
+                            </Box>
                           )}
-                        </TableCell>
-                      );
-                    })}
-                    <TableCell align="center">
-                      {summary.latestActivityAt
-                        ? (() => {
-                            const d = new Date(summary.latestActivityAt);
-                            const date = d.toLocaleDateString("zh-TW", {
-                              year: "numeric",
-                              month: "2-digit",
-                              day: "2-digit",
-                            });
-                            const time = d.toLocaleTimeString("zh-TW", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            });
-                            return (
-                              <>
-                                {date}
-                                <br />
-                                {time}
-                              </>
-                            );
-                          })()
-                        : "—"}
-                    </TableCell>
-                  </TableRow>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography
+                              sx={{
+                                fontWeight: 600,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {summary.productName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {summary.productSku || "—"}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        onClick={() => onSelectProduct(summary)}
+                      >
+                        {formatCurrency(summary.price)}
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        onClick={() => onSelectProduct(summary)}
+                      >
+                        {formatCurrency(summary.cost)}
+                      </TableCell>
+                      <TableCell
+                        align="center"
+                        onClick={() => onSelectProduct(summary)}
+                        sx={{
+                          color: summary.supplierName
+                            ? "text.primary"
+                            : "text.secondary",
+                        }}
+                      >
+                        {summary.supplierName || "—"}
+                      </TableCell>
+                      {PRODUCT_PURCHASE_STATUS_COLUMNS.map((status) => {
+                        const value = summary.statusQuantities[status] ?? 0;
+
+                        return (
+                          <TableCell
+                            key={status}
+                            align="right"
+                            onClick={() => onSelectProduct(summary)}
+                          >
+                            {status === "PENDING" ? (
+                              <Chip
+                                label={value}
+                                color={value > 0 ? "warning" : "default"}
+                                size="small"
+                                sx={{
+                                  minWidth: 52,
+                                  fontWeight: 700,
+                                  justifyContent: "center",
+                                }}
+                              />
+                            ) : (
+                              value
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell
+                        align="center"
+                        onClick={() => onSelectProduct(summary)}
+                      >
+                        {summary.latestActivityAt
+                          ? (() => {
+                              const d = new Date(summary.latestActivityAt);
+                              const date = d.toLocaleDateString("zh-TW", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                              });
+                              const time = d.toLocaleTimeString("zh-TW", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              });
+                              return (
+                                <>
+                                  {date}
+                                  <br />
+                                  {time}
+                                </>
+                              );
+                            })()
+                          : "—"}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow key={`${summary.productId}-detail`}>
+                      <TableCell sx={{ py: 0, px: 0 }} colSpan={COLUMN_COUNT}>
+                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                          <Box sx={{ px: 2, py: 1.5, bgcolor: "action.hover" }}>
+                            <DetailPanel productId={summary.productId} />
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </>
                 );
               })}
             </TableBody>
