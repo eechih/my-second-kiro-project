@@ -196,7 +196,7 @@ type UpdateOrderStatusInput = {
 };
 
 type ConfirmReceivedInput = {
-  orderId: string;
+  orderIds: string[];
 };
 
 type MarkProcurementInput = {
@@ -223,7 +223,7 @@ type SingleOrderItemStatusFlagInput = {
 
 type BatchOrderItemStatusFlagInput = {
   orderIds: string[];
-  flag: "ordered" | "outOfStock";
+  flag: "ordered" | "outOfStock" | "received";
   checked: boolean;
   orderId?: never;
   orderItemId?: never;
@@ -923,8 +923,13 @@ async function updateOrderStatus(
 }
 
 async function confirmReceived(input: ConfirmReceivedInput): Promise<Order> {
+  const resultOrderId = input.orderIds[0];
+  if (!resultOrderId) {
+    throw new Error("請指定要確認入庫的訂單");
+  }
+
   const { data, errors } = await client.mutations.confirmReceived({
-    orderId: input.orderId,
+    orderIds: input.orderIds,
   });
 
   if (errors && errors.length > 0) {
@@ -933,7 +938,7 @@ async function confirmReceived(input: ConfirmReceivedInput): Promise<Order> {
 
   assertCustomMutationSuccess(data, "入庫確認失敗");
 
-  return fetchOrder(input.orderId);
+  return fetchOrder(resultOrderId);
 }
 
 function parseCustomMutationResult(
@@ -976,8 +981,13 @@ function assertCustomMutationSuccess(
 }
 
 async function cancelReceived(input: ConfirmReceivedInput): Promise<Order> {
+  const resultOrderId = input.orderIds[0];
+  if (!resultOrderId) {
+    throw new Error("請指定要取消入庫的訂單");
+  }
+
   const { data: result, errors } = await client.mutations.cancelReceived({
-    orderId: input.orderId,
+    orderIds: input.orderIds,
   });
 
   if (errors && errors.length > 0) {
@@ -986,7 +996,7 @@ async function cancelReceived(input: ConfirmReceivedInput): Promise<Order> {
 
   assertCustomMutationSuccess(result, "取消到貨失敗");
 
-  return fetchOrder(input.orderId);
+  return fetchOrder(resultOrderId);
 }
 
 async function confirmOutOfStock(input: {
@@ -1084,6 +1094,12 @@ async function updateOrderItemStatusFlag(
         : cancelProcurement({ orderIds: input.orderIds });
     }
 
+    if (input.flag === "received") {
+      return input.checked
+        ? confirmReceived({ orderIds: input.orderIds })
+        : cancelReceived({ orderIds: input.orderIds });
+    }
+
     return input.checked
       ? confirmOutOfStock({ orderIds: input.orderIds })
       : cancelOutOfStock({ orderIds: input.orderIds });
@@ -1097,8 +1113,8 @@ async function updateOrderItemStatusFlag(
 
   if (input.flag === "received") {
     return input.checked
-      ? confirmReceived({ orderId: input.orderId })
-      : cancelReceived({ orderId: input.orderId });
+      ? confirmReceived({ orderIds: [input.orderId] })
+      : cancelReceived({ orderIds: [input.orderId] });
   }
 
   if (input.flag === "shipped") {
@@ -1456,7 +1472,11 @@ export function useConfirmReceived(): UseMutationResult<
   return useMutation({
     mutationFn: confirmReceived,
     onMutate: async (input) => {
-      const orderKey = ORDER_KEYS.detail(input.orderId);
+      const resultOrderId = input.orderIds[0];
+      if (!resultOrderId)
+        return { previousOrder: undefined, previousSupplierName: null };
+
+      const orderKey = ORDER_KEYS.detail(resultOrderId);
       await queryClient.cancelQueries({ queryKey: orderKey });
 
       const previousOrder = queryClient.getQueryData<Order>(orderKey);
@@ -1476,8 +1496,11 @@ export function useConfirmReceived(): UseMutationResult<
     },
     onError: (_err, input, context) => {
       if (context?.previousOrder) {
-        const orderKey = ORDER_KEYS.detail(input.orderId);
-        queryClient.setQueryData(orderKey, context.previousOrder);
+        const resultOrderId = input.orderIds[0];
+        if (resultOrderId) {
+          const orderKey = ORDER_KEYS.detail(resultOrderId);
+          queryClient.setQueryData(orderKey, context.previousOrder);
+        }
       }
     },
     onSuccess: async (order, _input, context) => {
@@ -1487,9 +1510,11 @@ export function useConfirmReceived(): UseMutationResult<
       ]);
     },
     onSettled: (_, __, input) => {
-      void queryClient.invalidateQueries({
-        queryKey: ORDER_KEYS.detail(input.orderId),
-      });
+      for (const orderId of input.orderIds) {
+        void queryClient.invalidateQueries({
+          queryKey: ORDER_KEYS.detail(orderId),
+        });
+      }
       void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
       invalidateSupplierReceivingQueries(queryClient);
       void queryClient.invalidateQueries({ queryKey: ["products"] });

@@ -437,11 +437,11 @@ const schema = a.schema({
     cancelPurchase,
   ),
   confirmReceived: authenticatedJsonMutation(
-    { orderId: a.string().required() },
+    { orderIds: a.string().array().required() },
     confirmReceived,
   ),
   cancelReceived: authenticatedJsonMutation(
-    { orderId: a.string().required() },
+    { orderIds: a.string().array().required() },
     cancelReceived,
   ),
   confirmShipment: authenticatedJsonMutation(

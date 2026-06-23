@@ -136,14 +136,11 @@ export function SupplierReceivingTable({
     if (targets.length === 0 || isBusy) return;
     setBusyAction(actionKey);
     try {
-      for (const r of targets) {
-        await updateStatusFlag.mutateAsync({
-          orderId: r.orderId,
-          orderItemId: r.item.id,
-          flag: "received",
-          checked,
-        });
-      }
+      await updateStatusFlag.mutateAsync({
+        orderIds: targets.map((r) => r.orderId),
+        flag: "received",
+        checked,
+      });
       setSelectedIds((prev) => {
         const next = new Set(prev);
         for (const r of targets) next.delete(r.orderId);
