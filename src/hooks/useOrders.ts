@@ -1718,6 +1718,57 @@ export function useMergeOrders(): UseMutationResult<
 }
 
 // ---------------------------------------------------------------------------
+// Create Shipment with Orders
+// ---------------------------------------------------------------------------
+
+export interface CreateShipmentWithOrdersInput {
+  recipientName: string;
+  recipientPhone?: string;
+  recipientAddress?: string;
+  shippingMethod?: string;
+  trackingNumber?: string;
+  actualShippingCost?: number;
+  note?: string;
+  orderIds: string[];
+}
+
+export function useCreateShipmentWithOrders(): UseMutationResult<
+  unknown,
+  Error,
+  CreateShipmentWithOrdersInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateShipmentWithOrdersInput) => {
+      const { data: result, errors } =
+        await client.mutations.createShipmentWithOrders({
+          recipientName: input.recipientName,
+          recipientPhone: input.recipientPhone ?? null,
+          recipientAddress: input.recipientAddress ?? null,
+          shippingMethod: input.shippingMethod ?? null,
+          trackingNumber: input.trackingNumber ?? null,
+          actualShippingCost: input.actualShippingCost ?? null,
+          note: input.note ?? null,
+          orderIds: input.orderIds,
+        });
+
+      if (errors && errors.length > 0) {
+        throw new Error(errors[0]?.message ?? "建立出貨單失敗");
+      }
+
+      assertCustomMutationSuccess(result, "建立出貨單失敗");
+      return result;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
+      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.details() });
+      invalidateSupplierReceivingQueries(queryClient);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Split Order Hook (deprecated — feature removed)
 // ---------------------------------------------------------------------------
 
