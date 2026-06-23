@@ -122,7 +122,7 @@ function canBatchSelect(record: ProductOrderItemRecord): boolean {
 function DetailPanel({ productId }: { productId: string }): React.ReactElement {
   const { data: records, isLoading } = useAllProductOrderItems({
     productId,
-    status: undefined,
+    status: "PENDING",
   });
   const updateStatusFlag = useUpdateOrderItemStatusFlag();
   const isBusy = updateStatusFlag.isPending;
