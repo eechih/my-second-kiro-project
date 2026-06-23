@@ -208,13 +208,14 @@ export const handler: Schema["cancelOutOfStock"]["functionHandler"] = async (
           TableName: orderTable,
           Key: marshall({ id: targetOrderId }),
           UpdateExpression:
-            "SET #st = :newStatus, statusHistory = :history, updatedAt = :now REMOVE outOfStockAt",
+            "SET #st = :newStatus, supplierStatusSort = :supplierStatusSort, statusHistory = :history, updatedAt = :now REMOVE outOfStockAt",
           ConditionExpression: "#st = :outOfStock",
           ExpressionAttributeNames: { "#st": "status" },
           ExpressionAttributeValues: marshall({
             ":newStatus": restoreTarget,
             ":outOfStock": "OUT_OF_STOCK",
             ":now": now,
+            ":supplierStatusSort": `${restoreTarget}#${toTrimmedString(order["createdAtForSort"]) || now}`,
             ":history": updatedHistory,
           }),
         },

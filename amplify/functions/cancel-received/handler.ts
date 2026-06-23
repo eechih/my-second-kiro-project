@@ -39,11 +39,9 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
 
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
-  const customerSummaryTable =
-    process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+  const customerSummaryTable = process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
   const productSummaryTable = process.env["PRODUCT_ORDER_SUMMARY_TABLE_NAME"];
-  const supplierSummaryTable =
-    process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
+  const supplierSummaryTable = process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
 
   if (
     !orderTable ||
@@ -166,7 +164,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
               TableName: orderTable,
               Key: marshall({ id: orderId }),
               UpdateExpression:
-                "SET #st = :ordered, statusHistory = :history, updatedAt = :now REMOVE receivedAt",
+                "SET #st = :ordered, supplierStatusSort = :supplierStatusSort, statusHistory = :history, updatedAt = :now REMOVE receivedAt",
               ConditionExpression: "#st = :received",
               ExpressionAttributeNames: { "#st": "status" },
               ExpressionAttributeValues: marshall({
@@ -174,6 +172,7 @@ export const handler: Schema["cancelReceived"]["functionHandler"] = async (
                 ":received": "RECEIVED",
                 ":history": updatedHistory,
                 ":now": now,
+                ":supplierStatusSort": `ORDERED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
               }),
             },
           },

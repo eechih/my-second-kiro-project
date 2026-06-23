@@ -1316,16 +1316,47 @@ async function fetchAllSupplierOrderItems(
   const items: ProductOrderItemRecord[] = [];
   let nextToken: string | undefined;
 
-  do {
-    const page = await fetchSupplierOrderItemList({
-      supplierName: params.supplierName,
-      pageSize: 100,
-      nextToken,
-      status: params.status,
-    });
+  const supplierStatusSortFilter = params.status
+    ? { beginsWith: `${params.status}#` }
+    : undefined;
 
-    items.push(...page.items);
-    nextToken = page.nextToken;
+  do {
+    const {
+      data,
+      errors,
+      nextToken: nt,
+    } = await client.models.Order.listOrdersBySupplierStatus(
+      {
+        supplierName: params.supplierName.trim(),
+        ...(supplierStatusSortFilter
+          ? { supplierStatusSort: supplierStatusSortFilter }
+          : {}),
+      },
+      {
+        sortDirection: "DESC",
+        limit: 200,
+        ...(nextToken ? { nextToken } : {}),
+        selectionSet: PRODUCT_ORDER_SELECTION_SET,
+      } as Record<string, unknown>,
+    );
+
+    if (errors && errors.length > 0) {
+      throw new Error(errors[0]?.message ?? "查詢供應商入庫資料失敗");
+    }
+
+    for (const raw of data ?? []) {
+      const order = mapToOrder(raw as unknown as Record<string, unknown>);
+      items.push({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.customerNameSnapshot,
+        orderStatus: order.status,
+        paymentStatus: order.paymentStatus,
+        item: order,
+      });
+    }
+
+    nextToken = (nt as string) ?? undefined;
   } while (nextToken);
 
   return items;

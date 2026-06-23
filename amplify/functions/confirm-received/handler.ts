@@ -37,11 +37,9 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
 
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
-  const customerSummaryTable =
-    process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+  const customerSummaryTable = process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
   const productSummaryTable = process.env["PRODUCT_ORDER_SUMMARY_TABLE_NAME"];
-  const supplierSummaryTable =
-    process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
+  const supplierSummaryTable = process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
 
   if (
     !orderTable ||
@@ -173,13 +171,14 @@ export const handler: Schema["confirmReceived"]["functionHandler"] = async (
               TableName: orderTable,
               Key: marshall({ id: orderId }),
               UpdateExpression:
-                "SET #st = :newStatus, receivedAt = :now, statusHistory = :history, updatedAt = :now",
+                "SET #st = :newStatus, supplierStatusSort = :supplierStatusSort, receivedAt = :now, statusHistory = :history, updatedAt = :now",
               ConditionExpression: "#st = :expectedStatus",
               ExpressionAttributeNames: { "#st": "status" },
               ExpressionAttributeValues: marshall({
                 ":newStatus": targetStatus,
                 ":expectedStatus": currentStatus,
                 ":now": now,
+                ":supplierStatusSort": `${targetStatus}#${String(order["createdAtForSort"] ?? "").trim() || now}`,
                 ":history": updatedHistory,
               }),
             },

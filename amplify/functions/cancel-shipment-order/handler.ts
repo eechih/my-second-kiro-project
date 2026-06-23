@@ -35,11 +35,9 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
   const orderTable = process.env["ORDER_TABLE_NAME"];
   const productTable = process.env["PRODUCT_TABLE_NAME"];
   const shipmentTable = process.env["SHIPMENT_TABLE_NAME"];
-  const customerSummaryTable =
-    process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+  const customerSummaryTable = process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
   const productSummaryTable = process.env["PRODUCT_ORDER_SUMMARY_TABLE_NAME"];
-  const supplierSummaryTable =
-    process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
+  const supplierSummaryTable = process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
 
   if (
     !orderTable ||
@@ -180,7 +178,7 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
             TableName: orderTable,
             Key: marshall({ id: orderId }),
             UpdateExpression:
-              "SET #st = :received, shipmentId = :nullVal, statusHistory = :history, updatedAt = :now",
+              "SET #st = :received, supplierStatusSort = :supplierStatusSort, shipmentId = :nullVal, statusHistory = :history, updatedAt = :now",
             ConditionExpression: "shipmentId = :shipmentId",
             ExpressionAttributeNames: { "#st": "status" },
             ExpressionAttributeValues: marshall({
@@ -189,6 +187,7 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
               ":shipmentId": shipmentId,
               ":history": updatedHistory,
               ":now": now,
+              ":supplierStatusSort": `RECEIVED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
             }),
           },
         });
@@ -208,9 +207,8 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
             TableName: orderTable,
             Key: marshall({ id: orderId }),
             UpdateExpression:
-              "SET #st = :received, shipmentId = :nullVal, shippedAt = :nullVal, statusHistory = :history, updatedAt = :now",
-            ConditionExpression:
-              "#st = :shipped AND shipmentId = :shipmentId",
+              "SET #st = :received, supplierStatusSort = :supplierStatusSort, shipmentId = :nullVal, shippedAt = :nullVal, statusHistory = :history, updatedAt = :now",
+            ConditionExpression: "#st = :shipped AND shipmentId = :shipmentId",
             ExpressionAttributeNames: { "#st": "status" },
             ExpressionAttributeValues: marshall({
               ":received": "RECEIVED",
@@ -219,6 +217,7 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
               ":shipmentId": shipmentId,
               ":history": updatedHistory,
               ":now": now,
+              ":supplierStatusSort": `RECEIVED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
             }),
           },
         });
@@ -274,10 +273,7 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
     } else {
       // 超過 100 項時拆分：主交易包含 Shipment 更新 + Order 更新，
       // 庫存回補作為獨立交易（犧牲庫存部分的原子性）
-      const shipmentAndOrderItems = transactItems.slice(
-        0,
-        1 + orders.length,
-      );
+      const shipmentAndOrderItems = transactItems.slice(0, 1 + orders.length);
       const stockItems = transactItems.slice(1 + orders.length);
 
       logWarn(FUNCTION_NAME, "splitting transaction due to item limit", {

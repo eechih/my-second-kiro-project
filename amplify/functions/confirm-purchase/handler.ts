@@ -31,9 +31,7 @@ function toTrimmedString(value: unknown): string {
 }
 
 function normalizeOrderIds(orderIds: (string | null)[]): string[] {
-  return Array.from(
-    new Set(orderIds.map(toTrimmedString).filter(Boolean)),
-  );
+  return Array.from(new Set(orderIds.map(toTrimmedString).filter(Boolean)));
 }
 
 async function getOrder(
@@ -70,11 +68,9 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
   });
 
   const orderTable = process.env["ORDER_TABLE_NAME"];
-  const customerSummaryTable =
-    process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
+  const customerSummaryTable = process.env["CUSTOMER_ORDER_SUMMARY_TABLE_NAME"];
   const productSummaryTable = process.env["PRODUCT_ORDER_SUMMARY_TABLE_NAME"];
-  const supplierSummaryTable =
-    process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
+  const supplierSummaryTable = process.env["SUPPLIER_ORDER_SUMMARY_TABLE_NAME"];
 
   if (
     !orderTable ||
@@ -215,7 +211,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
           TableName: orderTable,
           Key: marshall({ id: targetOrderId }),
           UpdateExpression:
-            "SET #st = :newStatus, purchasedAt = :now, supplierName = :supplierName, statusHistory = :history, updatedAt = :now",
+            "SET #st = :newStatus, purchasedAt = :now, supplierName = :supplierName, supplierStatusSort = :supplierStatusSort, statusHistory = :history, updatedAt = :now",
           ConditionExpression: "#st = :expectedStatus",
           ExpressionAttributeNames: { "#st": "status" },
           ExpressionAttributeValues: marshall({
@@ -223,6 +219,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
             ":expectedStatus": currentStatus,
             ":now": now,
             ":supplierName": effectiveSupplierName,
+            ":supplierStatusSort": `${targetStatus}#${toTrimmedString(order["createdAtForSort"]) || now}`,
             ":history": updatedHistory,
           }),
         },

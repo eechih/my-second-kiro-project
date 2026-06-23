@@ -86,7 +86,12 @@ export const handler: Schema["confirmShipmentDelivery"]["functionHandler"] =
       });
 
       // 2. 驗證 Shipment 狀態轉換是否合法（SHIPPED → DELIVERED）
-      if (!isValidShipmentStatusTransition(currentStatus as "PENDING" | "SHIPPED" | "DELIVERED" | "CANCELLED", "DELIVERED")) {
+      if (
+        !isValidShipmentStatusTransition(
+          currentStatus as "PENDING" | "SHIPPED" | "DELIVERED" | "CANCELLED",
+          "DELIVERED",
+        )
+      ) {
         logWarn(FUNCTION_NAME, "invalid shipment status transition", {
           shipmentId,
           currentStatus,
@@ -178,13 +183,14 @@ export const handler: Schema["confirmShipmentDelivery"]["functionHandler"] =
             TableName: orderTable,
             Key: marshall({ id: orderId }),
             UpdateExpression:
-              "SET #st = :newStatus, completedAt = :now, updatedAt = :now, statusHistory = :history",
+              "SET #st = :newStatus, supplierStatusSort = :supplierStatusSort, completedAt = :now, updatedAt = :now, statusHistory = :history",
             ConditionExpression: "#st = :expectedStatus",
             ExpressionAttributeNames: { "#st": "status" },
             ExpressionAttributeValues: marshall({
               ":newStatus": "COMPLETED",
               ":expectedStatus": "SHIPPED",
               ":now": now,
+              ":supplierStatusSort": `COMPLETED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
               ":history": updatedHistory,
             }),
           },

@@ -1009,6 +1009,9 @@ function buildOrder(orderIndex, customer, products) {
     note: "Seed demo order",
     statusHistory,
     shipmentId: undefined,
+    supplierStatusSort: supplierName
+      ? `${statusConfig.status}#${createdAt}`
+      : undefined,
     isActive: true,
     deletedAt: null,
     gsiPartition: "Order",
