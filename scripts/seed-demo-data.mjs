@@ -1012,6 +1012,7 @@ function buildOrder(orderIndex, customer, products) {
     supplierStatusSort: supplierName
       ? `${statusConfig.status}#${createdAt}`
       : undefined,
+    customerStatusSort: `${statusConfig.status}#${createdAt}`,
     isActive: true,
     deletedAt: null,
     gsiPartition: "Order",

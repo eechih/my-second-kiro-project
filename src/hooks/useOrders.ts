@@ -397,6 +397,50 @@ export async function fetchAllCustomerOrders(
   return orders;
 }
 
+export async function fetchCustomerOrdersByStatus(
+  customerId: string,
+  status?: string,
+): Promise<Order[]> {
+  const orders: Order[] = [];
+  let nextToken: string | undefined;
+
+  const customerStatusSortFilter = status
+    ? { beginsWith: `${status}#` }
+    : undefined;
+
+  do {
+    const {
+      data,
+      errors,
+      nextToken: responseNextToken,
+    } = await client.models.Order.listOrdersByCustomerStatus(
+      {
+        customerId,
+        ...(customerStatusSortFilter
+          ? { customerStatusSort: customerStatusSortFilter }
+          : {}),
+      },
+      {
+        sortDirection: "DESC",
+        limit: 200,
+        ...(nextToken ? { nextToken } : {}),
+        selectionSet: ORDER_DETAIL_SELECTION_SET,
+      } as Record<string, unknown>,
+    );
+
+    if (errors && errors.length > 0) {
+      throw new Error(errors[0]?.message ?? "查詢客戶訂單失敗");
+    }
+
+    for (const raw of data ?? []) {
+      orders.push(mapToOrder(raw as unknown as Record<string, unknown>));
+    }
+    nextToken = (responseNextToken as string) ?? undefined;
+  } while (nextToken);
+
+  return orders;
+}
+
 async function fetchProductOrderItemList(
   params: ProductOrderItemListParams,
 ): Promise<PaginatedResult<ProductOrderItemRecord>> {

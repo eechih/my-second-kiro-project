@@ -1,7 +1,7 @@
 import { StatusChip } from "@/components/StatusChip";
 import type { ShipmentStatusFilter } from "@/hooks/useCustomerShipments";
 import {
-  fetchAllCustomerOrders,
+  fetchCustomerOrdersByStatus,
   useCreateShipmentWithOrders,
   useUpdateOrderItemStatusFlag,
   type CreateShipmentWithOrdersInput,
@@ -266,7 +266,10 @@ export function CustomerShipmentTable({
     setIsLoading(true);
     setError(null);
 
-    fetchAllCustomerOrders(customerId)
+    const statusQuery =
+      initialStatusFilter === "readyToShip" ? "RECEIVED" : undefined;
+
+    fetchCustomerOrdersByStatus(customerId, statusQuery)
       .then((orders) => {
         if (!cancelled) {
           setAllOrders(orders);
@@ -353,7 +356,7 @@ export function CustomerShipmentTable({
         setShipmentDialogOpen(false);
         setSelectedIds(new Set());
         // Refetch orders
-        fetchAllCustomerOrders(customerId)
+        fetchCustomerOrdersByStatus(customerId)
           .then(setAllOrders)
           .catch(() => {});
       },
@@ -475,7 +478,7 @@ export function CustomerShipmentTable({
                   for (const o of shipmentCandidates) next.delete(o.id);
                   return next;
                 });
-                fetchAllCustomerOrders(customerId)
+                fetchCustomerOrdersByStatus(customerId)
                   .then(setAllOrders)
                   .catch(() => {});
               } finally {
@@ -654,7 +657,7 @@ export function CustomerShipmentTable({
                               {
                                 onSettled: () => {
                                   setBusyAction(null);
-                                  fetchAllCustomerOrders(customerId)
+                                  fetchCustomerOrdersByStatus(customerId)
                                     .then(setAllOrders)
                                     .catch(() => {});
                                 },

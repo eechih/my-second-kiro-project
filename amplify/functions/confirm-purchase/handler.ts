@@ -211,7 +211,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
           TableName: orderTable,
           Key: marshall({ id: targetOrderId }),
           UpdateExpression:
-            "SET #st = :newStatus, purchasedAt = :now, supplierName = :supplierName, supplierStatusSort = :supplierStatusSort, statusHistory = :history, updatedAt = :now",
+            "SET #st = :newStatus, purchasedAt = :now, supplierName = :supplierName, supplierStatusSort = :supplierStatusSort, customerStatusSort = :customerStatusSort, statusHistory = :history, updatedAt = :now",
           ConditionExpression: "#st = :expectedStatus",
           ExpressionAttributeNames: { "#st": "status" },
           ExpressionAttributeValues: marshall({
@@ -220,6 +220,7 @@ export const handler: Schema["confirmPurchase"]["functionHandler"] = async (
             ":now": now,
             ":supplierName": effectiveSupplierName,
             ":supplierStatusSort": `${targetStatus}#${toTrimmedString(order["createdAtForSort"]) || now}`,
+            ":customerStatusSort": `${targetStatus}#${toTrimmedString(order["createdAtForSort"]) || now}`,
             ":history": updatedHistory,
           }),
         },

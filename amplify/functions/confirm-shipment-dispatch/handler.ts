@@ -300,7 +300,7 @@ export const handler: Schema["confirmShipmentDispatch"]["functionHandler"] =
             TableName: orderTable,
             Key: marshall({ id: orderId }),
             UpdateExpression:
-              "SET #st = :newStatus, supplierStatusSort = :supplierStatusSort, shippedAt = :now, statusHistory = :history, updatedAt = :now",
+              "SET #st = :newStatus, supplierStatusSort = :supplierStatusSort, customerStatusSort = :customerStatusSort, shippedAt = :now, statusHistory = :history, updatedAt = :now",
             ConditionExpression: "#st = :expectedStatus",
             ExpressionAttributeNames: { "#st": "status" },
             ExpressionAttributeValues: marshall({
@@ -308,6 +308,7 @@ export const handler: Schema["confirmShipmentDispatch"]["functionHandler"] =
               ":expectedStatus": "RECEIVED",
               ":now": now,
               ":supplierStatusSort": `SHIPPED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
+              ":customerStatusSort": `SHIPPED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
               ":history": updatedHistory,
             }),
           },

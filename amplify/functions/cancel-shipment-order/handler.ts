@@ -178,7 +178,7 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
             TableName: orderTable,
             Key: marshall({ id: orderId }),
             UpdateExpression:
-              "SET #st = :received, supplierStatusSort = :supplierStatusSort, shipmentId = :nullVal, statusHistory = :history, updatedAt = :now",
+              "SET #st = :received, supplierStatusSort = :supplierStatusSort, customerStatusSort = :customerStatusSort, shipmentId = :nullVal, statusHistory = :history, updatedAt = :now",
             ConditionExpression: "shipmentId = :shipmentId",
             ExpressionAttributeNames: { "#st": "status" },
             ExpressionAttributeValues: marshall({
@@ -188,6 +188,7 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
               ":history": updatedHistory,
               ":now": now,
               ":supplierStatusSort": `RECEIVED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
+              ":customerStatusSort": `RECEIVED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
             }),
           },
         });
@@ -207,7 +208,7 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
             TableName: orderTable,
             Key: marshall({ id: orderId }),
             UpdateExpression:
-              "SET #st = :received, supplierStatusSort = :supplierStatusSort, shipmentId = :nullVal, shippedAt = :nullVal, statusHistory = :history, updatedAt = :now",
+              "SET #st = :received, supplierStatusSort = :supplierStatusSort, customerStatusSort = :customerStatusSort, shipmentId = :nullVal, shippedAt = :nullVal, statusHistory = :history, updatedAt = :now",
             ConditionExpression: "#st = :shipped AND shipmentId = :shipmentId",
             ExpressionAttributeNames: { "#st": "status" },
             ExpressionAttributeValues: marshall({
@@ -218,6 +219,7 @@ export const handler: Schema["cancelShipmentOrder"]["functionHandler"] = async (
               ":history": updatedHistory,
               ":now": now,
               ":supplierStatusSort": `RECEIVED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
+              ":customerStatusSort": `RECEIVED#${String(order["createdAtForSort"] ?? "").trim() || now}`,
             }),
           },
         });

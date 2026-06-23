@@ -245,6 +245,7 @@ const schema = a.schema({
       // 採購與物流時間戳記（原 OrderItem 整合）
       supplierName: a.string(),
       supplierStatusSort: a.string(),
+      customerStatusSort: a.string(),
       purchasedAt: a.datetime(),
       receivedAt: a.datetime(),
       shippedAt: a.datetime(),
@@ -295,6 +296,10 @@ const schema = a.schema({
         .sortKeys(["supplierStatusSort"])
         .queryField("listOrdersBySupplierStatus")
         .name("bySupplierStatus"),
+      index("customerId")
+        .sortKeys(["customerStatusSort"])
+        .queryField("listOrdersByCustomerStatus")
+        .name("byCustomerStatus"),
     ])
     .authorization((allow) => [allow.authenticated()]),
 
