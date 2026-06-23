@@ -644,9 +644,6 @@ export function ProductPurchasesTable({
                       onClick={() => toggleExpand(summary.productId)}
                       sx={{
                         cursor: "pointer",
-                        "& > *": {
-                          borderBottom: isExpanded ? "unset" : undefined,
-                        },
                       }}
                     >
                       <TableCell sx={{ fontWeight: 600 }}>
@@ -781,10 +778,15 @@ export function ProductPurchasesTable({
                     </TableRow>
                     <TableRow
                       key={`${summary.productId}-detail`}
-                      sx={{ display: isExpanded ? undefined : "none" }}
+                      sx={{
+                        "& > td": {
+                          py: 0,
+                          borderBottom: isExpanded ? undefined : "none",
+                        },
+                      }}
                     >
-                      <TableCell sx={{ py: 0, px: 0 }} colSpan={COLUMN_COUNT}>
-                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                      <TableCell sx={{ px: 0 }} colSpan={COLUMN_COUNT}>
+                        <Collapse in={isExpanded} timeout={250}>
                           <Box sx={{ px: 2, py: 1.5, bgcolor: "action.hover" }}>
                             <DetailPanel productId={summary.productId} />
                           </Box>
