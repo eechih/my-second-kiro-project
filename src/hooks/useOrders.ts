@@ -113,7 +113,18 @@ const ORDER_KEYS = {
 // Constants
 // ---------------------------------------------------------------------------
 
-const ORDER_LIST_SELECTION_SET = ["id"] as const;
+const ORDER_LIST_SELECTION_SET = [
+  "id",
+  "orderNumber",
+  "customerId",
+  "customerNameSnapshot",
+  "productNameSnapshot",
+  "quantity",
+  "totalAmount",
+  "status",
+  "createdAt",
+  "createdAtForSort",
+] as const;
 
 const ORDER_DETAIL_SELECTION_SET = [
   "id",
@@ -307,7 +318,7 @@ function buildOrderListParams({
 
 async function fetchOrderList(
   params: OrderListParams,
-): Promise<PaginatedResult<string>> {
+): Promise<PaginatedResult<Order>> {
   const listParams = buildOrderListParams(params);
 
   const { data, errors, nextToken } = params.customerId
@@ -330,7 +341,9 @@ async function fetchOrderList(
     throw new Error(errors[0]?.message ?? "查詢訂單列表失敗");
   }
 
-  const items = (data ?? []).map((item) => String(item.id ?? ""));
+  const items = (data ?? []).map((raw) =>
+    mapToOrder(raw as unknown as Record<string, unknown>),
+  );
 
   return {
     items,
@@ -341,7 +354,7 @@ async function fetchOrderList(
 
 async function fetchCustomerOrderList(
   params: CustomerOrderListParams,
-): Promise<PaginatedResult<string>> {
+): Promise<PaginatedResult<Order>> {
   const { data, errors, nextToken } =
     await client.models.Order.listOrdersByCustomer(
       { customerId: params.customerId },
@@ -357,7 +370,9 @@ async function fetchCustomerOrderList(
     throw new Error(errors[0]?.message ?? "查詢客戶訂單失敗");
   }
 
-  const items = (data ?? []).map((item) => String(item.id ?? ""));
+  const items = (data ?? []).map((raw) =>
+    mapToOrder(raw as unknown as Record<string, unknown>),
+  );
 
   return {
     items,
@@ -1219,7 +1234,7 @@ async function cancelShipmentDirect(
  */
 export function useOrderList(
   params: OrderListParams,
-): UseQueryResult<PaginatedResult<string>> {
+): UseQueryResult<PaginatedResult<Order>> {
   return useQuery({
     queryKey: ORDER_KEYS.list(params),
     queryFn: () => fetchOrderList(params),
@@ -1229,7 +1244,7 @@ export function useOrderList(
 
 export function useCustomerOrderList(
   params: CustomerOrderListParams,
-): UseQueryResult<PaginatedResult<string>> {
+): UseQueryResult<PaginatedResult<Order>> {
   return useQuery({
     queryKey: ORDER_KEYS.customerList(params),
     queryFn: () => fetchCustomerOrderList(params),

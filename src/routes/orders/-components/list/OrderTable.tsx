@@ -1,97 +1,112 @@
+import { StatusChip } from "@/components/StatusChip";
 import { listTableBodyTextSx } from "@/components/listTableStyles";
+import { formatCurrency } from "@/lib/currency";
+import EditIcon from "@mui/icons-material/Edit";
 import Box from "@mui/material/Box";
-import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { Order } from "@shared/models";
-import { OrderTableRow } from "./OrderTableRow";
+import { ORDER_STATUS_LABEL } from "@shared/models";
+import { formatOrderDate } from "./tableUtils";
+
+const ORDER_STATUS_COLOR_MAP: Record<
+  string,
+  "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"
+> = {
+  待處理: "warning",
+  已確認: "info",
+  出貨中: "primary",
+  已完成: "success",
+  已取消: "error",
+};
 
 export interface OrderTableProps {
-  orderIds: string[];
+  orders: Order[];
   isLoading: boolean;
-  selectedOrderIds: ReadonlySet<string>;
   onEdit: (orderId: string) => void;
-  onSelectionChange: (orderId: string, selected: boolean) => void;
-  onSelectAllChange: (selected: boolean) => void;
-  onOrderLoaded: (order: Order) => void;
 }
 
 export function OrderTable({
-  orderIds,
+  orders,
   isLoading,
-  selectedOrderIds,
   onEdit,
-  onSelectionChange,
-  onSelectAllChange,
-  onOrderLoaded,
 }: OrderTableProps): React.ReactElement {
-  const selectedCurrentPageCount = orderIds.filter((orderId) =>
-    selectedOrderIds.has(orderId),
-  ).length;
-  const allSelected =
-    orderIds.length > 0 && selectedCurrentPageCount === orderIds.length;
-  const someSelected = selectedCurrentPageCount > 0 && !allSelected;
-
   return (
     <Box sx={{ mt: 2 }}>
       {isLoading ? (
         <Paper sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress />
         </Paper>
-      ) : orderIds.length === 0 ? (
+      ) : orders.length === 0 ? (
         <Paper sx={{ py: 4, textAlign: "center" }}>
           <Typography color="text.secondary">
             目前沒有符合條件的訂單資料
           </Typography>
         </Paper>
       ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small" sx={listTableBodyTextSx}>
-              <TableHead>
-                <TableRow>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={allSelected}
-                      indeterminate={someSelected}
-                      onChange={(_event, checked) =>
-                        onSelectAllChange(checked)
-                      }
-                      size="small"
-                      slotProps={{
-                        input: { "aria-label": "選取本頁全部訂單" },
-                      }}
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small" sx={listTableBodyTextSx}>
+            <TableHead>
+              <TableRow>
+                <TableCell>訂單編號</TableCell>
+                <TableCell>客戶</TableCell>
+                <TableCell>商品</TableCell>
+                <TableCell align="right">數量</TableCell>
+                <TableCell align="right">金額</TableCell>
+                <TableCell align="center">狀態</TableCell>
+                <TableCell>日期</TableCell>
+                <TableCell align="center">操作</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow
+                  key={order.id}
+                  hover
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => onEdit(order.id)}
+                >
+                  <TableCell>{order.orderNumber}</TableCell>
+                  <TableCell>{order.customerNameSnapshot}</TableCell>
+                  <TableCell>{order.productNameSnapshot}</TableCell>
+                  <TableCell align="right">{order.quantity}</TableCell>
+                  <TableCell align="right">
+                    {formatCurrency(order.totalAmount)}
+                  </TableCell>
+                  <TableCell align="center">
+                    <StatusChip
+                      status={ORDER_STATUS_LABEL[order.status] ?? order.status}
+                      colorMap={ORDER_STATUS_COLOR_MAP}
                     />
                   </TableCell>
-                  <TableCell>訂單編號</TableCell>
-                  <TableCell>客戶名稱</TableCell>
-                  <TableCell>訂購日期</TableCell>
-                  <TableCell align="center">狀態</TableCell>
-                  <TableCell align="right">總金額</TableCell>
-                  <TableCell align="center">操作</TableCell>
+                  <TableCell>{formatOrderDate(order.createdAt)}</TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="編輯">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(order.id);
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-            </Table>
-          </TableContainer>
-          {orderIds.map((orderId) => (
-            <OrderTableRow
-              key={orderId}
-              orderId={orderId}
-              selected={selectedOrderIds.has(orderId)}
-              onEdit={onEdit}
-              onSelectionChange={(selected) =>
-                onSelectionChange(orderId, selected)
-              }
-              onOrderLoaded={onOrderLoaded}
-            />
-          ))}
-        </Box>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
     </Box>
   );

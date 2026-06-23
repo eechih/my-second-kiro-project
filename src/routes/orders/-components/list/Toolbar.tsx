@@ -1,6 +1,5 @@
 import { ListToolbar, type ListToolbarOption } from "@/components/ListToolbar";
 import AddIcon from "@mui/icons-material/Add";
-import PrintIcon from "@mui/icons-material/Print";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import type { OrderStatusFilter } from "@/hooks/useOrders";
@@ -22,8 +21,6 @@ export interface ToolbarProps {
   hideStatusFilter?: boolean;
   statusFilter: OrderStatusFilter;
   onStatusFilterChange: (value: OrderStatusFilter) => void;
-  printDisabled: boolean;
-  onPrintClick: () => void;
   onAddClick: () => void;
 }
 
@@ -35,8 +32,6 @@ export function Toolbar({
   hideStatusFilter = false,
   statusFilter,
   onStatusFilterChange,
-  printDisabled,
-  onPrintClick,
   onAddClick,
 }: ToolbarProps): React.ReactElement {
   return (
@@ -57,14 +52,6 @@ export function Toolbar({
       }
       actions={
         <Box sx={{ display: "flex", gap: 1, ml: "auto" }}>
-          <Button
-            variant="outlined"
-            startIcon={<PrintIcon />}
-            disabled={printDisabled}
-            onClick={onPrintClick}
-          >
-            列印出貨單
-          </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
