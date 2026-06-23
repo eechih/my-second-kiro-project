@@ -19,6 +19,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
+import TableSortLabel from "@mui/material/TableSortLabel";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { ORDER_ITEM_STATUS_LABEL } from "@shared/models";
@@ -26,6 +27,14 @@ import { useMemo, useState } from "react";
 import { ORDER_ITEM_STATUS_COLOR_MAP } from "../../orders/-components/detail/detailUtils";
 
 type StatusFilter = "all" | "ordered" | "received";
+type SortKey =
+  | "orderNumber"
+  | "customer"
+  | "product"
+  | "status"
+  | "purchasedAt"
+  | "receivedAt";
+type SortDirection = "asc" | "desc";
 
 const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "全部" },
@@ -40,6 +49,43 @@ function formatDate(value: string | null): string {
     month: "2-digit",
     day: "2-digit",
   });
+}
+
+function compareRecords(
+  a: ProductOrderItemRecord,
+  b: ProductOrderItemRecord,
+  sortKey: SortKey,
+  direction: SortDirection,
+): number {
+  let result = 0;
+
+  switch (sortKey) {
+    case "orderNumber":
+      result = a.orderNumber.localeCompare(b.orderNumber);
+      break;
+    case "customer":
+      result = a.customerName.localeCompare(b.customerName, "zh-Hant");
+      break;
+    case "product":
+      result = a.item.productNameSnapshot.localeCompare(
+        b.item.productNameSnapshot,
+        "zh-Hant",
+      );
+      break;
+    case "status":
+      result = a.item.status.localeCompare(b.item.status);
+      break;
+    case "purchasedAt":
+      result = (a.item.purchasedAt ?? "").localeCompare(
+        b.item.purchasedAt ?? "",
+      );
+      break;
+    case "receivedAt":
+      result = (a.item.receivedAt ?? "").localeCompare(b.item.receivedAt ?? "");
+      break;
+  }
+
+  return direction === "desc" ? -result : result;
 }
 
 function canToggleReceived(record: ProductOrderItemRecord): boolean {
@@ -76,6 +122,8 @@ export function SupplierReceivingTable({
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [sortKey, setSortKey] = useState<SortKey>("orderNumber");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const selectableRecords = useMemo(
     () => (records ?? []).filter(canToggleReceived),
@@ -114,11 +162,25 @@ export function SupplierReceivingTable({
   const totalCount = (records ?? []).length;
   const pagedRecords = useMemo(() => {
     const sorted = [...(records ?? [])].sort((a, b) =>
-      b.orderNumber.localeCompare(a.orderNumber),
+      compareRecords(a, b, sortKey, sortDirection),
     );
     const start = page * rowsPerPage;
     return sorted.slice(start, start + rowsPerPage);
-  }, [records, page, rowsPerPage]);
+  }, [records, page, rowsPerPage, sortKey, sortDirection]);
+
+  const handleSort = (key: SortKey): void => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection(
+        key === "orderNumber" || key === "purchasedAt" || key === "receivedAt"
+          ? "desc"
+          : "asc",
+      );
+    }
+    setPage(0);
+  };
 
   const handleToggleAll = (checked: boolean): void => {
     setSelectedIds((prev) => {
@@ -271,15 +333,69 @@ export function SupplierReceivingTable({
                       aria-label="全選"
                     />
                   </TableCell>
-                  <TableCell>訂單編號</TableCell>
-                  <TableCell>客戶</TableCell>
-                  <TableCell>商品</TableCell>
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortKey === "orderNumber"}
+                      direction={
+                        sortKey === "orderNumber" ? sortDirection : "desc"
+                      }
+                      onClick={() => handleSort("orderNumber")}
+                    >
+                      訂單編號
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortKey === "customer"}
+                      direction={sortKey === "customer" ? sortDirection : "asc"}
+                      onClick={() => handleSort("customer")}
+                    >
+                      客戶
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortKey === "product"}
+                      direction={sortKey === "product" ? sortDirection : "asc"}
+                      onClick={() => handleSort("product")}
+                    >
+                      商品
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell>規格</TableCell>
                   <TableCell align="right">數量</TableCell>
                   <TableCell align="right">成本</TableCell>
-                  <TableCell align="center">狀態</TableCell>
-                  <TableCell align="center">訂貨日</TableCell>
-                  <TableCell align="center">到貨日</TableCell>
+                  <TableCell align="center">
+                    <TableSortLabel
+                      active={sortKey === "status"}
+                      direction={sortKey === "status" ? sortDirection : "asc"}
+                      onClick={() => handleSort("status")}
+                    >
+                      狀態
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell align="center">
+                    <TableSortLabel
+                      active={sortKey === "purchasedAt"}
+                      direction={
+                        sortKey === "purchasedAt" ? sortDirection : "desc"
+                      }
+                      onClick={() => handleSort("purchasedAt")}
+                    >
+                      訂貨日
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell align="center">
+                    <TableSortLabel
+                      active={sortKey === "receivedAt"}
+                      direction={
+                        sortKey === "receivedAt" ? sortDirection : "desc"
+                      }
+                      onClick={() => handleSort("receivedAt")}
+                    >
+                      到貨日
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell align="center">操作</TableCell>
                 </TableRow>
               </TableHead>
