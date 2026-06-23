@@ -43,7 +43,7 @@ const PRODUCT_PURCHASE_STATUS_COLUMNS: readonly OrderFulfillmentStatus[] = [
   "RECEIVED",
 ];
 
-const COLUMN_COUNT = 8; // checkbox-less: product + price + cost + supplier + 3 statuses + lastUpdated
+const COLUMN_COUNT = 9; // expand + product + price + cost + supplier + 3 statuses + lastUpdated
 
 function compareSummaries(
   a: ProductPurchaseSummary,
@@ -99,6 +99,26 @@ function formatDate(dateStr: string | null): string {
 // Detail Panel (expanded row content)
 // ---------------------------------------------------------------------------
 
+function canToggleOrdered(record: ProductOrderItemRecord): boolean {
+  return (
+    record.orderStatus !== "CANCELLED" &&
+    (record.item.status === "PENDING" || record.item.status === "ORDERED")
+  );
+}
+
+function canToggleOutOfStock(record: ProductOrderItemRecord): boolean {
+  return (
+    record.orderStatus !== "CANCELLED" &&
+    (record.item.status === "PENDING" ||
+      record.item.status === "ORDERED" ||
+      record.item.status === "OUT_OF_STOCK")
+  );
+}
+
+function canBatchSelect(record: ProductOrderItemRecord): boolean {
+  return canToggleOrdered(record) || canToggleOutOfStock(record);
+}
+
 function DetailPanel({ productId }: { productId: string }): React.ReactElement {
   const { data: records, isLoading } = useAllProductOrderItems({
     productId,
@@ -106,6 +126,63 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
   });
   const updateStatusFlag = useUpdateOrderItemStatusFlag();
   const isBusy = updateStatusFlag.isPending;
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+
+  const selectableRecords = useMemo(
+    () => (records ?? []).filter(canBatchSelect),
+    [records],
+  );
+  const selectedRecords = useMemo(
+    () => (records ?? []).filter((r) => selectedIds.has(r.orderId)),
+    [records, selectedIds],
+  );
+  const pendingRecords = selectedRecords.filter(
+    (r) => canToggleOrdered(r) && r.item.status === "PENDING",
+  );
+  const orderedRecords = selectedRecords.filter(
+    (r) => canToggleOrdered(r) && r.item.status === "ORDERED",
+  );
+  const outOfStockCandidates = selectedRecords.filter(
+    (r) => canToggleOutOfStock(r) && r.item.status !== "OUT_OF_STOCK",
+  );
+  const cancelOutOfStockRecords = selectedRecords.filter(
+    (r) => canToggleOutOfStock(r) && r.item.status === "OUT_OF_STOCK",
+  );
+  const isAllSelected =
+    selectableRecords.length > 0 &&
+    selectableRecords.every((r) => selectedIds.has(r.orderId));
+  const isSomeSelected = selectableRecords.some((r) =>
+    selectedIds.has(r.orderId),
+  );
+
+  const handleToggleAll = (checked: boolean): void => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const r of selectableRecords) {
+        if (checked) next.add(r.orderId);
+        else next.delete(r.orderId);
+      }
+      return next;
+    });
+  };
+
+  const runBatch = async (
+    targets: readonly ProductOrderItemRecord[],
+    flag: "ordered" | "outOfStock",
+    checked: boolean,
+  ): Promise<void> => {
+    if (targets.length === 0 || isBusy) return;
+    await updateStatusFlag.mutateAsync({
+      orderIds: targets.map((r) => r.orderId),
+      flag,
+      checked,
+    });
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const r of targets) next.delete(r.orderId);
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -124,56 +201,137 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
   }
 
   return (
-    <Table size="small">
-      <TableHead>
-        <TableRow>
-          <TableCell>訂單編號</TableCell>
-          <TableCell>客戶</TableCell>
-          <TableCell>規格</TableCell>
-          <TableCell align="right">數量</TableCell>
-          <TableCell>供應商</TableCell>
-          <TableCell align="center">狀態</TableCell>
-          <TableCell align="center">訂貨日</TableCell>
-          <TableCell align="center">操作</TableCell>
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {records.map((record) => (
-          <DetailRow
-            key={record.orderId}
-            record={record}
-            isBusy={isBusy}
-            onToggleOrdered={(r) =>
-              updateStatusFlag.mutate({
-                orderId: r.orderId,
-                orderItemId: r.item.id,
-                flag: "ordered",
-                checked: !r.item.purchasedAt,
-              })
+    <Stack spacing={1}>
+      {selectedRecords.length > 0 ? (
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ alignItems: "center", flexWrap: "wrap" }}
+        >
+          <Typography variant="caption" sx={{ mr: 1 }}>
+            已選 {selectedRecords.length} 筆：
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            color="warning"
+            disabled={pendingRecords.length === 0 || isBusy}
+            onClick={() => void runBatch(pendingRecords, "ordered", true)}
+          >
+            確認訂貨 {pendingRecords.length}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="warning"
+            disabled={orderedRecords.length === 0 || isBusy}
+            onClick={() => void runBatch(orderedRecords, "ordered", false)}
+          >
+            取消訂貨 {orderedRecords.length}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            disabled={outOfStockCandidates.length === 0 || isBusy}
+            onClick={() =>
+              void runBatch(outOfStockCandidates, "outOfStock", true)
             }
-            onToggleOutOfStock={(r) =>
-              updateStatusFlag.mutate({
-                orderId: r.orderId,
-                orderItemId: r.item.id,
-                flag: "outOfStock",
-                checked: r.item.status !== "OUT_OF_STOCK",
-              })
+          >
+            缺貨 {outOfStockCandidates.length}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            disabled={cancelOutOfStockRecords.length === 0 || isBusy}
+            onClick={() =>
+              void runBatch(cancelOutOfStockRecords, "outOfStock", false)
             }
-          />
-        ))}
-      </TableBody>
-    </Table>
+          >
+            取消缺貨 {cancelOutOfStockRecords.length}
+          </Button>
+        </Stack>
+      ) : null}
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell padding="checkbox">
+              <input
+                type="checkbox"
+                checked={isAllSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = !isAllSelected && isSomeSelected;
+                }}
+                disabled={selectableRecords.length === 0 || isBusy}
+                onChange={(e) => handleToggleAll(e.target.checked)}
+                aria-label="全選"
+              />
+            </TableCell>
+            <TableCell>訂單編號</TableCell>
+            <TableCell>客戶</TableCell>
+            <TableCell>規格</TableCell>
+            <TableCell align="right">數量</TableCell>
+            <TableCell>供應商</TableCell>
+            <TableCell align="center">狀態</TableCell>
+            <TableCell align="center">訂貨日</TableCell>
+            <TableCell align="center">操作</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {records.map((record) => (
+            <DetailRow
+              key={record.orderId}
+              record={record}
+              isBusy={isBusy}
+              selected={selectedIds.has(record.orderId)}
+              selectable={canBatchSelect(record)}
+              onToggleSelect={(checked) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (checked) next.add(record.orderId);
+                  else next.delete(record.orderId);
+                  return next;
+                });
+              }}
+              onToggleOrdered={(r) =>
+                updateStatusFlag.mutate({
+                  orderId: r.orderId,
+                  orderItemId: r.item.id,
+                  flag: "ordered",
+                  checked: !r.item.purchasedAt,
+                })
+              }
+              onToggleOutOfStock={(r) =>
+                updateStatusFlag.mutate({
+                  orderId: r.orderId,
+                  orderItemId: r.item.id,
+                  flag: "outOfStock",
+                  checked: r.item.status !== "OUT_OF_STOCK",
+                })
+              }
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </Stack>
   );
 }
 
 function DetailRow({
   record,
   isBusy,
+  selected,
+  selectable,
+  onToggleSelect,
   onToggleOrdered,
   onToggleOutOfStock,
 }: {
   record: ProductOrderItemRecord;
   isBusy: boolean;
+  selected: boolean;
+  selectable: boolean;
+  onToggleSelect: (checked: boolean) => void;
   onToggleOrdered: (r: ProductOrderItemRecord) => void;
   onToggleOutOfStock: (r: ProductOrderItemRecord) => void;
 }): React.ReactElement {
@@ -188,7 +346,16 @@ function DetailRow({
       item.status === "OUT_OF_STOCK");
 
   return (
-    <TableRow hover>
+    <TableRow hover selected={selected}>
+      <TableCell padding="checkbox">
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={!selectable || isBusy}
+          onChange={(e) => onToggleSelect(e.target.checked)}
+          aria-label={`選取訂單 ${record.orderNumber}`}
+        />
+      </TableCell>
       <TableCell sx={{ whiteSpace: "nowrap" }}>{record.orderNumber}</TableCell>
       <TableCell sx={{ whiteSpace: "nowrap" }}>{record.customerName}</TableCell>
       <TableCell sx={{ whiteSpace: "nowrap" }}>
