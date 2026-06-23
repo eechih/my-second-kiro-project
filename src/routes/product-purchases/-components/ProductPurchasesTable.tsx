@@ -317,7 +317,6 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
             <TableCell>客戶</TableCell>
             <TableCell>規格</TableCell>
             <TableCell align="right">數量</TableCell>
-            <TableCell>供應商</TableCell>
             <TableCell align="center">狀態</TableCell>
             <TableCell align="center">訂貨日</TableCell>
             <TableCell align="center">操作</TableCell>
@@ -422,9 +421,6 @@ function DetailRow({
           .join(" / ") || "-"}
       </TableCell>
       <TableCell align="right">{item.quantity}</TableCell>
-      <TableCell sx={{ whiteSpace: "nowrap" }}>
-        {item.supplierName || "-"}
-      </TableCell>
       <TableCell align="center">
         <StatusChip
           status={item.status}
