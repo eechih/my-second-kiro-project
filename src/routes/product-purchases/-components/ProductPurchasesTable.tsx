@@ -216,6 +216,7 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
             variant="outlined"
             color="warning"
             disabled={pendingRecords.length === 0 || isBusy}
+            startIcon={isBusy ? <CircularProgress size={14} /> : undefined}
             onClick={() => void runBatch(pendingRecords, "ordered", true)}
           >
             確認訂貨 {pendingRecords.length}
@@ -225,6 +226,7 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
             variant="outlined"
             color="warning"
             disabled={orderedRecords.length === 0 || isBusy}
+            startIcon={isBusy ? <CircularProgress size={14} /> : undefined}
             onClick={() => void runBatch(orderedRecords, "ordered", false)}
           >
             取消訂貨 {orderedRecords.length}
@@ -234,6 +236,7 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
             variant="outlined"
             color="error"
             disabled={outOfStockCandidates.length === 0 || isBusy}
+            startIcon={isBusy ? <CircularProgress size={14} /> : undefined}
             onClick={() =>
               void runBatch(outOfStockCandidates, "outOfStock", true)
             }
@@ -245,6 +248,7 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
             variant="outlined"
             color="error"
             disabled={cancelOutOfStockRecords.length === 0 || isBusy}
+            startIcon={isBusy ? <CircularProgress size={14} /> : undefined}
             onClick={() =>
               void runBatch(cancelOutOfStockRecords, "outOfStock", false)
             }
@@ -384,6 +388,7 @@ function DetailRow({
                 variant={item.purchasedAt ? "contained" : "outlined"}
                 color="warning"
                 disabled={!canOrdered || isBusy}
+                startIcon={isBusy ? <CircularProgress size={12} /> : undefined}
                 sx={{ minWidth: 0, px: 1 }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -403,6 +408,7 @@ function DetailRow({
                 }
                 color="error"
                 disabled={!canOutOfStock || isBusy}
+                startIcon={isBusy ? <CircularProgress size={12} /> : undefined}
                 sx={{ minWidth: 0, px: 1 }}
                 onClick={(e) => {
                   e.stopPropagation();
