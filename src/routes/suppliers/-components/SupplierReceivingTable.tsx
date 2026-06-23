@@ -27,7 +27,7 @@ import { ORDER_ITEM_STATUS_COLOR_MAP } from "../../orders/-components/detail/det
 type StatusFilter = "all" | "ordered" | "received";
 
 const STATUS_FILTER_OPTIONS = [
-  { value: "all", label: "待入庫與已入庫" },
+  { value: "all", label: "全部" },
   { value: "ordered", label: "待入庫" },
   { value: "received", label: "已入庫" },
 ] as const satisfies readonly { value: StatusFilter; label: string }[];
