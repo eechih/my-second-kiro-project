@@ -605,6 +605,15 @@ function validateSeedConsistency({
         `商品摘要 ${summary.id} 的 productNameSnapshot 與商品主檔不一致`,
       );
     }
+
+    const matchedProduct = products.find(
+      (product) => product.id === summary.productId,
+    );
+    if (matchedProduct && summary.productSkuSnapshot !== matchedProduct.sku) {
+      throw new Error(
+        `商品摘要 ${summary.id} 的 productSkuSnapshot 與商品主檔不一致（摘要=${summary.productSkuSnapshot}，商品=${matchedProduct.sku}）`,
+      );
+    }
   }
 
   if (productOrderSummaries.length !== products.length) {
