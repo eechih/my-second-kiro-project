@@ -17,6 +17,7 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
+import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -73,6 +74,8 @@ export function SupplierReceivingTable({
   const isBusy = updateStatusFlag.isPending;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
 
   const selectableRecords = useMemo(
     () => (records ?? []).filter(canToggleReceived),
@@ -107,6 +110,12 @@ export function SupplierReceivingTable({
       ),
     [records],
   );
+
+  const totalCount = (records ?? []).length;
+  const pagedRecords = useMemo(() => {
+    const start = page * rowsPerPage;
+    return (records ?? []).slice(start, start + rowsPerPage);
+  }, [records, page, rowsPerPage]);
 
   const handleToggleAll = (checked: boolean): void => {
     setSelectedIds((prev) => {
@@ -166,7 +175,10 @@ export function SupplierReceivingTable({
           size="small"
           label="狀態"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value as StatusFilter);
+            setPage(0);
+          }}
           sx={{ minWidth: 160 }}
         >
           {STATUS_FILTER_OPTIONS.map((opt) => (
@@ -241,128 +253,148 @@ export function SupplierReceivingTable({
           </Typography>
         </Paper>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={isAllSelected}
-                    ref={(el) => {
-                      if (el)
-                        el.indeterminate = !isAllSelected && isSomeSelected;
-                    }}
-                    disabled={selectableRecords.length === 0 || isBusy}
-                    onChange={(e) => handleToggleAll(e.target.checked)}
-                    aria-label="全選"
-                  />
-                </TableCell>
-                <TableCell>訂單編號</TableCell>
-                <TableCell>客戶</TableCell>
-                <TableCell>商品</TableCell>
-                <TableCell>規格</TableCell>
-                <TableCell align="right">數量</TableCell>
-                <TableCell align="right">成本</TableCell>
-                <TableCell align="center">狀態</TableCell>
-                <TableCell align="center">訂貨日</TableCell>
-                <TableCell align="center">到貨日</TableCell>
-                <TableCell align="center">操作</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(records ?? []).map((record) => {
-                const { item } = record;
-                const canToggle = canToggleReceived(record);
-                const isLoading = busyAction === `row-${record.orderId}`;
+        <>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell padding="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={(el) => {
+                        if (el)
+                          el.indeterminate = !isAllSelected && isSomeSelected;
+                      }}
+                      disabled={selectableRecords.length === 0 || isBusy}
+                      onChange={(e) => handleToggleAll(e.target.checked)}
+                      aria-label="全選"
+                    />
+                  </TableCell>
+                  <TableCell>訂單編號</TableCell>
+                  <TableCell>客戶</TableCell>
+                  <TableCell>商品</TableCell>
+                  <TableCell>規格</TableCell>
+                  <TableCell align="right">數量</TableCell>
+                  <TableCell align="right">成本</TableCell>
+                  <TableCell align="center">狀態</TableCell>
+                  <TableCell align="center">訂貨日</TableCell>
+                  <TableCell align="center">到貨日</TableCell>
+                  <TableCell align="center">操作</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pagedRecords.map((record) => {
+                  const { item } = record;
+                  const canToggle = canToggleReceived(record);
+                  const isLoading = busyAction === `row-${record.orderId}`;
 
-                return (
-                  <TableRow
-                    key={record.orderId}
-                    hover
-                    selected={selectedIds.has(record.orderId)}
-                  >
-                    <TableCell padding="checkbox">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(record.orderId)}
-                        disabled={!canToggle || isBusy}
-                        onChange={(e) => {
-                          setSelectedIds((prev) => {
-                            const next = new Set(prev);
-                            if (e.target.checked) next.add(record.orderId);
-                            else next.delete(record.orderId);
-                            return next;
-                          });
-                        }}
-                        aria-label={`選取訂單 ${record.orderNumber}`}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {record.orderNumber}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {record.customerName}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {item.productNameSnapshot}
-                    </TableCell>
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      {item.selectedOptionsSnapshot
-                        ?.map((opt) => opt.valueName)
-                        .join(" / ") || "-"}
-                    </TableCell>
-                    <TableCell align="right">{item.quantity}</TableCell>
-                    <TableCell align="right">
-                      {item.unitCostSnapshot != null
-                        ? formatCurrency(item.unitCostSnapshot)
-                        : "-"}
-                    </TableCell>
-                    <TableCell align="center">
-                      <StatusChip
-                        status={item.status}
-                        label={ORDER_ITEM_STATUS_LABEL[item.status]}
-                        colorMap={ORDER_ITEM_STATUS_COLOR_MAP}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      {formatDate(item.purchasedAt)}
-                    </TableCell>
-                    <TableCell align="center">
-                      {formatDate(item.receivedAt)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Button
-                        size="small"
-                        variant={item.receivedAt ? "contained" : "outlined"}
-                        color="info"
-                        disabled={!canToggle || isBusy}
-                        startIcon={
-                          isLoading ? <CircularProgress size={12} /> : undefined
-                        }
-                        sx={{ minWidth: 0, px: 1 }}
-                        onClick={() => {
-                          setBusyAction(`row-${record.orderId}`);
-                          updateStatusFlag.mutate(
-                            {
-                              orderId: record.orderId,
-                              orderItemId: item.id,
-                              flag: "received",
-                              checked: !item.receivedAt,
-                            },
-                            { onSettled: () => setBusyAction(null) },
-                          );
-                        }}
-                      >
-                        {item.receivedAt ? "取消入庫" : "確認入庫"}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                  return (
+                    <TableRow
+                      key={record.orderId}
+                      hover
+                      selected={selectedIds.has(record.orderId)}
+                    >
+                      <TableCell padding="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(record.orderId)}
+                          disabled={!canToggle || isBusy}
+                          onChange={(e) => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(record.orderId);
+                              else next.delete(record.orderId);
+                              return next;
+                            });
+                          }}
+                          aria-label={`選取訂單 ${record.orderNumber}`}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {record.orderNumber}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {record.customerName}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {item.productNameSnapshot}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {item.selectedOptionsSnapshot
+                          ?.map((opt) => opt.valueName)
+                          .join(" / ") || "-"}
+                      </TableCell>
+                      <TableCell align="right">{item.quantity}</TableCell>
+                      <TableCell align="right">
+                        {item.unitCostSnapshot != null
+                          ? formatCurrency(item.unitCostSnapshot)
+                          : "-"}
+                      </TableCell>
+                      <TableCell align="center">
+                        <StatusChip
+                          status={item.status}
+                          label={ORDER_ITEM_STATUS_LABEL[item.status]}
+                          colorMap={ORDER_ITEM_STATUS_COLOR_MAP}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        {formatDate(item.purchasedAt)}
+                      </TableCell>
+                      <TableCell align="center">
+                        {formatDate(item.receivedAt)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Button
+                          size="small"
+                          variant={item.receivedAt ? "contained" : "outlined"}
+                          color="info"
+                          disabled={!canToggle || isBusy}
+                          startIcon={
+                            isLoading ? (
+                              <CircularProgress size={12} />
+                            ) : undefined
+                          }
+                          sx={{ minWidth: 0, px: 1 }}
+                          onClick={() => {
+                            setBusyAction(`row-${record.orderId}`);
+                            updateStatusFlag.mutate(
+                              {
+                                orderId: record.orderId,
+                                orderItemId: item.id,
+                                flag: "received",
+                                checked: !item.receivedAt,
+                              },
+                              { onSettled: () => setBusyAction(null) },
+                            );
+                          }}
+                        >
+                          {item.receivedAt ? "取消入庫" : "確認入庫"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            component="div"
+            count={totalCount}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={(_e, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[25, 50, 100]}
+            labelRowsPerPage="每頁筆數"
+            labelDisplayedRows={({ from, to, count }) =>
+              `${from}–${to} / 共 ${count} 筆`
+            }
+          />
+        </>
       )}
     </Paper>
   );
