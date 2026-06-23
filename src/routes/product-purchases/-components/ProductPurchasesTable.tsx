@@ -8,6 +8,7 @@ import {
   type ProductOrderItemRecord,
 } from "@/hooks/useOrders";
 import { formatCurrency } from "@/lib/currency";
+import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import Box from "@mui/material/Box";
@@ -43,7 +44,7 @@ const PRODUCT_PURCHASE_STATUS_COLUMNS: readonly OrderFulfillmentStatus[] = [
   "RECEIVED",
 ];
 
-const COLUMN_COUNT = 9; // expand + product + price + cost + supplier + 3 statuses + lastUpdated
+const COLUMN_COUNT = 10; // expand + product + price + cost + supplier + 3 statuses + lastUpdated + action
 
 function compareSummaries(
   a: ProductPurchaseSummary,
@@ -626,6 +627,9 @@ export function ProductPurchasesTable({
                     最後更新
                   </TableSortLabel>
                 </TableCell>
+                <TableCell align="center" sx={{ width: 60 }}>
+                  操作
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -796,6 +800,18 @@ export function ProductPurchasesTable({
                               );
                             })()
                           : "—"}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectProduct(summary);
+                          }}
+                          aria-label="編輯作業明細"
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                     <TableRow
