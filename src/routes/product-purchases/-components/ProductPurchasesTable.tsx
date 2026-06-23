@@ -644,6 +644,7 @@ export function ProductPurchasesTable({
                     <TableRow
                       key={summary.productId}
                       hover
+                      onClick={() => toggleExpand(summary.productId)}
                       sx={{
                         cursor: "pointer",
                         "& > *": {
@@ -667,10 +668,7 @@ export function ProductPurchasesTable({
                           )}
                         </IconButton>
                       </TableCell>
-                      <TableCell
-                        sx={{ fontWeight: 600 }}
-                        onClick={() => onSelectProduct(summary)}
-                      >
+                      <TableCell sx={{ fontWeight: 600 }}>
                         <Stack
                           direction="row"
                           spacing={1.5}
@@ -726,21 +724,14 @@ export function ProductPurchasesTable({
                           </Box>
                         </Stack>
                       </TableCell>
-                      <TableCell
-                        align="right"
-                        onClick={() => onSelectProduct(summary)}
-                      >
+                      <TableCell align="right">
                         {formatCurrency(summary.price)}
                       </TableCell>
-                      <TableCell
-                        align="right"
-                        onClick={() => onSelectProduct(summary)}
-                      >
+                      <TableCell align="right">
                         {formatCurrency(summary.cost)}
                       </TableCell>
                       <TableCell
                         align="center"
-                        onClick={() => onSelectProduct(summary)}
                         sx={{
                           color: summary.supplierName
                             ? "text.primary"
@@ -753,11 +744,7 @@ export function ProductPurchasesTable({
                         const value = summary.statusQuantities[status] ?? 0;
 
                         return (
-                          <TableCell
-                            key={status}
-                            align="right"
-                            onClick={() => onSelectProduct(summary)}
-                          >
+                          <TableCell key={status} align="right">
                             {status === "PENDING" ? (
                               <Chip
                                 label={value}
@@ -775,10 +762,7 @@ export function ProductPurchasesTable({
                           </TableCell>
                         );
                       })}
-                      <TableCell
-                        align="center"
-                        onClick={() => onSelectProduct(summary)}
-                      >
+                      <TableCell align="center">
                         {summary.latestActivityAt
                           ? (() => {
                               const d = new Date(summary.latestActivityAt);
