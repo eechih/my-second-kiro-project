@@ -22,9 +22,7 @@ function normalizeShipmentStatusFilter(
   value: unknown,
   fallback: ShipmentStatusFilter = "readyToShip",
 ): ShipmentStatusFilter {
-  return value === "readyToShip" || value === "all"
-    ? value
-    : fallback;
+  return value === "readyToShip" || value === "all" ? value : fallback;
 }
 
 export const Route = createFileRoute("/customer-shipments/")({
@@ -87,9 +85,7 @@ function CustomerShipmentListPage(): React.ReactElement {
   const hasPrevPage = pageIndex > 0;
   const hasNextPage = (pageIndex + 1) * pageSize < filteredSummaries.length;
   const orderCountLabel =
-    statusFilter === "readyToShip"
-      ? "可出貨訂單"
-      : "訂單";
+    statusFilter === "readyToShip" ? "可出貨訂單" : "訂單";
   const itemCountLabel = "已到貨";
   const currentLabel =
     STATUS_FILTER_OPTIONS.find((option) => option.value === statusFilter)
@@ -153,15 +149,10 @@ function CustomerShipmentListPage(): React.ReactElement {
         orderCountLabel={orderCountLabel}
         itemCountLabel={itemCountLabel}
         onSelectCustomer={(customerId) => {
-          const summary = filteredSummaries.find(
-            (item) => item.customerId === customerId,
-          );
           void navigate({
-            to: "/orders",
-            search: {
-              customerId,
-              customerName: summary?.customerName,
-            },
+            to: "/customer-shipments/$customerId",
+            params: { customerId },
+            search: { status: statusFilter },
           });
         }}
       />
