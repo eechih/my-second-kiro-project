@@ -1,10 +1,9 @@
-import { CursorPagination } from "@/components/CursorPagination";
 import { StatusChip } from "@/components/StatusChip";
 import {
-  useSupplierOrderItemList,
+  useAllSupplierOrderItems,
   useUpdateOrderItemStatusFlag,
+  type ProductOrderItemRecord,
 } from "@/hooks/useOrders";
-import { useCursorPagination } from "@/hooks/useCursorPagination";
 import { formatCurrency } from "@/lib/currency";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -21,33 +20,20 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useEffect, useMemo, useState } from "react";
-import {
-  ORDER_ITEM_STATUS_LABEL,
-  type OrderItem,
-} from "@shared/models";
-import {
-  ORDER_ITEM_STATUS_COLOR_MAP,
-  ORDER_STATUS_COLOR_MAP,
-  ORDER_STATUS_LABEL,
-} from "../../orders/-components/detail/detailUtils";
+import { ORDER_ITEM_STATUS_LABEL } from "@shared/models";
+import { useMemo, useState } from "react";
+import { ORDER_ITEM_STATUS_COLOR_MAP } from "../../orders/-components/detail/detailUtils";
 
-type SupplierReceivingStatusFilter = "all" | "ordered" | "received";
+type StatusFilter = "all" | "ordered" | "received";
 
 const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "待入庫與已入庫" },
   { value: "ordered", label: "待入庫" },
   { value: "received", label: "已入庫" },
-] as const satisfies readonly {
-  value: SupplierReceivingStatusFilter;
-  label: string;
-}[];
-
-const PAGE_SIZE = 10;
+] as const satisfies readonly { value: StatusFilter; label: string }[];
 
 function formatDate(value: string | null): string {
   if (!value) return "-";
-
   return new Date(value).toLocaleDateString("zh-TW", {
     year: "numeric",
     month: "2-digit",
@@ -55,58 +41,109 @@ function formatDate(value: string | null): string {
   });
 }
 
-function canToggleReceived(item: OrderItem): boolean {
-  return item.status === "ORDERED" || item.status === "RECEIVED";
+function canToggleReceived(record: ProductOrderItemRecord): boolean {
+  return record.item.status === "ORDERED" || record.item.status === "RECEIVED";
 }
 
 export interface SupplierReceivingTableProps {
   supplierName: string;
+  initialStatusFilter?: StatusFilter;
 }
 
 export function SupplierReceivingTable({
   supplierName,
+  initialStatusFilter = "all",
 }: SupplierReceivingTableProps): React.ReactElement {
-  const {
-    currentToken,
-    pageSize,
-    tokenStack,
-    goNext,
-    goPrev,
-    setPageSize,
-    reset,
-  } = useCursorPagination(PAGE_SIZE);
   const [statusFilter, setStatusFilter] =
-    useState<SupplierReceivingStatusFilter>("all");
-  const updateStatusFlag = useUpdateOrderItemStatusFlag();
-  const statusFilterMap: Record<SupplierReceivingStatusFilter, "ORDERED" | "RECEIVED" | undefined> = {
+    useState<StatusFilter>(initialStatusFilter);
+  const statusMap: Record<StatusFilter, "ORDERED" | "RECEIVED" | undefined> = {
     all: undefined,
     ordered: "ORDERED",
     received: "RECEIVED",
   };
-  const { data, isLoading, error } = useSupplierOrderItemList({
+  const {
+    data: records,
+    isLoading,
+    error,
+  } = useAllSupplierOrderItems({
     supplierName,
-    pageSize,
-    nextToken: currentToken,
-    status: statusFilterMap[statusFilter],
+    status: statusMap[statusFilter],
   });
+  const updateStatusFlag = useUpdateOrderItemStatusFlag();
+  const isBusy = updateStatusFlag.isPending;
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
-  useEffect(() => {
-    reset();
-  }, [reset, statusFilter, supplierName]);
+  const selectableRecords = useMemo(
+    () => (records ?? []).filter(canToggleReceived),
+    [records],
+  );
+  const selectedRecords = useMemo(
+    () => (records ?? []).filter((r) => selectedIds.has(r.orderId)),
+    [records, selectedIds],
+  );
+  const confirmCandidates = selectedRecords.filter(
+    (r) => r.item.status === "ORDERED",
+  );
+  const cancelCandidates = selectedRecords.filter(
+    (r) => r.item.status === "RECEIVED",
+  );
+  const isAllSelected =
+    selectableRecords.length > 0 &&
+    selectableRecords.every((r) => selectedIds.has(r.orderId));
+  const isSomeSelected = selectableRecords.some((r) =>
+    selectedIds.has(r.orderId),
+  );
 
-  const records = useMemo(() => data?.items ?? [], [data?.items]);
   const summary = useMemo(
     () =>
-      records.reduce(
-        (acc, record) => {
-          if (record.item.status === "ORDERED") acc.ordered += 1;
-          if (record.item.status === "RECEIVED") acc.received += 1;
+      (records ?? []).reduce(
+        (acc, r) => {
+          if (r.item.status === "ORDERED") acc.ordered += 1;
+          if (r.item.status === "RECEIVED") acc.received += 1;
           return acc;
         },
         { ordered: 0, received: 0 },
       ),
     [records],
   );
+
+  const handleToggleAll = (checked: boolean): void => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const r of selectableRecords) {
+        if (checked) next.add(r.orderId);
+        else next.delete(r.orderId);
+      }
+      return next;
+    });
+  };
+
+  const runBatch = async (
+    targets: readonly ProductOrderItemRecord[],
+    checked: boolean,
+    actionKey: string,
+  ): Promise<void> => {
+    if (targets.length === 0 || isBusy) return;
+    setBusyAction(actionKey);
+    try {
+      for (const r of targets) {
+        await updateStatusFlag.mutateAsync({
+          orderId: r.orderId,
+          orderItemId: r.item.id,
+          flag: "received",
+          checked,
+        });
+      }
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const r of targets) next.delete(r.orderId);
+        return next;
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   return (
     <Paper sx={{ p: { xs: 2, md: 3 } }}>
@@ -120,45 +157,74 @@ export function SupplierReceivingTable({
             入庫管理
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            依供應商查看已訂貨與已入庫明細，直接完成入庫確認。
+            待入庫 {summary.ordered} 筆、已入庫 {summary.received} 筆
           </Typography>
         </Box>
 
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-          <TextField
-            select
-            size="small"
-            label="狀態"
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(
-                event.target.value as SupplierReceivingStatusFilter,
-              )
-            }
-            sx={{ minWidth: 180 }}
-          >
-            {STATUS_FILTER_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Stack>
-      </Stack>
-
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 2 }}>
-        <Alert severity="info" sx={{ py: 0 }}>
-          待入庫 {summary.ordered} 筆
-        </Alert>
-        <Alert severity="success" sx={{ py: 0 }}>
-          已入庫 {summary.received} 筆
-        </Alert>
+        <TextField
+          select
+          size="small"
+          label="狀態"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          sx={{ minWidth: 160 }}
+        >
+          {STATUS_FILTER_OPTIONS.map((opt) => (
+            <MenuItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </MenuItem>
+          ))}
+        </TextField>
       </Stack>
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error instanceof Error ? error.message : "查詢供應商入庫資料失敗"}
         </Alert>
+      ) : null}
+
+      {selectedRecords.length > 0 ? (
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ alignItems: "center", flexWrap: "wrap", mb: 1.5 }}
+        >
+          <Typography variant="caption" sx={{ mr: 1 }}>
+            已選 {selectedRecords.length} 筆：
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            color="info"
+            disabled={confirmCandidates.length === 0 || isBusy}
+            startIcon={
+              busyAction === "batch-confirm" ? (
+                <CircularProgress size={14} />
+              ) : undefined
+            }
+            onClick={() =>
+              void runBatch(confirmCandidates, true, "batch-confirm")
+            }
+          >
+            確認入庫 {confirmCandidates.length}
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="info"
+            disabled={cancelCandidates.length === 0 || isBusy}
+            startIcon={
+              busyAction === "batch-cancel" ? (
+                <CircularProgress size={14} />
+              ) : undefined
+            }
+            onClick={() =>
+              void runBatch(cancelCandidates, false, "batch-cancel")
+            }
+          >
+            取消入庫 {cancelCandidates.length}
+          </Button>
+        </Stack>
       ) : null}
 
       {isLoading ? (
@@ -168,105 +234,135 @@ export function SupplierReceivingTable({
         >
           <CircularProgress />
         </Paper>
-      ) : records.length === 0 ? (
+      ) : (records ?? []).length === 0 ? (
         <Paper variant="outlined" sx={{ py: 4, textAlign: "center" }}>
           <Typography color="text.secondary">
             目前沒有屬於「{supplierName}」的入庫明細
           </Typography>
         </Paper>
       ) : (
-        <>
-          <TableContainer component={Paper} variant="outlined">
-            <Table sx={{ minWidth: 1120 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>訂單編號</TableCell>
-                  <TableCell>客戶</TableCell>
-                  <TableCell>商品</TableCell>
-                  <TableCell>規格</TableCell>
-                  <TableCell align="right">數量</TableCell>
-                  <TableCell align="right">採購成本</TableCell>
-                  <TableCell align="center">明細狀態</TableCell>
-                  <TableCell align="center">訂單狀態</TableCell>
-                  <TableCell align="center">訂貨日期</TableCell>
-                  <TableCell align="center">到貨日期</TableCell>
-                  <TableCell align="center">操作</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {records.map((record) => (
-                  <TableRow key={record.item.id} hover>
-                    <TableCell>{record.orderNumber}</TableCell>
-                    <TableCell>{record.customerName}</TableCell>
-                    <TableCell>{record.item.productNameSnapshot}</TableCell>
-                    <TableCell>{record.item.selectedOptionsSnapshot?.map((opt) => opt.valueName).join(" / ") || "-"}</TableCell>
-                    <TableCell align="right">{record.item.quantity}</TableCell>
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    ref={(el) => {
+                      if (el)
+                        el.indeterminate = !isAllSelected && isSomeSelected;
+                    }}
+                    disabled={selectableRecords.length === 0 || isBusy}
+                    onChange={(e) => handleToggleAll(e.target.checked)}
+                    aria-label="全選"
+                  />
+                </TableCell>
+                <TableCell>訂單編號</TableCell>
+                <TableCell>客戶</TableCell>
+                <TableCell>商品</TableCell>
+                <TableCell>規格</TableCell>
+                <TableCell align="right">數量</TableCell>
+                <TableCell align="right">成本</TableCell>
+                <TableCell align="center">狀態</TableCell>
+                <TableCell align="center">訂貨日</TableCell>
+                <TableCell align="center">到貨日</TableCell>
+                <TableCell align="center">操作</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(records ?? []).map((record) => {
+                const { item } = record;
+                const canToggle = canToggleReceived(record);
+                const isLoading = busyAction === `row-${record.orderId}`;
+
+                return (
+                  <TableRow
+                    key={record.orderId}
+                    hover
+                    selected={selectedIds.has(record.orderId)}
+                  >
+                    <TableCell padding="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(record.orderId)}
+                        disabled={!canToggle || isBusy}
+                        onChange={(e) => {
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(record.orderId);
+                            else next.delete(record.orderId);
+                            return next;
+                          });
+                        }}
+                        aria-label={`選取訂單 ${record.orderNumber}`}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
+                      {record.orderNumber}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
+                      {record.customerName}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
+                      {item.productNameSnapshot}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
+                      {item.selectedOptionsSnapshot
+                        ?.map((opt) => opt.valueName)
+                        .join(" / ") || "-"}
+                    </TableCell>
+                    <TableCell align="right">{item.quantity}</TableCell>
                     <TableCell align="right">
-                      {record.item.unitCostSnapshot != null
-                        ? formatCurrency(record.item.unitCostSnapshot)
+                      {item.unitCostSnapshot != null
+                        ? formatCurrency(item.unitCostSnapshot)
                         : "-"}
                     </TableCell>
                     <TableCell align="center">
                       <StatusChip
-                        status={record.item.status}
-                        label={ORDER_ITEM_STATUS_LABEL[record.item.status]}
+                        status={item.status}
+                        label={ORDER_ITEM_STATUS_LABEL[item.status]}
                         colorMap={ORDER_ITEM_STATUS_COLOR_MAP}
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <StatusChip
-                        status={record.orderStatus}
-                        label={ORDER_STATUS_LABEL[record.orderStatus]}
-                        colorMap={ORDER_STATUS_COLOR_MAP}
-                      />
+                      {formatDate(item.purchasedAt)}
                     </TableCell>
                     <TableCell align="center">
-                      {formatDate(record.item.purchasedAt)}
-                    </TableCell>
-                    <TableCell align="center">
-                      {formatDate(record.item.receivedAt)}
+                      {formatDate(item.receivedAt)}
                     </TableCell>
                     <TableCell align="center">
                       <Button
                         size="small"
-                        variant={
-                          record.item.receivedAt ? "contained" : "outlined"
-                        }
+                        variant={item.receivedAt ? "contained" : "outlined"}
                         color="info"
-                        disabled={
-                          !canToggleReceived(record.item) ||
-                          updateStatusFlag.isPending
+                        disabled={!canToggle || isBusy}
+                        startIcon={
+                          isLoading ? <CircularProgress size={12} /> : undefined
                         }
-                        onClick={() =>
-                          updateStatusFlag.mutate({
-                            orderId: record.orderId,
-                            orderItemId: record.item.id,
-                            flag: "received",
-                            checked: !record.item.receivedAt,
-                          })
-                        }
+                        sx={{ minWidth: 0, px: 1 }}
+                        onClick={() => {
+                          setBusyAction(`row-${record.orderId}`);
+                          updateStatusFlag.mutate(
+                            {
+                              orderId: record.orderId,
+                              orderItemId: item.id,
+                              flag: "received",
+                              checked: !item.receivedAt,
+                            },
+                            { onSettled: () => setBusyAction(null) },
+                          );
+                        }}
                       >
-                        {record.item.receivedAt ? "取消入庫" : "確認入庫"}
+                        {item.receivedAt ? "取消入庫" : "確認入庫"}
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <CursorPagination
-            pageSize={pageSize}
-            onPageSizeChange={setPageSize}
-            hasNextPage={!!data?.nextToken}
-            hasPrevPage={tokenStack.length > 0}
-            onNextPage={() => {
-              if (data?.nextToken) goNext(data.nextToken);
-            }}
-            onPrevPage={goPrev}
-            currentCount={records.length}
-          />
-        </>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
     </Paper>
   );

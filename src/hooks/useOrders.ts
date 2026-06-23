@@ -1305,6 +1305,42 @@ export function useSupplierOrderItemList(
   });
 }
 
+export interface AllSupplierOrderItemListParams {
+  supplierName: string;
+  status?: "ORDERED" | "RECEIVED";
+}
+
+async function fetchAllSupplierOrderItems(
+  params: AllSupplierOrderItemListParams,
+): Promise<ProductOrderItemRecord[]> {
+  const items: ProductOrderItemRecord[] = [];
+  let nextToken: string | undefined;
+
+  do {
+    const page = await fetchSupplierOrderItemList({
+      supplierName: params.supplierName,
+      pageSize: 100,
+      nextToken,
+      status: params.status,
+    });
+
+    items.push(...page.items);
+    nextToken = page.nextToken;
+  } while (nextToken);
+
+  return items;
+}
+
+export function useAllSupplierOrderItems(
+  params: AllSupplierOrderItemListParams,
+): UseQueryResult<ProductOrderItemRecord[]> {
+  return useQuery({
+    queryKey: [...ORDER_KEYS.supplierItems(), "all", params],
+    queryFn: () => fetchAllSupplierOrderItems(params),
+    enabled: !!params.supplierName,
+  });
+}
+
 export function useOrder(id: string): UseQueryResult<Order> {
   return useQuery({
     queryKey: ORDER_KEYS.detail(id),
