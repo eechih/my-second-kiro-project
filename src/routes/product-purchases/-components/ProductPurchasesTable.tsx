@@ -127,6 +127,7 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
   const updateStatusFlag = useUpdateOrderItemStatusFlag();
   const isBusy = updateStatusFlag.isPending;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const selectableRecords = useMemo(
     () => (records ?? []).filter(canBatchSelect),
@@ -170,18 +171,24 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
     targets: readonly ProductOrderItemRecord[],
     flag: "ordered" | "outOfStock",
     checked: boolean,
+    actionKey: string,
   ): Promise<void> => {
     if (targets.length === 0 || isBusy) return;
-    await updateStatusFlag.mutateAsync({
-      orderIds: targets.map((r) => r.orderId),
-      flag,
-      checked,
-    });
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      for (const r of targets) next.delete(r.orderId);
-      return next;
-    });
+    setBusyAction(actionKey);
+    try {
+      await updateStatusFlag.mutateAsync({
+        orderIds: targets.map((r) => r.orderId),
+        flag,
+        checked,
+      });
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const r of targets) next.delete(r.orderId);
+        return next;
+      });
+    } finally {
+      setBusyAction(null);
+    }
   };
 
   if (isLoading) {
@@ -216,8 +223,14 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
             variant="outlined"
             color="warning"
             disabled={pendingRecords.length === 0 || isBusy}
-            startIcon={isBusy ? <CircularProgress size={14} /> : undefined}
-            onClick={() => void runBatch(pendingRecords, "ordered", true)}
+            startIcon={
+              busyAction === "batch-confirm" ? (
+                <CircularProgress size={14} />
+              ) : undefined
+            }
+            onClick={() =>
+              void runBatch(pendingRecords, "ordered", true, "batch-confirm")
+            }
           >
             確認訂貨 {pendingRecords.length}
           </Button>
@@ -226,8 +239,19 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
             variant="outlined"
             color="warning"
             disabled={orderedRecords.length === 0 || isBusy}
-            startIcon={isBusy ? <CircularProgress size={14} /> : undefined}
-            onClick={() => void runBatch(orderedRecords, "ordered", false)}
+            startIcon={
+              busyAction === "batch-cancel-order" ? (
+                <CircularProgress size={14} />
+              ) : undefined
+            }
+            onClick={() =>
+              void runBatch(
+                orderedRecords,
+                "ordered",
+                false,
+                "batch-cancel-order",
+              )
+            }
           >
             取消訂貨 {orderedRecords.length}
           </Button>
@@ -236,9 +260,18 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
             variant="outlined"
             color="error"
             disabled={outOfStockCandidates.length === 0 || isBusy}
-            startIcon={isBusy ? <CircularProgress size={14} /> : undefined}
+            startIcon={
+              busyAction === "batch-oos" ? (
+                <CircularProgress size={14} />
+              ) : undefined
+            }
             onClick={() =>
-              void runBatch(outOfStockCandidates, "outOfStock", true)
+              void runBatch(
+                outOfStockCandidates,
+                "outOfStock",
+                true,
+                "batch-oos",
+              )
             }
           >
             缺貨 {outOfStockCandidates.length}
@@ -248,9 +281,18 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
             variant="outlined"
             color="error"
             disabled={cancelOutOfStockRecords.length === 0 || isBusy}
-            startIcon={isBusy ? <CircularProgress size={14} /> : undefined}
+            startIcon={
+              busyAction === "batch-cancel-oos" ? (
+                <CircularProgress size={14} />
+              ) : undefined
+            }
             onClick={() =>
-              void runBatch(cancelOutOfStockRecords, "outOfStock", false)
+              void runBatch(
+                cancelOutOfStockRecords,
+                "outOfStock",
+                false,
+                "batch-cancel-oos",
+              )
             }
           >
             取消缺貨 {cancelOutOfStockRecords.length}
@@ -298,22 +340,31 @@ function DetailPanel({ productId }: { productId: string }): React.ReactElement {
                   return next;
                 });
               }}
-              onToggleOrdered={(r) =>
-                updateStatusFlag.mutate({
-                  orderId: r.orderId,
-                  orderItemId: r.item.id,
-                  flag: "ordered",
-                  checked: !r.item.purchasedAt,
-                })
-              }
-              onToggleOutOfStock={(r) =>
-                updateStatusFlag.mutate({
-                  orderId: r.orderId,
-                  orderItemId: r.item.id,
-                  flag: "outOfStock",
-                  checked: r.item.status !== "OUT_OF_STOCK",
-                })
-              }
+              onToggleOrdered={(r) => {
+                setBusyAction(`row-ordered-${r.orderId}`);
+                updateStatusFlag.mutate(
+                  {
+                    orderId: r.orderId,
+                    orderItemId: r.item.id,
+                    flag: "ordered",
+                    checked: !r.item.purchasedAt,
+                  },
+                  { onSettled: () => setBusyAction(null) },
+                );
+              }}
+              onToggleOutOfStock={(r) => {
+                setBusyAction(`row-oos-${r.orderId}`);
+                updateStatusFlag.mutate(
+                  {
+                    orderId: r.orderId,
+                    orderItemId: r.item.id,
+                    flag: "outOfStock",
+                    checked: r.item.status !== "OUT_OF_STOCK",
+                  },
+                  { onSettled: () => setBusyAction(null) },
+                );
+              }}
+              busyAction={busyAction}
             />
           ))}
         </TableBody>
@@ -327,6 +378,7 @@ function DetailRow({
   isBusy,
   selected,
   selectable,
+  busyAction,
   onToggleSelect,
   onToggleOrdered,
   onToggleOutOfStock,
@@ -335,6 +387,7 @@ function DetailRow({
   isBusy: boolean;
   selected: boolean;
   selectable: boolean;
+  busyAction: string | null;
   onToggleSelect: (checked: boolean) => void;
   onToggleOrdered: (r: ProductOrderItemRecord) => void;
   onToggleOutOfStock: (r: ProductOrderItemRecord) => void;
@@ -348,6 +401,8 @@ function DetailRow({
     (item.status === "PENDING" ||
       item.status === "ORDERED" ||
       item.status === "OUT_OF_STOCK");
+  const isOrderedLoading = busyAction === `row-ordered-${record.orderId}`;
+  const isOosLoading = busyAction === `row-oos-${record.orderId}`;
 
   return (
     <TableRow hover selected={selected}>
@@ -388,7 +443,9 @@ function DetailRow({
                 variant={item.purchasedAt ? "contained" : "outlined"}
                 color="warning"
                 disabled={!canOrdered || isBusy}
-                startIcon={isBusy ? <CircularProgress size={12} /> : undefined}
+                startIcon={
+                  isOrderedLoading ? <CircularProgress size={12} /> : undefined
+                }
                 sx={{ minWidth: 0, px: 1 }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -408,7 +465,9 @@ function DetailRow({
                 }
                 color="error"
                 disabled={!canOutOfStock || isBusy}
-                startIcon={isBusy ? <CircularProgress size={12} /> : undefined}
+                startIcon={
+                  isOosLoading ? <CircularProgress size={12} /> : undefined
+                }
                 sx={{ minWidth: 0, px: 1 }}
                 onClick={(e) => {
                   e.stopPropagation();
