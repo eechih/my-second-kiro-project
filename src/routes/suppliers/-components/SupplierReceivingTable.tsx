@@ -113,8 +113,11 @@ export function SupplierReceivingTable({
 
   const totalCount = (records ?? []).length;
   const pagedRecords = useMemo(() => {
+    const sorted = [...(records ?? [])].sort((a, b) =>
+      b.orderNumber.localeCompare(a.orderNumber),
+    );
     const start = page * rowsPerPage;
-    return (records ?? []).slice(start, start + rowsPerPage);
+    return sorted.slice(start, start + rowsPerPage);
   }, [records, page, rowsPerPage]);
 
   const handleToggleAll = (checked: boolean): void => {
