@@ -17,6 +17,8 @@ const STATUS_FIELDS = {
   RECEIVED: "receivedQuantity",
   SHIPPED: "shippedQuantity",
   OUT_OF_STOCK: "outOfStockQuantity",
+  COMPLETED: "completedQuantity",
+  CANCELLED: "cancelledQuantity",
 };
 
 function parseArgs(argv) {
@@ -108,7 +110,11 @@ function sleep(ms) {
 async function batchWriteWithRetry(ddb, requestItems) {
   let pendingRequestItems = requestItems;
 
-  for (let attempt = 0; Object.keys(pendingRequestItems).length > 0; attempt += 1) {
+  for (
+    let attempt = 0;
+    Object.keys(pendingRequestItems).length > 0;
+    attempt += 1
+  ) {
     if (attempt > MAX_BATCH_RETRIES) {
       throw new Error("批次寫入失敗，仍有未完成請求");
     }
@@ -161,6 +167,8 @@ function createEmptySummaryQuantities() {
     receivedQuantity: 0,
     shippedQuantity: 0,
     outOfStockQuantity: 0,
+    completedQuantity: 0,
+    cancelledQuantity: 0,
   };
 }
 
@@ -180,7 +188,10 @@ function validateSummaryConsistency({ orders, summaries }) {
     const current = expected.get(productId) ?? createEmptySummaryQuantities();
 
     current[field] += quantity;
-    current.totalQuantity += quantity;
+    // totalQuantity excludes CANCELLED (aligned with lib logic)
+    if (status !== "CANCELLED") {
+      current.totalQuantity += quantity;
+    }
     expected.set(productId, current);
   }
 
@@ -194,11 +205,13 @@ function validateSummaryConsistency({ orders, summaries }) {
       "receivedQuantity",
       "shippedQuantity",
       "outOfStockQuantity",
+      "completedQuantity",
+      "cancelledQuantity",
       "totalQuantity",
     ]) {
       if (Number(summary[field] ?? 0) !== Number(current[field] ?? 0)) {
         throw new Error(
-          `商品摘要 ${productId} 的 ${field} 與 Order 聚合結果不一致`,
+          `商品摘要 ${productId} 的 ${field} 與 Order 聚合結果不一致（摘要=${summary[field]}，預期=${current[field]}）`,
         );
       }
     }

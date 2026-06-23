@@ -18,6 +18,7 @@ const PRODUCT_ORDER_SUMMARY_SELECTION_SET = [
   "id",
   "productId",
   "productNameSnapshot",
+  "productSkuSnapshot",
   "productImageUrlSnapshot",
   "priceSnapshot",
   "costSnapshot",
