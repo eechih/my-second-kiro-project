@@ -556,7 +556,11 @@ export function ProductPurchasesTable({
           </Typography>
         </Paper>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
+        <TableContainer
+          component={Paper}
+          variant="outlined"
+          sx={{ overflowY: "scroll" }}
+        >
           <Table size="small" sx={listTableBodyTextSx}>
             <TableHead>
               <TableRow>
