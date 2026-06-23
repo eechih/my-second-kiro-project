@@ -1737,31 +1737,6 @@ export function useConfirmShipment(): UseMutationResult<
 }
 
 // ---------------------------------------------------------------------------
-// Merge Orders Hook (deprecated — feature removed)
-// ---------------------------------------------------------------------------
-
-/**
- * @deprecated 訂單合併功能已移除
- */
-export function useMergeOrders(): UseMutationResult<
-  Order,
-  Error,
-  { orderIds: string[] }
-> {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (_input: { orderIds: string[] }): Promise<Order> => {
-      throw new Error("訂單合併功能已停用");
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.lists() });
-      void queryClient.invalidateQueries({ queryKey: ORDER_KEYS.details() });
-    },
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Create Shipment with Orders
 // ---------------------------------------------------------------------------
 

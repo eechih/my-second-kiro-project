@@ -1,9 +1,5 @@
-import {
-  ListToolbar,
-  type ListToolbarOption,
-} from "@/components/ListToolbar";
+import { ListToolbar, type ListToolbarOption } from "@/components/ListToolbar";
 import AddIcon from "@mui/icons-material/Add";
-import MergeIcon from "@mui/icons-material/CallMerge";
 import PrintIcon from "@mui/icons-material/Print";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -26,8 +22,6 @@ export interface ToolbarProps {
   hideStatusFilter?: boolean;
   statusFilter: OrderStatusFilter;
   onStatusFilterChange: (value: OrderStatusFilter) => void;
-  mergeDisabled: boolean;
-  onMergeClick: () => void;
   printDisabled: boolean;
   onPrintClick: () => void;
   onAddClick: () => void;
@@ -41,8 +35,6 @@ export function Toolbar({
   hideStatusFilter = false,
   statusFilter,
   onStatusFilterChange,
-  mergeDisabled,
-  onMergeClick,
   printDisabled,
   onPrintClick,
   onAddClick,
@@ -65,14 +57,6 @@ export function Toolbar({
       }
       actions={
         <Box sx={{ display: "flex", gap: 1, ml: "auto" }}>
-          <Button
-            variant="outlined"
-            startIcon={<MergeIcon />}
-            disabled={mergeDisabled}
-            onClick={onMergeClick}
-          >
-            合併訂單
-          </Button>
           <Button
             variant="outlined"
             startIcon={<PrintIcon />}

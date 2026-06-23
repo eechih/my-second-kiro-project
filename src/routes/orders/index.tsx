@@ -2,7 +2,6 @@ import { CursorPagination } from "@/components/CursorPagination";
 import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
-  useMergeOrders,
   useCustomerOrderList,
   useOrderList,
   type OrderStatusFilter,
@@ -14,29 +13,17 @@ import Button from "@mui/material/Button";
 import type { Order } from "@shared/models";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MergeDialog } from "./-components/merge/Dialog";
 import { OrderTable } from "./-components/list/OrderTable";
 import { Toolbar } from "./-components/list/Toolbar";
 import { printPackingSlips } from "./-components/list/packingSlip";
-
-/** 簡易合併驗證（order-merge 模組已移除） */
-function validateMergeOrders(orders: Order[]): { valid: boolean; error?: string } {
-  if (orders.length < 2) return { valid: false, error: "至少需選取 2 筆訂單" };
-  const firstCustomerId = orders[0]?.customerId;
-  if (!orders.every((o) => o.customerId === firstCustomerId)) {
-    return { valid: false, error: "所有訂單必須屬於同一客戶" };
-  }
-  if (!orders.every((o) => o.status === "PENDING" || o.status === "ORDERED")) {
-    return { valid: false, error: "所有訂單狀態必須為「待處理」或「已採購」" };
-  }
-  return { valid: true };
-}
 
 export const Route = createFileRoute("/orders/")({
   beforeLoad: requireAuth,
   validateSearch: (search: Record<string, unknown>) => ({
     customerId:
-      typeof search["customerId"] === "string" ? search["customerId"] : undefined,
+      typeof search["customerId"] === "string"
+        ? search["customerId"]
+        : undefined,
     customerName:
       typeof search["customerName"] === "string"
         ? search["customerName"]
@@ -50,7 +37,6 @@ function OrderListPage(): React.ReactElement {
   const { customerId, customerName } = Route.useSearch();
   const pagination = useCursorPagination(25);
   const resetPagination = pagination.reset;
-  const mergeOrders = useMergeOrders();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>("all");
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(
@@ -59,8 +45,6 @@ function OrderListPage(): React.ReactElement {
   const [loadedOrders, setLoadedOrders] = useState<Map<string, Order>>(
     () => new Map(),
   );
-  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
-  const [mergeError, setMergeError] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
   const isScopedMode = Boolean(customerId);
 
@@ -84,7 +68,11 @@ function OrderListPage(): React.ReactElement {
     }
 
     return orderListQuery.data?.items ?? [];
-  }, [customerId, customerOrderListQuery.data?.items, orderListQuery.data?.items]);
+  }, [
+    customerId,
+    customerOrderListQuery.data?.items,
+    orderListQuery.data?.items,
+  ]);
   const nextToken = activeOrderList.data?.nextToken;
   const totalCount = activeOrderList.data?.totalCount ?? 0;
   const isLoading = activeOrderList.isLoading;
@@ -163,16 +151,9 @@ function OrderListPage(): React.ReactElement {
     [loadedOrders, selectedOrderIds],
   );
 
-  const canMergeSelectedOrders =
-    selectedOrders.length === selectedOrderIds.size &&
-    validateMergeOrders(selectedOrders).valid;
   const canPrintSelectedOrders =
-    selectedOrders.length > 0 && selectedOrders.length === selectedOrderIds.size;
-  const selectedOrderTotalAmount = selectedOrders.reduce(
-    (sum, order) => sum + order.totalAmount,
-    0,
-  );
-  const selectedOrderItemCount = selectedOrders.length;
+    selectedOrders.length > 0 &&
+    selectedOrders.length === selectedOrderIds.size;
 
   const handleEdit = useCallback(
     (orderId: string): void => {
@@ -183,17 +164,6 @@ function OrderListPage(): React.ReactElement {
     },
     [navigate],
   );
-
-  const handleMergeClick = useCallback((): void => {
-    const validation = validateMergeOrders(selectedOrders);
-    if (!validation.valid) {
-      setMergeError(validation.error ?? "選取的訂單無法合併");
-      return;
-    }
-
-    setMergeError(null);
-    setMergeDialogOpen(true);
-  }, [selectedOrders]);
 
   const handlePrintClick = useCallback((): void => {
     if (!canPrintSelectedOrders) {
@@ -207,24 +177,6 @@ function OrderListPage(): React.ReactElement {
       setPrintError("無法開啟列印視窗，請允許瀏覽器彈出視窗後再試一次");
     }
   }, [canPrintSelectedOrders, selectedOrders]);
-
-  const handleConfirmMerge = useCallback(async (): Promise<void> => {
-    setMergeError(null);
-
-    try {
-      const result = await mergeOrders.mutateAsync({
-        orderIds: selectedOrders.map((order) => order.id),
-      });
-      setMergeDialogOpen(false);
-      setSelectedOrderIds(new Set());
-      void navigate({
-        to: "/orders/$orderId" as string,
-        params: { orderId: result.id } as Record<string, string>,
-      });
-    } catch (err) {
-      setMergeError(err instanceof Error ? err.message : "合併訂單失敗");
-    }
-  }, [mergeOrders, navigate, selectedOrders]);
 
   return (
     <Box>
@@ -255,14 +207,12 @@ function OrderListPage(): React.ReactElement {
         </Alert>
       )}
 
-      {mergeError && !mergeDialogOpen && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMergeError(null)}>
-          {mergeError}
-        </Alert>
-      )}
-
       {printError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPrintError(null)}>
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => setPrintError(null)}
+        >
           {printError}
         </Alert>
       )}
@@ -281,8 +231,6 @@ function OrderListPage(): React.ReactElement {
           setStatusFilter(value);
           pagination.reset();
         }}
-        mergeDisabled={!canMergeSelectedOrders}
-        onMergeClick={handleMergeClick}
         printDisabled={!canPrintSelectedOrders}
         onPrintClick={handlePrintClick}
         onAddClick={() => navigate({ to: "/orders/new" })}
@@ -308,23 +256,6 @@ function OrderListPage(): React.ReactElement {
         }}
         onPrevPage={pagination.goPrev}
         currentCount={orderIds.length}
-      />
-
-      <MergeDialog
-        open={mergeDialogOpen}
-        orders={selectedOrders}
-        totalAmount={selectedOrderTotalAmount}
-        orderItemCount={selectedOrderItemCount}
-        error={mergeError}
-        isPending={mergeOrders.isPending}
-        onClose={() => {
-          if (!mergeOrders.isPending) {
-            setMergeDialogOpen(false);
-            setMergeError(null);
-          }
-        }}
-        onClearError={() => setMergeError(null)}
-        onConfirm={() => void handleConfirmMerge()}
       />
     </Box>
   );
