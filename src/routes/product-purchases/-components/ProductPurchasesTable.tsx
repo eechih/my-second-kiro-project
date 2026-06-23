@@ -9,8 +9,6 @@ import {
 } from "@/hooks/useOrders";
 import { formatCurrency } from "@/lib/currency";
 import EditIcon from "@mui/icons-material/Edit";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -44,7 +42,7 @@ const PRODUCT_PURCHASE_STATUS_COLUMNS: readonly OrderFulfillmentStatus[] = [
   "RECEIVED",
 ];
 
-const COLUMN_COUNT = 10; // expand + product + price + cost + supplier + 3 statuses + lastUpdated + action
+const COLUMN_COUNT = 9; // product + price + cost + supplier + 3 statuses + lastUpdated + action
 
 function compareSummaries(
   a: ProductPurchaseSummary,
@@ -562,7 +560,6 @@ export function ProductPurchasesTable({
           <Table size="small" sx={listTableBodyTextSx}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ width: 40 }} />
                 <TableCell>
                   <TableSortLabel
                     active={sortKey === "sku"}
@@ -652,22 +649,6 @@ export function ProductPurchasesTable({
                         },
                       }}
                     >
-                      <TableCell sx={{ width: 40, px: 0.5 }}>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleExpand(summary.productId);
-                          }}
-                          aria-label={isExpanded ? "收合明細" : "展開明細"}
-                        >
-                          {isExpanded ? (
-                            <KeyboardArrowUpIcon />
-                          ) : (
-                            <KeyboardArrowDownIcon />
-                          )}
-                        </IconButton>
-                      </TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>
                         <Stack
                           direction="row"
