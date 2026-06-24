@@ -66,6 +66,10 @@ function OrderListPage(): React.ReactElement {
     [navigate],
   );
 
+  const pageNumber = pagination.tokenStack.length + 1;
+  const fetchedSoFar =
+    pagination.tokenStack.length * pagination.pageSize + orders.length;
+
   return (
     <Box>
       <PageHeader section="訂單" current="列表" title="列表" />
@@ -124,7 +128,8 @@ function OrderListPage(): React.ReactElement {
         }}
         onPrevPage={pagination.goPrev}
         currentCount={orders.length}
-        pageNumber={pagination.tokenStack.length + 1}
+        pageNumber={pageNumber}
+        totalCount={fetchedSoFar}
       />
     </Box>
   );

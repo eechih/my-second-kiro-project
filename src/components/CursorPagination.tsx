@@ -69,7 +69,9 @@ export function CursorPagination({
       <Typography variant="body2" color="text.secondary">
         {pageNumber != null ? `第 ${pageNumber} 頁 · ` : ""}
         顯示 {currentCount} 筆
-        {totalCount != null ? ` / 共 ${totalCount} 筆` : ""}
+        {totalCount != null
+          ? ` / 已查到 ${totalCount}${hasNextPage ? "+" : ""} 筆`
+          : ""}
       </Typography>
 
       <IconButton
