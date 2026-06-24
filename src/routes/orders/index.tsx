@@ -54,7 +54,6 @@ function OrderListPage(): React.ReactElement {
   const activeOrderList = customerId ? customerOrderListQuery : orderListQuery;
   const orders = activeOrderList.data?.items ?? [];
   const nextToken = activeOrderList.data?.nextToken;
-  const totalCount = activeOrderList.data?.totalCount ?? 0;
   const isLoading = activeOrderList.isLoading;
 
   const handleEdit = useCallback(
@@ -102,7 +101,7 @@ function OrderListPage(): React.ReactElement {
           setSearch(value);
           pagination.reset();
         }}
-        totalCount={totalCount}
+        totalCount={orders.length}
         hideSearch={isScopedMode}
         hideStatusFilter={isScopedMode}
         statusFilter={statusFilter}
@@ -125,7 +124,6 @@ function OrderListPage(): React.ReactElement {
         }}
         onPrevPage={pagination.goPrev}
         currentCount={orders.length}
-        totalCount={totalCount}
         pageNumber={pagination.tokenStack.length + 1}
       />
     </Box>
