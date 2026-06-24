@@ -1,4 +1,4 @@
-import { CursorPagination } from "@/components/CursorPagination";
+import { CursorPaginationBar } from "@/components/CursorPaginationBar";
 import { PageHeader } from "@/components/PageHeader";
 import { useCursorPagination } from "@/hooks/useCursorPagination";
 import {
@@ -118,18 +118,18 @@ function OrderListPage(): React.ReactElement {
 
       <OrderTable orders={orders} isLoading={isLoading} onEdit={handleEdit} />
 
-      <CursorPagination
-        pageSize={pagination.pageSize}
-        onPageSizeChange={pagination.setPageSize}
+      <CursorPaginationBar
+        pageNumber={pageNumber}
         hasNextPage={!!nextToken}
         hasPrevPage={pagination.tokenStack.length > 0}
         onNextPage={() => {
           if (nextToken) pagination.goNext(nextToken);
         }}
         onPrevPage={pagination.goPrev}
-        currentCount={orders.length}
-        pageNumber={pageNumber}
-        totalCount={fetchedSoFar}
+        pageSize={pagination.pageSize}
+        pageSizeOptions={[10, 25, 50, 100]}
+        onPageSizeChange={pagination.setPageSize}
+        currentCount={fetchedSoFar}
       />
     </Box>
   );
