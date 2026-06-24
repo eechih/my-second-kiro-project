@@ -16,6 +16,7 @@ export interface CursorPaginationProps {
   onNextPage: () => void;
   onPrevPage: () => void;
   currentCount: number;
+  totalCount?: number;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
@@ -28,6 +29,7 @@ export function CursorPagination({
   onNextPage,
   onPrevPage,
   currentCount,
+  totalCount,
 }: CursorPaginationProps): React.ReactElement {
   const handlePageSizeChange = (event: SelectChangeEvent<number>): void => {
     onPageSizeChange(Number(event.target.value));
@@ -64,6 +66,7 @@ export function CursorPagination({
 
       <Typography variant="body2" color="text.secondary">
         顯示 {currentCount} 筆
+        {totalCount != null ? ` / 共 ${totalCount} 筆` : ""}
       </Typography>
 
       <IconButton
