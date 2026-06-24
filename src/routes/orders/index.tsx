@@ -116,8 +116,6 @@ function OrderListPage(): React.ReactElement {
         onAddClick={() => navigate({ to: "/orders/new" })}
       />
 
-      <OrderTable orders={orders} isLoading={isLoading} onEdit={handleEdit} />
-
       <CursorPaginationBar
         pageNumber={pageNumber}
         maxPageVisited={pagination.maxPageVisited}
@@ -133,6 +131,8 @@ function OrderListPage(): React.ReactElement {
         onPageSizeChange={pagination.setPageSize}
         currentCount={fetchedSoFar}
       />
+
+      <OrderTable orders={orders} isLoading={isLoading} onEdit={handleEdit} />
     </Box>
   );
 }
