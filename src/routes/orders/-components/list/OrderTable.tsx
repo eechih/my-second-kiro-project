@@ -41,7 +41,7 @@ export function OrderTable({
   onEdit,
 }: OrderTableProps): React.ReactElement {
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ mt: 0.5 }}>
       {isLoading ? (
         <Paper sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress />
