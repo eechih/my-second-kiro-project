@@ -126,6 +126,7 @@ function OrderListPage(): React.ReactElement {
         onPrevPage={pagination.goPrev}
         currentCount={orders.length}
         totalCount={totalCount}
+        pageNumber={pagination.tokenStack.length + 1}
       />
     </Box>
   );
