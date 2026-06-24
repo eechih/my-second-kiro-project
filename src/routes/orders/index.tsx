@@ -66,9 +66,9 @@ function OrderListPage(): React.ReactElement {
     [navigate],
   );
 
-  const pageNumber = pagination.tokenStack.length + 1;
+  const pageNumber = pagination.pageNumber;
   const fetchedSoFar =
-    pagination.tokenStack.length * pagination.pageSize + orders.length;
+    (pagination.pageNumber - 1) * pagination.pageSize + orders.length;
 
   return (
     <Box>
@@ -120,12 +120,14 @@ function OrderListPage(): React.ReactElement {
 
       <CursorPaginationBar
         pageNumber={pageNumber}
+        maxPageVisited={pagination.maxPageVisited}
         hasNextPage={!!nextToken}
-        hasPrevPage={pagination.tokenStack.length > 0}
+        hasPrevPage={pageNumber > 1}
         onNextPage={() => {
           if (nextToken) pagination.goNext(nextToken);
         }}
         onPrevPage={pagination.goPrev}
+        onGoToPage={pagination.goToPage}
         pageSize={pagination.pageSize}
         pageSizeOptions={[10, 25, 50, 100]}
         onPageSizeChange={pagination.setPageSize}

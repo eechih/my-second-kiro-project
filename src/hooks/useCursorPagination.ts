@@ -3,12 +3,18 @@ import { useCallback, useState } from "react";
 export interface CursorPaginationState {
   currentToken: string | undefined;
   pageSize: number;
+  /** Current page number (1-indexed) */
+  pageNumber: number;
+  /** Total number of pages visited so far */
+  maxPageVisited: number;
+  /** @deprecated use pageNumber instead */
   tokenStack: string[];
 }
 
 export interface CursorPaginationActions {
   goNext: (nextToken: string) => void;
   goPrev: () => void;
+  goToPage: (page: number) => void;
   setPageSize: (size: number) => void;
   reset: () => void;
 }
@@ -16,61 +22,84 @@ export interface CursorPaginationActions {
 const DEFAULT_PAGE_SIZE = 25;
 
 /**
- * 管理游標式分頁的 token 堆疊邏輯。
+ * 管理游標式分頁邏輯，支援跳頁。
  *
- * Token 堆疊運作方式：
- * - 首頁：currentToken = undefined，tokenStack = []
- * - goNext：將 currentToken push 到 tokenStack（若為 undefined 則不 push），設定新 currentToken
- * - goPrev：從 tokenStack pop 出前一個 token 作為 currentToken；若堆疊為空則回到首頁（undefined）
- * - reset / setPageSize：清空 tokenStack，currentToken = undefined
+ * 內部維護一個 tokenMap：page number → token，
+ * 已瀏覽過的頁面可以直接跳回。
+ *
+ * - 第 1 頁 token = undefined（首頁不需要 token）
+ * - goNext(nextToken)：記錄下一頁的 token，前進到下一頁
+ * - goPrev()：回到前一頁
+ * - goToPage(n)：跳到已瀏覽過的第 n 頁
+ * - reset / setPageSize：清空所有記錄，回到第 1 頁
  */
 export function useCursorPagination(
   initialPageSize: number = DEFAULT_PAGE_SIZE,
 ): CursorPaginationState & CursorPaginationActions {
-  const [currentToken, setCurrentToken] = useState<string | undefined>(
-    undefined,
-  );
+  const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSizeState] = useState<number>(initialPageSize);
-  const [tokenStack, setTokenStack] = useState<string[]>([]);
+  // tokenMap: page number → token for that page (page 1 = undefined)
+  const [tokenMap, setTokenMap] = useState<Map<number, string | undefined>>(
+    () => new Map([[1, undefined]]),
+  );
+
+  const currentToken = tokenMap.get(pageNumber);
+  const maxPageVisited = tokenMap.size;
 
   const goNext = useCallback(
     (nextToken: string): void => {
-      setTokenStack((prev) => [...prev, currentToken ?? ""]);
-      setCurrentToken(nextToken);
+      const nextPage = pageNumber + 1;
+      setTokenMap((prev) => {
+        const next = new Map(prev);
+        next.set(nextPage, nextToken);
+        return next;
+      });
+      setPageNumber(nextPage);
     },
-    [currentToken],
+    [pageNumber],
   );
 
   const goPrev = useCallback((): void => {
-    setTokenStack((prev) => {
-      if (prev.length === 0) {
-        setCurrentToken(undefined);
-        return prev;
+    if (pageNumber > 1) {
+      setPageNumber(pageNumber - 1);
+    }
+  }, [pageNumber]);
+
+  const goToPage = useCallback(
+    (page: number): void => {
+      if (page >= 1 && tokenMap.has(page)) {
+        setPageNumber(page);
       }
-      const newStack = [...prev];
-      const prevToken = newStack.pop();
-      setCurrentToken(prevToken || undefined);
-      return newStack;
-    });
-  }, []);
+    },
+    [tokenMap],
+  );
 
   const setPageSize = useCallback((size: number): void => {
     setPageSizeState(size);
-    setTokenStack([]);
-    setCurrentToken(undefined);
+    setTokenMap(new Map([[1, undefined]]));
+    setPageNumber(1);
   }, []);
 
   const reset = useCallback((): void => {
-    setTokenStack([]);
-    setCurrentToken(undefined);
+    setTokenMap(new Map([[1, undefined]]));
+    setPageNumber(1);
   }, []);
+
+  // Backward compat: tokenStack for hasPrevPage check
+  const tokenStack = Array.from(
+    { length: pageNumber - 1 },
+    (_, i) => tokenMap.get(i + 1) ?? "",
+  );
 
   return {
     currentToken,
     pageSize,
+    pageNumber,
+    maxPageVisited,
     tokenStack,
     goNext,
     goPrev,
+    goToPage,
     setPageSize,
     reset,
   };

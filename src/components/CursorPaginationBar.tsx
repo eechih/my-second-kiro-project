@@ -29,6 +29,8 @@ export interface ColumnVisibility {
 export interface CursorPaginationBarProps {
   /** Current page number (1-indexed) */
   pageNumber: number;
+  /** Max page number that has been visited (for rendering page buttons) */
+  maxPageVisited?: number;
   /** Whether there is a next page */
   hasNextPage: boolean;
   /** Whether there is a previous page */
@@ -37,6 +39,8 @@ export interface CursorPaginationBarProps {
   onNextPage: () => void;
   /** Go to previous page */
   onPrevPage: () => void;
+  /** Jump to a specific page (must have been visited before) */
+  onGoToPage?: (page: number) => void;
   /** Current page size */
   pageSize: number;
   /** Page size options */
@@ -47,7 +51,7 @@ export interface CursorPaginationBarProps {
   columns?: ColumnVisibility[];
   /** Called when column visibility changes */
   onColumnsChange?: (columns: ColumnVisibility[]) => void;
-  /** Number of items on the current page */
+  /** Number of items fetched so far */
   currentCount?: number;
 }
 
@@ -184,10 +188,12 @@ function PreferencesDialog({
 
 export function CursorPaginationBar({
   pageNumber,
+  maxPageVisited,
   hasNextPage,
   hasPrevPage,
   onNextPage,
   onPrevPage,
+  onGoToPage,
   pageSize,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   onPageSizeChange,
@@ -210,15 +216,29 @@ export function CursorPaginationBar({
     [columns, onColumnsChange, onPageSizeChange, pageSize],
   );
 
-  // Build page number display
+  // Build page numbers to display (AWS Console style)
+  const totalPages = maxPageVisited ?? pageNumber;
   const pageNumbers: (number | "...")[] = [];
-  for (let i = 1; i <= pageNumber; i++) {
-    if (i === 1 || i === pageNumber || i === pageNumber - 1) {
-      pageNumbers.push(i);
-    } else if (pageNumbers[pageNumbers.length - 1] !== "...") {
-      pageNumbers.push("...");
-    }
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+  } else {
+    // Always show first page
+    pageNumbers.push(1);
+
+    // Calculate range around current page
+    const rangeStart = Math.max(2, pageNumber - 2);
+    const rangeEnd = Math.min(totalPages - 1, pageNumber + 2);
+
+    if (rangeStart > 2) pageNumbers.push("...");
+    for (let i = rangeStart; i <= rangeEnd; i++) pageNumbers.push(i);
+    if (rangeEnd < totalPages - 1) pageNumbers.push("...");
+
+    // Always show last visited page
+    pageNumbers.push(totalPages);
   }
+
+  // If there's a next page beyond what we've visited, show ellipsis
   if (hasNextPage && pageNumbers[pageNumbers.length - 1] !== "...") {
     pageNumbers.push("...");
   }
@@ -264,6 +284,7 @@ export function CursorPaginationBar({
                 fontWeight: p === pageNumber ? 700 : 400,
               }}
               disabled={p === pageNumber}
+              onClick={() => onGoToPage?.(p)}
             >
               {p}
             </Button>
