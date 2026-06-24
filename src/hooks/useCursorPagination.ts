@@ -35,9 +35,7 @@ export function useCursorPagination(
 
   const goNext = useCallback(
     (nextToken: string): void => {
-      if (currentToken !== undefined) {
-        setTokenStack((prev) => [...prev, currentToken]);
-      }
+      setTokenStack((prev) => [...prev, currentToken ?? ""]);
       setCurrentToken(nextToken);
     },
     [currentToken],
@@ -51,7 +49,7 @@ export function useCursorPagination(
       }
       const newStack = [...prev];
       const prevToken = newStack.pop();
-      setCurrentToken(prevToken);
+      setCurrentToken(prevToken || undefined);
       return newStack;
     });
   }, []);
